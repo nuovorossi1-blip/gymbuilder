@@ -1,0 +1,199 @@
+import { describe, expect, it } from 'vitest'
+import { generaBodybuilding } from '../bodybuilding'
+import type { Exercise, Split } from '../../types'
+import catalogoReale from './fixtures/exercises.json'
+
+const catalogo = catalogoReale as unknown as Exercise[]
+
+const TUTTI_GLI_SPLIT: Split[] = [
+  'push', 'pull', 'legs', 'upper', 'lower', 'full_body',
+  'bro_chest', 'bro_back', 'bro_shoulders', 'bro_arms', 'bro_legs',
+  'front_body', 'back_body',
+]
+
+function mainBlock(w: ReturnType<typeof generaBodybuilding>) {
+  return w.blocks.find((b) => b.kind === 'main')!
+}
+
+describe('generaBodybuilding — struttura di base (sez. 3, 21 della specifica)', () => {
+  for (const split of TUTTI_GLI_SPLIT) {
+    it(`${split}: produce fra 5 e 7 esercizi principali con palestra completa, 60 minuti`, () => {
+      const w = generaBodybuilding(catalogo, {
+        split,
+        goal: 'hypertrophy',
+        experience: 'intermediate',
+        equipment: 'full_gym',
+        duration_min: 60,
+        priority_muscles: [],
+        excluded_exercises: [],
+        seed: 42,
+      })
+      const n = mainBlock(w).exercises.length
+      expect(n).toBeGreaterThanOrEqual(5)
+      expect(n).toBeLessThanOrEqual(7)
+    })
+  }
+
+  it('75 minuti con palestra completa punta a 7 esercizi', () => {
+    const w = generaBodybuilding(catalogo, {
+      split: 'push', goal: 'hypertrophy', experience: 'advanced', equipment: 'full_gym',
+      duration_min: 75, priority_muscles: [], excluded_exercises: [], seed: 1,
+    })
+    expect(mainBlock(w).exercises.length).toBe(7)
+  })
+
+  it('30 minuti resta a 5 esercizi adattando serie e recuperi, non tagliando sotto il minimo', () => {
+    const w = generaBodybuilding(catalogo, {
+      split: 'pull', goal: 'hypertrophy', experience: 'beginner', equipment: 'full_gym',
+      duration_min: 30, priority_muscles: [], excluded_exercises: [], seed: 7,
+    })
+    const principale = mainBlock(w)
+    expect(principale.exercises.length).toBe(5)
+    expect(w.duration_min).toBeLessThanOrEqual(30 + 3) // piccola tolleranza sul riscaldamento arrotondato
+  })
+
+  it('non genera mai esercizi duplicati nel blocco principale', () => {
+    for (const split of TUTTI_GLI_SPLIT) {
+      const w = generaBodybuilding(catalogo, {
+        split, goal: 'mixed', experience: 'advanced', equipment: 'full_gym',
+        duration_min: 75, priority_muscles: [], excluded_exercises: [], seed: 99,
+      })
+      const ids = mainBlock(w).exercises.map((e) => e.exercise_id)
+      expect(new Set(ids).size).toBe(ids.length)
+    }
+  })
+})
+
+describe('generaBodybuilding — attrezzatura (sez. 21, 31)', () => {
+  it('con solo corpo libero non seleziona mai esercizi che richiedono altro attrezzo', () => {
+    for (const split of TUTTI_GLI_SPLIT) {
+      const w = generaBodybuilding(catalogo, {
+        split, goal: 'hypertrophy', experience: 'advanced', equipment: 'bodyweight',
+        duration_min: 60, priority_muscles: [], excluded_exercises: [], seed: 3,
+      })
+      const perId = new Map(catalogo.map((e) => [e.id, e]))
+      for (const es of mainBlock(w).exercises) {
+        expect(perId.get(es.exercise_id)?.equipment).toBe('bodyweight')
+      }
+    }
+  })
+
+  it('gli esercizi esclusi non compaiono mai', () => {
+    const w = generaBodybuilding(catalogo, {
+      split: 'push', goal: 'hypertrophy', experience: 'advanced', equipment: 'full_gym',
+      duration_min: 75, priority_muscles: [], excluded_exercises: ['panca_piana', 'panca_inclinata_bil'],
+      seed: 5,
+    })
+    const ids = mainBlock(w).exercises.map((e) => e.exercise_id)
+    expect(ids).not.toContain('panca_piana')
+    expect(ids).not.toContain('panca_inclinata_bil')
+  })
+})
+
+describe('generaBodybuilding — split che non toccano braccia/spalle nelle gambe (sez. 11)', () => {
+  it('legs non include mai bicipiti, tricipiti o deltoidi anche con carenze dichiarate', () => {
+    const w = generaBodybuilding(catalogo, {
+      split: 'legs', goal: 'hypertrophy', experience: 'advanced', equipment: 'full_gym',
+      duration_min: 90, priority_muscles: ['biceps', 'triceps', 'front_delts'],
+      excluded_exercises: [], seed: 11,
+    })
+    const muscoli = mainBlock(w).exercises.map((e) => e.muscle)
+    expect(muscoli).not.toContain('biceps')
+    expect(muscoli).not.toContain('triceps')
+    expect(muscoli).not.toContain('front_delts')
+  })
+})
+
+describe('generaBodybuilding — scenario critico sez. 28 della correzione', () => {
+  it('Pull avanzato con carenze braccia/deltoidi e preferiti resta un Pull coerente, non un accorpamento di tutti i muscoli carenti', () => {
+    const w = generaBodybuilding(catalogo, {
+      split: 'pull',
+      goal: 'hypertrophy',
+      experience: 'advanced',
+      equipment: 'full_gym',
+      duration_min: 75,
+      priority_muscles: ['biceps', 'triceps', 'rear_delts'],
+      excluded_exercises: [],
+      preferred_exercises: ['curl_cavo', 'pushdown', 'reverse_pec_deck'],
+      weekly_volume: { // volume già scarso per triceps/rear_delts, biceps già coperto altrove questa settimana
+        chest: 12, back: 4, front_delts: 8, lateral_delts: 8, rear_delts: 2,
+        biceps: 12, triceps: 2, quads: 10, hamstrings: 10, glutes: 8, calves: 6, core: 6,
+      },
+      seed: 28,
+    })
+
+    const principale = mainBlock(w)
+    const muscoli = principale.exercises.map((e) => e.muscle)
+
+    // Resta un Pull: niente petto, niente quadricipiti/femorali.
+    expect(muscoli).not.toContain('chest')
+    expect(muscoli).not.toContain('quads')
+    expect(muscoli).not.toContain('hamstrings')
+
+    // Il dorso resta il target dominante (sez. 11: "3 Dorso").
+    expect(muscoli.filter((m) => m === 'back').length).toBeGreaterThanOrEqual(3)
+    expect(muscoli).toContain('rear_delts')
+    expect(muscoli).toContain('biceps')
+
+    // Il volume di biceps è già a posto questa settimana (12/10 target): non deve
+    // ricevere un richiamo aggiuntivo oltre allo slot naturale del Pull.
+    const richiami = principale.exercises.filter((e) => e.note === 'richiamo')
+    expect(richiami.every((e) => e.muscle !== 'biceps')).toBe(true)
+
+    // Il numero di esercizi resta nei limiti, non esplode per inseguire ogni carenza.
+    expect(principale.exercises.length).toBeGreaterThanOrEqual(5)
+    expect(principale.exercises.length).toBeLessThanOrEqual(7)
+  })
+})
+
+describe('generaBodybuilding — esercizi preferiti (sez. 10, 33)', () => {
+  it('un esercizio preferito compatibile viene scelto più spesso del suo equivalente non preferito', () => {
+    let conPreferito = 0
+    const ripetizioni = 30
+    for (let seed = 1; seed <= ripetizioni; seed++) {
+      const w = generaBodybuilding(catalogo, {
+        split: 'push', goal: 'hypertrophy', experience: 'intermediate', equipment: 'full_gym',
+        duration_min: 60, priority_muscles: [], excluded_exercises: [],
+        preferred_exercises: ['alzate_laterali'], seed,
+      })
+      const ids = mainBlock(w).exercises.map((e) => e.exercise_id)
+      if (ids.includes('alzate_laterali')) conPreferito++
+    }
+    // Con un solo preferito compatibile per il ruolo "deltoidi laterali", il
+    // motore deve sceglierlo praticamente sempre ("evitare di ignorarli
+    // senza motivo", sez. 10) — non trattarlo come un candidato fra tanti.
+    expect(conPreferito).toBeGreaterThan(ripetizioni * 0.9)
+  })
+})
+
+describe('generaBodybuilding — compound pesanti limitati (sez. 24, 77)', () => {
+  it('non più di due esercizi al massimo livello di fatica sistemica per sessione', () => {
+    for (const split of TUTTI_GLI_SPLIT) {
+      const w = generaBodybuilding(catalogo, {
+        split, goal: 'strength', experience: 'advanced', equipment: 'full_gym',
+        duration_min: 90, priority_muscles: [], excluded_exercises: [], seed: 21,
+      })
+      const perId = new Map(catalogo.map((e) => [e.id, e]))
+      const pesanti = mainBlock(w).exercises.filter(
+        (e) => (perId.get(e.exercise_id)?.systemic_fatigue ?? 0) >= 3
+      )
+      expect(pesanti.length).toBeLessThanOrEqual(2)
+    }
+  })
+})
+
+describe('generaBodybuilding — riscaldamento contestuale (sez. 5)', () => {
+  it('il riscaldamento di legs non è identico a quello di push', () => {
+    const legs = generaBodybuilding(catalogo, {
+      split: 'legs', goal: 'hypertrophy', experience: 'intermediate', equipment: 'full_gym',
+      duration_min: 60, priority_muscles: [], excluded_exercises: [], seed: 4,
+    })
+    const push = generaBodybuilding(catalogo, {
+      split: 'push', goal: 'hypertrophy', experience: 'intermediate', equipment: 'full_gym',
+      duration_min: 60, priority_muscles: [], excluded_exercises: [], seed: 4,
+    })
+    const idsLegs = legs.blocks.find((b) => b.kind === 'warmup')!.exercises.map((e) => e.exercise_id)
+    const idsPush = push.blocks.find((b) => b.kind === 'warmup')!.exercises.map((e) => e.exercise_id)
+    expect(idsLegs).not.toEqual(idsPush)
+  })
+})

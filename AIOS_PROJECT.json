@@ -59,8 +59,8 @@
   ],
 
   "last_session": {
-    "model": "Claude Opus 4.5",
+    "model": "Claude (Sonnet 5)",
     "date": "2026-08-05",
-    "summary": "Fase 1 completata: fondamenta, autenticazione, profilo e impostazioni persistenti, online su Vercel"
+    "summary": "Corretto il motore Bodybuilding: architettura struttura-prima, richiami settimanali sui muscoli carenti, esercizi preferiti realmente pesati, riscaldamento contestuale, 7 nuovi split. 3 bug reali trovati e corretti tramite 23 test automatici. Dettagli completi in AIOS_STATE.md sez. 7-8"
   }
 }

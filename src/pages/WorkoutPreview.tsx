@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../features/auth/AuthProvider'
 import { useSettings } from '../features/profile/useSettings'
 import { useWorkout } from '../features/workout/WorkoutContext'
-import { caricaCatalogo, salvaAllenamento } from '../lib/api'
+import { caricaCatalogo, salvaAllenamento, volumeSettimanaleUtente } from '../lib/api'
 import { generaBodybuilding } from '../generators/bodybuilding'
 import { EXPERIENCE_LABELS, GOAL_LABELS, MUSCLE_LABELS, SPLIT_LABELS } from '../types'
 
@@ -33,8 +33,9 @@ export default function WorkoutPreview() {
   const principale = workout.blocks.find((b) => b.kind === 'main')
 
   async function rigenera() {
-    if (!settings || !workout) return
+    if (!settings || !workout || !user) return
     const catalogo = await caricaCatalogo()
+    const volumeSettimanale = await volumeSettimanaleUtente(user.id, catalogo)
     setWorkout(
       generaBodybuilding(catalogo, {
         split: workout.split,
@@ -44,6 +45,8 @@ export default function WorkoutPreview() {
         duration_min: workout.duration_min,
         priority_muscles: settings.priority_muscles,
         excluded_exercises: settings.excluded_exercises,
+        preferred_exercises: settings.favorite_exercises,
+        weekly_volume: volumeSettimanale,
         seed: Date.now() % 100000,
       })
     )

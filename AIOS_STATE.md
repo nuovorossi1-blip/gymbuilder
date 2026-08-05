@@ -4,7 +4,7 @@
 > da qui. Va **aggiornato** a ogni sessione, non accodato all'infinito.
 > L'identità del progetto e il percorso di AI-OS stanno in `AIOS_PROJECT.json`.
 
-**Ultimo aggiornamento:** 2026-08-05 — Claude Opus 4.5
+**Ultimo aggiornamento:** 2026-08-05 — Claude (Sonnet 5)
 
 Etichette: `[FACT]` verificato nel codice · `[RICOSTRUITO]` dedotto da indizi ·
 `[IGNOTO]` non ricavabile dal repository
@@ -30,11 +30,21 @@ e validare un allenamento anche senza AI.
 
 ## 2. Dove siamo adesso
 
-**Fase 1 completata.** L'applicazione è online e funzionante: ci si registra, si
-accede, si imposta il proprio profilo di allenamento e i dati restano salvati.
-I motori di generazione non esistono ancora — è il lavoro delle fasi 4-11.
+**Fasi 1-3 completate, motore Bodybuilding corretto in profondità.** L'app ha
+autenticazione, profilo, un database di 79 esercizi in Supabase e un motore di
+generazione Bodybuilding che copre 13 split. Una sessione di correzione ha
+riscritto l'architettura del motore dopo che i test avevano trovato più bug
+strutturali (sez. 7 sotto) — non era solo un problema di UI.
 
-**Sito online:** vedi `deploy.site_url` in `AIOS_PROJECT.json`
+Gli altri cinque motori (Forza, CrossFit Standard, CrossFit Hybrid,
+Condizionamento, Tabata) **non esistono ancora**: quando la specifica corretta
+parla di regole per il Metcon, il Type/Role degli esercizi CrossFit o il
+timer EMOM/AMRAP, sono requisiti per il lavoro futuro (fasi 6-9), non bug di
+qualcosa già costruito.
+
+**Sito online:** vedi `deploy.site_url` in `AIOS_PROJECT.json` — **[IGNOTO]**
+se la build pubblicata su Vercel corrisponde a questo commit: il collegamento
+automatico GitHub→Vercel non è attivo (problema aperto #1)
 
 ---
 
@@ -44,23 +54,55 @@ I motori di generazione non esistono ancora — è il lavoro delle fasi 4-11.
 - [FACT] Alla registrazione un trigger crea automaticamente profilo e impostazioni
   di default: l'utente non trova mai schermate vuote
 - [FACT] Pagina Profilo: nome, esperienza, obiettivo, durata abituale, frequenza
-  settimanale, attrezzatura, muscoli prioritari. Ogni modifica si salva subito
-  su Supabase con conferma a schermo
+  settimanale, attrezzatura, muscoli prioritari, **esercizi preferiti** (nuovo).
+  Ogni modifica si salva subito su Supabase con conferma a schermo
 - [FACT] Navigazione inferiore a 5 voci (Home, Crea, Salvati, Storico, Profilo)
-- [FACT] Home mostra il riepilogo reale delle impostazioni lette dal database
-- [FACT] RLS attiva su `profiles` e `user_settings`: ogni utente legge e scrive
-  solo le proprie righe. Verificato con l'advisor di sicurezza Supabase: zero avvisi
+- [FACT] RLS attiva su tutte le tabelle (`profiles`, `user_settings`, `exercises`,
+  `saved_workouts`, `completed_workouts`): ogni utente legge e scrive solo le
+  proprie righe. Verificato con l'advisor di sicurezza Supabase: zero avvisi
+  critici (un solo WARN non bloccante, leaked-password-protection disattivata
+  nel pannello Auth — non è una regressione di questa sessione)
 - [FACT] Interfaccia mobile-first, dark, con focus da tastiera visibile e
   `prefers-reduced-motion` rispettato
+- [FACT] Database esercizi: 79 voci in Supabase con metadati completi (muscoli
+  primari/secondari, attrezzo, movement pattern, ruoli, esperienza minima,
+  complessità tecnica, fatica sistemica/locale/di presa, domanda cardio)
+- [FACT] Motore Bodybuilding (`src/generators/bodybuilding.ts`), **riscritto in
+  questa sessione** — vedi sez. 7 per i motivi. Copre 13 split: Push/Pull/Legs,
+  Upper/Lower, Full Body, Bro Split (Petto/Dorso/Spalle/Braccia/Gambe),
+  Front/Back. Architettura "struttura-prima": la sessione ha sempre 5-7 slot
+  decisi prima di scegliere gli esercizi, non il contrario
+- [FACT] Richiami settimanali sui muscoli carenti (`src/generators/weakPoints.ts`):
+  legge gli ultimi 7 giorni di `completed_workouts`, stima il volume diretto e
+  indiretto per muscolo, e aggiunge un richiamo nella sessione solo se quel
+  muscolo è davvero indietro sul target settimanale — non ad ogni sessione
+- [FACT] Esercizi preferiti: impostabili in Profilo, letti dal motore, scelti
+  con priorità reale (non un vantaggio statistico blando) quando compatibili
+  con lo slot in corso
+- [FACT] Riscaldamento contestuale: costruito dopo aver scelto gli esercizi
+  principali, in base ai movement pattern e ai muscoli che la sessione userà
+  davvero, non da una tabella fissa per split
+- [FACT] Anteprima, salvataggio, avvio, runner con timer di recupero, storico
+- [FACT] 23 test automatici sul motore Bodybuilding (`npm test`), eseguiti
+  contro il catalogo reale di 79 esercizi (fixture copiata da Supabase, non
+  dati inventati): conteggio esercizi per tutti i 13 split, rispetto
+  dell'attrezzatura, niente duplicati, niente braccia/spalle nelle gambe,
+  lo scenario critico "Pull con carenze braccia+deltoidi" della correzione,
+  preferenza reale sugli esercizi preferiti, tetto ai compound pesanti
 
 ## 4. Cosa è in lavorazione
 
-Niente. La fase 1 è chiusa, la 2 non è iniziata.
+Niente aperto a metà. Il prossimo lavoro non iniziato è il motore Forza (fase 5).
 
 ## 5. Cosa manca
 
-Tutto il resto della specifica: database esercizi, sei motori di generazione,
-validatore, anteprima, runner con i timer, salvataggio, preferiti, storico.
+Motore Forza, CrossFit Standard, CrossFit Hybrid, Condizionamento, Tabata.
+Validatore come modulo separato per le nuove modalità (per Bodybuilding la
+validazione è già integrata nella generazione, vedi sez. 8). Heart rate,
+calorie, integrazioni wearable (tutto rimandato a V1.2 nella roadmap
+originale). Modifica di un workout salvato esercizio per esercizio (sez. 45
+della specifica): oggi si può solo rigenerare o eliminare, non editare i
+singoli esercizi.
 
 ---
 
@@ -78,6 +120,11 @@ validatore, anteprima, runner con i timer, salvataggio, preferiti, storico.
 | Problema | Causa vera | Soluzione |
 |---|---|---|
 | L'advisor Supabase segnalava `handle_new_user` come funzione `SECURITY DEFINER` richiamabile via API da chiunque | Le funzioni nello schema `public` sono esposte come endpoint RPC anche quando servono solo a un trigger | `revoke execute` su `anon`, `authenticated` e `public` per entrambe le funzioni di trigger. Migrazione `blinda_funzione_trigger` |
+| Bodybuilding Push generava a volte solo 3-4 esercizi nonostante il minimo dichiarato di 5, e il messaggio all'utente era scoperto solo *dopo* la generazione | Il motore selezionava gli esercizi slot per slot e, se uno slot non trovava candidati, lo saltava semplicemente (`continue`); un ciclo di "riempimento" separato provava a rimediare ma si fermava appena finiva il budget di tempo. La struttura della sessione non era mai garantita a priori | Riscritto il motore con architettura "struttura-prima" (sez. 8 sotto): 5 slot base sempre presenti, 6°-7° decisi da richiami/extra, e un adattamento al tempo che riduce prima recuperi poi serie *prima* di togliere uno slot — mai sotto 5 se non per assenza reale di attrezzatura compatibile |
+| I muscoli carenti venivano ridistribuiti nella sessione ma potevano far collassare un altro muscolo target: con carenze `biceps`+`rear_delts` su uno split Pull, il dorso scendeva da 3 slot a 1 | `ridistribuisci()` toglieva uno slot al muscolo più rappresentato per OGNI muscolo prioritario, anche quando quel muscolo prioritario aveva già un suo slot naturale: due priorità in sequenza "spolpavano" lo stesso donatore (`back`) due volte | La funzione ora salta i muscoli prioritari già rappresentati nello split: la redistribuzione serve solo a colmare un vuoto, non a gonfiare un muscolo già coperto. Trovato e verificato con un test sullo scenario critico della correzione (sez. 28 del prompt di correzione) |
+| Gli esercizi preferiti aumentavano la probabilità di essere scelti solo da ~1/3 a ~1/3 (nessun effetto reale) | Il preferito veniva messo in cima all'ordinamento ma poi la scelta finale pescava comunque a caso fra i primi 3 candidati, preferito incluso: l'ordinamento non cambiava le probabilità | Quando esiste almeno un candidato preferito compatibile con lo slot, il pool di scelta si restringe ai soli preferiti (con varietà se l'utente ne ha più di uno per lo stesso muscolo), invece di un pool misto pescato a caso |
+| Con carenze dichiarate su muscoli non pertinenti (es. bicipiti/tricipiti/deltoidi anteriori su uno split Gambe), quei muscoli comparivano comunque come "richiamo" nella sessione Gambe | Il calcolo dei richiami settimanali (`decidiRichiami`) operava su tutti i `priority_muscles` dell'utente senza filtrarli per split: bastava un volume settimanale basso (es. 0 per un utente nuovo) perché finissero in sessione, contro la regola esplicita "non aggiungere mai braccia o spalle nelle gambe" | Aggiunta una mappa `RICHIAMO_POOL` per split: le gambe possono richiamare solo quadricipiti/femorali/glutei/polpacci/core; Push e Pull hanno l'eccezione anatomica classica (Push può richiamare bicipiti, Pull può richiamare tricipiti), tutti gli altri split restano dentro il proprio pool naturale |
+| Il tetto ai "compound pesanti" (max 2 a sessione, sez. 24/77 della correzione) non scattava mai nei test | La soglia era tarata su una scala di fatica 1-10 ("systemic_fatigue >= 7"), ma il catalogo reale usa una scala 1-3. Nessun esercizio raggiungeva mai la soglia | Soglia corretta a 3 (il valore massimo reale nel catalogo). Lezione: quando si tara una soglia su un campo numerico, controllare il range effettivo dei dati prima di scegliere il numero, non assumerlo dalla specifica in astratto |
 
 ---
 
@@ -98,6 +145,39 @@ validatore, anteprima, runner con i timer, salvataggio, preferiti, storico.
   (nessuna logica di dominio dentro la UI) — 05/08
 - **Le schermate non ancora costruite dichiarano quale fase le porterà**, invece
   di mostrare pulsanti inerti — motivo: regola del protocollo AI-OS — 05/08
+- **Il motore Bodybuilding decide la struttura della sessione (5-7 slot) PRIMA
+  di scegliere gli esercizi**, non il contrario — motivo: era la causa vera dei
+  workout troppo corti; il validatore deve essere una rete di sicurezza finale
+  che corregge, non il punto in cui si scopre il problema (richiesta esplicita
+  del prompt di correzione, sez. 2) — 05/08
+- **I richiami sui muscoli carenti si basano sul volume settimanale stimato
+  dagli allenamenti COMPLETATI negli ultimi 7 giorni**, non su una regola fissa
+  "aggiungi sempre un esercizio per ogni carenza" — motivo: la specifica lo
+  richiede esplicitamente (sez. 6-10 della correzione); è una periodizzazione
+  volutamente semplificata (contatore mobile, non vera programmazione
+  multi-settimana) e va trattata come tale in futuro — 05/08
+- **Volume indiretto = metà del volume diretto** (`weakPoints.ts`) — motivo:
+  euristica dichiarata, non letteratura scientifica; è un compromesso
+  ragionevole per non ignorare del tutto lo stimolo secondario di un esercizio
+  compound, va rivista se in futuro si aggiunge dato reale sull'efficacia — 05/08
+- **13 split invece di 6**: aggiunti Bro Split (Petto/Dorso/Spalle/Braccia/
+  Gambe) e Front/Back, richiesti esplicitamente dalla correzione (sez. 12-14).
+  "Front"/"Back" sono etichettati in italiano come "Anteriore"/"Posteriore" per
+  coerenza con il resto dell'interfaccia (sez. 8 del master prompt: tutta
+  l'app in italiano) — 05/08
+- **Non creati i 20 file di documentazione richiesti dal prompt di correzione
+  (README/PROJECT_OVERVIEW/AI_CONTEXT/ARCHITECTURE/WORKOUT_ENGINE/...)** —
+  motivo: è la stessa richiesta della specifica originale sez. 63-74, già
+  sostituita dal protocollo AI-OS il 05/08 (vedi decisione sopra). Questo
+  aggiornamento di `AIOS_STATE.md` copre gli stessi contenuti (regole del
+  motore, decisioni, problemi trovati/risolti, prossimi passi) in un posto
+  solo — 05/08
+- **Test automatici (vitest) aggiunti solo per il motore Bodybuilding**, non
+  per l'intera app — motivo: è l'unica parte con logica di dominio complessa
+  abbastanza da rompersi silenziosamente (i tre bug di questa sessione erano
+  tutti invisibili leggendo il codice, sono emersi solo eseguendo i test
+  contro il catalogo reale); UI e pagine restano verificate a mano com'era
+  finora, aggiungere test lì ora sarebbe lavoro non richiesto — 05/08
 
 ---
 
@@ -115,18 +195,37 @@ validatore, anteprima, runner con i timer, salvataggio, preferiti, storico.
 - **Compilare non basta.** `tsc` e `vite build` non intercettano un errore che
   esplode solo a runtime. Dopo ogni modifica importante, aprire davvero il link
   pubblicato e provare il flusso, non fermarsi al "build riuscita"
+- **Compilare non basta nemmeno per la logica del motore.** I tre bug corretti
+  in questa sessione (sez. 7) type-checkavano tutti perfettamente: erano errori
+  di logica, non di tipi. `npm test` esegue `src/generators/__tests__/` contro
+  il catalogo reale — va lanciato dopo ogni modifica al motore, non solo la build
+- **Le scale numeriche del catalogo esercizi (`technical_complexity`,
+  `systemic_fatigue`, `local_fatigue`, `grip_fatigue`, `cardio_demand`) vanno
+  da 1 a 3, non 1 a 10.** È facile assumere una scala più larga leggendo la
+  specifica astratta (che parla di "fatica" senza numeri) invece di controllare
+  i dati reali — è già successo una volta (soglia compound pesanti tarata a 7,
+  mai raggiungibile). Controllare sempre `min`/`max` reali prima di tarare una soglia
+- **`package-lock.json` non è committato di proposito.** `npm install` lo
+  rigenera in un attimo da `package.json`, e un lockfile di ~90KB nel diff
+  costerebbe caro da spingere su GitHub tramite gli strumenti MCP disponibili
+  in questo ambiente (niente `git push` diretto autenticato qui, solo API).
+  Se in futuro serve pin esatto delle versioni, va aggiunto consapevolmente,
+  non come effetto collaterale di un altro commit
 
 ---
 
 ## 10. Dove si è fermato l'ultimo lavoro
 
-**Modello:** Claude Opus 4.5 · **Data:** 2026-08-05
+**Modello:** Claude (Sonnet 5) · **Data:** 2026-08-05
 
-Fase 1 chiusa e pubblicata. Il punto esatto in cui riprendere è la **fase 2 del
-piano qui sotto: il database degli esercizi**, che è il presupposto di tutti i
-motori di generazione — senza quello non si può generare niente.
+Corretto il motore Bodybuilding (fasi 2-3 del piano, già chiuse in una sessione
+precedente ma con un'architettura che i test hanno dimostrato difettosa — vedi
+sez. 7). Il punto esatto in cui riprendere è la **fase 5: motore Forza**, che
+può riusare buona parte dell'infrastruttura appena corretta (slot-first,
+richiami settimanali, esercizi preferiti) invece di reinventarla.
 
-Nessun lavoro lasciato a metà.
+Nessun lavoro lasciato a metà. Build (`npm run build`) e test (`npm test`)
+verificati entrambi verdi prima di chiudere la sessione.
 
 ---
 
@@ -135,21 +234,21 @@ Nessun lavoro lasciato a metà.
 Le fasi seguono l'ordine della sez. 96 della specifica dell'utente, accorpate dove
 prese singolarmente non sarebbero verificabili.
 
-| Fase | Cosa | Perché serve |
+| Fase | Cosa | Stato |
 |---|---|---|
-| **2** | Database esercizi: tabella `exercises` con i metadati della sez. 28 (muscoli primari e secondari, attrezzo, movement pattern, ruolo, fatica sistemica/locale/di presa, complessità tecnica, domanda cardiovascolare) e un primo popolamento reale | È la fonte di verità di tutto. Nessun motore può esistere prima |
-| **3** | Motore Bodybuilding: split PPL, Upper, Lower, Full Body, Bro Split, con regole di distribuzione proprie per ciascuno (sez. 16), gestione della fatica (sez. 12) e muscoli prioritari (sez. 6) | È il motore più usato e definisce l'architettura che gli altri riusano |
-| **4** | Validatore (`WorkoutValidationEngine`, sez. 36) e anteprima dell'allenamento | Un allenamento generato ma non validato non va mostrato |
-| **5** | Motore Forza | |
-| **6** | CrossFit Standard | |
-| **7** | CrossFit Hybrid — funzionalità distintiva del prodotto (sez. 19-23) | |
-| **8** | Condizionamento: AMRAP, EMOM, For Time, Rounds, Circuit, Intervals | |
-| **9** | Tabata, motore separato | |
-| **10** | Workout Runner e timer (sez. 40-44) | |
-| **11** | Salvataggio, preferiti, ripeti identico, rigenera variante | |
-| **12** | Storico e valutazione post-allenamento | |
-| **13** | Test sulle parti critiche (sez. 80-82) | |
-| **14** | Preparazione all'impacchettamento mobile con Capacitor (sez. 85) | |
+| **2** | Database esercizi (79 voci, metadati completi) | ✅ Fatto |
+| **3** | Motore Bodybuilding: 13 split, fatica, muscoli prioritari | ✅ Fatto, **corretto in questa sessione** (sez. 7-8) |
+| **4** | Validatore | ✅ Integrato nella generazione stessa per Bodybuilding (struttura garantita a priori + rete di sicurezza finale che dedupe/ricontrolla). Da rifare come modulo esplicito quando arrivano le modalità CrossFit/Conditioning, che hanno regole di validità diverse (formati Metcon, cap di tempo, ecc.) |
+| **5** | Motore Forza | ⬜ Prossimo passo |
+| **6** | CrossFit Standard | ⬜ Non iniziato |
+| **7** | CrossFit Hybrid — funzionalità distintiva del prodotto (sez. 18 correzione) | ⬜ Non iniziato |
+| **8** | Condizionamento: AMRAP, EMOM, For Time, Rounds, Circuit, Intervals | ⬜ Non iniziato |
+| **9** | Tabata, motore separato | ⬜ Non iniziato |
+| **10** | Workout Runner e timer | ✅ Fatto per Bodybuilding (timer di recupero). EMOM/AMRAP/Tabata timer arrivano con le fasi 6-9 |
+| **11** | Salvataggio, preferiti, ripeti identico, rigenera variante | ✅ Salvataggio/rigenerazione fatti. Modifica esercizio-per-esercizio di un salvato: non ancora |
+| **12** | Storico e valutazione post-allenamento | ✅ Fatto (valutazione soggettiva + note; niente HR/calorie, rimandato a V1.2) |
+| **13** | Test sulle parti critiche | 🟡 Iniziato: 23 test sul motore Bodybuilding (`npm test`). Da estendere quando arrivano gli altri motori |
+| **14** | Preparazione all'impacchettamento mobile con Capacitor | ⬜ Non iniziato |
 
 ---
 
@@ -158,3 +257,6 @@ prese singolarmente non sarebbero verificabili.
 | Data | Modello | Cosa è stato fatto |
 |---|---|---|
 | 2026-08-05 | Claude Opus 4.5 | Progetto creato da zero con AI-OS. Fase 1: fondamenta React+Vite+TS+Tailwind, Supabase con RLS, autenticazione, profilo e impostazioni persistenti, navigazione, pubblicazione su Vercel |
+| 2026-08-05 | Claude Opus 4.5 | Fasi 2-3: database di 79 esercizi, motore Bodybuilding deterministico (6 split), anteprima, salvataggio, runner con timer di recupero, storico |
+| 2026-08-05 | Claude (Sonnet 5) | Handoff: ricostruito lo stato reale del progetto (questo file era rimasto indietro di una sessione), verificata la build |
+| 2026-08-05 | Claude (Sonnet 5) | Correzione del motore Bodybuilding su richiesta esplicita dell'utente: architettura riscritta da "genera poi valida" a "struttura prima, poi seleziona, poi adatta al tempo, poi valida come rete di sicurezza". Aggiunti richiami settimanali sui muscoli carenti (`weakPoints.ts`), esercizi preferiti realmente pesati, riscaldamento contestuale, 7 nuovi split (Bro Split ×5, Front/Back). Trovati e corretti 3 bug reali tramite 23 test automatici (vitest) eseguiti contro il catalogo reale di 79 esercizi: richiami che finivano su split sbagliati, redistribuzione che faceva collassare un muscolo target, preferiti senza effetto reale sulla probabilità di scelta |

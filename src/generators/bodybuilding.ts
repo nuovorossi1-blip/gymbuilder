@@ -6,14 +6,23 @@
  * da un seme, non dal caso puro, così "rigenera" dà una variante e non un
  * risultato imprevedibile.
  *
- * Ordine di applicazione delle regole (sez. 35):
- *   1. attrezzatura disponibile
- *   2. esclusioni dell'utente
- *   3. esperienza
- *   4. split
- *   5. muscoli prioritari
- *   6. budget di tempo
- *   7. gestione della fatica
+ * Architettura (corretta dopo i problemi riscontrati in test — vedi
+ * AIOS_STATE.md sez. 8, decisione del 05/08 "motore struttura-prima"):
+ *
+ *   Attrezzatura/esclusioni/esperienza
+ *     -> struttura della sessione (5-7 slot, decisi PRIMA di scegliere gli esercizi)
+ *     -> richiami settimanali per i muscoli carenti (weakPoints.ts)
+ *     -> selezione esercizi per slot (attrezzatura, fatica, esercizi preferiti)
+ *     -> adattamento al tempo (si riducono serie/recuperi, non si tagliano slot)
+ *     -> validatore di sicurezza finale (corregge, non si limita a segnalare)
+ *     -> riscaldamento, costruito DOPO in base a cosa è stato davvero scelto
+ *
+ * In precedenza il motore selezionava gli esercizi e scopriva solo alla fine
+ * se erano troppo pochi (< 5): il validatore era il posto dove si scopriva il
+ * problema, non quello che lo preveniva. Ora la sessione ha sempre 5, 6 o 7
+ * slot pieni per costruzione; il numero effettivo di esercizi scende sotto 5
+ * solo se l'attrezzatura disponibile lo rende letteralmente impossibile, e in
+ * quel caso il motore lo dice in italiano semplice, non con un errore tecnico.
  */
 
 import type {
@@ -21,6 +30,7 @@ import type {
   PrescribedExercise, Split, WorkoutBlock,
 } from '../types'
 import { EQUIPMENT_MAP, MUSCLE_LABELS, SPLIT_LABELS } from '../types'
+import { decidiRichiami } from './weakPoints'
 
 export interface GenerationConfig {
   split: Split
@@ -30,17 +40,29 @@ export interface GenerationConfig {
   duration_min: number
   priority_muscles: Muscle[]
   excluded_exercises: string[]
+  /** Esercizi preferiti dall'utente (sez. 33/10 della correzione): priorità, non obbligo. */
+  preferred_exercises?: string[]
+  /** Volume settimanale già accumulato per muscolo, dagli allenamenti completati (weakPoints.ts). */
+  weekly_volume?: Record<Muscle, number>
   seed?: number
 }
 
-/** Distribuzione base per split (sez. 13-16). Ogni split ha regole proprie. */
-const DISTRIBUZIONE: Record<Split, { muscle: Muscle; compound: boolean }[]> = {
+interface SlotDef {
+  muscle: Muscle
+  compound: boolean
+}
+
+/**
+ * Struttura base di ogni split (sez. 3, 11 della correzione): sempre 5 slot,
+ * sempre presenti, indipendentemente dal tempo a disposizione. Il tempo
+ * decide quante serie e quanto recupero, non se questi 5 esistono.
+ */
+const BASE_SLOTS: Record<Split, SlotDef[]> = {
   push: [
     { muscle: 'chest', compound: true },
-    { muscle: 'chest', compound: false },
+    { muscle: 'chest', compound: true },
     { muscle: 'front_delts', compound: true },
     { muscle: 'lateral_delts', compound: false },
-    { muscle: 'triceps', compound: false },
     { muscle: 'triceps', compound: false },
   ],
   pull: [
@@ -49,13 +71,11 @@ const DISTRIBUZIONE: Record<Split, { muscle: Muscle; compound: boolean }[]> = {
     { muscle: 'back', compound: false },
     { muscle: 'rear_delts', compound: false },
     { muscle: 'biceps', compound: false },
-    { muscle: 'biceps', compound: false },
   ],
   legs: [
     { muscle: 'quads', compound: true },
-    { muscle: 'quads', compound: true },
     { muscle: 'hamstrings', compound: true },
-    { muscle: 'glutes', compound: false },
+    { muscle: 'quads', compound: false },
     { muscle: 'hamstrings', compound: false },
     { muscle: 'calves', compound: false },
   ],
@@ -63,7 +83,6 @@ const DISTRIBUZIONE: Record<Split, { muscle: Muscle; compound: boolean }[]> = {
     { muscle: 'chest', compound: true },
     { muscle: 'back', compound: true },
     { muscle: 'front_delts', compound: true },
-    { muscle: 'lateral_delts', compound: false },
     { muscle: 'biceps', compound: false },
     { muscle: 'triceps', compound: false },
   ],
@@ -72,17 +91,131 @@ const DISTRIBUZIONE: Record<Split, { muscle: Muscle; compound: boolean }[]> = {
     { muscle: 'hamstrings', compound: true },
     { muscle: 'quads', compound: false },
     { muscle: 'glutes', compound: false },
-    { muscle: 'hamstrings', compound: false },
     { muscle: 'calves', compound: false },
   ],
   full_body: [
     { muscle: 'quads', compound: true },
     { muscle: 'chest', compound: true },
     { muscle: 'back', compound: true },
-    { muscle: 'hamstrings', compound: true },
     { muscle: 'lateral_delts', compound: false },
     { muscle: 'core', compound: false },
   ],
+  bro_chest: [
+    { muscle: 'chest', compound: true },
+    { muscle: 'chest', compound: true },
+    { muscle: 'chest', compound: true },
+    { muscle: 'chest', compound: false },
+    { muscle: 'chest', compound: false },
+  ],
+  bro_back: [
+    { muscle: 'back', compound: true },
+    { muscle: 'back', compound: true },
+    { muscle: 'back', compound: true },
+    { muscle: 'back', compound: false },
+    { muscle: 'rear_delts', compound: false },
+  ],
+  bro_shoulders: [
+    { muscle: 'front_delts', compound: true },
+    { muscle: 'lateral_delts', compound: false },
+    { muscle: 'lateral_delts', compound: false },
+    { muscle: 'rear_delts', compound: false },
+    { muscle: 'rear_delts', compound: false },
+  ],
+  bro_arms: [
+    { muscle: 'biceps', compound: false },
+    { muscle: 'triceps', compound: false },
+    { muscle: 'biceps', compound: false },
+    { muscle: 'triceps', compound: false },
+    { muscle: 'biceps', compound: false },
+  ],
+  bro_legs: [
+    { muscle: 'quads', compound: true },
+    { muscle: 'hamstrings', compound: true },
+    { muscle: 'quads', compound: false },
+    { muscle: 'hamstrings', compound: false },
+    { muscle: 'glutes', compound: false },
+  ],
+  front_body: [
+    { muscle: 'chest', compound: true },
+    { muscle: 'quads', compound: true },
+    { muscle: 'lateral_delts', compound: false },
+    { muscle: 'quads', compound: false },
+    { muscle: 'core', compound: false },
+  ],
+  back_body: [
+    { muscle: 'back', compound: true },
+    { muscle: 'hamstrings', compound: true },
+    { muscle: 'back', compound: false },
+    { muscle: 'rear_delts', compound: false },
+    { muscle: 'biceps', compound: false },
+  ],
+}
+
+/**
+ * Slot per il 6° e 7° esercizio, usati SOLO quando non c'è un richiamo di un
+ * muscolo carente a reclamare quella posizione (sez. 3, 11): un richiamo ha
+ * sempre la precedenza su un isolamento generico aggiuntivo.
+ */
+const EXTRA_SLOTS: Record<Split, SlotDef[]> = {
+  push: [{ muscle: 'chest', compound: false }, { muscle: 'triceps', compound: false }],
+  pull: [{ muscle: 'triceps', compound: false }, { muscle: 'biceps', compound: false }],
+  legs: [{ muscle: 'glutes', compound: false }, { muscle: 'core', compound: false }],
+  upper: [{ muscle: 'lateral_delts', compound: false }, { muscle: 'chest', compound: false }],
+  lower: [{ muscle: 'hamstrings', compound: false }, { muscle: 'core', compound: false }],
+  full_body: [{ muscle: 'hamstrings', compound: false }, { muscle: 'biceps', compound: false }],
+  bro_chest: [{ muscle: 'front_delts', compound: false }, { muscle: 'triceps', compound: false }],
+  bro_back: [{ muscle: 'back', compound: false }, { muscle: 'biceps', compound: false }],
+  bro_shoulders: [{ muscle: 'front_delts', compound: false }, { muscle: 'core', compound: false }],
+  bro_arms: [{ muscle: 'triceps', compound: false }, { muscle: 'biceps', compound: false }],
+  bro_legs: [{ muscle: 'calves', compound: false }, { muscle: 'core', compound: false }],
+  front_body: [{ muscle: 'chest', compound: false }, { muscle: 'lateral_delts', compound: false }],
+  back_body: [{ muscle: 'hamstrings', compound: false }, { muscle: 'glutes', compound: false }],
+}
+
+/**
+ * Muscoli che uno split può plausibilmente toccare, per due usi: capire se
+ * un muscolo carente è "naturale" per questo split o è un richiamo incrociato
+ * (sez. 7), e trovare un muscolo sostituto quando uno slot resta senza
+ * candidati per mancanza di attrezzatura.
+ */
+const SPLIT_MUSCLE_POOL: Record<Split, Muscle[]> = {
+  push: ['chest', 'front_delts', 'lateral_delts', 'triceps'],
+  pull: ['back', 'rear_delts', 'biceps'],
+  legs: ['quads', 'hamstrings', 'glutes', 'calves', 'core'],
+  upper: ['chest', 'back', 'front_delts', 'lateral_delts', 'rear_delts', 'biceps', 'triceps'],
+  lower: ['quads', 'hamstrings', 'glutes', 'calves', 'core'],
+  full_body: ['chest', 'back', 'quads', 'hamstrings', 'lateral_delts', 'core', 'biceps', 'triceps'],
+  bro_chest: ['chest', 'front_delts', 'triceps'],
+  bro_back: ['back', 'rear_delts', 'biceps'],
+  bro_shoulders: ['front_delts', 'lateral_delts', 'rear_delts'],
+  bro_arms: ['biceps', 'triceps'],
+  bro_legs: ['quads', 'hamstrings', 'glutes', 'calves', 'core'],
+  front_body: ['chest', 'quads', 'front_delts', 'lateral_delts', 'core'],
+  back_body: ['back', 'hamstrings', 'rear_delts', 'biceps', 'glutes'],
+}
+
+/**
+ * Muscoli per cui è anatomicamente sensato un "richiamo incrociato" oltre
+ * al pool naturale dello split (sez. 8 della correzione: tricipiti in Pull,
+ * bicipiti in Push — la classica accoppiata "braccia" di palestra). Per
+ * tutti gli altri split il richiamo resta dentro il pool naturale: le gambe
+ * non richiamano mai braccia o spalle (sez. 11), qualunque sia la carenza
+ * dichiarata.
+ */
+const RICHIAMO_POOL: Record<Split, Muscle[]> = {
+  push: ['chest', 'front_delts', 'lateral_delts', 'triceps', 'biceps'],
+  pull: ['back', 'rear_delts', 'biceps', 'triceps'],
+  legs: ['quads', 'hamstrings', 'glutes', 'calves', 'core'],
+  upper: ['chest', 'back', 'front_delts', 'lateral_delts', 'rear_delts', 'biceps', 'triceps'],
+  lower: ['quads', 'hamstrings', 'glutes', 'calves', 'core'],
+  full_body: ['chest', 'back', 'quads', 'hamstrings', 'lateral_delts', 'core', 'biceps', 'triceps'],
+  bro_chest: ['chest', 'front_delts', 'triceps'],
+  bro_back: ['back', 'rear_delts', 'biceps'],
+  bro_shoulders: ['front_delts', 'lateral_delts', 'rear_delts'],
+  bro_arms: ['biceps', 'triceps'],
+  bro_legs: ['quads', 'hamstrings', 'glutes', 'calves', 'core'],
+  front_body: ['chest', 'quads', 'front_delts', 'lateral_delts', 'core'],
+  back_body: ['back', 'hamstrings', 'rear_delts', 'biceps', 'glutes'],
 }
 
 /** Serie, ripetizioni e recupero secondo l'obiettivo (sez. 10). */
@@ -97,6 +230,11 @@ function prescrizione(goal: Goal, compound: boolean, exp: Experience) {
   // I principianti fanno una serie in meno sui fondamentali: meno volume, tecnica migliore.
   if (exp === 'beginner' && compound) return { ...base, sets: Math.max(3, base.sets - 1) }
   return base
+}
+
+/** Serie minime sotto cui non si scende quando si adatta la sessione al tempo (sez. 3). */
+function serieMinime(compound: boolean): number {
+  return compound ? 3 : 2
 }
 
 const RANK_EXP: Record<Experience, number> = { beginner: 1, intermediate: 2, advanced: 3 }
@@ -116,6 +254,25 @@ function minutiEsercizio(p: { sets: number; rest_sec: number }): number {
   return (p.sets * (lavoro + p.rest_sec) + 60) / 60
 }
 
+function minutiBlocco(esercizi: { sets: number; rest_sec: number }[]): number {
+  return esercizi.reduce((t, e) => t + minutiEsercizio(e), 0)
+}
+
+/** Quanti esercizi principali punta ad avere la sessione, secondo il tempo (sez. 3: sempre 5-7). */
+function targetEsercizi(duration_min: number): number {
+  if (duration_min < 45) return 5
+  if (duration_min < 70) return 6
+  return 7
+}
+
+/**
+ * Soglia di "compound pesante": oltre 2 nella stessa sessione la tecnica e
+ * il recupero ne risentono (sez. 24). La scala di systemic_fatigue nel
+ * catalogo va da 1 a 3 (non 1-10): "pesante" è il valore massimo, 3.
+ */
+const SOGLIA_PESANTE = 3
+const MAX_COMPOUND_PESANTI = 2
+
 export function generaBodybuilding(
   catalogo: Exercise[],
   cfg: GenerationConfig
@@ -123,6 +280,8 @@ export function generaBodybuilding(
   const warnings: string[] = []
   const random = rng(cfg.seed ?? 1)
   const attrezziOk = EQUIPMENT_MAP[cfg.equipment]
+  const preferiti = new Set(cfg.preferred_exercises ?? [])
+  const volumeSettimanale = cfg.weekly_volume
 
   // 1-3. Attrezzatura, esclusioni, esperienza
   const disponibili = catalogo.filter(
@@ -131,128 +290,140 @@ export function generaBodybuilding(
       !cfg.excluded_exercises.includes(e.id) &&
       RANK_EXP[e.min_experience] <= RANK_EXP[cfg.experience]
   )
-
   const allenamento = disponibili.filter((e) => !e.roles.includes('warmup'))
-  const riscaldamento = disponibili.filter((e) => e.roles.includes('warmup'))
+  const riscaldamentoPool = disponibili.filter((e) => e.roles.includes('warmup'))
 
-  // 4. Slot dello split
-  let slot = [...DISTRIBUZIONE[cfg.split]]
+  // 4. Struttura: 5 slot fissi + fino a 2 aggiuntivi secondo il tempo (sez. 3, 11)
+  const pool = SPLIT_MUSCLE_POOL[cfg.split]
+  let baseSlot = [...BASE_SLOTS[cfg.split]]
 
-  // 5. Muscoli prioritari: ridistribuiscono il volume, non allungano la sessione (sez. 6)
-  const priorita = cfg.priority_muscles.filter((m) => slotContiene(cfg.split, m))
-  const prioritaFuoriSplit = cfg.priority_muscles.filter((m) => !slotContiene(cfg.split, m))
-  if (prioritaFuoriSplit.length > 0) {
+  // 5a. Muscoli carenti "naturali" per lo split: ridistribuiscono gli slot base, non li aggiungono (sez. 6-7)
+  const prioritaInSplit = cfg.priority_muscles.filter((m) => pool.includes(m))
+  const prioritaFuoriSplit = cfg.priority_muscles.filter((m) => !pool.includes(m))
+  if (prioritaInSplit.length > 0) {
+    baseSlot = ridistribuisci(baseSlot, prioritaInSplit)
+  }
+
+  const target = targetEsercizi(cfg.duration_min)
+
+  // 5b. Richiami settimanali (sez. 6-10): solo per i muscoli davvero indietro
+  // sul volume delle ultime settimane, non per ogni carenza dichiarata, e
+  // solo fra i muscoli anatomicamente sensati per questo split (sez. 11: le
+  // gambe non richiamano mai braccia o spalle).
+  const volumeStimato = volumeSettimanale ?? vuotoVolume()
+  const priortaRichiamabili = cfg.priority_muscles.filter((m) => RICHIAMO_POOL[cfg.split].includes(m))
+  const richiami = decidiRichiami(
+    priortaRichiamabili,
+    volumeStimato,
+    baseSlot.map((s) => s.muscle),
+    2
+  )
+  if (prioritaFuoriSplit.length > 0 && richiami.length === 0) {
     warnings.push(
-      `${prioritaFuoriSplit.map((m) => MUSCLE_LABELS[m]).join(', ')}: non rientra` +
-        `${prioritaFuoriSplit.length > 1 ? 'no' : ''} in ${SPLIT_LABELS[cfg.split].toLowerCase()}, ` +
-        `${prioritaFuoriSplit.length > 1 ? 'verranno allenati' : 'verrà allenato'} in un'altra sessione.`
+      `${prioritaFuoriSplit.map((m) => MUSCLE_LABELS[m]).join(', ')}: già a posto sul volume ` +
+        `settimanale, ${prioritaFuoriSplit.length > 1 ? 'verranno' : 'verrà'} richiamat${prioritaFuoriSplit.length > 1 ? 'i' : 'o'} quando serve.`
     )
   }
-  if (priorita.length > 0) {
-    slot = ridistribuisci(slot, priorita)
+
+  // 6. Slot 6°-7°: prima i richiami, poi gli extra generici dello split
+  const extraSlot: SlotDef[] = []
+  for (const m of richiami) {
+    if (baseSlot.length + extraSlot.length >= target) break
+    extraSlot.push({ muscle: m, compound: false })
   }
+  for (const s of EXTRA_SLOTS[cfg.split]) {
+    if (baseSlot.length + extraSlot.length >= target) break
+    extraSlot.push(s)
+  }
+  const richiamoSet = new Set(richiami)
+  const slot = [...baseSlot, ...extraSlot]
 
-  // 6. Budget di tempo: il riscaldamento si prende 8-10 minuti (sez. 11)
-  const minutiRiscaldamento = cfg.duration_min >= 45 ? 9 : 6
-  let budget = cfg.duration_min - minutiRiscaldamento
-
-  // 7. Selezione con controllo della fatica
+  // 7. Selezione esercizi per slot
   const scelti: PrescribedExercise[] = []
   const usati = new Set<string>()
   let faticaSistemica = 0
   let faticaPresa = 0
+  let compoundPesanti = 0
 
-  for (const s of slot) {
-    const candidati = allenamento
-      .filter((e) => !usati.has(e.id))
-      .filter((e) => e.primary_muscles.includes(s.muscle))
-      .filter((e) => e.roles.includes(s.compound ? 'compound' : 'isolation'))
-      // Fatica di presa (sez. 32): si escludono solo gli esercizi MOLTO esigenti
-      // quando la presa è già carica. Un filtro sul totale, come avevo scritto
-      // prima, tagliava anche i curl dopo due tirate e lasciava sessioni monche.
-      .filter((e) => !(e.grip_fatigue >= 3 && faticaPresa >= 6))
-      // Niente movimenti tecnici quando la stanchezza rende la tecnica inaffidabile (sez. 33)
-      .filter((e) => !(faticaSistemica >= 8 && e.technical_complexity >= 3))
+  for (let i = 0; i < slot.length; i++) {
+    const s = slot[i]
+    const isRichiamo = i >= baseSlot.length && richiamoSet.has(s.muscle)
+    const musclesDaProvare = [s.muscle, ...pool.filter((m) => m !== s.muscle)]
 
-    if (candidati.length === 0) continue
+    let scelto: Exercise | undefined
+    let muscoloUsato: Muscle = s.muscle
 
-    // Fra i candidati validi si preferisce il più impegnativo quando si è freschi,
-    // il più semplice quando si è stanchi (sez. 12).
-    candidati.sort((a, b) =>
-      faticaSistemica < 5
-        ? b.systemic_fatigue - a.systemic_fatigue
-        : a.systemic_fatigue - b.systemic_fatigue
-    )
-    const testa = candidati.slice(0, Math.min(3, candidati.length))
-    const scelto = testa[Math.floor(random() * testa.length)]
+    for (const m of musclesDaProvare) {
+      const candidati = allenamento
+        .filter((e) => !usati.has(e.id))
+        .filter((e) => e.primary_muscles.includes(m))
+        .filter((e) => e.roles.includes(s.compound ? 'compound' : 'isolation'))
+        // Fatica di presa (sez. 32): si escludono solo gli esercizi MOLTO esigenti
+        // quando la presa è già carica, non l'intero pool dopo due tirate.
+        .filter((e) => !(e.grip_fatigue >= 3 && faticaPresa >= 6))
+        // Niente movimenti tecnici quando la stanchezza rende la tecnica inaffidabile (sez. 33)
+        .filter((e) => !(faticaSistemica >= 8 && e.technical_complexity >= 3))
+
+      if (candidati.length === 0) {
+        // Solo per lo slot base si prova un muscolo sostituto dello stesso split;
+        // un richiamo è specifico e non va rimpiazzato con un altro muscolo.
+        if (isRichiamo) break
+        continue
+      }
+
+      const pesanteRaggiunto = compoundPesanti >= MAX_COMPOUND_PESANTI
+      const faticaSort = (a: Exercise, b: Exercise) =>
+        pesanteRaggiunto
+          ? a.systemic_fatigue - b.systemic_fatigue
+          : faticaSistemica < 5
+            ? b.systemic_fatigue - a.systemic_fatigue
+            : a.systemic_fatigue - b.systemic_fatigue
+
+      // Un preferito compatibile va scelto, non solo "avvantaggiato": sez. 10
+      // della correzione, "evitare di ignorarli senza motivo". Se per questo
+      // muscolo/slot esiste un candidato preferito, si sceglie da quelli soli
+      // (con un minimo di varietà se l'utente ne ha preferiti più di uno per
+      // lo stesso muscolo); altrimenti si torna al pool normale.
+      const preferitiCandidati = candidati.filter((e) => preferiti.has(e.id))
+      const pool_ = preferitiCandidati.length > 0 ? preferitiCandidati : candidati
+      pool_.sort(faticaSort)
+      const testa = pool_.slice(0, Math.min(3, pool_.length))
+      scelto = testa[Math.floor(random() * testa.length)]
+      muscoloUsato = m
+      break
+    }
+
+    if (!scelto) continue // nessun esercizio disponibile per questo slot con questa attrezzatura
 
     const p = prescrizione(cfg.goal, s.compound, cfg.experience)
     const voce: PrescribedExercise = {
       exercise_id: scelto.id,
       name: scelto.name,
       role: s.compound ? 'compound' : 'isolation',
-      muscle: s.muscle,
+      muscle: muscoloUsato,
       sets: p.sets,
       reps: p.reps,
       rest_sec: p.rest,
+      note: isRichiamo ? 'richiamo' : undefined,
     }
 
-    const costo = minutiEsercizio(voce)
-    if (budget - costo < 0) break // il tempo comanda: meglio meno esercizi che sforare
-
-    budget -= costo
+    usati.add(scelto.id)
     faticaSistemica += scelto.systemic_fatigue
     faticaPresa += scelto.grip_fatigue
-    usati.add(scelto.id)
+    if (scelto.systemic_fatigue >= SOGLIA_PESANTE && s.compound) compoundPesanti++
     scelti.push(voce)
   }
 
-  // Riempimento: se restano tempo e meno di 5 esercizi, si aggiunge isolamento
-  // sui muscoli dello split. Senza questo passaggio uno slot vuoto (perché non
-  // esiste l'esercizio giusto) faceva finire la sessione a 4 esercizi con 15
-  // minuti ancora disponibili — misurato nei test.
-  const muscoliSplit = [...new Set(DISTRIBUZIONE[cfg.split].map((s) => s.muscle))]
-  const ordinePriorita = [...priorita, ...muscoliSplit]
-  while (scelti.length < 7 && budget > 4) {
-    const m = ordinePriorita[(scelti.length + 1) % ordinePriorita.length]
-    const extra = allenamento
-      .filter((e) => !usati.has(e.id))
-      .filter((e) => e.primary_muscles.includes(m))
-      .filter((e) => e.roles.includes('isolation'))
-      .filter((e) => !(e.grip_fatigue >= 3 && faticaPresa >= 6))
-      .sort((a, b) => a.systemic_fatigue - b.systemic_fatigue)[0]
-    if (!extra) {
-      // Niente di aggiungibile su nessun muscolo: si esce.
-      const restanti = ordinePriorita.filter((x) =>
-        allenamento.some(
-          (e) => !usati.has(e.id) && e.primary_muscles.includes(x) && e.roles.includes('isolation')
-        )
-      )
-      if (restanti.length === 0) break
-      ordinePriorita.push(...restanti)
-      if (ordinePriorita.length > 40) break
-      continue
-    }
-    const p = prescrizione(cfg.goal, false, cfg.experience)
-    const voce: PrescribedExercise = {
-      exercise_id: extra.id,
-      name: extra.name,
-      role: 'isolation',
-      muscle: m,
-      sets: p.sets,
-      reps: p.reps,
-      rest_sec: p.rest,
-    }
-    const costo = minutiEsercizio(voce)
-    if (budget - costo < 0) break
-    budget -= costo
-    faticaPresa += extra.grip_fatigue
-    usati.add(extra.id)
-    scelti.push(voce)
-  }
+  // 8. Adattamento al tempo: si riducono prima i recuperi, poi le serie
+  // (mai sotto il minimo), solo come ultimissima risorsa si toglie uno slot,
+  // partendo da un richiamo/extra e mai sotto i 5 esercizi (sez. 3, 23).
+  const minutiRiscaldamento = cfg.duration_min >= 45 ? 9 : 6
+  const budget = cfg.duration_min - minutiRiscaldamento
+  adattaAlTempo(scelti, budget)
 
-  // Validazione (sez. 17 e 36): minimo 5 esercizi quando il tempo lo consente
-  if (scelti.length < 5 && cfg.duration_min >= 45) {
+  // 9. Validatore di sicurezza finale (sez. 22, 40): corregge, non si limita a segnalare.
+  rimuoviDuplicati(scelti)
+  if (scelti.length < 5) {
     warnings.push(
       `Con questa attrezzatura escono solo ${scelti.length} esercizi. ` +
         `Aggiungendo attrezzi nel profilo la sessione diventa più completa.`
@@ -267,7 +438,7 @@ export function generaBodybuilding(
       kind: 'warmup',
       title: 'Riscaldamento',
       duration_min: minutiRiscaldamento,
-      exercises: scegliRiscaldamento(riscaldamento, cfg.split, random),
+      exercises: scegliRiscaldamento(riscaldamentoPool, allenamento, scelti, random),
     },
     { kind: 'main', title: 'Allenamento', exercises: scelti },
   ]
@@ -278,32 +449,95 @@ export function generaBodybuilding(
     split: cfg.split,
     goal: cfg.goal,
     experience: cfg.experience,
-    duration_min: Math.round(
-      minutiRiscaldamento + scelti.reduce((t, e) => t + minutiEsercizio(e), 0)
-    ),
+    duration_min: Math.round(minutiRiscaldamento + minutiBlocco(scelti)),
     blocks: blocchi,
     warnings,
   }
 }
 
-/** Lo split contiene quel muscolo fra i suoi slot? */
-function slotContiene(split: Split, m: Muscle): boolean {
-  return DISTRIBUZIONE[split].some((s) => s.muscle === m)
+function vuotoVolume(): Record<Muscle, number> {
+  return {
+    chest: 0, back: 0, front_delts: 0, lateral_delts: 0, rear_delts: 0,
+    biceps: 0, triceps: 0, quads: 0, hamstrings: 0, glutes: 0, calves: 0, core: 0,
+  }
 }
 
 /**
- * Ridistribuisce gli slot verso i muscoli prioritari senza aggiungerne di nuovi:
- * toglie uno slot al muscolo più rappresentato e lo assegna alla priorità.
+ * Adatta la sessione al budget di tempo SENZA eliminare esercizi come prima
+ * mossa (sez. 3, 23): prima taglia il recupero verso il minimo dell'obiettivo,
+ * poi una serie sugli slot meno prioritari (richiami ed extra prima dei
+ * compound), solo alla fine — se proprio non basta — droppa l'ultimo slot,
+ * mai sotto i 5 esercizi.
  */
-function ridistribuisci(
-  slot: { muscle: Muscle; compound: boolean }[],
-  priorita: Muscle[]
-): { muscle: Muscle; compound: boolean }[] {
+function adattaAlTempo(scelti: PrescribedExercise[], budgetMin: number): void {
+  const RECUPERO_MINIMO = 45
+
+  const sforo = () => minutiBlocco(scelti) - budgetMin
+  if (sforo() <= 0) return
+
+  // Fase 1: recuperi verso il minimo, dal più lungo.
+  let iter = 0
+  while (sforo() > 0 && iter++ < 50) {
+    const candidato = scelti
+      .filter((e) => e.rest_sec > RECUPERO_MINIMO)
+      .sort((a, b) => b.rest_sec - a.rest_sec)[0]
+    if (!candidato) break
+    candidato.rest_sec = Math.max(RECUPERO_MINIMO, candidato.rest_sec - 15)
+  }
+
+  // Fase 2: una serie in meno sugli slot non-compound e i richiami, poi i compound.
+  iter = 0
+  while (sforo() > 0 && iter++ < 50) {
+    const riducibile = [...scelti]
+      .sort((a, b) => {
+        const pa = a.note === 'richiamo' ? 0 : a.role === 'isolation' ? 1 : 2
+        const pb = b.note === 'richiamo' ? 0 : b.role === 'isolation' ? 1 : 2
+        return pa - pb
+      })
+      .find((e) => e.sets > serieMinime(e.role === 'compound'))
+    if (!riducibile) break
+    riducibile.sets -= 1
+  }
+
+  // Fase 3: ultima risorsa, droppa lo slot meno prioritario, mai sotto 5.
+  while (sforo() > 0 && scelti.length > 5) {
+    let iRimuovi = scelti.map((e) => e.note === 'richiamo').lastIndexOf(true)
+    if (iRimuovi < 0) iRimuovi = scelti.map((e) => e.role === 'isolation').lastIndexOf(true)
+    if (iRimuovi < 0) iRimuovi = scelti.length - 1
+    scelti.splice(iRimuovi, 1)
+  }
+}
+
+/** Rimuove eventuali duplicati (sez. 22): non dovrebbero capitare, ma è una rete di sicurezza. */
+function rimuoviDuplicati(scelti: PrescribedExercise[]): void {
+  const visti = new Set<string>()
+  for (let i = scelti.length - 1; i >= 0; i--) {
+    if (visti.has(scelti[i].exercise_id)) scelti.splice(i, 1)
+    else visti.add(scelti[i].exercise_id)
+  }
+}
+
+/**
+ * Ridistribuisce gli slot base verso i muscoli prioritari CHE NON HANNO
+ * ANCORA UNO SLOT PROPRIO in questo split, senza aggiungerne di nuovi:
+ * toglie uno slot al muscolo più rappresentato e lo assegna alla priorità
+ * (sez. 6: è una redistribuzione, non un'aggiunta).
+ *
+ * Un muscolo prioritario che lo split copre già naturalmente (es. bicipiti
+ * in un Pull, che ha già il suo slot dedicato) non viene toccato qui: se ha
+ * davvero bisogno di più volume ci pensa il richiamo settimanale
+ * (weakPoints.ts), non una seconda redistribuzione nella stessa sessione.
+ * Prima di questa correzione, due muscoli prioritari già presenti potevano
+ * "spolpare" lo stesso donatore in sequenza fino a farlo sparire quasi
+ * del tutto — misurato nei test sullo scenario Pull con carenze braccia.
+ */
+function ridistribuisci(slot: SlotDef[], priorita: Muscle[]): SlotDef[] {
   const out = [...slot]
   for (const p of priorita) {
     const conteggio = new Map<Muscle, number>()
     out.forEach((s) => conteggio.set(s.muscle, (conteggio.get(s.muscle) ?? 0) + 1))
-    // Candidato a cedere: il muscolo con più slot, che non sia una priorità
+    if ((conteggio.get(p) ?? 0) > 0) continue // già rappresentato: niente da redistribuire
+
     let donatore: Muscle | null = null
     let max = 1
     for (const [m, n] of conteggio) {
@@ -319,34 +553,48 @@ function ridistribuisci(
   return out
 }
 
-/** Riscaldamento: cardio leggero + mobilità + attivazione mirata allo split (sez. 11). */
+/**
+ * Riscaldamento contestuale (sez. 5 della correzione): costruito DOPO aver
+ * scelto gli esercizi principali, in base ai pattern di movimento e ai
+ * muscoli che la sessione userà davvero, non da una tabella fissa per split.
+ */
 function scegliRiscaldamento(
   pool: Exercise[],
-  split: Split,
+  catalogoAllenamento: Exercise[],
+  scelti: PrescribedExercise[],
   random: () => number
 ): PrescribedExercise[] {
+  const perId = new Map(catalogoAllenamento.map((e) => [e.id, e]))
+  const principali = scelti.map((s) => perId.get(s.exercise_id)).filter((e): e is Exercise => !!e)
+  const patterns = new Set(principali.map((e) => e.movement_pattern))
+  const muscoli = new Set(principali.flatMap((e) => e.primary_muscles))
+
   const cardio = pool.filter((e) => e.roles.includes('cardio'))
   const resto = pool.filter((e) => !e.roles.includes('cardio'))
 
-  const mirati: Record<Split, string[]> = {
-    push: ['wu_circonduzioni', 'wu_band_pull'],
-    pull: ['wu_scapole', 'wu_band_pull'],
-    legs: ['wu_rotazioni_anca', 'wu_squat_vuoto'],
-    upper: ['wu_circonduzioni', 'wu_scapole'],
-    lower: ['wu_rotazioni_anca', 'wu_squat_vuoto'],
-    full_body: ['wu_rotazioni_anca', 'wu_circonduzioni'],
-  }
+  // Mobilità/attivazione il cui pattern o muscolo compare davvero nella sessione di oggi.
+  const mirati = resto.filter(
+    (e) => patterns.has(e.movement_pattern) || e.primary_muscles.some((m) => muscoli.has(m))
+  )
 
-  const scelti: Exercise[] = []
-  if (cardio.length > 0) scelti.push(cardio[Math.floor(random() * cardio.length)])
-  for (const id of mirati[split]) {
-    const e = resto.find((x) => x.id === id)
-    if (e) scelti.push(e)
+  const scelti_wu: Exercise[] = []
+  if (cardio.length > 0) scelti_wu.push(cardio[Math.floor(random() * cardio.length)])
+  for (const e of mirati) {
+    if (scelti_wu.length >= 4) break
+    if (!scelti_wu.some((x) => x.id === e.id)) scelti_wu.push(e)
+  }
+  // Fallback: se la sessione usa pattern per cui non esiste riscaldamento mirato,
+  // meglio una mobilità generica che nessun riscaldamento.
+  if (scelti_wu.length < 2) {
+    for (const e of resto) {
+      if (scelti_wu.length >= 3) break
+      if (!scelti_wu.some((x) => x.id === e.id)) scelti_wu.push(e)
+    }
   }
   const finale = resto.find((x) => x.id === 'wu_serie_leggera')
-  if (finale) scelti.push(finale)
+  if (finale && !scelti_wu.some((x) => x.id === finale.id)) scelti_wu.push(finale)
 
-  return scelti.map((e) => ({
+  return scelti_wu.map((e) => ({
     exercise_id: e.id,
     name: e.name,
     role: 'warmup' as const,

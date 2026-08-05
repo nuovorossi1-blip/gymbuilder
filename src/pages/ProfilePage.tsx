@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../features/auth/AuthProvider'
 import { useSettings } from '../features/profile/useSettings'
+import { caricaCatalogo } from '../lib/api'
 import {
   DURATIONS,
   EQUIPMENT_LABELS,
@@ -9,6 +10,7 @@ import {
   MUSCLE_LABELS,
   type Equipment,
   type Experience,
+  type Exercise,
   type Goal,
   type Muscle,
 } from '../types'
@@ -19,10 +21,16 @@ export default function ProfilePage() {
 
   const [nome, setNome] = useState('')
   const [stato, setStato] = useState<'fermo' | 'salvo' | 'salvato' | 'errore'>('fermo')
+  const [catalogo, setCatalogo] = useState<Exercise[] | null>(null)
+  const [preferitiAperto, setPreferitiAperto] = useState(false)
 
   useEffect(() => {
     if (profile?.display_name) setNome(profile.display_name)
   }, [profile?.display_name])
+
+  useEffect(() => {
+    if (preferitiAperto && !catalogo) caricaCatalogo().then(setCatalogo).catch(() => setCatalogo([]))
+  }, [preferitiAperto, catalogo])
 
   async function applica(fn: () => Promise<boolean>) {
     setStato('salvo')
@@ -177,6 +185,61 @@ export default function ProfilePage() {
           senza allungare la sessione.
         </p>
       </Gruppo>
+
+      <section>
+        <button
+          onClick={() => setPreferitiAperto((v) => !v)}
+          className="flex w-full items-center justify-between"
+          aria-expanded={preferitiAperto}
+        >
+          <h2 className="field-label !mb-0">Esercizi preferiti</h2>
+          <span className="font-data text-[11px] text-slate2">{preferitiAperto ? '−' : '+'}</span>
+        </button>
+        <p className="mt-2 text-[12px] text-slate2">
+          Quando il generatore deve scegliere un esercizio per un muscolo, preferisce questi
+          se compatibili. Non sono obbligatori in ogni sessione.
+        </p>
+        {preferitiAperto && (
+          <div className="mt-3 space-y-4">
+            {catalogo === null && <div className="h-16 animate-pulse rounded-xl bg-steel" aria-hidden />}
+            {catalogo &&
+              (Object.keys(MUSCLE_LABELS) as Muscle[]).map((m) => {
+                const esercizi = catalogo.filter((e) => e.primary_muscles.includes(m) && !e.roles.includes('warmup'))
+                if (esercizi.length === 0) return null
+                return (
+                  <div key={m}>
+                    <p className="font-data text-[10px] uppercase tracking-[0.14em] text-slate2 mb-1.5">
+                      {MUSCLE_LABELS[m]}
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {esercizi.map((e) => {
+                        const on = settings.favorite_exercises.includes(e.id)
+                        return (
+                          <button
+                            key={e.id}
+                            aria-pressed={on}
+                            className={`chip ${on ? 'chip-on' : ''}`}
+                            onClick={() =>
+                              applica(() =>
+                                saveSettings({
+                                  favorite_exercises: on
+                                    ? settings.favorite_exercises.filter((x) => x !== e.id)
+                                    : [...settings.favorite_exercises, e.id],
+                                })
+                              )
+                            }
+                          >
+                            {e.name}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )
+              })}
+          </div>
+        )}
+      </section>
 
       <button
         className="w-full rounded-xl border border-edge py-3.5 font-data text-[11px] uppercase tracking-[0.16em] text-slate2 active:bg-steel"

@@ -3,15 +3,13 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../features/auth/AuthProvider'
 import { useSettings } from '../features/profile/useSettings'
 import { useWorkout } from '../features/workout/WorkoutContext'
-import { caricaCatalogo } from '../lib/api'
+import { caricaCatalogo, volumeSettimanaleUtente } from '../lib/api'
 import { generaBodybuilding } from '../generators/bodybuilding'
 import {
   DURATIONS, EQUIPMENT_LABELS, GOAL_LABELS, MUSCLE_LABELS,
-  SPLIT_HINTS, SPLIT_LABELS,
+  SPLIT_GROUPS, SPLIT_HINTS, SPLIT_LABELS,
   type Equipment, type Exercise, type Goal, type Muscle, type Split,
 } from '../types'
-
-const SPLITS: Split[] = ['push', 'pull', 'legs', 'upper', 'lower', 'full_body']
 
 export default function Create() {
   const { user } = useAuth()
@@ -21,6 +19,7 @@ export default function Create() {
 
   const [catalogo, setCatalogo] = useState<Exercise[] | null>(null)
   const [erroreCatalogo, setErroreCatalogo] = useState<string | null>(null)
+  const [volumeSettimanale, setVolumeSettimanale] = useState<Record<Muscle, number> | undefined>()
 
   // Scelte di oggi. Partono dal profilo ma valgono solo per questa sessione (sez. 7).
   const [split, setSplit] = useState<Split>('push')
@@ -33,6 +32,11 @@ export default function Create() {
   useEffect(() => {
     caricaCatalogo().then(setCatalogo).catch((e) => setErroreCatalogo(e.message))
   }, [])
+
+  useEffect(() => {
+    if (!catalogo || !user) return
+    volumeSettimanaleUtente(user.id, catalogo).then(setVolumeSettimanale)
+  }, [catalogo, user])
 
   // Valori effettivi: la scelta di oggi se c'è, altrimenti il profilo
   const eff = useMemo(() => {
@@ -55,6 +59,8 @@ export default function Create() {
       duration_min: eff.durata,
       priority_muscles: eff.muscoli,
       excluded_exercises: settings.excluded_exercises,
+      preferred_exercises: settings.favorite_exercises,
+      weekly_volume: volumeSettimanale,
       seed: Date.now() % 100000,
     })
     setWorkout(w)
@@ -74,30 +80,39 @@ export default function Create() {
         oggi?
       </h1>
 
-      {/* 1. Gruppo muscolare */}
-      <div className="mt-8 space-y-2.5">
-        {SPLITS.map((s) => {
-          const on = split === s
-          return (
-            <button
-              key={s}
-              onClick={() => setSplit(s)}
-              aria-pressed={on}
-              className={`slab flex items-center gap-4 ${on ? '!border-chalk' : ''}`}
-            >
-              <span
-                aria-hidden
-                className={`h-9 w-[3px] rounded-full ${on ? 'bg-amber2' : 'bg-edge'}`}
-              />
-              <span>
-                <span className="block font-display font-bold uppercase tracking-wide text-[17px]">
-                  {SPLIT_LABELS[s]}
-                </span>
-                <span className="block text-[13px] text-slate2 mt-0.5">{SPLIT_HINTS[s]}</span>
-              </span>
-            </button>
-          )
-        })}
+      {/* 1. Gruppo muscolare, raggruppato per tipo di split (sez. 15/71) */}
+      <div className="mt-8 space-y-5">
+        {SPLIT_GROUPS.map((gruppo) => (
+          <div key={gruppo.label}>
+            <p className="font-data text-[10px] uppercase tracking-[0.16em] text-slate2 mb-2">
+              {gruppo.label}
+            </p>
+            <div className="space-y-2.5">
+              {gruppo.splits.map((s) => {
+                const on = split === s
+                return (
+                  <button
+                    key={s}
+                    onClick={() => setSplit(s)}
+                    aria-pressed={on}
+                    className={`slab flex items-center gap-4 ${on ? '!border-chalk' : ''}`}
+                  >
+                    <span
+                      aria-hidden
+                      className={`h-9 w-[3px] rounded-full ${on ? 'bg-amber2' : 'bg-edge'}`}
+                    />
+                    <span>
+                      <span className="block font-display font-bold uppercase tracking-wide text-[17px]">
+                        {SPLIT_LABELS[s]}
+                      </span>
+                      <span className="block text-[13px] text-slate2 mt-0.5">{SPLIT_HINTS[s]}</span>
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        ))}
       </div>
 
       {/* 2. Durata: la scelta che cambia di più giorno per giorno */}

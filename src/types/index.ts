@@ -12,7 +12,10 @@ export type Muscle =
   | 'chest' | 'back' | 'front_delts' | 'lateral_delts' | 'rear_delts'
   | 'biceps' | 'triceps' | 'quads' | 'hamstrings' | 'glutes' | 'calves' | 'core'
 
-export type Split = 'push' | 'pull' | 'legs' | 'upper' | 'lower' | 'full_body'
+export type Split =
+  | 'push' | 'pull' | 'legs' | 'upper' | 'lower' | 'full_body'
+  | 'bro_chest' | 'bro_back' | 'bro_shoulders' | 'bro_arms' | 'bro_legs'
+  | 'front_body' | 'back_body'
 
 /** Attrezzo di un singolo esercizio, come sta nel database. */
 export type Gear = 'barbell' | 'dumbbell' | 'machine' | 'cable' | 'bodyweight' | 'kettlebell' | 'cardio'
@@ -127,6 +130,13 @@ export const SPLIT_LABELS: Record<Split, string> = {
   upper: 'Parte alta',
   lower: 'Parte bassa',
   full_body: 'Tutto il corpo',
+  bro_chest: 'Petto',
+  bro_back: 'Dorso',
+  bro_shoulders: 'Spalle',
+  bro_arms: 'Braccia',
+  bro_legs: 'Gambe (dedicate)',
+  front_body: 'Anteriore',
+  back_body: 'Posteriore',
 }
 
 export const SPLIT_HINTS: Record<Split, string> = {
@@ -136,7 +146,23 @@ export const SPLIT_HINTS: Record<Split, string> = {
   upper: 'Tutta la parte superiore',
   lower: 'Tutta la parte inferiore',
   full_body: 'Una sessione su tutto',
+  bro_chest: 'Sessione dedicata al petto',
+  bro_back: 'Sessione dedicata al dorso',
+  bro_shoulders: 'Sessione dedicata alle spalle',
+  bro_arms: 'Bicipiti e tricipiti',
+  bro_legs: 'Sessione gambe più lunga e mirata',
+  front_body: 'Petto, spalle, quadricipiti, addome',
+  back_body: 'Dorso, deltoidi posteriori, femorali, glutei',
 }
+
+/** Raggruppamento degli split per la UI di selezione (sez. 15, 71 della specifica). */
+export const SPLIT_GROUPS: { label: string; splits: Split[] }[] = [
+  { label: 'Push / Pull / Legs', splits: ['push', 'pull', 'legs'] },
+  { label: 'Upper / Lower', splits: ['upper', 'lower'] },
+  { label: 'Full Body', splits: ['full_body'] },
+  { label: 'Bro Split', splits: ['bro_chest', 'bro_back', 'bro_shoulders', 'bro_arms', 'bro_legs'] },
+  { label: 'Front / Back', splits: ['front_body', 'back_body'] },
+]
 
 export const EQUIPMENT_LABELS: Record<Equipment, string> = {
   full_gym: 'Palestra completa',
