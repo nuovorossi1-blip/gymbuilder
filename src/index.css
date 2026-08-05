@@ -1,0 +1,49 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html { -webkit-tap-highlight-color: transparent; }
+  body {
+    @apply bg-ink text-chalk font-body antialiased;
+    overscroll-behavior-y: none;
+  }
+  /* Focus visibile da tastiera, requisito di accessibilita' */
+  :focus-visible {
+    outline: 2px solid #FFB627;
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  .eyebrow {
+    @apply font-data text-[11px] uppercase tracking-[0.18em] text-slate2;
+  }
+  .slab {
+    @apply relative w-full rounded-xl bg-steel border border-edge px-4 py-4
+           text-left transition-colors active:bg-edge;
+  }
+  .field-label {
+    @apply block font-data text-[11px] uppercase tracking-[0.16em] text-slate2 mb-2;
+  }
+  .chip {
+    @apply rounded-lg border border-edge bg-steel px-3 py-2.5 text-sm font-medium
+           text-slate2 transition-colors;
+  }
+  .chip-on {
+    @apply border-chalk bg-chalk text-ink;
+  }
+  .btn {
+    @apply w-full rounded-xl bg-chalk py-3.5 font-display font-bold uppercase
+           tracking-wide text-ink transition-opacity active:opacity-70
+           disabled:opacity-40;
+  }
+  .input {
+    @apply w-full rounded-xl border border-edge bg-steel px-4 py-3.5 text-base
+           text-chalk placeholder:text-slate2/60 focus:border-slate2 outline-none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}
