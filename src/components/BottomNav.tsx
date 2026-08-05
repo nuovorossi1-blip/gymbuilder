@@ -1,18 +1,16 @@
 import { NavLink } from 'react-router-dom'
 
 const VOCI = [
-  { to: '/', label: 'Home' },
-  { to: '/build', label: 'Crea' },
-  { to: '/saved', label: 'Salvati' },
-  { to: '/history', label: 'Storico' },
-  { to: '/profile', label: 'Profilo' },
+  { to: '/', label: 'Crea' },
+  { to: '/salvati', label: 'Salvati' },
+  { to: '/storico', label: 'Storico' },
+  { to: '/profilo', label: 'Profilo' },
 ]
 
 export default function BottomNav() {
   return (
     <nav
-      className="fixed bottom-0 inset-x-0 z-20 border-t border-edge bg-ink/95 backdrop-blur
-                 pb-[env(safe-area-inset-bottom)]"
+      className="fixed bottom-0 inset-x-0 z-20 border-t border-edge bg-ink/95 backdrop-blur pb-[env(safe-area-inset-bottom)]"
       aria-label="Navigazione principale"
     >
       <ul className="mx-auto flex max-w-lg">
@@ -29,12 +27,7 @@ export default function BottomNav() {
             >
               {({ isActive }) => (
                 <>
-                  <span
-                    aria-hidden
-                    className={`h-[3px] w-6 rounded-full transition-colors ${
-                      isActive ? 'bg-amber2' : 'bg-transparent'
-                    }`}
-                  />
+                  <span aria-hidden className={`h-[3px] w-6 rounded-full transition-colors ${isActive ? 'bg-amber2' : 'bg-transparent'}`} />
                   {v.label}
                 </>
               )}
