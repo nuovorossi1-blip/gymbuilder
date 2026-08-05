@@ -7,11 +7,13 @@ import {
   EQUIPMENT_LABELS,
   EXPERIENCE_LABELS,
   GOAL_LABELS,
+  INTENSITY_LABELS,
   MUSCLE_LABELS,
   type Equipment,
   type Experience,
   type Exercise,
   type Goal,
+  type Intensity,
   type Muscle,
 } from '../types'
 
@@ -139,6 +141,45 @@ export default function ProfilePage() {
             </button>
           ))}
         </div>
+      </Gruppo>
+
+      <Gruppo titolo="Intensità predefinita">
+        <div className="grid grid-cols-3 gap-2">
+          {(Object.keys(INTENSITY_LABELS) as Intensity[]).map((i) => (
+            <button
+              key={i}
+              className={`chip text-center ${settings.default_intensity === i ? 'chip-on' : ''}`}
+              onClick={() => applica(() => saveSettings({ default_intensity: i }))}
+              aria-pressed={settings.default_intensity === i}
+            >
+              {INTENSITY_LABELS[i]}
+            </button>
+          ))}
+        </div>
+      </Gruppo>
+
+      <Gruppo titolo="Peso">
+        <div className="flex items-center gap-2">
+          <input
+            type="number"
+            inputMode="numeric"
+            min={30}
+            max={250}
+            className="input w-28"
+            placeholder="—"
+            defaultValue={settings.weight_kg ?? ''}
+            onBlur={(e) => {
+              const v = e.target.value.trim()
+              const kg = v ? Math.min(250, Math.max(30, Number(v))) : null
+              if (kg !== settings.weight_kg) applica(() => saveSettings({ weight_kg: kg }))
+            }}
+          />
+          <span className="font-data text-[12px] text-slate2">kg</span>
+        </div>
+        <p className="mt-2 text-[12px] text-slate2">
+          Serve solo per stimare le calorie attive nell'allenamento. Facoltativo: senza,
+          usiamo una media adulta dichiarata come tale, mai un dato preciso.
+        </p>
       </Gruppo>
 
       <Gruppo titolo="Attrezzatura disponibile">

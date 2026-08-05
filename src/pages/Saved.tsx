@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../features/auth/AuthProvider'
 import { useWorkout } from '../features/workout/WorkoutContext'
 import { cambiaPreferito, elencoSalvati, eliminaSalvato } from '../lib/api'
-import { GOAL_LABELS, SPLIT_LABELS, type Goal, type SavedWorkout, type Split } from '../types'
+import { GOAL_LABELS, SPLIT_LABELS, type Goal, type Mode, type SavedWorkout, type Split } from '../types'
 
 export default function Saved() {
   const { user } = useAuth()
@@ -21,7 +21,7 @@ export default function Saved() {
 
   function apri(s: SavedWorkout) {
     setWorkout({
-      name: s.name, mode: 'bodybuilding', split: s.split as Split,
+      name: s.name, mode: s.mode as Mode, split: s.split as Split,
       goal: s.goal as Goal, experience: s.experience as never,
       duration_min: s.duration_min, blocks: s.blocks, warnings: [],
     })

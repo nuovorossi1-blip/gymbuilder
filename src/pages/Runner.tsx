@@ -106,6 +106,9 @@ export default function Runner() {
         <div className="mt-5 flex items-baseline gap-6 font-data">
           <span><span className="text-3xl">{durata}</span><span className="text-slate2 text-[13px]"> min</span></span>
           <span><span className="text-3xl">{esercizi.length}</span><span className="text-slate2 text-[13px]"> esercizi</span></span>
+          {!!workout?.est_kcal && (
+            <span><span className="text-3xl">~{workout.est_kcal}</span><span className="text-slate2 text-[13px]"> kcal stimate</span></span>
+          )}
         </div>
 
         <p className="field-label mt-9">Com'è andata</p>
@@ -224,6 +227,7 @@ export default function Runner() {
           {MUSCLE_LABELS[es.muscle]}
         </p>
       )}
+      {es.instructions && <p className="mt-2 text-[13px] text-slate2 leading-relaxed">{es.instructions}</p>}
 
       <div className="mt-12 text-center">
         <p className="eyebrow mb-3">Serie</p>
@@ -231,6 +235,11 @@ export default function Runner() {
           {fase.serie}<span className="text-slate2 text-[2rem]">/{es.sets}</span>
         </p>
         <p className="mt-6 font-data text-2xl">{es.reps} <span className="text-slate2 text-base">ripetizioni</span></p>
+        {/* Nessun sensore collegato: architettura predisposta (sez. 55-58), mai un valore inventato. */}
+        <p className="mt-5 flex items-center justify-center gap-4 font-data text-[12px] text-slate2">
+          <span>♡ FC non disponibile</span>
+          {!!es.est_kcal && <span>~{es.est_kcal} kcal stimate</span>}
+        </p>
       </div>
 
       <div className="mt-auto pt-10">

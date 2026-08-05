@@ -5,6 +5,7 @@ import { useSettings } from '../features/profile/useSettings'
 import { useWorkout } from '../features/workout/WorkoutContext'
 import { caricaCatalogo, salvaAllenamento, volumeSettimanaleUtente } from '../lib/api'
 import { generaBodybuilding } from '../generators/bodybuilding'
+import { generaForza } from '../generators/strength'
 import { EXPERIENCE_LABELS, GOAL_LABELS, MUSCLE_LABELS, SPLIT_LABELS } from '../types'
 
 export default function WorkoutPreview() {
@@ -36,19 +37,23 @@ export default function WorkoutPreview() {
     if (!settings || !workout || !user) return
     const catalogo = await caricaCatalogo()
     const volumeSettimanale = await volumeSettimanaleUtente(user.id, catalogo)
+    const baseCfg = {
+      split: workout.split,
+      experience: settings.experience,
+      equipment: settings.equipment,
+      duration_min: workout.duration_min,
+      priority_muscles: settings.priority_muscles,
+      excluded_exercises: settings.excluded_exercises,
+      preferred_exercises: settings.favorite_exercises,
+      weekly_volume: volumeSettimanale,
+      intensity: settings.default_intensity,
+      weight_kg: settings.weight_kg,
+      seed: Date.now() % 100000,
+    }
     setWorkout(
-      generaBodybuilding(catalogo, {
-        split: workout.split,
-        goal: workout.goal,
-        experience: settings.experience,
-        equipment: settings.equipment,
-        duration_min: workout.duration_min,
-        priority_muscles: settings.priority_muscles,
-        excluded_exercises: settings.excluded_exercises,
-        preferred_exercises: settings.favorite_exercises,
-        weekly_volume: volumeSettimanale,
-        seed: Date.now() % 100000,
-      })
+      workout.mode === 'strength'
+        ? generaForza(catalogo, baseCfg)
+        : generaBodybuilding(catalogo, { ...baseCfg, goal: workout.goal })
     )
     setStato('fermo')
     setMessaggio(null)
@@ -83,6 +88,12 @@ export default function WorkoutPreview() {
           <span className="text-3xl">{principale?.exercises.length ?? 0}</span>
           <span className="text-slate2 text-[13px]"> esercizi</span>
         </span>
+        {!!workout.est_kcal && (
+          <span>
+            <span className="text-3xl">~{workout.est_kcal}</span>
+            <span className="text-slate2 text-[13px]"> kcal stimate</span>
+          </span>
+        )}
       </div>
 
       {workout.warnings.map((w, i) => (
@@ -134,6 +145,9 @@ export default function WorkoutPreview() {
                 <p className="mt-1.5 pl-7 font-data text-[10px] uppercase tracking-[0.12em] text-slate2">
                   {MUSCLE_LABELS[e.muscle]}
                 </p>
+              )}
+              {e.instructions && (
+                <p className="mt-1.5 pl-7 text-[12px] text-slate2 leading-relaxed">{e.instructions}</p>
               )}
             </li>
           ))}

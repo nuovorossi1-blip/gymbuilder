@@ -26,11 +26,13 @@
  */
 
 import type {
-  Equipment, Exercise, Experience, GeneratedWorkout, Goal, Muscle,
+  Equipment, Exercise, Experience, GeneratedWorkout, Goal, Intensity, Muscle,
   PrescribedExercise, Split, WorkoutBlock,
 } from '../types'
 import { EQUIPMENT_MAP, MUSCLE_LABELS, SPLIT_LABELS } from '../types'
 import { decidiRichiami } from './weakPoints'
+import { PESO_DEFAULT_KG, stimaCalorieEsercizio } from './calories'
+import { minutiBlocco, minutiEsercizio, rimuoviDuplicati, rng, scegliRiscaldamento, vuotoVolume } from './shared'
 
 export interface GenerationConfig {
   split: Split
@@ -44,6 +46,10 @@ export interface GenerationConfig {
   preferred_exercises?: string[]
   /** Volume settimanale già accumulato per muscolo, dagli allenamenti completati (weakPoints.ts). */
   weekly_volume?: Record<Muscle, number>
+  /** Bassa/Media/Alta: modula recupero e ripetizioni entro l'obiettivo scelto (sez. UI Base44). */
+  intensity?: Intensity
+  /** Per la stima delle calorie attive (sez. 60); senza valore si usa una media adulta dichiarata. */
+  weight_kg?: number | null
   seed?: number
 }
 
@@ -218,8 +224,12 @@ const RICHIAMO_POOL: Record<Split, Muscle[]> = {
   back_body: ['back', 'hamstrings', 'rear_delts', 'biceps', 'glutes'],
 }
 
-/** Serie, ripetizioni e recupero secondo l'obiettivo (sez. 10). */
-function prescrizione(goal: Goal, compound: boolean, exp: Experience) {
+/**
+ * Serie, ripetizioni e recupero secondo l'obiettivo (sez. 10), modulati
+ * dall'intensità scelta per oggi (Bassa/Media/Alta): sposta il recupero
+ * verso gli estremi dell'intervallo dell'obiettivo, non cambia obiettivo.
+ */
+function prescrizione(goal: Goal, compound: boolean, exp: Experience, intensity: Intensity = 'medium') {
   const base = {
     strength:     compound ? { sets: 4, reps: '4-6',   rest: 180 } : { sets: 3, reps: '6-8',   rest: 120 },
     hypertrophy:  compound ? { sets: 4, reps: '6-10',  rest: 120 } : { sets: 3, reps: '10-15', rest: 75 },
@@ -227,9 +237,12 @@ function prescrizione(goal: Goal, compound: boolean, exp: Experience) {
     mixed:        compound ? { sets: 4, reps: '8-10',  rest: 105 } : { sets: 3, reps: '12-15', rest: 60 },
   }[goal]
 
+  const fattoreRecupero = { low: 0.75, medium: 1, high: 1.25 }[intensity]
+  const risultato = { ...base, rest: Math.round(base.rest * fattoreRecupero) }
+
   // I principianti fanno una serie in meno sui fondamentali: meno volume, tecnica migliore.
-  if (exp === 'beginner' && compound) return { ...base, sets: Math.max(3, base.sets - 1) }
-  return base
+  if (exp === 'beginner' && compound) return { ...risultato, sets: Math.max(3, risultato.sets - 1) }
+  return risultato
 }
 
 /** Serie minime sotto cui non si scende quando si adatta la sessione al tempo (sez. 3). */
@@ -238,25 +251,6 @@ function serieMinime(compound: boolean): number {
 }
 
 const RANK_EXP: Record<Experience, number> = { beginner: 1, intermediate: 2, advanced: 3 }
-
-/** Generatore pseudocasuale con seme: stessa configurazione + stesso seme = stesso allenamento. */
-function rng(seed: number) {
-  let s = seed || 1
-  return () => {
-    s = (s * 1664525 + 1013904223) % 4294967296
-    return s / 4294967296
-  }
-}
-
-/** Minuti stimati per un esercizio: serie x (tempo sotto sforzo + recupero) + transizione. */
-function minutiEsercizio(p: { sets: number; rest_sec: number }): number {
-  const lavoro = 40 // secondi medi per serie
-  return (p.sets * (lavoro + p.rest_sec) + 60) / 60
-}
-
-function minutiBlocco(esercizi: { sets: number; rest_sec: number }[]): number {
-  return esercizi.reduce((t, e) => t + minutiEsercizio(e), 0)
-}
 
 /** Quanti esercizi principali punta ad avere la sessione, secondo il tempo (sez. 3: sempre 5-7). */
 function targetEsercizi(duration_min: number): number {
@@ -395,7 +389,7 @@ export function generaBodybuilding(
 
     if (!scelto) continue // nessun esercizio disponibile per questo slot con questa attrezzatura
 
-    const p = prescrizione(cfg.goal, s.compound, cfg.experience)
+    const p = prescrizione(cfg.goal, s.compound, cfg.experience, cfg.intensity)
     const voce: PrescribedExercise = {
       exercise_id: scelto.id,
       name: scelto.name,
@@ -405,6 +399,7 @@ export function generaBodybuilding(
       reps: p.reps,
       rest_sec: p.rest,
       note: isRichiamo ? 'richiamo' : undefined,
+      instructions: scelto.instructions || undefined,
     }
 
     usati.add(scelto.id)
@@ -433,6 +428,15 @@ export function generaBodybuilding(
     warnings.push('Nessun esercizio disponibile con queste impostazioni.')
   }
 
+  // Stima calorie (sez. 60): calcolata dopo l'adattamento al tempo, sui
+  // minuti effettivi di ogni esercizio. Senza peso noto si usa una media
+  // adulta dichiarata, mai spacciata per una misura individuale.
+  const peso = cfg.weight_kg || PESO_DEFAULT_KG
+  for (const e of scelti) {
+    e.est_kcal = stimaCalorieEsercizio('bodybuilding', e.role, minutiEsercizio(e), peso)
+  }
+  const kcalTotali = scelti.reduce((t, e) => t + (e.est_kcal ?? 0), 0)
+
   const blocchi: WorkoutBlock[] = [
     {
       kind: 'warmup',
@@ -452,13 +456,7 @@ export function generaBodybuilding(
     duration_min: Math.round(minutiRiscaldamento + minutiBlocco(scelti)),
     blocks: blocchi,
     warnings,
-  }
-}
-
-function vuotoVolume(): Record<Muscle, number> {
-  return {
-    chest: 0, back: 0, front_delts: 0, lateral_delts: 0, rear_delts: 0,
-    biceps: 0, triceps: 0, quads: 0, hamstrings: 0, glutes: 0, calves: 0, core: 0,
+    est_kcal: kcalTotali,
   }
 }
 
@@ -508,15 +506,6 @@ function adattaAlTempo(scelti: PrescribedExercise[], budgetMin: number): void {
   }
 }
 
-/** Rimuove eventuali duplicati (sez. 22): non dovrebbero capitare, ma è una rete di sicurezza. */
-function rimuoviDuplicati(scelti: PrescribedExercise[]): void {
-  const visti = new Set<string>()
-  for (let i = scelti.length - 1; i >= 0; i--) {
-    if (visti.has(scelti[i].exercise_id)) scelti.splice(i, 1)
-    else visti.add(scelti[i].exercise_id)
-  }
-}
-
 /**
  * Ridistribuisce gli slot base verso i muscoli prioritari CHE NON HANNO
  * ANCORA UNO SLOT PROPRIO in questo split, senza aggiungerne di nuovi:
@@ -553,54 +542,3 @@ function ridistribuisci(slot: SlotDef[], priorita: Muscle[]): SlotDef[] {
   return out
 }
 
-/**
- * Riscaldamento contestuale (sez. 5 della correzione): costruito DOPO aver
- * scelto gli esercizi principali, in base ai pattern di movimento e ai
- * muscoli che la sessione userà davvero, non da una tabella fissa per split.
- */
-function scegliRiscaldamento(
-  pool: Exercise[],
-  catalogoAllenamento: Exercise[],
-  scelti: PrescribedExercise[],
-  random: () => number
-): PrescribedExercise[] {
-  const perId = new Map(catalogoAllenamento.map((e) => [e.id, e]))
-  const principali = scelti.map((s) => perId.get(s.exercise_id)).filter((e): e is Exercise => !!e)
-  const patterns = new Set(principali.map((e) => e.movement_pattern))
-  const muscoli = new Set(principali.flatMap((e) => e.primary_muscles))
-
-  const cardio = pool.filter((e) => e.roles.includes('cardio'))
-  const resto = pool.filter((e) => !e.roles.includes('cardio'))
-
-  // Mobilità/attivazione il cui pattern o muscolo compare davvero nella sessione di oggi.
-  const mirati = resto.filter(
-    (e) => patterns.has(e.movement_pattern) || e.primary_muscles.some((m) => muscoli.has(m))
-  )
-
-  const scelti_wu: Exercise[] = []
-  if (cardio.length > 0) scelti_wu.push(cardio[Math.floor(random() * cardio.length)])
-  for (const e of mirati) {
-    if (scelti_wu.length >= 4) break
-    if (!scelti_wu.some((x) => x.id === e.id)) scelti_wu.push(e)
-  }
-  // Fallback: se la sessione usa pattern per cui non esiste riscaldamento mirato,
-  // meglio una mobilità generica che nessun riscaldamento.
-  if (scelti_wu.length < 2) {
-    for (const e of resto) {
-      if (scelti_wu.length >= 3) break
-      if (!scelti_wu.some((x) => x.id === e.id)) scelti_wu.push(e)
-    }
-  }
-  const finale = resto.find((x) => x.id === 'wu_serie_leggera')
-  if (finale && !scelti_wu.some((x) => x.id === finale.id)) scelti_wu.push(finale)
-
-  return scelti_wu.map((e) => ({
-    exercise_id: e.id,
-    name: e.name,
-    role: 'warmup' as const,
-    muscle: e.primary_muscles[0] ?? null,
-    sets: 1,
-    reps: e.default_reps,
-    rest_sec: 0,
-  }))
-}

@@ -2,6 +2,8 @@
 
 export type Experience = 'beginner' | 'intermediate' | 'advanced'
 export type Goal = 'hypertrophy' | 'strength' | 'conditioning' | 'mixed'
+export type Intensity = 'low' | 'medium' | 'high'
+export type Mode = 'bodybuilding' | 'strength'
 
 export type Equipment =
   | 'full_gym' | 'barbell' | 'dumbbells' | 'machines'
@@ -37,6 +39,8 @@ export interface Exercise {
   default_sets: number
   default_reps: string
   default_rest: number
+  /** Come eseguire il movimento, una riga. Sez. 88 della correzione. */
+  instructions: string
 }
 
 /** Un esercizio gia' prescritto: serie, ripetizioni e recupero decisi dal motore. */
@@ -49,6 +53,9 @@ export interface PrescribedExercise {
   reps: string
   rest_sec: number
   note?: string
+  instructions?: string
+  /** Calorie attive stimate per l'intero esercizio (sez. 60): mai "esatte". */
+  est_kcal?: number
 }
 
 export interface WorkoutBlock {
@@ -60,13 +67,15 @@ export interface WorkoutBlock {
 
 export interface GeneratedWorkout {
   name: string
-  mode: 'bodybuilding'
+  mode: Mode
   split: Split
   goal: Goal
   experience: Experience
   duration_min: number
   blocks: WorkoutBlock[]
   warnings: string[]
+  /** Calorie attive stimate per l'intera sessione (sez. 60-61): sempre una stima, mai un valore esatto. */
+  est_kcal?: number
 }
 
 export interface Profile {
@@ -84,6 +93,9 @@ export interface UserSettings {
   priority_muscles: Muscle[]
   excluded_exercises: string[]
   favorite_exercises: string[]
+  default_intensity: Intensity
+  /** Usato solo per stimare le calorie attive (sez. 60): mai richiesto, mai obbligatorio. */
+  weight_kg: number | null
 }
 
 export interface SavedWorkout {
@@ -122,6 +134,25 @@ export const GOAL_LABELS: Record<Goal, string> = {
   conditioning: 'Condizionamento',
   mixed: 'Misto',
 }
+
+export const INTENSITY_LABELS: Record<Intensity, string> = {
+  low: 'Bassa',
+  medium: 'Media',
+  high: 'Alta',
+}
+
+export const MODE_LABELS: Record<Mode, string> = {
+  bodybuilding: 'Bodybuilding',
+  strength: 'Forza',
+}
+
+/** Modalità della specifica non ancora costruite: mostrate ma disattivate (sez. 84, non si finge che esistano). */
+export const MODES_IN_ARRIVO: { label: string; hint: string }[] = [
+  { label: 'CrossFit Standard', hint: 'Strength/Skill + Metcon' },
+  { label: 'CrossFit Hybrid', hint: 'Forza e cardio alternati' },
+  { label: 'Tabata', hint: 'Timer a intervalli fissi' },
+  { label: 'Condizionamento', hint: 'AMRAP, EMOM, For Time' },
+]
 
 export const SPLIT_LABELS: Record<Split, string> = {
   push: 'Spinta',
