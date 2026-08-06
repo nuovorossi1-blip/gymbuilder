@@ -5,7 +5,7 @@
  * Le regole di programmazione (slot, split, fatica) restano in ciascun motore.
  */
 
-import type { Exercise, Muscle, PrescribedExercise } from '../types'
+import type { Exercise, Experience, Intensity, Muscle, PrescribedExercise } from '../types'
 
 /** Generatore pseudocasuale con seme: stessa configurazione + stesso seme = stesso allenamento. */
 export function rng(seed: number) {
@@ -93,4 +93,105 @@ export function scegliRiscaldamento(
     rest_sec: 0,
     instructions: e.instructions || undefined,
   }))
+}
+
+/**
+ * Movimenti "da Metcon", condivisi da CrossFit Standard, CrossFit Hybrid,
+ * Condizionamento e Tabata: solo bodyweight/kettlebell/manubri/cardio (mai
+ * bilanciere, macchine o cavi, che restano della parte Forza/pesi), tag
+ * 'conditioning' o 'cardio', complessità tecnica bassa (va eseguito anche
+ * sotto fatica).
+ */
+export type CategoriaMetcon = 'lower' | 'upper' | 'full' | 'core' | 'mono'
+
+export const CATEGORIA_PATTERN: Record<string, CategoriaMetcon> = {
+  squat: 'lower', lunge: 'lower', hinge: 'lower', jump: 'lower',
+  horizontal_push: 'upper', vertical_push: 'upper', horizontal_pull: 'upper', vertical_pull: 'upper',
+  core: 'core',
+  burpee: 'full',
+  bike: 'mono', run: 'mono', row: 'mono',
+}
+
+export function poolMetcon(allenamento: Exercise[], usati: Set<string>): Exercise[] {
+  return allenamento.filter(
+    (e) =>
+      !usati.has(e.id) &&
+      e.equipment !== 'barbell' &&
+      e.equipment !== 'machine' &&
+      e.equipment !== 'cable' &&
+      e.technical_complexity <= 2 &&
+      (e.roles.includes('conditioning') || e.roles.includes('cardio')) &&
+      CATEGORIA_PATTERN[e.movement_pattern] !== undefined
+  )
+}
+
+/** Ripetizioni per un movimento da Metcon: numeriche per la maggior parte delle categorie, a tempo per il monostrutturale. */
+export function repsMetcon(categoria: CategoriaMetcon, exp: Experience, intensity: Intensity): string {
+  if (categoria === 'mono') return '1 min'
+  const base: Record<Exclude<CategoriaMetcon, 'mono'>, number> = { lower: 15, upper: 10, full: 10, core: 15 }
+  const expMult = { beginner: 0.7, intermediate: 1, advanced: 1.3 }[exp]
+  const intMult = { low: 0.85, medium: 1, high: 1.15 }[intensity]
+  const valore = Math.round((base[categoria] * expMult * intMult) / 5) * 5
+  return String(Math.max(5, valore))
+}
+
+/** Sceglie un candidato dando priorità a muscoli richiesti, poi a preferiti, poi casuale fra i restanti. */
+export function scegliCandidato(
+  pool: Exercise[],
+  usati: Set<string>,
+  priorita: Muscle[],
+  preferiti: Set<string>,
+  random: () => number
+): Exercise | undefined {
+  const candidati = pool.filter((e) => !usati.has(e.id))
+  if (candidati.length === 0) return undefined
+  const conPriorita = candidati.filter((e) => e.primary_muscles.some((m) => priorita.includes(m)))
+  const base = conPriorita.length > 0 ? conPriorita : candidati
+  const conPreferiti = base.filter((e) => preferiti.has(e.id))
+  const scelta = conPreferiti.length > 0 ? conPreferiti : base
+  return scelta[Math.floor(random() * scelta.length)]
+}
+
+export interface MovimentoScelto {
+  exercise: Exercise
+  categoria: CategoriaMetcon
+}
+
+/**
+ * Un circuito di movimenti da Metcon, una categoria alla volta (monostrutturale,
+ * gambe, spinta/tirata, core, full-body) per varietà, poi completato da
+ * qualunque movimento resti se una categoria era vuota per l'attrezzatura.
+ * Condiviso da CrossFit Standard, Condizionamento e Tabata: la differenza fra
+ * quei motori è solo come prescrivono serie/tempo sul circuito scelto, non
+ * come lo scelgono.
+ */
+export function costruisciCircuito(
+  pool: Exercise[],
+  numMovimenti: number,
+  priorita: Muscle[],
+  preferiti: Set<string>,
+  random: () => number
+): MovimentoScelto[] {
+  const ordineCategorie: CategoriaMetcon[] = ['mono', 'lower', 'upper', 'core', 'full']
+  const usati = new Set<string>()
+  const risultato: MovimentoScelto[] = []
+
+  for (const categoria of ordineCategorie) {
+    if (risultato.length >= numMovimenti) break
+    const bucket = pool.filter((e) => CATEGORIA_PATTERN[e.movement_pattern] === categoria)
+    const scelto = scegliCandidato(bucket, usati, priorita, preferiti, random)
+    if (scelto) {
+      usati.add(scelto.id)
+      risultato.push({ exercise: scelto, categoria })
+    }
+  }
+  while (risultato.length < numMovimenti) {
+    const restanti = pool.filter((e) => !usati.has(e.id))
+    const scelto = scegliCandidato(restanti, usati, priorita, preferiti, random)
+    if (!scelto) break
+    usati.add(scelto.id)
+    const categoria = CATEGORIA_PATTERN[scelto.movement_pattern] ?? 'upper'
+    risultato.push({ exercise: scelto, categoria })
+  }
+  return risultato
 }

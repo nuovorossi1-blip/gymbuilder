@@ -7,7 +7,10 @@ import { caricaCatalogo, salvaAllenamento, volumeSettimanaleUtente } from '../li
 import { generaBodybuilding } from '../generators/bodybuilding'
 import { generaForza } from '../generators/strength'
 import { generaCrossFit } from '../generators/crossfit'
-import { EXPERIENCE_LABELS, GOAL_LABELS, MODE_LABELS, MUSCLE_LABELS, SPLIT_LABELS } from '../types'
+import { generaHybrid } from '../generators/hybrid'
+import { generaCondizionamento, type ConditioningFormat } from '../generators/conditioning'
+import { generaTabata } from '../generators/tabata'
+import { EXPERIENCE_LABELS, GOAL_LABELS, MODE_LABELS, MUSCLE_LABELS, SPLIT_LABELS, type WorkoutBlock } from '../types'
 
 export default function WorkoutPreview() {
   const { user } = useAuth()
@@ -40,9 +43,35 @@ export default function WorkoutPreview() {
     const catalogo = await caricaCatalogo()
     const volumeSettimanale = await volumeSettimanaleUtente(user.id, catalogo)
 
-    if (workout.mode === 'crossfit') {
+    if (workout.mode === 'crossfit' || workout.mode === 'crossfit_hybrid' || workout.mode === 'tabata') {
+      const cfg = {
+        experience: settings.experience,
+        equipment: settings.equipment,
+        duration_min: workout.duration_min,
+        priority_muscles: settings.priority_muscles,
+        excluded_exercises: settings.excluded_exercises,
+        preferred_exercises: settings.favorite_exercises,
+        intensity: settings.default_intensity,
+        weight_kg: settings.weight_kg,
+        seed: Date.now() % 100000,
+      }
       setWorkout(
-        generaCrossFit(catalogo, {
+        workout.mode === 'crossfit'
+          ? generaCrossFit(catalogo, cfg)
+          : workout.mode === 'crossfit_hybrid'
+          ? generaHybrid(catalogo, cfg)
+          : generaTabata(catalogo, cfg)
+      )
+      setStato('fermo')
+      setMessaggio(null)
+      return
+    }
+
+    if (workout.mode === 'conditioning') {
+      const formato = (workout.blocks.find((b) => b.kind === 'metcon')?.format ?? 'amrap') as ConditioningFormat
+      setWorkout(
+        generaCondizionamento(catalogo, {
+          format: formato,
           experience: settings.experience,
           equipment: settings.equipment,
           duration_min: workout.duration_min,
@@ -143,47 +172,49 @@ export default function WorkoutPreview() {
       )}
 
       {/* Allenamento */}
-      <section className="mt-8">
-        <h2 className="field-label">{workout.mode === 'crossfit' ? 'Forza/Skill' : 'Allenamento'}</h2>
-        <ol className="space-y-2.5">
-          {principale?.exercises.map((e, i) => (
-            <li key={i} className="slab !py-3.5">
-              <div className="flex items-baseline gap-3">
-                <span className="font-data text-[13px] text-slate2 w-4 shrink-0">{i + 1}</span>
-                <div className="min-w-0 flex-1">
-                  <p className="font-medium text-[15px] leading-snug">{e.name}</p>
-                  <p className="mt-1 flex flex-wrap items-baseline gap-x-3 font-data text-[12px] text-slate2">
-                    <span className="text-chalk text-[15px]">
-                      {e.sets}<span className="text-slate2 text-[12px]">×</span>{e.reps}
-                    </span>
-                    <span>recupero {formattaRec(e.rest_sec)}</span>
-                  </p>
+      {principale && principale.exercises.length > 0 && (
+        <section className="mt-8">
+          <h2 className="field-label">
+            {workout.mode === 'crossfit' ? 'Forza/Skill' : workout.mode === 'crossfit_hybrid' ? 'Forza + Cardio' : 'Allenamento'}
+          </h2>
+          <ol className="space-y-2.5">
+            {principale.exercises.map((e, i) => (
+              <li key={i} className="slab !py-3.5">
+                <div className="flex items-baseline gap-3">
+                  <span className="font-data text-[13px] text-slate2 w-4 shrink-0">{i + 1}</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-[15px] leading-snug">{e.name}</p>
+                    <p className="mt-1 flex flex-wrap items-baseline gap-x-3 font-data text-[12px] text-slate2">
+                      <span className="text-chalk text-[15px]">
+                        {e.sets}<span className="text-slate2 text-[12px]">×</span>{e.reps}
+                      </span>
+                      <span>recupero {formattaRec(e.rest_sec)}</span>
+                    </p>
+                  </div>
+                  <span className="font-data text-[9px] uppercase tracking-[0.12em] text-slate2 shrink-0">
+                    {e.role === 'compound' ? 'base' : e.role === 'metcon' ? 'cardio' : 'isol.'}
+                  </span>
                 </div>
-                <span className="font-data text-[9px] uppercase tracking-[0.12em] text-slate2 shrink-0">
-                  {e.role === 'compound' ? 'base' : 'isol.'}
-                </span>
-              </div>
-              {e.muscle && (
-                <p className="mt-1.5 pl-7 font-data text-[10px] uppercase tracking-[0.12em] text-slate2">
-                  {MUSCLE_LABELS[e.muscle]}
-                </p>
-              )}
-              {e.instructions && (
-                <p className="mt-1.5 pl-7 text-[12px] text-slate2 leading-relaxed">{e.instructions}</p>
-              )}
-            </li>
-          ))}
-        </ol>
-      </section>
+                {e.muscle && (
+                  <p className="mt-1.5 pl-7 font-data text-[10px] uppercase tracking-[0.12em] text-slate2">
+                    {MUSCLE_LABELS[e.muscle]}
+                  </p>
+                )}
+                {e.instructions && (
+                  <p className="mt-1.5 pl-7 text-[12px] text-slate2 leading-relaxed">{e.instructions}</p>
+                )}
+              </li>
+            ))}
+          </ol>
+        </section>
+      )}
 
       {/* Metcon */}
       {metcon && metcon.exercises.length > 0 && (
         <section className="mt-8">
           <div className="flex items-baseline justify-between">
             <h2 className="field-label !mb-0">{metcon.title}</h2>
-            <span className="font-data text-[11px] text-slate2">
-              {metcon.time_cap_min} min · quanti giri fai
-            </span>
+            <span className="font-data text-[11px] text-slate2">{sottotitoloMetcon(metcon)}</span>
           </div>
           <ol className="mt-3 space-y-2.5">
             {metcon.exercises.map((e, i) => (
@@ -192,7 +223,9 @@ export default function WorkoutPreview() {
                   <span className="font-data text-[13px] text-slate2 w-4 shrink-0">{i + 1}</span>
                   <div className="min-w-0 flex-1">
                     <p className="font-medium text-[15px] leading-snug">{e.name}</p>
-                    <p className="mt-1 text-chalk font-data text-[15px]">{e.reps}</p>
+                    <p className="mt-1 text-chalk font-data text-[15px]">
+                      {e.reps}{e.note ? <span className="text-slate2 text-[12px]"> · {e.note}</span> : null}
+                    </p>
                   </div>
                 </div>
                 {e.instructions && (
@@ -201,9 +234,7 @@ export default function WorkoutPreview() {
               </li>
             ))}
           </ol>
-          <p className="mt-2 text-[12px] text-slate2">
-            Ripeti il giro finché non finisce il tempo: quanti giri completi è il tuo punteggio.
-          </p>
+          <p className="mt-2 text-[12px] text-slate2">{descrizioneMetcon(metcon)}</p>
         </section>
       )}
 
@@ -243,4 +274,30 @@ export function formattaRec(sec: number): string {
   const m = Math.floor(sec / 60)
   const s = sec % 60
   return s === 0 ? `${m} min` : `${m}:${String(s).padStart(2, '0')}`
+}
+
+function sottotitoloMetcon(m: WorkoutBlock): string {
+  switch (m.format) {
+    case 'amrap': return `${m.time_cap_min} min · quanti giri fai`
+    case 'for_time': return `cap ${m.time_cap_min} min · il tempo è il punteggio`
+    case 'rounds': return `${m.rounds} giri`
+    case 'circuit': return `${m.rounds} giri`
+    case 'emom': return `${m.rounds} min`
+    case 'intervals': return `${m.interval_sec}″ lavoro`
+    case 'tabata': return `${m.rounds}×20″/10″`
+    default: return ''
+  }
+}
+
+function descrizioneMetcon(m: WorkoutBlock): string {
+  switch (m.format) {
+    case 'amrap': return 'Ripeti il giro finché non finisce il tempo: quanti giri completi è il tuo punteggio.'
+    case 'for_time': return 'Fai tutto il volume prescritto il più velocemente possibile, entro il tempo massimo.'
+    case 'rounds': return 'Completa tutti i giri, riposando il necessario fra uno e l\'altro: il tempo totale è il tuo punteggio.'
+    case 'circuit': return 'Un esercizio dopo l\'altro con recupero fisso, ripetuto per i giri indicati.'
+    case 'emom': return 'Un compito ogni minuto, sul minuto: quello che avanza del minuto è il tuo riposo.'
+    case 'intervals': return 'Lavoro e riposo si alternano a intervalli fissi, a ripetere per tutti i round.'
+    case 'tabata': return 'Un movimento alla volta: 8 round di 20″ lavoro e 10″ riposo, poi il prossimo.'
+    default: return ''
+  }
 }

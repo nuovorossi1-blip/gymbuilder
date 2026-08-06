@@ -23,6 +23,13 @@ const MET: Record<Mode, { compound: number; isolation: number; metcon?: number }
   // CrossFit: la parte Strength/Skill è simile alla Forza, il Metcon è
   // sforzo cardio-metabolico continuo (MET ~8, "vigorous circuit training").
   crossfit: { compound: 4.5, isolation: 3.5, metcon: 8 },
+  // Hybrid: le stesse alzate della Bodybuilding, alternate a scariche cardio
+  // che alzano la densità media della sessione più delle altre modalità.
+  crossfit_hybrid: { compound: 5, isolation: 3.5, metcon: 8 },
+  // Condizionamento: solo Metcon, nessuna parte a bassa densità.
+  conditioning: { compound: 8, isolation: 8, metcon: 8 },
+  // Tabata: intervalli massimali, il MET più alto delle modalità esistenti.
+  tabata: { compound: 9, isolation: 9, metcon: 9 },
 }
 const MET_WARMUP = 2.5
 

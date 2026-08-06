@@ -3,15 +3,20 @@
 export type Experience = 'beginner' | 'intermediate' | 'advanced'
 export type Goal = 'hypertrophy' | 'strength' | 'conditioning' | 'mixed'
 export type Intensity = 'low' | 'medium' | 'high'
-export type Mode = 'bodybuilding' | 'strength' | 'crossfit'
+export type Mode = 'bodybuilding' | 'strength' | 'crossfit' | 'crossfit_hybrid' | 'conditioning' | 'tabata'
 
 /**
- * Formato del Metcon (sez. CrossFit Standard). Solo AMRAP per ora: è il
- * formato classico di una classe standard (Strength/Skill + Metcon a tempo).
- * EMOM/For Time/Rounds/Circuit/Intervals restano del futuro motore
- * Condizionamento (fase 8), che li userà come vera scelta di formato.
+ * Formato del Metcon. CrossFit Standard usa solo 'amrap' (struttura fissa di
+ * classe). Condizionamento (fase 8) lascia scegliere fra i primi sei.
+ * 'tabata' è il protocollo fisso 20"/10"×8 del motore Tabata (fase 9), non
+ * selezionabile: ha un motore proprio perché la prescrizione è rigida, non
+ * una vera scelta di formato come gli altri.
  */
-export type MetconFormat = 'amrap'
+export type MetconFormat = 'amrap' | 'emom' | 'for_time' | 'rounds' | 'circuit' | 'intervals' | 'tabata'
+
+/** Le due famiglie di comportamento del Runner per i formati Metcon (sez. Runner). */
+export const FORMATO_A_INTERVALLI: MetconFormat[] = ['emom', 'intervals', 'tabata']
+export const FORMATO_A_GIRI: MetconFormat[] = ['for_time', 'rounds', 'circuit']
 
 export type Equipment =
   | 'full_gym' | 'barbell' | 'dumbbells' | 'machines'
@@ -73,8 +78,12 @@ export interface WorkoutBlock {
   exercises: PrescribedExercise[]
   /** Solo per kind 'metcon': come si esegue il blocco. */
   format?: MetconFormat
-  /** Solo per kind 'metcon': tempo a disposizione per il Metcon (AMRAP). */
+  /** Solo per kind 'metcon' a tempo (amrap/for_time/rounds): tetto di minuti a disposizione. */
   time_cap_min?: number
+  /** Solo per kind 'metcon' a giri (emom/rounds/circuit/intervals/tabata): quanti giri/intervalli. */
+  rounds?: number
+  /** Solo per emom/intervals/tabata: durata in secondi di ciascun intervallo di lavoro. */
+  interval_sec?: number
 }
 
 export interface GeneratedWorkout {
@@ -158,18 +167,33 @@ export const MODE_LABELS: Record<Mode, string> = {
   bodybuilding: 'Bodybuilding',
   strength: 'Forza',
   crossfit: 'CrossFit Standard',
+  crossfit_hybrid: 'CrossFit Hybrid',
+  conditioning: 'Condizionamento',
+  tabata: 'Tabata',
 }
 
 export const METCON_FORMAT_LABELS: Record<MetconFormat, string> = {
   amrap: 'AMRAP',
+  emom: 'EMOM',
+  for_time: 'For Time',
+  rounds: 'A giri',
+  circuit: 'Circuit',
+  intervals: 'Intervals',
+  tabata: 'Tabata',
+}
+
+export const METCON_FORMAT_HINTS: Record<MetconFormat, string> = {
+  amrap: 'Più giri possibili in un tempo fisso',
+  emom: 'Un compito ogni minuto, sul minuto',
+  for_time: 'Il volume prescritto il più veloce possibile',
+  rounds: 'Un numero fisso di giri, riposando il necessario',
+  circuit: 'Stazioni in sequenza con recupero fisso',
+  intervals: 'Lavoro e riposo a intervalli regolari',
+  tabata: 'Protocollo fisso 20″ lavoro / 10″ riposo × 8',
 }
 
 /** Modalità della specifica non ancora costruite: mostrate ma disattivate (sez. 84, non si finge che esistano). */
-export const MODES_IN_ARRIVO: { label: string; hint: string }[] = [
-  { label: 'CrossFit Hybrid', hint: 'Forza e cardio alternati' },
-  { label: 'Tabata', hint: 'Timer a intervalli fissi' },
-  { label: 'Condizionamento', hint: 'AMRAP, EMOM, For Time' },
-]
+export const MODES_IN_ARRIVO: { label: string; hint: string }[] = []
 
 export const SPLIT_LABELS: Record<Split, string> = {
   push: 'Spinta',

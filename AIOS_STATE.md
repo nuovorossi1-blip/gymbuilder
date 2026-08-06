@@ -4,7 +4,7 @@
 > da qui. Va **aggiornato** a ogni sessione, non accodato all'infinito.
 > L'identità del progetto e il percorso di AI-OS stanno in `AIOS_PROJECT.json`.
 
-**Ultimo aggiornamento:** 2026-08-06 — Claude (Sonnet 5)
+**Ultimo aggiornamento:** 2026-08-06 (sessione 2) — Claude (Sonnet 5)
 
 Etichette: `[FACT]` verificato nel codice · `[RICOSTRUITO]` dedotto da indizi ·
 `[IGNOTO]` non ricavabile dal repository
@@ -30,27 +30,40 @@ e validare un allenamento anche senza AI.
 
 ## 2. Dove siamo adesso
 
-**Fasi 1-6 completate.** L'app ha autenticazione, profilo, un database di 87
-esercizi in Supabase (con istruzioni testuali per ciascuno) e tre motori di
-generazione: **Bodybuilding** (13 split, corretto in profondità in una
-sessione precedente), **Forza** (6 split) e **CrossFit Standard** (nuovo,
-fase 6: Riscaldamento → Forza/Skill → Metcon AMRAP, niente split per gruppo
-muscolare). Tutti e tre condividono un'infrastruttura comune (`shared.ts`,
-`weakPoints.ts`, `calories.ts`) invece di duplicare la logica.
+**Fasi 1-9 completate: tutte e sei le modalità della specifica esistono.**
+L'app ha autenticazione, profilo, un database di 87 esercizi in Supabase (con
+istruzioni testuali per ciascuno) e sei motori di generazione:
 
-Gli altri tre motori (CrossFit Hybrid, Condizionamento, Tabata) **non
-esistono ancora**: nella schermata Genera compaiono come riquadri disattivati
-con l'etichetta "in arrivo" (sez. 84 della correzione: non si finge che una
-modalità esista quando non è costruita). Quando la specifica parla di EMOM,
-For Time, Rounds, Circuit/Intervals o timer Tabata, sono requisiti per il
-lavoro futuro (fasi 7-9, principalmente Condizionamento), non bug di qualcosa
-già costruito: CrossFit Standard usa solo il formato AMRAP di proposito (vedi
-sez. 8).
+- **Bodybuilding** (13 split, corretto in profondità in una sessione precedente)
+- **Forza** (6 split)
+- **CrossFit Standard** (Riscaldamento → Forza/Skill → Metcon AMRAP, niente split)
+- **CrossFit Hybrid** (nuovo, fase 7: forza e cardio alternati in coppie, a
+  rotazione su tutto il corpo, niente split — la "funzionalità distintiva del
+  prodotto" della sez. 18 della correzione)
+- **Condizionamento** (nuovo, fase 8: solo Metcon, formato scelto
+  dall'utente — AMRAP, EMOM, For Time, Rounds, Circuit, Intervals)
+- **Tabata** (nuovo, fase 9: protocollo fisso 20″ lavoro/10″ riposo × 8,
+  motore separato perché la prescrizione non è una vera scelta di formato)
+
+Tutti e sei condividono un'infrastruttura comune (`shared.ts`,
+`weakPoints.ts`, `calories.ts`) invece di duplicare la logica. In
+particolare i quattro motori "da Metcon" (CrossFit Standard, Hybrid,
+Condizionamento, Tabata) condividono in `shared.ts` la scelta dei movimenti
+(`poolMetcon`, `costruisciCircuito`, `CATEGORIA_PATTERN`, `repsMetcon`):
+quello che li distingue è solo come prescrivono tempo/round sul circuito
+scelto, non come lo scelgono (vedi sez. 8).
+
+Non restano modalità "in arrivo": `MODES_IN_ARRIVO` in `types/index.ts` è
+ora vuoto (sez. 84 della correzione: si mostrava solo finché davvero
+mancavano dei motori).
 
 **Sito online:** `gymbuilder-lemon.vercel.app` — **[FACT]**, verificato in
-questa sessione. Il collegamento automatico GitHub→Vercel **è attivo**
+una sessione precedente. Il collegamento automatico GitHub→Vercel **è attivo**
 (la nota precedente che lo dava per assente era sbagliata/superata — vedi
-problema risolto in sez. 7): ogni push su `main` pubblica da solo in un minuto
+problema risolto in sez. 7): ogni push su `main` pubblica da solo in un minuto.
+**Da riverificare dopo questa sessione**: il push è ancora bloccato da questo
+ambiente (problema aperto #1), quindi il lavoro di fasi 7-9 non è online
+finché qualcuno non applica la patch manualmente
 
 ---
 
@@ -122,27 +135,62 @@ problema risolto in sez. 7): ogni push su `main` pubblica da solo in un minuto
 - [FACT] Runner esteso per il Metcon: dopo la parte Forza/Skill, uno stopwatch
   a conto alla rovescia (il tempo dell'AMRAP) con un contatore di giri
   completati, invece del ciclo serie+recupero usato da Bodybuilding/Forza
-- [FACT] 52 test automatici (`npm test`): 23 su Bodybuilding, 13 su Forza, 16
-  su CrossFit Standard, eseguiti contro il catalogo reale di 87 esercizi
-  (fixture copiata da Supabase, non dati inventati)
+- [FACT] Motore **CrossFit Hybrid** (`src/generators/hybrid.ts`, nuovo, fase
+  7): un unico blocco `kind: 'main'` con esercizi che si alternano
+  rigidamente compound/metcon (un'alzata, una scarica cardio, ripetuto 3-5
+  volte secondo la durata), a rotazione su tutto il corpo (quads → chest →
+  back → hamstrings → core). Nessun blocco o UI nuovi: essendo un'unica
+  sequenza ordinata di esercizi con sets/reps/rest, il Runner esistente
+  (ciclo serie→recupero) la esegue già così com'è
+- [FACT] Motore **Condizionamento** (`src/generators/conditioning.ts`, nuovo,
+  fase 8): solo Riscaldamento + Metcon, formato scelto dall'utente fra
+  AMRAP, EMOM, For Time, Rounds, Circuit, Intervals — la vera "scelta di
+  formato" della specifica, che CrossFit Standard non offre di proposito.
+  Riusa lo stesso pool di movimenti di CrossFit Standard; cambia solo come
+  li prescrive (tempo/round/intervalli) in base al formato
+- [FACT] Motore **Tabata** (`src/generators/tabata.ts`, nuovo, fase 9):
+  protocollo fisso 20″ lavoro/10″ riposo × 8 round, 1-4 movimenti in
+  sequenza (mai round-robin fra movimenti come EMOM/Intervals: tutti gli 8
+  round di un movimento, poi il successivo). Reps sempre `"max"`, non un
+  numero fisso: è così che funziona davvero il protocollo
+- [FACT] `shared.ts` guadagna le utilità comuni ai quattro motori "da
+  Metcon" (`poolMetcon`, `costruisciCircuito`, `CATEGORIA_PATTERN`,
+  `repsMetcon`, `scegliCandidato`): CrossFit Standard è stato rifattorizzato
+  per usarle invece di duplicarle, prima di scrivere Hybrid/Condizionamento/
+  Tabata sopra la stessa base
+- [FACT] `GeneratedWorkout.split` è `Split | null`; `WorkoutBlock` guadagna
+  `rounds` e `interval_sec` oltre a `format`/`time_cap_min` già esistenti,
+  per rappresentare EMOM/Rounds/Circuit/Intervals/Tabata oltre ad AMRAP
+- [FACT] Runner esteso con due nuove famiglie di UI per il Metcon, oltre
+  all'AMRAP già esistente: uno stopwatch "a giri" che conta in avanti (For
+  Time/Rounds/Circuit, con contatore giri) e un timer "a intervalli" che
+  alterna lavoro/riposo da solo, round dopo round (EMOM/Intervals/Tabata,
+  con l'indicizzazione del movimento round-robin per EMOM/Intervals ma
+  sequenziale-per-movimento per Tabata, sez. 8)
+- [FACT] 94 test automatici (`npm test`): 23 su Bodybuilding, 13 su Forza, 16
+  su CrossFit Standard, 12 su CrossFit Hybrid, 19 su Condizionamento, 11 su
+  Tabata, eseguiti contro il catalogo reale di 87 esercizi (fixture copiata
+  da Supabase, non dati inventati)
 
 ## 4. Cosa è in lavorazione
 
-Niente aperto a metà. Il prossimo lavoro non iniziato è il motore
-Condizionamento (fase 8) o CrossFit Hybrid (fase 7), a scelta dell'utente.
+Niente aperto a metà. Le sei modalità della specifica esistono tutte. Il
+prossimo lavoro non ancora iniziato riguarda le fasi 10-14 rimaste aperte
+(vedi sez. 11): modifica di un salvato esercizio per esercizio, frequenza
+cardiaca reale, packaging mobile con Capacitor.
 
 ## 5. Cosa manca
 
-CrossFit Hybrid, Condizionamento (con i formati EMOM/For Time/Rounds/
-Circuit/Intervals che CrossFit Standard non usa apposta, vedi sez. 8), Tabata.
-Validatore come modulo separato per le nuove modalità (per Bodybuilding e
-Forza la validazione è già integrata nella generazione, vedi sez. 8;
-CrossFit Standard segue lo stesso schema). Frequenza cardiaca reale
-(Bluetooth/HealthKit/Health Connect): solo il placeholder onesto esiste, non
-l'architettura `HealthDataProvider` della sez. 56. Integrazioni wearable,
-notifiche (tutto rimandato a V1.2/V2 nella roadmap originale). Modifica di un
-workout salvato esercizio per esercizio (sez. 45 della specifica): oggi si
-può solo rigenerare o eliminare, non editare i singoli esercizi.
+Validatore come modulo separato per le modalità Metcon (per Bodybuilding e
+Forza la validazione è già integrata nella generazione, vedi sez. 8; i
+quattro motori Metcon seguono lo stesso schema — struttura garantita a
+priori, non scoperta dopo). Frequenza cardiaca reale (Bluetooth/HealthKit/
+Health Connect): solo il placeholder onesto esiste, non l'architettura
+`HealthDataProvider` della sez. 56. Integrazioni wearable, notifiche (tutto
+rimandato a V1.2/V2 nella roadmap originale). Modifica di un workout salvato
+esercizio per esercizio (sez. 45 della specifica): oggi si può solo
+rigenerare o eliminare, non editare i singoli esercizi. Packaging mobile con
+Capacitor (fase 14): non iniziato.
 
 ---
 
@@ -150,7 +198,7 @@ può solo rigenerare o eliminare, non editare i singoli esercizi.
 
 | # | Problema | Da quando | Cosa si è già provato |
 |---|---|---|---|
-| 1 | Push diretto su GitHub non autenticato da questo ambiente (`git push` e le API dirette restituiscono 403; l'app GitHub collegata non ha permesso di scrittura sui contenuti) | 05/08 | Aggirato una volta con GitHub Codespaces (terminale nel browser, autenticato all'account dell'utente): `git am` delle patch + push. Da rifare ad ogni sessione finché l'app non ha "Contents: Read and write" |
+| 1 | Push diretto su GitHub non autenticato da questo ambiente. **Confermato di nuovo in questa sessione con due meccanismi distinti**: `git push` via HTTPS restituisce 403 dalla policy di rete dell'ambiente (non da GitHub); `mcp__github__push_files`/`create_or_update_file` restituiscono 403 "Resource not accessible by integration" — l'app GitHub collegata ha permesso di sola lettura sui contenuti, confermato anche in scrittura API, non solo `git push` diretto | 05/08, riconfermato 06/08 | Aggirato una volta con GitHub Codespaces (terminale nel browser, autenticato all'account dell'utente): `git am` delle patch + push. Da rifare ad ogni sessione finché l'app non ha "Contents: Read and write". Finché resta così, ogni sessione deve terminare esportando una patch (`git format-patch`) da consegnare all'utente, non assumere che il lavoro sia pubblicato solo perché committato localmente |
 | 2 | **[IGNOTO]** se le variabili d'ambiente `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` sono impostate nel pannello Vercel. La build su Vercel risulta "Ready" e il collegamento automatico GitHub→Vercel funziona (smentendo la vecchia nota che lo dava per assente), ma una build che compila non prova che le variabili siano quelle giuste: Vite le incorpora al momento della build, un valore mancante non fa fallire nulla, produce solo un'app che non riesce a parlare con Supabase | 05/08 | Nessuna verifica diretta possibile da qui (nessun accesso al pannello Vercel). Da confermare aprendo il sito e provando login/generazione |
 
 ## 7. Problemi risolti
@@ -167,6 +215,8 @@ può solo rigenerare o eliminare, non editare i singoli esercizi.
 | Il tetto ai "compound pesanti" (max 2 a sessione, sez. 24/77 della correzione) non scattava mai nei test | La soglia era tarata su una scala di fatica 1-10 ("systemic_fatigue >= 7"), ma il catalogo reale usa una scala 1-3. Nessun esercizio raggiungeva mai la soglia | Soglia corretta a 3 (il valore massimo reale nel catalogo). Lezione: quando si tara una soglia su un campo numerico, controllare il range effettivo dei dati prima di scegliere il numero, non assumerlo dalla specifica in astratto |
 | `AIOS_PROJECT.json`/`AIOS_STATE.md` dicevano che il collegamento automatico GitHub→Vercel non era attivo | La nota risale alla Fase 1 e non è mai stata riverificata nelle sessioni successive: è rimasta come vera per inerzia. In realtà il progetto Vercel *era* collegato a GitHub (dominio `gymbuilder-git-main-...` generato automaticamente, deployment innescato da solo dopo un push su `main`) | Verificato guardando l'elenco dei deployment su Vercel dopo un push reale: il nuovo commit compare come "Latest"/"Current" entro un minuto. Nota corretta in questo file. Lezione: una nota "problema aperto" scritta in una sessione va riverificata prima di darla per scontata nelle successive, non solo copiata avanti |
 | Con intensità "Alta" e poco tempo a disposizione, il recupero finiva identico a quello di intensità "Bassa" nello stesso scenario — il campo Intensità sembrava non avere alcun effetto | Non è un bug: quando il tempo è troppo poco per il recupero lungo richiesto da "Alta", l'adattamento al tempo lo comprime verso il minimo, esattamente come farebbe con qualunque altra intensità nello stesso vincolo. È l'effetto atteso di "adatta il tempo, non tagliare esercizi", solo che in quel caso specifico appiattisce la differenza fra intensità | Non è stato cambiato il motore: cambiato il test, che ora verifica l'effetto dell'intensità con un budget di tempo sufficiente a non farla comprimere. Da tenere a mente: l'intensità è un'indicazione, non una garanzia, quando il tempo è troppo poco |
+| In Condizionamento, i movimenti monostrutturali (es. "1 min" al vogatore) diventavano "5" ripetizioni nei formati EMOM/For Time dopo la riduzione/aumento delle reps | `reduxReps()` usava `parseInt("1 min")`, che in JavaScript non restituisce `NaN` ma `1` (legge le cifre iniziali e ignora il resto): la stringa veniva trattata come un numero valido e riscalata a un valore senza senso | Aggiunta una guardia esplicita `/^\d+$/.test(reps)` prima di qualunque trasformazione numerica: le reps a tempo restano intatte. Trovato eseguendo davvero il motore su tutti e 6 i formati prima di scrivere i test (non solo `tsc`/build), esattamente la lezione già in sez. 9 |
+| In Condizionamento, la `duration_min` finale dei formati "Rounds"/"Circuit"/"Intervals" era platealmente troppo corta (es. 5 minuti per 4 movimenti × 5 giri) | Il calcolo trattava ogni round come se durasse sempre 60 secondi (`rounds × 1 min`), formula presa in prestito da EMOM dove è vera per costruzione (`interval_sec` sempre 60) ma falsa per formati senza un `interval_sec` esplicito, dove un giro dura quanto il circuito reale richiede | `costruisciBlocco()` ora calcola e restituisce i minuti reali per formato (stima ~45s di lavoro a movimento + il recupero effettivo fra un esercizio e l'altro), invece di dedurli a ritroso da `rounds`/`interval_sec` al chiamante. Stessa lezione di sopra: il bug non sarebbe mai emerso da `tsc`/build, solo eseguendo il motore e leggendo i numeri prodotti |
 
 ---
 
@@ -276,6 +326,47 @@ può solo rigenerare o eliminare, non editare i singoli esercizi.
   l'attrezzatura non consente bilanciere** (es. goblet squat, piegamenti),
   invece di lasciare il blocco vuoto — motivo: stessa regola sez. 84, non un
   buco silenzioso quando l'utente ha solo manubri o corpo libero — 06/08
+- **CrossFit Hybrid è un unico blocco `kind: 'main'` con esercizi alternati
+  compound/metcon, non un blocco Metcon separato** — motivo: la sequenza
+  ordinata sets/reps/rest che Bodybuilding/Forza già usano rappresenta
+  perfettamente "un'alzata, poi una scarica cardio" senza inventare niente
+  di nuovo nel modello dati; il Runner esistente la esegue già così com'è,
+  zero modifiche — 06/08
+- **Hybrid non usa la programmazione settimanale sui muscoli carenti**
+  (`weakPoints.ts`), a differenza di Bodybuilding/Forza — motivo: la
+  rotazione tocca già tutto il corpo ad ogni sessione per costruzione, a
+  differenza di uno split che lascia scoperti dei muscoli in certi giorni;
+  `priority_muscles` resta usato solo per ordinare le coppie — 06/08
+- **Condizionamento è l'unico motore dove il formato del Metcon è una vera
+  scelta dell'utente** (AMRAP/EMOM/For Time/Rounds/Circuit/Intervals) —
+  motivo: è la sua differenza esplicita dalla specifica rispetto a CrossFit
+  Standard (AMRAP fisso) e Tabata (protocollo fisso), altrimenti le tre
+  modalità si sovrapporrebbero senza motivo — 06/08
+- **Tabata ha un motore proprio invece di essere "solo un altro formato" di
+  Condizionamento** — motivo: la prescrizione è rigida (20″/10″×8, sempre),
+  non è mai stata una vera scelta come gli altri sei formati; trattarla come
+  settima opzione in `FORMATI_CONDIZIONAMENTO` avrebbe reso disponibile una
+  scelta che in realtà non esiste — 06/08
+- **In Tabata i movimenti multipli sono sequenziali (tutti gli 8 round del
+  primo, poi il secondo), mai round-robin come EMOM/Intervals** — motivo: è
+  così che funziona davvero il protocollo classico; interlacciare i
+  movimenti round per round avrebbe dato a ciascuno solo una frazione degli
+  8 round richiesti, tradendo il nome "Tabata". Il Runner distingue i due
+  comportamenti con un solo branch esplicito su `format === 'tabata'`,
+  condividendo il resto della UI a intervalli con EMOM/Intervals — 06/08
+- **La scelta dei movimenti da Metcon (`poolMetcon`/`costruisciCircuito` in
+  `shared.ts`) è condivisa da tutti e quattro i motori Metcon**, CrossFit
+  Standard rifattorizzato per usarla prima di scrivere gli altri tre sopra
+  la stessa base — motivo: la logica "bodyweight/kettlebell/manubri/cardio,
+  una categoria alla volta, completa da quel che resta se una categoria è
+  vuota" è identica in tutti e quattro; solo la prescrizione (tempo, round,
+  reps) cambia motore per motore — 06/08
+- **Ogni motore Metcon ha un tetto di durata realistico, non proporzionale
+  al tempo scelto dall'utente**, con un avviso esplicito quando la sessione
+  resta più corta del richiesto — motivo: stessa filosofia già applicata a
+  CrossFit Standard (sez. precedente), estesa a Hybrid/Condizionamento/
+  Tabata: un formato Metcon non diventa più lungo solo perché c'è più tempo
+  libero, è la natura del formato, non un limite tecnico — 06/08
 
 ---
 
@@ -303,6 +394,19 @@ può solo rigenerare o eliminare, non editare i singoli esercizi.
   specifica astratta (che parla di "fatica" senza numeri) invece di controllare
   i dati reali — è già successo una volta (soglia compound pesanti tarata a 7,
   mai raggiungibile). Controllare sempre `min`/`max` reali prima di tarare una soglia
+- **`parseInt()` su una stringa tipo `"1 min"` non restituisce `NaN`, restituisce
+  `1`.** Qualunque funzione che trasforma numericamente il campo `reps` (una
+  stringa libera, non sempre un numero: può essere `"12-15"`, `"1 min"`,
+  `"30-60 sec"`) deve controllare esplicitamente il formato prima di fare
+  aritmetica, non fidarsi di un controllo `Number.isNaN` a valle — non lo
+  intercetta. Bug reale trovato in Condizionamento (sez. 7), non ipotetico
+- **Un motore che genera struttura corretta può comunque avere una `duration_min`
+  completamente sbagliata** se il calcolo della durata è una formula generica
+  scritta prima di sapere davvero quanto dura un formato, invece di essere
+  derivata dai numeri che il motore ha appena costruito. Eseguire sempre il
+  motore e leggere i numeri prodotti (non solo `tsc`/build/test strutturali)
+  prima di considerarlo finito — stessa lezione della voce sopra, due bug
+  diversi nello stesso motore nella stessa sessione
 - **`package-lock.json` non è committato di proposito.** `npm install` lo
   rigenera in un attimo da `package.json`, e un lockfile di ~90KB nel diff
   costerebbe caro da spingere su GitHub tramite gli strumenti MCP disponibili
@@ -314,19 +418,36 @@ può solo rigenerare o eliminare, non editare i singoli esercizi.
 
 ## 10. Dove si è fermato l'ultimo lavoro
 
-**Modello:** Claude (Sonnet 5) · **Data:** 2026-08-06
+**Modello:** Claude (Sonnet 5) · **Data:** 2026-08-06 (sessione 2)
 
-Costruito il motore CrossFit Standard (fase 6) da zero: Riscaldamento →
-Forza/Skill → Metcon AMRAP, riusando `shared.ts`/`calories.ts` come gli altri
-due motori. Aggiunti 8 esercizi al catalogo Supabase per il Metcon (87
-totali), esteso il Runner con uno stopwatch AMRAP + contatore giri al posto
-del ciclo serie/recupero, e reso `GeneratedWorkout.split` nullable (era già
-previsto dallo schema DB, mai sfruttato finora). Il punto esatto in cui
-riprendere è la **fase 7 (CrossFit Hybrid) o la fase 8 (Condizionamento)**,
-a scelta.
+Costruite le fasi 7-9 in sequenza nella stessa sessione: **CrossFit Hybrid**
+(`hybrid.ts`, forza+cardio alternati in un unico blocco `main`, nessuna UI
+nuova necessaria), **Condizionamento** (`conditioning.ts`, solo Metcon con
+formato scelto dall'utente fra sei) e **Tabata** (`tabata.ts`, protocollo
+fisso). Prima di scriverli, `shared.ts` è stato esteso con le utilità comuni
+ai motori Metcon (`poolMetcon`, `costruisciCircuito`, `CATEGORIA_PATTERN`,
+`repsMetcon`) e CrossFit Standard rifattorizzato per usarle, per non
+duplicare la stessa logica quattro volte. Il Runner è stato esteso con due
+nuove famiglie di UI per il Metcon (stopwatch "a giri", timer "a
+intervalli") oltre all'AMRAP già esistente. Trovati e corretti due bug reali
+eseguendo davvero i motori (non solo build/tsc): reps a tempo corrotte da
+`parseInt`, durata sballata per i formati senza `interval_sec` esplicito
+(sez. 7, 9).
 
-Nessun lavoro lasciato a metà. Build (`npm run build`) e test (`npm test`,
-52 test) verificati entrambi verdi prima di chiudere la sessione.
+**Le sei modalità della specifica esistono tutte.** Il punto esatto in cui
+riprendere è una delle fasi 10-14 rimaste aperte (sez. 11): modifica di un
+salvato esercizio per esercizio, frequenza cardiaca reale, packaging
+mobile.
+
+**Non pubblicato.** Il push diretto da questo ambiente è bloccato sia via
+`git push` che via le API GitHub (problema aperto #1, riconfermato in questa
+sessione con dettaglio nuovo: anche l'integrazione GitHub ha permesso di
+sola lettura, non solo il proxy di rete). Il lavoro di questa sessione è
+committato in locale (3 commit) ma **non è su GitHub né su Vercel** finché
+qualcuno non applica la patch consegnata all'utente.
+
+Build (`npm run build`) e test (`npm test`, 94 test) verificati entrambi
+verdi prima di chiudere la sessione.
 
 ---
 
@@ -338,17 +459,17 @@ prese singolarmente non sarebbero verificabili.
 | Fase | Cosa | Stato |
 |---|---|---|
 | **2** | Database esercizi (79 voci, metadati completi) | ✅ Fatto |
-| **3** | Motore Bodybuilding: 13 split, fatica, muscoli prioritari | ✅ Fatto, **corretto in questa sessione** (sez. 7-8) |
-| **4** | Validatore | ✅ Integrato nella generazione stessa per Bodybuilding (struttura garantita a priori + rete di sicurezza finale che dedupe/ricontrolla). Da rifare come modulo esplicito quando arrivano le modalità CrossFit/Conditioning, che hanno regole di validità diverse (formati Metcon, cap di tempo, ecc.) |
+| **3** | Motore Bodybuilding: 13 split, fatica, muscoli prioritari | ✅ Fatto, **corretto in una sessione precedente** (sez. 7-8) |
+| **4** | Validatore | ✅ Integrato nella generazione stessa per tutti i motori (struttura garantita a priori + rete di sicurezza finale che dedupe/ricontrolla), non un modulo separato |
 | **5** | Motore Forza | ✅ Fatto |
 | **6** | CrossFit Standard: Forza/Skill + Metcon AMRAP | ✅ Fatto |
-| **7** | CrossFit Hybrid — funzionalità distintiva del prodotto (sez. 18 correzione) | ⬜ Prossimo passo |
-| **8** | Condizionamento: AMRAP, EMOM, For Time, Rounds, Circuit, Intervals | ⬜ Non iniziato |
-| **9** | Tabata, motore separato | ⬜ Non iniziato |
-| **10** | Workout Runner e timer | ✅ Fatto per Bodybuilding/Forza (timer di recupero) e per il Metcon AMRAP di CrossFit Standard (stopwatch + contatore giri). EMOM/Tabata timer arrivano con le fasi 8-9 |
-| **11** | Salvataggio, preferiti, ripeti identico, rigenera variante | ✅ Salvataggio/rigenerazione fatti, anche per CrossFit Standard. Modifica esercizio-per-esercizio di un salvato: non ancora |
+| **7** | CrossFit Hybrid — funzionalità distintiva del prodotto (sez. 18 correzione) | ✅ Fatto in questa sessione |
+| **8** | Condizionamento: AMRAP, EMOM, For Time, Rounds, Circuit, Intervals | ✅ Fatto in questa sessione |
+| **9** | Tabata, motore separato | ✅ Fatto in questa sessione |
+| **10** | Workout Runner e timer | ✅ Fatto per tutte e sei le modalità: ciclo serie/recupero (Bodybuilding/Forza/CrossFit Standard Forza-Skill/Hybrid), stopwatch a giri (For Time/Rounds/Circuit), timer a intervalli (AMRAP/EMOM/Intervals/Tabata) |
+| **11** | Salvataggio, preferiti, ripeti identico, rigenera variante | ✅ Salvataggio/rigenerazione fatti per tutte e sei le modalità. Modifica esercizio-per-esercizio di un salvato: non ancora |
 | **12** | Storico e valutazione post-allenamento | ✅ Fatto (valutazione soggettiva + note; niente HR/calorie, rimandato a V1.2) |
-| **13** | Test sulle parti critiche | 🟡 Iniziato: 52 test sui tre motori di generazione (`npm test`). Da estendere quando arrivano gli altri motori |
+| **13** | Test sulle parti critiche | 🟡 94 test su tutti e sei i motori di generazione (`npm test`). Da estendere se arrivano nuove regole |
 | **14** | Preparazione all'impacchettamento mobile con Capacitor | ⬜ Non iniziato |
 
 ---
@@ -363,3 +484,4 @@ prese singolarmente non sarebbero verificabili.
 | 2026-08-05 | Claude (Sonnet 5) | Correzione del motore Bodybuilding su richiesta esplicita dell'utente: architettura riscritta da "genera poi valida" a "struttura prima, poi seleziona, poi adatta al tempo, poi valida come rete di sicurezza". Aggiunti richiami settimanali sui muscoli carenti (`weakPoints.ts`), esercizi preferiti realmente pesati, riscaldamento contestuale, 7 nuovi split (Bro Split ×5, Front/Back). Trovati e corretti 3 bug reali tramite 23 test automatici (vitest) eseguiti contro il catalogo reale di 79 esercizi: richiami che finivano su split sbagliati, redistribuzione che faceva collassare un muscolo target, preferiti senza effetto reale sulla probabilità di scelta. Pubblicato su GitHub tramite Codespaces (push diretto bloccato in questo ambiente) e verificato live su Vercel |
 | 2026-08-05 | Claude (Sonnet 5) | Dopo un confronto con l'app di riferimento costruita con Base44, tre aggiunte UI (intensità, istruzioni per esercizio nel database, stima calorie attive con placeholder FC onesto) e costruzione del motore Forza (`strength.ts`, fase 5), che riusa `shared.ts`/`weakPoints.ts`/`calories.ts` invece di duplicare Bodybuilding. Aggiunte colonne `instructions` su `exercises` e `weight_kg`/`default_intensity` su `user_settings`. 13 nuovi test (36 totali). Corretta la nota obsoleta sul collegamento GitHub→Vercel, che in realtà funziona |
 | 2026-08-06 | Claude (Sonnet 5) | Fase 6: motore CrossFit Standard (`crossfit.ts`) — Riscaldamento → Forza/Skill (riusa il tag `roles: 'strength'`, scende a un compound equivalente senza bilanciere) → Metcon AMRAP (3-4 movimenti bodyweight/kettlebell/manubri/cardio, uno per categoria). Solo formato AMRAP di proposito: EMOM/For Time/Rounds/Circuit/Intervals restano la differenza del futuro motore Condizionamento (fase 8). Aggiunti 8 esercizi al catalogo Supabase (87 totali: burpee, mountain climber, kettlebell swing/thruster, dumbbell thruster, box step-up, vogatore, sit-up). `GeneratedWorkout.split` diventato `Split \| null` (lo schema DB lo prevedeva già). Runner esteso con uno stopwatch AMRAP e un contatore di giri. 16 nuovi test (52 totali) |
+| 2026-08-06 | Claude (Sonnet 5) | Fasi 7-9 in sequenza, su richiesta esplicita dell'utente di completare tutte e sei le modalità: **CrossFit Hybrid** (`hybrid.ts`, forza+cardio alternati in coppie dentro un unico blocco `main`, nessuna modalità nuova richiesta al Runner), **Condizionamento** (`conditioning.ts`, solo Metcon, formato scelto dall'utente fra AMRAP/EMOM/For Time/Rounds/Circuit/Intervals), **Tabata** (`tabata.ts`, protocollo fisso 20″/10″×8, sequenziale per movimento non round-robin). `shared.ts` esteso con le utilità comuni ai motori Metcon (`poolMetcon`, `costruisciCircuito`, `CATEGORIA_PATTERN`, `repsMetcon`) e CrossFit Standard rifattorizzato per usarle prima di scrivere gli altri tre. Runner esteso con due nuove famiglie di UI (stopwatch a giri, timer a intervalli) oltre all'AMRAP. Trovati e corretti 2 bug reali eseguendo i motori (non solo build): reps a tempo corrotte da `parseInt`, durata sballata nei formati senza `interval_sec`. 42 nuovi test (94 totali). **Non pubblicato**: il push resta bloccato da questo ambiente anche via API GitHub (non solo `git push`), consegnata una patch da applicare manualmente |

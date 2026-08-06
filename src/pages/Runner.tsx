@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../features/auth/AuthProvider'
 import { useWorkout } from '../features/workout/WorkoutContext'
 import { registraCompletato } from '../lib/api'
-import { MUSCLE_LABELS } from '../types'
+import { FORMATO_A_GIRI, FORMATO_A_INTERVALLI, MUSCLE_LABELS, type PrescribedExercise } from '../types'
 
 type Fase = { tipo: 'serie'; iEs: number; serie: number } | { tipo: 'recupero'; iEs: number; serie: number; sec: number }
 
@@ -23,6 +23,17 @@ export default function Runner() {
   const riscaldamento = workout?.blocks.find((b) => b.kind === 'warmup')
   const metconBlock = workout?.blocks.find((b) => b.kind === 'metcon')
   const metconEsercizi = metconBlock?.exercises ?? []
+  const formato = metconBlock?.format
+  const aIntervalli = !!formato && FORMATO_A_INTERVALLI.includes(formato)
+  const aGiri = !!formato && FORMATO_A_GIRI.includes(formato)
+  const isTabata = formato === 'tabata'
+  // Tabata: tutti gli 8 round di un movimento, poi si passa al successivo (mai round-robin come EMOM/Intervals, sez. tabata.ts).
+  const rondaPerMovimento = metconBlock?.rounds ?? 1
+  const intervalliTotali = isTabata ? rondaPerMovimento * metconEsercizi.length : rondaPerMovimento
+  function esercizioIntervallo(i: number): PrescribedExercise | undefined {
+    if (metconEsercizi.length === 0) return undefined
+    return isTabata ? metconEsercizi[Math.floor(i / rondaPerMovimento)] : metconEsercizi[i % metconEsercizi.length]
+  }
 
   const [iniziato, setIniziato] = useState(false)
   const [fase, setFase] = useState<Fase>({ tipo: 'serie', iEs: 0, serie: 1 })
@@ -33,6 +44,10 @@ export default function Runner() {
   const [metconRimanente, setMetconRimanente] = useState(0)
   const [metconGiri, setMetconGiri] = useState(0)
   const [metconInPausa, setMetconInPausa] = useState(false)
+  const [metconTrascorsi, setMetconTrascorsi] = useState(0)
+  const [intervalIndice, setIntervalIndice] = useState(0)
+  const [intervalSottofase, setIntervalSottofase] = useState<'lavoro' | 'riposo'>('lavoro')
+  const [intervalRimanente, setIntervalRimanente] = useState(0)
   const [finito, setFinito] = useState(false)
   const [valutazione, setValutazione] = useState<string | null>(null)
   const [note, setNote] = useState('')
@@ -50,16 +65,47 @@ export default function Runner() {
     return () => clearTimeout(t)
   }, [fase, rimanente, inPausa])
 
-  // Timer del Metcon (AMRAP): conto alla rovescia dal tempo a disposizione.
+  // Timer del Metcon AMRAP: conto alla rovescia dal tempo a disposizione.
   useEffect(() => {
-    if (sezione !== 'metcon' || metconFase !== 'via' || metconInPausa) return
+    if (sezione !== 'metcon' || metconFase !== 'via' || formato !== 'amrap' || metconInPausa) return
     if (metconRimanente <= 0) {
       setMetconFase('fatto')
       return
     }
     const t = setTimeout(() => setMetconRimanente((r) => r - 1), 1000)
     return () => clearTimeout(t)
-  }, [sezione, metconFase, metconRimanente, metconInPausa])
+  }, [sezione, metconFase, formato, metconRimanente, metconInPausa])
+
+  // Cronometro del Metcon a giri (For Time/A giri/Circuit): conta in avanti, il tempo è il punteggio.
+  useEffect(() => {
+    if (sezione !== 'metcon' || metconFase !== 'via' || !aGiri || metconInPausa) return
+    const t = setTimeout(() => setMetconTrascorsi((s) => s + 1), 1000)
+    return () => clearTimeout(t)
+  }, [sezione, metconFase, aGiri, metconTrascorsi, metconInPausa])
+
+  // Timer a intervalli (EMOM/Intervals/Tabata): lavoro poi riposo (se previsto), poi il round successivo da solo.
+  useEffect(() => {
+    if (sezione !== 'metcon' || metconFase !== 'via' || !aIntervalli || metconInPausa) return
+    if (intervalRimanente > 0) {
+      const t = setTimeout(() => setIntervalRimanente((r) => r - 1), 1000)
+      return () => clearTimeout(t)
+    }
+    const esCorrente = esercizioIntervallo(intervalIndice)
+    if (intervalSottofase === 'lavoro' && esCorrente && esCorrente.rest_sec > 0) {
+      setIntervalSottofase('riposo')
+      setIntervalRimanente(esCorrente.rest_sec)
+      return
+    }
+    const prossimo = intervalIndice + 1
+    if (prossimo >= intervalliTotali) {
+      setMetconFase('fatto')
+      return
+    }
+    setIntervalIndice(prossimo)
+    setIntervalSottofase('lavoro')
+    setIntervalRimanente(metconBlock?.interval_sec ?? 20)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sezione, metconFase, aIntervalli, intervalRimanente, intervalSottofase, intervalIndice, metconInPausa])
 
   if (!workout || (esercizi.length === 0 && metconEsercizi.length === 0)) {
     return (
@@ -190,7 +236,7 @@ export default function Runner() {
     )
   }
 
-  // — Metcon (AMRAP) —
+  // — Metcon —
   if (sezione === 'metcon') {
     if (metconFase === 'anteprima') {
       return (
@@ -200,30 +246,47 @@ export default function Runner() {
             {metconBlock?.title}
           </h1>
           <p className="mt-2 font-data text-[13px] text-slate2">
-            {metconBlock?.time_cap_min} minuti · quanti giri fai
+            {formato === 'amrap' && `${metconBlock?.time_cap_min} minuti · quanti giri fai`}
+            {formato === 'for_time' && `cap ${metconBlock?.time_cap_min} minuti · il più veloce possibile`}
+            {formato === 'rounds' && `${metconBlock?.rounds} giri, riposa il necessario fra un giro e l'altro`}
+            {formato === 'circuit' && `${metconBlock?.rounds} giri, recupero fisso fra un esercizio e l'altro`}
+            {formato === 'emom' && `${metconBlock?.rounds} minuti, un compito ogni minuto`}
+            {formato === 'intervals' && `${metconBlock?.interval_sec}″ lavoro / recupero, a ripetere`}
+            {formato === 'tabata' && `20″ lavoro / 10″ riposo × 8, un movimento alla volta`}
           </p>
           <ul className="mt-7 space-y-2.5">
             {metconEsercizi.map((e, i) => (
               <li key={i} className="slab !py-3.5">
                 <p className="text-[15px] font-medium">{e.name}</p>
-                <p className="mt-1 font-data text-[13px] text-slate2">{e.reps}</p>
+                <p className="mt-1 font-data text-[13px] text-slate2">
+                  {e.reps}{e.note ? ` · ${e.note}` : ''}
+                </p>
               </li>
             ))}
           </ul>
           <button
             className="btn mt-auto !py-4 text-lg"
             onClick={() => {
-              setMetconRimanente((metconBlock?.time_cap_min ?? 0) * 60)
+              if (formato === 'amrap') {
+                setMetconRimanente((metconBlock?.time_cap_min ?? 0) * 60)
+              } else if (aGiri) {
+                setMetconTrascorsi(0)
+                setMetconGiri(0)
+              } else if (aIntervalli) {
+                setIntervalIndice(0)
+                setIntervalSottofase('lavoro')
+                setIntervalRimanente(metconBlock?.interval_sec ?? 20)
+              }
               setMetconFase('via')
             }}
           >
-            Comincia AMRAP
+            Comincia
           </button>
         </div>
       )
     }
 
-    if (metconFase === 'via') {
+    if (metconFase === 'via' && formato === 'amrap') {
       return (
         <div className="px-5 pt-16 pb-8 min-h-dvh flex flex-col">
           <p className="eyebrow text-center">AMRAP</p>
@@ -268,17 +331,114 @@ export default function Runner() {
       )
     }
 
+    if (metconFase === 'via' && aGiri) {
+      const rounds = metconBlock?.rounds ?? 1
+      const ultimoGiro = rounds > 1 && metconGiri + 1 >= rounds
+      return (
+        <div className="px-5 pt-16 pb-8 min-h-dvh flex flex-col">
+          <p className="eyebrow text-center">{metconBlock?.title}</p>
+          <p className="mt-6 text-center font-data text-[5rem] leading-none tabular-nums text-amber2">
+            {String(Math.floor(metconTrascorsi / 60))}:{String(metconTrascorsi % 60).padStart(2, '0')}
+          </p>
+
+          <div className="mt-8 text-center">
+            <p className="eyebrow mb-2">{rounds > 1 ? `Giro ${Math.min(metconGiri + 1, rounds)} di ${rounds}` : 'Giri completati'}</p>
+            <p className="font-data text-[3.5rem] leading-none">{metconGiri}</p>
+          </div>
+
+          <ul className="mt-8 space-y-2">
+            {metconEsercizi.map((e, i) => (
+              <li key={i} className="flex items-baseline justify-between border-b border-edge/60 pb-1.5">
+                <span className="text-[14px] text-slate2">{e.name}</span>
+                <span className="font-data text-[13px] whitespace-nowrap">{e.reps}</span>
+              </li>
+            ))}
+          </ul>
+
+          <div className="mt-auto space-y-2.5 pt-8">
+            <button
+              className="btn !py-4"
+              onClick={() => {
+                const nuovi = metconGiri + 1
+                setMetconGiri(nuovi)
+                if (formato === 'for_time' || (rounds > 1 && nuovi >= rounds)) setMetconFase('fatto')
+              }}
+            >
+              {ultimoGiro || formato === 'for_time' ? 'Fatto' : '+1 Giro completato'}
+            </button>
+            <div className="grid grid-cols-2 gap-2.5">
+              <button
+                className="rounded-xl border border-edge bg-steel py-3.5 font-data text-[11px] uppercase tracking-[0.14em] text-chalk active:bg-edge"
+                onClick={() => setMetconInPausa((p) => !p)}
+              >
+                {metconInPausa ? 'Riprendi' : 'Pausa'}
+              </button>
+              <button
+                className="rounded-xl border border-edge bg-steel py-3.5 font-data text-[11px] uppercase tracking-[0.14em] text-chalk active:bg-edge"
+                onClick={() => setMetconFase('fatto')}
+              >
+                Termina
+              </button>
+            </div>
+          </div>
+        </div>
+      )
+    }
+
+    if (metconFase === 'via' && aIntervalli) {
+      const esCorrente = esercizioIntervallo(intervalIndice)
+      const inLavoro = intervalSottofase === 'lavoro'
+      return (
+        <div className="px-5 pt-16 pb-8 min-h-dvh flex flex-col">
+          <p className="eyebrow text-center">Round {intervalIndice + 1} di {intervalliTotali}</p>
+          <p className={`mt-6 text-center font-data text-[5rem] leading-none tabular-nums ${inLavoro ? 'text-amber2' : 'text-slate2'}`}>
+            {String(Math.floor(intervalRimanente / 60))}:{String(intervalRimanente % 60).padStart(2, '0')}
+          </p>
+          <p className="mt-2 text-center font-data text-[11px] uppercase tracking-[0.14em] text-slate2">
+            {inLavoro ? 'Lavoro' : 'Riposo'}
+          </p>
+
+          <div className="slab mt-10 text-center">
+            <p className="eyebrow mb-2">{inLavoro ? 'Adesso' : 'Poi tocca a'}</p>
+            <p className="text-[18px] font-medium">{esCorrente?.name}</p>
+            <p className="mt-1 font-data text-[13px] text-slate2">{esCorrente?.reps}</p>
+          </div>
+
+          <div className="mt-auto space-y-2.5 pt-10">
+            <button
+              className="w-full rounded-xl border border-edge py-3.5 font-data text-[11px] uppercase tracking-[0.14em] text-slate2 active:bg-steel"
+              onClick={() => setMetconInPausa((p) => !p)}
+            >
+              {metconInPausa ? 'Riprendi' : 'Pausa'}
+            </button>
+            <button className="btn !py-4" onClick={() => setMetconFase('fatto')}>Termina</button>
+          </div>
+        </div>
+      )
+    }
+
     // metconFase === 'fatto'
     return (
       <div className="px-5 pt-12 pb-8">
         <p className="eyebrow mb-3">Metcon finito</p>
         <h1 className="font-display font-extrabold uppercase leading-[0.9] tracking-tight text-[2.2rem]">
-          {metconGiri} {metconGiri === 1 ? 'giro completato' : 'giri completati'}
+          {aGiri && `${String(Math.floor(metconTrascorsi / 60))}:${String(metconTrascorsi % 60).padStart(2, '0')}`}
+          {aIntervalli && `${intervalliTotali} round completati`}
+          {formato === 'amrap' && `${metconGiri} ${metconGiri === 1 ? 'giro completato' : 'giri completati'}`}
         </h1>
         <button
           className="btn mt-8 !py-4 text-lg"
           onClick={() => {
-            setNote((n) => n || `Metcon: ${metconGiri} giri completati in ${metconBlock?.time_cap_min} min.`)
+            setNote((n) => {
+              if (n) return n
+              if (aGiri) {
+                const min = Math.floor(metconTrascorsi / 60)
+                const sec = String(metconTrascorsi % 60).padStart(2, '0')
+                return `Metcon: finito in ${min}:${sec}${metconGiri > 1 ? ` (${metconGiri} giri)` : ''}.`
+              }
+              if (aIntervalli) return `Metcon: ${metconBlock?.title} completato.`
+              return `Metcon: ${metconGiri} giri completati in ${metconBlock?.time_cap_min} min.`
+            })
             setFinito(true)
           }}
         >

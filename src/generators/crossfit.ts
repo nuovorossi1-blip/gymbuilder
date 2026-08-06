@@ -30,7 +30,10 @@ import type {
 } from '../types'
 import { EQUIPMENT_MAP } from '../types'
 import { PESO_DEFAULT_KG, stimaCalorieEsercizio } from './calories'
-import { minutiBlocco, minutiEsercizio, rimuoviDuplicati, rng, scegliRiscaldamento } from './shared'
+import {
+  type CategoriaMetcon, costruisciCircuito, minutiBlocco, minutiEsercizio, poolMetcon, repsMetcon,
+  rimuoviDuplicati, rng, scegliCandidato, scegliRiscaldamento,
+} from './shared'
 
 export interface CrossFitConfig {
   experience: Experience
@@ -44,20 +47,10 @@ export interface CrossFitConfig {
   seed?: number
 }
 
-const RANK_EXP: Record<Experience, number> = { beginner: 1, intermediate: 2, advanced: 3 }
+export const RANK_EXP: Record<Experience, number> = { beginner: 1, intermediate: 2, advanced: 3 }
 
 const PATTERN_LOWER = ['squat', 'hinge', 'lunge']
 const PATTERN_UPPER = ['horizontal_push', 'vertical_push', 'horizontal_pull', 'vertical_pull']
-
-type CategoriaMetcon = 'lower' | 'upper' | 'full' | 'core' | 'mono'
-
-const CATEGORIA_PATTERN: Record<string, CategoriaMetcon> = {
-  squat: 'lower', lunge: 'lower', hinge: 'lower', jump: 'lower',
-  horizontal_push: 'upper', vertical_push: 'upper', horizontal_pull: 'upper', vertical_pull: 'upper',
-  core: 'core',
-  burpee: 'full',
-  bike: 'mono', run: 'mono', row: 'mono',
-}
 
 /** Minuti dei tre blocchi. Il Metcon ha un tetto realistico (una classe non si allunga solo perché c'è più tempo). */
 function tempi(duration_min: number): { warmup: number; strength: number; metcon: number } {
@@ -78,32 +71,6 @@ function prescrizioneCF(exp: Experience, intensity: Intensity) {
   }[intensitaEffettiva]
   const sets = { beginner: 3, intermediate: 4, advanced: 5 }[exp]
   return { sets, reps: perIntensita.reps, rest: perIntensita.rest }
-}
-
-function repsMetcon(categoria: CategoriaMetcon, exp: Experience, intensity: Intensity): string {
-  if (categoria === 'mono') return '1 min'
-  const base: Record<Exclude<CategoriaMetcon, 'mono'>, number> = { lower: 15, upper: 10, full: 10, core: 15 }
-  const expMult = { beginner: 0.7, intermediate: 1, advanced: 1.3 }[exp]
-  const intMult = { low: 0.85, medium: 1, high: 1.15 }[intensity]
-  const valore = Math.round((base[categoria] * expMult * intMult) / 5) * 5
-  return String(Math.max(5, valore))
-}
-
-/** Sceglie un candidato dando priorità a muscoli richiesti, poi a preferiti, poi casuale fra i restanti. */
-function scegliCandidato(
-  pool: Exercise[],
-  usati: Set<string>,
-  priorita: Muscle[],
-  preferiti: Set<string>,
-  random: () => number
-): Exercise | undefined {
-  const candidati = pool.filter((e) => !usati.has(e.id))
-  if (candidati.length === 0) return undefined
-  const conPriorita = candidati.filter((e) => e.primary_muscles.some((m) => priorita.includes(m)))
-  const base = conPriorita.length > 0 ? conPriorita : candidati
-  const conPreferiti = base.filter((e) => preferiti.has(e.id))
-  const scelta = conPreferiti.length > 0 ? conPreferiti : base
-  return scelta[Math.floor(random() * scelta.length)]
 }
 
 function prescriviForzaSkill(e: Exercise, exp: Experience, intensity: Intensity): PrescribedExercise {
@@ -207,40 +174,10 @@ export function generaCrossFit(catalogo: Exercise[], cfg: CrossFitConfig): Gener
   }
 
   // --- Metcon: AMRAP con 3-4 movimenti bodyweight/kettlebell/manubri/cardio, uno per categoria. ---
-  const metconPool = allenamento.filter(
-    (e) =>
-      !usati.has(e.id) &&
-      e.equipment !== 'barbell' &&
-      e.equipment !== 'machine' &&
-      e.equipment !== 'cable' &&
-      e.technical_complexity <= 2 &&
-      (e.roles.includes('conditioning') || e.roles.includes('cardio')) &&
-      CATEGORIA_PATTERN[e.movement_pattern] !== undefined
-  )
-
+  const metconPool = poolMetcon(allenamento, usati)
   const numMovimenti = t.metcon >= 15 ? 4 : 3
-  const ordineCategorie: CategoriaMetcon[] = numMovimenti === 4 ? ['mono', 'lower', 'upper', 'core'] : ['mono', 'lower', 'upper']
-
-  const metconEsercizi: PrescribedExercise[] = []
-  const usatiMetcon = new Set<string>()
-
-  for (const categoria of ordineCategorie) {
-    const bucket = metconPool.filter((e) => CATEGORIA_PATTERN[e.movement_pattern] === categoria)
-    const scelto = scegliCandidato(bucket, usatiMetcon, cfg.priority_muscles, preferiti, random)
-    if (scelto) {
-      usatiMetcon.add(scelto.id)
-      metconEsercizi.push(prescriviMetcon(scelto, categoria, cfg.experience, intensity))
-    }
-  }
-  // Se una categoria era vuota (attrezzatura limitata), si completa da qualunque movimento resti, per non finire con un Metcon più corto del necessario.
-  while (metconEsercizi.length < numMovimenti) {
-    const restanti = metconPool.filter((e) => !usatiMetcon.has(e.id))
-    const scelto = scegliCandidato(restanti, usatiMetcon, cfg.priority_muscles, preferiti, random)
-    if (!scelto) break
-    usatiMetcon.add(scelto.id)
-    const categoria = CATEGORIA_PATTERN[scelto.movement_pattern] ?? 'upper'
-    metconEsercizi.push(prescriviMetcon(scelto, categoria, cfg.experience, intensity))
-  }
+  const circuito = costruisciCircuito(metconPool, numMovimenti, cfg.priority_muscles, preferiti, random)
+  const metconEsercizi = circuito.map((m) => prescriviMetcon(m.exercise, m.categoria, cfg.experience, intensity))
 
   rimuoviDuplicati(metconEsercizi)
 

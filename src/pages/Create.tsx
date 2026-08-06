@@ -7,13 +7,17 @@ import { caricaCatalogo, volumeSettimanaleUtente } from '../lib/api'
 import { generaBodybuilding } from '../generators/bodybuilding'
 import { generaForza, SPLIT_FORZA } from '../generators/strength'
 import { generaCrossFit } from '../generators/crossfit'
+import { generaHybrid } from '../generators/hybrid'
+import { generaCondizionamento, FORMATI_CONDIZIONAMENTO, type ConditioningFormat } from '../generators/conditioning'
+import { generaTabata } from '../generators/tabata'
 import {
-  DURATIONS, EQUIPMENT_LABELS, GOAL_LABELS, INTENSITY_LABELS, MODES_IN_ARRIVO,
-  MODE_LABELS, MUSCLE_LABELS, SPLIT_GROUPS, SPLIT_HINTS, SPLIT_LABELS,
+  DURATIONS, EQUIPMENT_LABELS, GOAL_LABELS, INTENSITY_LABELS, METCON_FORMAT_HINTS, METCON_FORMAT_LABELS,
+  MODES_IN_ARRIVO, MODE_LABELS, MUSCLE_LABELS, SPLIT_GROUPS, SPLIT_HINTS, SPLIT_LABELS,
   type Equipment, type Exercise, type Goal, type Intensity, type Mode, type Muscle, type Split,
 } from '../types'
 
 const SPLIT_GROUPS_FORZA = [{ label: 'Split', splits: SPLIT_FORZA }]
+const MODI_SENZA_SPLIT: Mode[] = ['crossfit', 'crossfit_hybrid', 'conditioning', 'tabata']
 
 export default function Create() {
   const { user } = useAuth()
@@ -33,6 +37,7 @@ export default function Create() {
   const [attrezzi, setAttrezzi] = useState<Equipment | null>(null)
   const [muscoli, setMuscoli] = useState<Muscle[] | null>(null)
   const [intensita, setIntensita] = useState<Intensity | null>(null)
+  const [formato, setFormato] = useState<ConditioningFormat>('amrap')
   const [avanzate, setAvanzate] = useState(false)
 
   // Cambiando modalità, si torna a uno split valido per quella modalità (sez. 84: Forza non usa Bro Split/Front/Back).
@@ -75,6 +80,42 @@ export default function Create() {
             excluded_exercises: settings.excluded_exercises,
             preferred_exercises: settings.favorite_exercises,
             intensity: eff.intensita,
+            weight_kg: settings.weight_kg,
+            seed: Date.now() % 100000,
+          })
+        : mode === 'crossfit_hybrid'
+        ? generaHybrid(catalogo, {
+            experience: settings.experience,
+            equipment: eff.attrezzi,
+            duration_min: eff.durata,
+            priority_muscles: eff.muscoli,
+            excluded_exercises: settings.excluded_exercises,
+            preferred_exercises: settings.favorite_exercises,
+            intensity: eff.intensita,
+            weight_kg: settings.weight_kg,
+            seed: Date.now() % 100000,
+          })
+        : mode === 'conditioning'
+        ? generaCondizionamento(catalogo, {
+            format: formato,
+            experience: settings.experience,
+            equipment: eff.attrezzi,
+            duration_min: eff.durata,
+            priority_muscles: eff.muscoli,
+            excluded_exercises: settings.excluded_exercises,
+            preferred_exercises: settings.favorite_exercises,
+            intensity: eff.intensita,
+            weight_kg: settings.weight_kg,
+            seed: Date.now() % 100000,
+          })
+        : mode === 'tabata'
+        ? generaTabata(catalogo, {
+            experience: settings.experience,
+            equipment: eff.attrezzi,
+            duration_min: eff.durata,
+            priority_muscles: eff.muscoli,
+            excluded_exercises: settings.excluded_exercises,
+            preferred_exercises: settings.favorite_exercises,
             weight_kg: settings.weight_kg,
             seed: Date.now() % 100000,
           })
@@ -137,22 +178,24 @@ export default function Create() {
           </button>
         ))}
       </div>
-      <div className="mt-2 grid grid-cols-2 gap-2">
-        {MODES_IN_ARRIVO.map((m) => (
-          <div
-            key={m.label}
-            className="chip cursor-not-allowed text-left opacity-40"
-            aria-disabled="true"
-            title="In arrivo, non ancora costruita"
-          >
-            <span className="block">{m.label}</span>
-            <span className="block text-[11px] text-slate2">{m.hint}</span>
-          </div>
-        ))}
-      </div>
+      {MODES_IN_ARRIVO.length > 0 && (
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          {MODES_IN_ARRIVO.map((m) => (
+            <div
+              key={m.label}
+              className="chip cursor-not-allowed text-left opacity-40"
+              aria-disabled="true"
+              title="In arrivo, non ancora costruita"
+            >
+              <span className="block">{m.label}</span>
+              <span className="block text-[11px] text-slate2">{m.hint}</span>
+            </div>
+          ))}
+        </div>
+      )}
 
-      {/* 1. Gruppo muscolare, raggruppato per tipo di split (sez. 15/71). CrossFit Standard non ha uno split: struttura fissa Forza/Skill + Metcon. */}
-      {mode === 'crossfit' ? (
+      {/* 1. Gruppo muscolare, raggruppato per tipo di split (sez. 15/71). I motori Metcon non hanno uno split: struttura fissa o formato a scelta. */}
+      {mode === 'crossfit' && (
         <div className="mt-8 slab">
           <span className="block font-display font-bold uppercase tracking-wide text-[17px]">
             Forza/Skill + Metcon
@@ -161,7 +204,58 @@ export default function Create() {
             Struttura fissa della classe: 1-2 alzate, poi un Metcon AMRAP a tempo.
           </span>
         </div>
-      ) : (
+      )}
+
+      {mode === 'crossfit_hybrid' && (
+        <div className="mt-8 slab">
+          <span className="block font-display font-bold uppercase tracking-wide text-[17px]">
+            Forza + Cardio alternati
+          </span>
+          <span className="block text-[13px] text-slate2 mt-0.5">
+            Un'alzata, poi una scarica cardio, a rotazione su tutto il corpo per 3-5 coppie.
+          </span>
+        </div>
+      )}
+
+      {mode === 'tabata' && (
+        <div className="mt-8 slab">
+          <span className="block font-display font-bold uppercase tracking-wide text-[17px]">
+            Tabata
+          </span>
+          <span className="block text-[13px] text-slate2 mt-0.5">
+            Protocollo fisso: 20″ lavoro, 10″ riposo, 8 round per movimento.
+          </span>
+        </div>
+      )}
+
+      {mode === 'conditioning' && (
+        <div className="mt-8">
+          <p className="field-label">Formato</p>
+          <div className="space-y-2.5">
+            {FORMATI_CONDIZIONAMENTO.map((f) => {
+              const on = formato === f
+              return (
+                <button
+                  key={f}
+                  onClick={() => setFormato(f)}
+                  aria-pressed={on}
+                  className={`slab flex items-center gap-4 w-full ${on ? '!border-chalk' : ''}`}
+                >
+                  <span aria-hidden className={`h-9 w-[3px] rounded-full ${on ? 'bg-amber2' : 'bg-edge'}`} />
+                  <span className="text-left">
+                    <span className="block font-display font-bold uppercase tracking-wide text-[17px]">
+                      {METCON_FORMAT_LABELS[f]}
+                    </span>
+                    <span className="block text-[13px] text-slate2 mt-0.5">{METCON_FORMAT_HINTS[f]}</span>
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {!MODI_SENZA_SPLIT.includes(mode) && (
         <div className="mt-8 space-y-5">
           {(mode === 'strength' ? SPLIT_GROUPS_FORZA : SPLIT_GROUPS).map((gruppo) => (
             <div key={gruppo.label}>
@@ -317,8 +411,9 @@ export default function Create() {
 
       {eff && (
         <p className="mt-3 text-center font-data text-[11px] uppercase tracking-[0.14em] text-slate2">
-          {mode === 'crossfit' ? MODE_LABELS.crossfit : SPLIT_LABELS[split]} · {eff.durata} min ·{' '}
-          {mode === 'crossfit' ? GOAL_LABELS.conditioning : mode === 'strength' ? GOAL_LABELS.strength : GOAL_LABELS[eff.goal]}
+          {mode === 'conditioning' ? METCON_FORMAT_LABELS[formato] : MODI_SENZA_SPLIT.includes(mode) ? MODE_LABELS[mode] : SPLIT_LABELS[split]}
+          {' '}· {eff.durata} min ·{' '}
+          {mode === 'strength' ? GOAL_LABELS.strength : MODI_SENZA_SPLIT.includes(mode) ? GOAL_LABELS.conditioning : GOAL_LABELS[eff.goal]}
         </p>
       )}
     </div>
