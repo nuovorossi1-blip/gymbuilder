@@ -1,4 +1,4 @@
-import { MODE_LABELS, SPLIT_LABELS, type Goal, type Muscle, type PublicMode, type Split, type SplitSystem, type Weekday, type WeeklyProgram, type WeeklyProgramConfig, type WeeklyProgramWarning, type WeeklySession } from '../types'
+import { MODE_LABELS, SPLIT_LABELS, type Exercise, type GeneratedWorkout, type Goal, type Muscle, type PublicMode, type RecoveryProfile, type Split, type SplitSystem, type Weekday, type WeeklyProgram, type WeeklyProgramConfig, type WeeklyProgramWarning, type WeeklySession } from '../types'
 
 const ACTIVE_DAYS: Record<number, Weekday[]> = {
   3: ['monday', 'wednesday', 'friday'],
@@ -56,6 +56,17 @@ const GENERIC_LOAD: Record<Exclude<PublicMode, 'bodybuilding' | 'strength'>, Mus
 }
 const STRENGTH_SPLITS = new Set<Split>(['push', 'pull', 'legs', 'upper', 'lower', 'full_body'])
 
+function forecastProfile(mode: PublicMode, split: Split | null, duration: number): RecoveryProfile {
+  const load = split ? SPLIT_LOAD[split] : GENERIC_LOAD[mode as keyof typeof GENERIC_LOAD]
+  const muscleStress = Object.fromEntries(load.map((muscle) => [muscle, split === 'legs' || split === 'lower' ? 8 : 6])) as Partial<Record<Muscle, number>>
+  const values: Record<PublicMode, [number, number, number, number]> = {
+    bodybuilding: [6, 2, 3, 36], strength: [8, 2, 5, 48],
+    crossfit: [8, 9, 7, 48], crossfit_hybrid: [8, 8, 6, 48], tabata: [6, 9, 3, 30],
+  }
+  const [fatigue, cardio, systemic, recovery] = values[mode]
+  return { fatigue_score: split === 'legs' || split === 'lower' ? Math.min(10, fatigue + 1) : fatigue, muscle_stress: muscleStress, cardio_demand: cardio, grip_demand: load.includes('back') ? 6 : 3, systemic_fatigue: systemic, recovery_demand_hours: recovery, duration_min: duration, source: 'forecast' }
+}
+
 export function proposeWeeklyPlan(system: SplitSystem, days: number): Split[] {
   const safeDays = Math.min(7, Math.max(1, Math.round(days)))
   return [...PIANI[system][safeDays]]
@@ -92,6 +103,7 @@ function makeCandidates(config: WeeklyProgramConfig): Omit<WeeklySession, 'id' |
       mode, split, label: split ? `${MODE_LABELS[mode]} — ${SPLIT_LABELS[split]}` : MODE_LABELS[mode],
       estimated_fatigue: mode === 'tabata' ? 2 : mode === 'bodybuilding' ? 2 : 3,
       muscle_load: split ? SPLIT_LOAD[split] : GENERIC_LOAD[mode as keyof typeof GENERIC_LOAD],
+      recovery_profile: forecastProfile(mode, split, config.duration_min),
     }))
   }
   return sessions
@@ -99,19 +111,45 @@ function makeCandidates(config: WeeklyProgramConfig): Omit<WeeklySession, 'id' |
 
 function overlap(a: Muscle[], b: Muscle[]): number { return a.filter((muscle) => b.includes(muscle)).length }
 
-function orderForRecovery(candidates: Omit<WeeklySession, 'id' | 'day'>[]): Omit<WeeklySession, 'id' | 'day'>[] {
-  const remaining = [...candidates]
-  const ordered: Omit<WeeklySession, 'id' | 'day'>[] = []
-  while (remaining.length) {
-    const previous = ordered[ordered.length - 1]
-    remaining.sort((a, b) => {
-      if (!previous) return Number(a.mode !== 'bodybuilding') - Number(b.mode !== 'bodybuilding')
-      const score = (item: typeof a) => overlap(previous.muscle_load, item.muscle_load) * 2 + (previous.estimated_fatigue === 3 && item.estimated_fatigue === 3 ? 5 : 0) + (previous.mode === item.mode ? 1 : 0)
-      return score(a) - score(b)
-    })
-    ordered.push(remaining.shift()!)
+function candidateScore(candidate: Omit<WeeklySession, 'id' | 'day'>[], days: Weekday[], config: WeeklyProgramConfig): number {
+  let score = 0
+  const weeklyStress: Partial<Record<Muscle, number>> = {}
+  candidate.forEach((session, index) => {
+    for (const [muscle, stress] of Object.entries(session.recovery_profile.muscle_stress) as [Muscle, number][]) weeklyStress[muscle] = (weeklyStress[muscle] ?? 0) + stress
+    if (index === 0) return
+    const previous = candidate[index - 1]
+    const gapHours = (DAY_INDEX[days[index]] - DAY_INDEX[days[index - 1]]) * 24
+    const sharedStress = overlap(previous.muscle_load, session.muscle_load)
+    if (gapHours < previous.recovery_profile.recovery_demand_hours) score += (previous.recovery_profile.recovery_demand_hours - gapHours) / 3
+    score += sharedStress * (gapHours === 24 ? 3 : 0.8)
+    score += Math.max(0, previous.recovery_profile.fatigue_score + session.recovery_profile.fatigue_score - 14) * (gapHours === 24 ? 2 : 0.5)
+    score += Math.max(0, previous.recovery_profile.grip_demand + session.recovery_profile.grip_demand - 12)
+    score += Math.max(0, previous.recovery_profile.cardio_demand + session.recovery_profile.cardio_demand - 16)
+  })
+  for (const muscle of config.weak_points) {
+    const stress = weeklyStress[muscle] ?? 0
+    score += stress < 6 ? 8 : stress > 24 ? (stress - 24) * 1.5 : 0
   }
-  return ordered
+  return score
+}
+
+function permutations<T>(items: T[]): T[][] {
+  if (items.length <= 1) return [items]
+  const output: T[][] = []
+  items.forEach((item, index) => {
+    for (const rest of permutations([...items.slice(0, index), ...items.slice(index + 1)])) output.push([item, ...rest])
+  })
+  return output
+}
+
+function orderForRecovery(candidates: Omit<WeeklySession, 'id' | 'day'>[], days: Weekday[], config: WeeklyProgramConfig): Omit<WeeklySession, 'id' | 'day'>[] {
+  let best = candidates
+  let bestScore = Number.POSITIVE_INFINITY
+  for (const candidate of permutations(candidates)) {
+    const score = candidateScore(candidate, days, config)
+    if (score < bestScore) { best = candidate; bestScore = score }
+  }
+  return best
 }
 
 export function validateWeeklyProgram(week: WeeklySession[], config: WeeklyProgramConfig): WeeklyProgramWarning[] {
@@ -140,8 +178,8 @@ export function validateWeeklyProgram(week: WeeklySession[], config: WeeklyProgr
 export function generateWeeklyProgram(config: WeeklyProgramConfig): WeeklyProgram {
   const days = Math.min(7, Math.max(3, Math.round(config.training_days)))
   const normalized = { ...config, training_days: days, selected_modes: [...new Set(config.selected_modes)] }
-  const ordered = orderForRecovery(makeCandidates(normalized))
   const activeDays = ACTIVE_DAYS[days]
+  const ordered = orderForRecovery(makeCandidates(normalized), activeDays, normalized)
   const week = ordered.map((session, index): WeeklySession => ({ ...session, id: `session-${index + 1}`, day: activeDays[index] }))
   return { id: `week-${Date.now()}`, config: normalized, week, warnings: validateWeeklyProgram(week, normalized) }
 }
@@ -152,8 +190,35 @@ export function updateWeeklySession(program: WeeklyProgram, id: string, patch: P
     const mode = patch.mode ?? session.mode
     const requestedSplit = patch.split ?? session.split ?? 'full_body'
     const split = mode === 'bodybuilding' ? requestedSplit : mode === 'strength' ? (STRENGTH_SPLITS.has(requestedSplit) ? requestedSplit : 'full_body') : null
-    return { ...session, ...patch, mode, split, label: split ? `${MODE_LABELS[mode]} — ${SPLIT_LABELS[split]}` : MODE_LABELS[mode], muscle_load: split ? SPLIT_LOAD[split] : GENERIC_LOAD[mode as keyof typeof GENERIC_LOAD], estimated_fatigue: mode === 'tabata' ? 2 : mode === 'bodybuilding' ? 2 : 3 } as WeeklySession
+    return { ...session, ...patch, mode, split, label: split ? `${MODE_LABELS[mode]} — ${SPLIT_LABELS[split]}` : MODE_LABELS[mode], muscle_load: split ? SPLIT_LOAD[split] : GENERIC_LOAD[mode as keyof typeof GENERIC_LOAD], estimated_fatigue: mode === 'tabata' ? 2 : mode === 'bodybuilding' ? 2 : 3, recovery_profile: forecastProfile(mode, split, program.config.duration_min) } as WeeklySession
   })
   const config = { ...program.config, selected_modes: [...new Set(week.map((session) => session.mode))] }
   return { ...program, config, week, warnings: validateWeeklyProgram(week, config) }
+}
+
+export function analyzeWorkoutRecovery(workout: GeneratedWorkout, catalog: Exercise[]): RecoveryProfile {
+  const byId = new Map(catalog.map((exercise) => [exercise.id, exercise]))
+  const stress: Partial<Record<Muscle, number>> = {}
+  let systemic = 0, grip = 0, cardio = 0, work = 0
+  for (const prescribed of workout.blocks.filter((block) => block.kind !== 'warmup').flatMap((block) => block.exercises)) {
+    const exercise = byId.get(prescribed.exercise_id)
+    if (!exercise) continue
+    const volume = Math.max(1, prescribed.sets)
+    for (const muscle of exercise.primary_muscles) stress[muscle] = (stress[muscle] ?? 0) + volume
+    for (const muscle of exercise.secondary_muscles) stress[muscle] = (stress[muscle] ?? 0) + volume * 0.5
+    systemic += exercise.systemic_fatigue * volume; grip += exercise.grip_fatigue * volume; cardio += exercise.cardio_demand * volume; work += volume
+  }
+  const divisor = Math.max(1, work)
+  const systemicScore = Math.min(10, systemic / divisor * 3)
+  const cardioScore = Math.min(10, cardio / divisor * 3)
+  const gripScore = Math.min(10, grip / divisor * 3)
+  const maxStress = Math.max(0, ...Object.values(stress))
+  const fatigue = Math.min(10, systemicScore * 0.45 + cardioScore * 0.25 + gripScore * 0.1 + Math.min(10, maxStress) * 0.2)
+  return { fatigue_score: Math.round(fatigue * 10) / 10, muscle_stress: stress, cardio_demand: Math.round(cardioScore * 10) / 10, grip_demand: Math.round(gripScore * 10) / 10, systemic_fatigue: Math.round(systemicScore * 10) / 10, recovery_demand_hours: fatigue >= 8 ? 48 : fatigue >= 6 ? 36 : 24, duration_min: workout.duration_min, source: 'generated_workout' }
+}
+
+export function applyWorkoutRecovery(program: WeeklyProgram, sessionId: string, workout: GeneratedWorkout, catalog: Exercise[]): WeeklyProgram {
+  const profile = analyzeWorkoutRecovery(workout, catalog)
+  const week = program.week.map((session) => session.id === sessionId ? { ...session, recovery_profile: profile, muscle_load: Object.keys(profile.muscle_stress) as Muscle[], estimated_fatigue: profile.fatigue_score >= 8 ? 3 as const : profile.fatigue_score >= 5 ? 2 as const : 1 as const } : session)
+  return { ...program, week, warnings: validateWeeklyProgram(week, program.config) }
 }

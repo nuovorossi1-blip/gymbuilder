@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { filterExercisesByPreferences } from '../engine/preferences'
-import { generateWeeklyProgram, updateWeeklySession } from '../engine/weeklyPlan'
+import { adaptiveExcludedIds } from '../engine/feedback'
+import { applyWorkoutRecovery, generateWeeklyProgram, updateWeeklySession } from '../engine/weeklyPlan'
 import { validateWorkout } from '../engine/validator'
 import { useAuth } from '../features/auth/AuthProvider'
 import { useSettings } from '../features/profile/useSettings'
@@ -25,7 +26,12 @@ import {
 
 const DAY_LABELS: Record<Weekday, string> = { monday: 'Lunedì', tuesday: 'Martedì', wednesday: 'Mercoledì', thursday: 'Giovedì', friday: 'Venerdì', saturday: 'Sabato', sunday: 'Domenica' }
 const INTENSITY_LABELS: Record<Intensity, string> = { low: 'Bassa', medium: 'Media', high: 'Alta' }
-const GOAL_OPTIONS: { value: Goal; label: string }[] = [{ value: 'hypertrophy', label: 'Ipertrofia' }, { value: 'strength', label: 'Forza' }, { value: 'conditioning', label: 'Condizionamento' }, { value: 'mixed', label: 'Misto' }]
+const GOAL_OPTIONS: { value: Goal; label: string; description: string }[] = [
+  { value: 'hypertrophy', label: 'Ipertrofia', description: 'Crescita muscolare, più volume, compound e isolamento.' },
+  { value: 'strength', label: 'Forza', description: 'Fondamentali, carichi elevati, basse ripetizioni e recuperi lunghi.' },
+  { value: 'conditioning', label: 'Condizionamento', description: 'Fiato, resistenza e lavoro metabolico ad alta densità.' },
+  { value: 'mixed', label: 'Misto', description: 'Forza e ipertrofia insieme al condizionamento settimanale.' },
+]
 const EDITABLE_SPLITS: Split[] = ['push', 'pull', 'legs', 'upper', 'lower', 'full_body', 'front_body', 'back_body', 'bro_chest', 'bro_back', 'bro_shoulders', 'bro_arms', 'bro_legs']
 const STRENGTH_SPLITS: Split[] = ['push', 'pull', 'legs', 'upper', 'lower', 'full_body']
 
@@ -41,7 +47,7 @@ const DEFAULT_CONFIG: WeeklyProgramConfig = {
 export default function Create() {
   const { user } = useAuth()
   const { profile } = useSettings(user?.id)
-  const { weeklyProgram, setWeeklyProgram, setWorkout, setGenerationConfig, setCatalog } = useWorkout()
+  const { weeklyProgram, setWeeklyProgram, setWorkout, setGenerationConfig, setCatalog, clearRejectedExercises } = useWorkout()
   const navigate = useNavigate()
   const [catalog, setLocalCatalog] = useState<Exercise[]>([])
   const [weeklyState, setWeeklyState] = useState<WeeklyTrainingState>()
@@ -62,8 +68,10 @@ export default function Create() {
   function generateDay(session: WeeklySession) {
     if (!weeklyProgram || catalog.length === 0) return
     const global = weeklyProgram.config
+    const adaptiveExcluded = user ? adaptiveExcludedIds(user.id, catalog) : []
+    const excluded = [...new Set([...global.preferences.excluded_exercise_ids, ...adaptiveExcluded])]
     const usableCatalog = filterExercisesByPreferences(catalog, {
-      excludedExerciseIds: global.preferences.excluded_exercise_ids,
+      excludedExerciseIds: excluded,
       bodyweightPolicy: global.preferences.bodyweight_policy,
       elasticPolicy: global.preferences.elastic_policy,
     }, 'normal')
@@ -71,7 +79,7 @@ export default function Create() {
       experience: global.experience, equipment: global.equipment.preset,
       available_equipment: global.equipment.available, duration_min: global.duration_min,
       priority_muscles: global.weak_points,
-      excluded_exercises: global.preferences.excluded_exercise_ids,
+      excluded_exercises: excluded,
       preferred_exercises: global.preferences.preferred_exercise_ids,
       intensity: global.intensity, weight_kg: profile?.weight_kg ?? null,
       seed: Date.now() % 100000,
@@ -90,12 +98,14 @@ export default function Create() {
       training_days: global.training_days, current_day: session.split,
       experience: global.experience, duration_min: global.duration_min,
       equipment: global.equipment, weak_points: global.weak_points,
-      preferences: global.preferences, intensity: global.intensity,
+      preferences: { ...global.preferences, excluded_exercise_ids: excluded }, intensity: global.intensity,
       workout_format: session.mode === 'crossfit' ? global.crossfit_format : undefined,
       tabata: session.mode === 'tabata' ? global.tabata : undefined,
     }
     const validation = validateWorkout(workout, config, catalog)
     if (!validation.valid) { setError(validation.errors.join(' ')); return }
+    clearRejectedExercises()
+    setWeeklyProgram(applyWorkoutRecovery(weeklyProgram, session.id, workout, catalog))
     setGenerationConfig(config); setWorkout(workout); setError(null); navigate('/allenamento')
   }
 
@@ -124,7 +134,7 @@ function WeeklyBuilder({ catalog, error, initial, onCreate }: { catalog: Exercis
     <h1 className="font-display text-[2.7rem] font-extrabold uppercase leading-[.88] tracking-tight">Costruisci la<br />tua settimana</h1>
     <Field title="Numero giorni"><div className="grid grid-cols-5 gap-2">{[3, 4, 5, 6, 7].map((days) => <Choice key={days} active={config.training_days === days} onClick={() => patch('training_days', days)}>{days}</Choice>)}</div></Field>
     <Field title="Discipline della settimana"><div className="space-y-2">{PUBLIC_MODES.map((mode) => <Choice key={mode} active={config.selected_modes.includes(mode)} onClick={() => toggleMode(mode)}>{MODE_LABELS[mode]}</Choice>)}</div><p className="mt-2 text-xs text-slate2">Scegline da 1 a {config.training_days}. Ogni disciplina comparirà almeno una volta.</p></Field>
-    <Field title="Obiettivo globale"><Grid>{GOAL_OPTIONS.map((goal) => <Choice key={goal.value} active={config.goal === goal.value} onClick={() => patch('goal', goal.value)}>{goal.label}</Choice>)}</Grid></Field>
+    <Field title="Obiettivo globale"><div className="space-y-2">{GOAL_OPTIONS.map((goal) => <button type="button" key={goal.value} aria-pressed={config.goal === goal.value} onClick={() => patch('goal', goal.value)} className={`slab w-full text-left ${config.goal === goal.value ? '!border-chalk' : ''}`}><span className="block font-display font-bold uppercase">{goal.label}</span><span className="mt-1 block text-xs text-slate2">{goal.description}</span></button>)}</div><p className="mt-2 text-xs text-slate2">L’obiettivo regola le priorità della settimana; ogni disciplina mantiene la propria struttura.</p></Field>
     {config.selected_modes.includes('bodybuilding') ? <Field title="Sistema Bodybuilding"><Grid>{(Object.keys(SPLIT_SYSTEM_LABELS) as SplitSystem[]).map((system) => <Choice key={system} active={config.split_system === system} onClick={() => patch('split_system', system)}>{SPLIT_SYSTEM_LABELS[system]}</Choice>)}</Grid></Field> : null}
     {config.selected_modes.includes('crossfit') ? <Field title="Formato CrossFit Standard"><div className="grid grid-cols-3 gap-2">{(['amrap', 'emom', 'for_time'] as const).map((format) => <Choice key={format} active={config.crossfit_format === format} onClick={() => patch('crossfit_format', format)}>{format === 'for_time' ? 'For Time' : format.toUpperCase()}</Choice>)}</div></Field> : null}
     {config.selected_modes.includes('tabata') ? <Field title="Protocollo Tabata"><NumberField label="Lavoro (sec)" value={config.tabata.work_sec} onChange={(work_sec) => patch('tabata', { ...config.tabata, work_sec })} /><NumberField label="Riposo (sec)" value={config.tabata.rest_sec} onChange={(rest_sec) => patch('tabata', { ...config.tabata, rest_sec })} /><NumberField label="Round" value={config.tabata.rounds} onChange={(rounds) => patch('tabata', { ...config.tabata, rounds })} /><Grid><Choice active={config.tabata.prescription === 'time'} onClick={() => patch('tabata', { ...config.tabata, prescription: 'time' })}>A tempo</Choice><Choice active={config.tabata.prescription === 'reps'} onClick={() => patch('tabata', { ...config.tabata, prescription: 'reps' })}>A ripetizioni</Choice></Grid></Field> : null}

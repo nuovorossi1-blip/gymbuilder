@@ -1,5 +1,15 @@
 # Changelog AI
 
+## 2026-08-06 — Recovery scoring ed Exercise Feedback Engine
+
+- Chiarite nell’interfaccia le differenze fra obiettivi globali e discipline.
+- Aggiunto `RecoveryProfile` previsto e calcolato dagli esercizi reali.
+- Sostituito l’ordinamento greedy con scoring esaustivo delle permutazioni settimanali.
+- Aggiunto pannello feedback con sei motivazioni.
+- Aggiunti rifiuto temporaneo, esclusione futura, aggiornamento inventario e memoria adattiva.
+- Replacement ranking esteso a pattern, ruolo, muscolo, difficoltà, fatica, livello e feedback.
+- Aggiunti sei test funzionali del feedback; totale 137 test verdi.
+
 ## 2026-08-06 — Weekly Program Generator multi-modalità
 
 - Aggiunti `WeeklyProgramConfig`, `WeeklySession`, `WeeklyProgram` e warning tipizzati.

@@ -5,5 +5,6 @@
 - [ ] Verificare con account reale registrazione, modifica profilo, generazione, cambio esercizio, salvataggio e completamento.
 - [ ] Aggiungere adapter nativi per `HealthDataProvider`; non promettere compatibilità universale.
 - [ ] Persistenza server-side dell'intero `WeeklyProgram` per sincronizzare la settimana fra dispositivi; oggi è sessionStorage.
+- [ ] Sincronizzare la memoria adattiva degli esercizi su Supabase; oggi è localStorage per utente/browser.
 - [ ] Risolvere i quattro warning lint legacy su Fast Refresh e dipendenza hook del Runner.
 - [ ] Valutare i quattro advisory npm senza usare aggiornamenti forzati incompatibili.

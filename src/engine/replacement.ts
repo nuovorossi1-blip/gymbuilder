@@ -1,28 +1,64 @@
 import { isExerciseAvailable } from '../generators/equipment'
-import type { EquipmentInventory, Exercise, PrescribedExercise } from '../types'
+import type { AdaptiveExercisePreference, EquipmentInventory, Exercise, ExerciseFeedbackReason, Experience, PrescribedExercise } from '../types'
 import { isExerciseAllowed, type RuntimePreferences } from './preferences'
+
+const EXPERIENCE_RANK: Record<Experience, number> = { beginner: 1, intermediate: 2, advanced: 3 }
+
+export interface ReplacementOptions {
+  reason?: ExerciseFeedbackReason
+  rejectedIds?: Set<string>
+  adaptivePreferences?: Record<string, AdaptiveExercisePreference>
+  experience?: Experience
+  preferredIds?: Set<string>
+}
 
 export function findExerciseReplacement(
   current: PrescribedExercise,
   catalog: Exercise[],
   equipment: EquipmentInventory,
   preferences: RuntimePreferences,
-  usedIds: Set<string>
+  usedIds: Set<string>,
+  options: ReplacementOptions = {}
 ): Exercise | undefined {
   const original = catalog.find((exercise) => exercise.id === current.exercise_id)
   if (!original) return undefined
+  const reason = options.reason ?? 'dislike'
   const placement = current.note?.toLowerCase().includes('finisher') ? 'finisher' : current.role === 'compound' ? 'primary' : 'normal'
-  return catalog
-    .filter((exercise) =>
-      exercise.id !== original.id && !usedIds.has(exercise.id) &&
-      exercise.exercise_types.includes(current.role === 'compound' ? 'compound' : 'isolation') &&
-      exercise.primary_muscles.some((muscle) => original.primary_muscles.includes(muscle)) &&
-      isExerciseAvailable(exercise, equipment.preset, equipment.available) &&
-      isExerciseAllowed(exercise, preferences, placement)
-    )
-    .sort((a, b) => {
-      const fatigueA = Math.abs(a.systemic_fatigue - original.systemic_fatigue) + Math.abs(a.local_fatigue - original.local_fatigue)
-      const fatigueB = Math.abs(b.systemic_fatigue - original.systemic_fatigue) + Math.abs(b.local_fatigue - original.local_fatigue)
-      return fatigueA - fatigueB || a.technical_complexity - b.technical_complexity
-    })[0]
+  const expectedType = current.role === 'compound' ? 'compound' : current.role === 'isolation' ? 'isolation' : 'conditioning'
+  const metabolic = current.role === 'metcon'
+
+  const candidates = catalog.filter((exercise) => {
+    if (exercise.id === original.id || usedIds.has(exercise.id) || options.rejectedIds?.has(exercise.id)) return false
+    if (!isExerciseAvailable(exercise, equipment.preset, equipment.available) || !isExerciseAllowed(exercise, preferences, placement)) return false
+    if (options.experience && EXPERIENCE_RANK[exercise.min_experience] > EXPERIENCE_RANK[options.experience]) return false
+    if (options.adaptivePreferences?.[exercise.id]?.permanently_excluded) return false
+    if (metabolic) return exercise.exercise_types.includes('conditioning') && exercise.metcon_safe
+    const sameMuscle = exercise.primary_muscles.some((muscle) => original.primary_muscles.includes(muscle))
+    if (!sameMuscle) return false
+    if (reason === 'discomfort') return true
+    return exercise.exercise_types.includes(expectedType)
+  })
+
+  const score = (exercise: Exercise): number => {
+    let value = 0
+    const samePattern = exercise.movement_pattern === original.movement_pattern
+    const sameEquipment = exercise.equipment === original.equipment
+    const sameType = exercise.exercise_types.includes(expectedType)
+    value += samePattern ? -60 : 12
+    value += sameType ? -25 : 20
+    value -= exercise.primary_muscles.filter((muscle) => original.primary_muscles.includes(muscle)).length * 15
+    value += Math.abs(exercise.systemic_fatigue - original.systemic_fatigue) * 4
+    value += Math.abs(exercise.local_fatigue - original.local_fatigue) * 3
+    value += Math.abs(exercise.technical_complexity - original.technical_complexity) * 2
+    if (reason === 'too_hard') value += exercise.technical_complexity >= original.technical_complexity ? 80 : -25
+    if (reason === 'too_easy') value += exercise.technical_complexity <= original.technical_complexity ? 80 : -25
+    if (reason === 'discomfort') value += samePattern ? 120 : 0
+    if (reason === 'prefer_other') value += sameEquipment ? 25 : -15
+    if (reason === 'unavailable') value += sameEquipment ? 40 : -10
+    if (options.preferredIds?.has(exercise.id)) value -= 8
+    const adaptive = options.adaptivePreferences?.[exercise.id]
+    if (adaptive) value += adaptive.dislike_score * 8 + adaptive.discomfort * 40 + adaptive.unavailable * 40
+    return value
+  }
+  return candidates.sort((a, b) => score(a) - score(b) || a.name.localeCompare(b.name))[0]
 }

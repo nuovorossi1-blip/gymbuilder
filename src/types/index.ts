@@ -8,6 +8,7 @@ export type PublicMode = Exclude<Mode, 'conditioning'>
 export type Sex = 'female' | 'male' | 'other' | 'unspecified'
 export type SplitSystem = 'ppl' | 'upper_lower' | 'bro_split' | 'front_back'
 export type ExercisePolicy = 'always' | 'finisher_only' | 'never'
+export type ExerciseFeedbackReason = 'dislike' | 'unavailable' | 'too_hard' | 'too_easy' | 'discomfort' | 'prefer_other'
 export type Weekday = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday'
 
 /**
@@ -159,6 +160,17 @@ export interface ExercisePreference {
   elastic_policy: ExercisePolicy
 }
 
+export interface AdaptiveExercisePreference {
+  dislike_score: number
+  difficulty_too_high: number
+  difficulty_too_low: number
+  discomfort: number
+  unavailable: number
+  permanently_excluded: boolean
+  movement_pattern: string
+  updated_at: string
+}
+
 export interface EquipmentInventory {
   preset: Equipment
   available: EquipmentItem[]
@@ -205,6 +217,18 @@ export interface WeeklySession {
   label: string
   estimated_fatigue: 1 | 2 | 3
   muscle_load: Muscle[]
+  recovery_profile: RecoveryProfile
+}
+
+export interface RecoveryProfile {
+  fatigue_score: number
+  muscle_stress: Partial<Record<Muscle, number>>
+  cardio_demand: number
+  grip_demand: number
+  systemic_fatigue: number
+  recovery_demand_hours: number
+  duration_min: number
+  source: 'forecast' | 'generated_workout'
 }
 
 export interface WeeklyProgramWarning {
