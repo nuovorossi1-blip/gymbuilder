@@ -35,14 +35,25 @@ export type Split =
 /** Attrezzo di un singolo esercizio, come sta nel database. */
 export type Gear = 'barbell' | 'dumbbell' | 'machine' | 'cable' | 'bodyweight' | 'kettlebell' | 'cardio'
 
+export type ExerciseCategory =
+  | 'barbell' | 'dumbbell' | 'machine' | 'cable' | 'kettlebell'
+  | 'bodyweight' | 'conditioning' | 'cardio' | 'mobility' | 'olympic' | 'gymnastics'
+
+export type ExerciseType = 'compound' | 'isolation' | 'conditioning' | 'mobility'
+export type WorkoutRole = 'warmup' | 'strength' | 'skill' | 'metcon' | 'recovery' | 'hypertrophy'
+
 export interface Exercise {
   id: string
+  /** Nome mostrato nell'interfaccia. */
   name: string
+  english_name: string
+  category: ExerciseCategory
+  exercise_types: ExerciseType[]
+  workout_roles: WorkoutRole[]
   primary_muscles: Muscle[]
   secondary_muscles: Muscle[]
   equipment: Gear
   movement_pattern: string
-  roles: string[]
   min_experience: Experience
   technical_complexity: number
   systemic_fatigue: number
@@ -52,9 +63,26 @@ export interface Exercise {
   default_sets: number
   default_reps: string
   default_rest: number
-  /** Come eseguire il movimento, una riga. Sez. 88 della correzione. */
+  metcon_safe: boolean
+  warmup_relevant: boolean
+  description: string
+  substitutions: string[]
+  /** Campo storico usato dai motori attuali; verrà rimosso solo dopo la migrazione completa ai ruoli tipizzati. */
+  roles: string[]
+  /** Come eseguire il movimento, una riga. */
   instructions: string
 }
+
+/** Forma accettata durante la transizione dai record Supabase della prima versione. */
+export type ExerciseRecord = Omit<
+  Exercise,
+  'english_name' | 'category' | 'exercise_types' | 'workout_roles' |
+  'metcon_safe' | 'warmup_relevant' | 'description' | 'substitutions'
+> & Partial<Pick<
+  Exercise,
+  'english_name' | 'category' | 'exercise_types' | 'workout_roles' |
+  'metcon_safe' | 'warmup_relevant' | 'description' | 'substitutions'
+>>
 
 /** Un esercizio gia' prescritto: serie, ripetizioni e recupero decisi dal motore. */
 export interface PrescribedExercise {

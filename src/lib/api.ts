@@ -1,6 +1,7 @@
 import { supabase } from './supabase'
-import type { CompletedWorkout, Exercise, GeneratedWorkout, Muscle, SavedWorkout } from '../types'
+import type { CompletedWorkout, Exercise, ExerciseRecord, GeneratedWorkout, Muscle, SavedWorkout } from '../types'
 import { volumeSettimanale } from '../generators/weakPoints'
+import { normalizeExercise } from '../data/exercises/normalize'
 
 export async function caricaCatalogo(): Promise<Exercise[]> {
   const { data, error } = await supabase
@@ -9,7 +10,7 @@ export async function caricaCatalogo(): Promise<Exercise[]> {
     .eq('active', true)
     .order('id')
   if (error) throw new Error('Non riusciamo a caricare gli esercizi.')
-  return (data ?? []) as Exercise[]
+  return ((data ?? []) as ExerciseRecord[]).map(normalizeExercise)
 }
 
 export async function salvaAllenamento(

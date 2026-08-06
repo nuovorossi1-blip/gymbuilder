@@ -4,7 +4,7 @@
 > da qui. Va **aggiornato** a ogni sessione, non accodato all'infinito.
 > L'identità del progetto e il percorso di AI-OS stanno in `AIOS_PROJECT.json`.
 
-**Ultimo aggiornamento:** 2026-08-06 (sessione 2) — Claude (Sonnet 5)
+**Ultimo aggiornamento:** 2026-08-06 (sessione 3) — Codex
 
 Etichette: `[FACT]` verificato nel codice · `[RICOSTRUITO]` dedotto da indizi ·
 `[IGNOTO]` non ricavabile dal repository
@@ -30,7 +30,7 @@ e validare un allenamento anche senza AI.
 
 ## 2. Dove siamo adesso
 
-**Fasi 1-9 completate: tutte e sei le modalità della specifica esistono.**
+**Fasi 1-9 implementate; riallineamento al master prompt in corso dalla Phase 2.**
 L'app ha autenticazione, profilo, un database di 87 esercizi in Supabase (con
 istruzioni testuali per ciascuno) e sei motori di generazione:
 
@@ -171,13 +171,23 @@ finché qualcuno non applica la patch manualmente
   su CrossFit Standard, 12 su CrossFit Hybrid, 19 su Condizionamento, 11 su
   Tabata, eseguiti contro il catalogo reale di 87 esercizi (fixture copiata
   da Supabase, non dati inventati)
+- [FACT] Phase 2 riallineata al master prompt: `Exercise` distingue ora categoria,
+  tipi dell'esercizio e ruoli nel workout; include nome inglese, sicurezza Metcon,
+  rilevanza per il warm-up, descrizione e sostituzioni. I record legacy vengono
+  completati da `src/data/exercises/normalize.ts`, così il frontend resta
+  compatibile prima dell'applicazione della migrazione remota.
+- [FACT] Migrazione versionata
+  `supabase/migrations/20260806101337_exercise_catalog_v2.sql`: aggiunge e popola
+  i metadati, impone vincoli, abilita RLS, concede solo la lettura necessaria agli
+  utenti autenticati e aggiunge l'indice parziale del catalogo attivo.
+- [FACT] 97 test automatici totali; build TypeScript/Vite verde.
 
 ## 4. Cosa è in lavorazione
 
-Niente aperto a metà. Le sei modalità della specifica esistono tutte. Il
-prossimo lavoro non ancora iniziato riguarda le fasi 10-14 rimaste aperte
-(vedi sez. 11): modifica di un salvato esercizio per esercizio, frequenza
-cardiaca reale, packaging mobile con Capacitor.
+Riallineamento sequenziale al master prompt richiesto dall'utente. Phase 2
+completata nel repository; si prosegue dalla Phase 3 senza ricostruire le parti
+già corrette. La migrazione Phase 2 non è ancora applicata al database remoto
+perché questa sessione non dispone di credenziali Supabase con privilegi schema.
 
 ## 5. Cosa manca
 
@@ -198,6 +208,7 @@ Capacitor (fase 14): non iniziato.
 
 | # | Problema | Da quando | Cosa si è già provato |
 |---|---|---|---|
+| 3 | La migrazione locale `exercise_catalog_v2` non è ancora applicata al progetto Supabase remoto | 06/08 | Migrazione creata con Supabase CLI e frontend reso retrocompatibile tramite normalizzazione; serve una sessione Supabase autenticata per applicarla e verificare query/advisor |
 | 1 | Push diretto su GitHub non autenticato da questo ambiente. **Confermato di nuovo in questa sessione con due meccanismi distinti**: `git push` via HTTPS restituisce 403 dalla policy di rete dell'ambiente (non da GitHub); `mcp__github__push_files`/`create_or_update_file` restituiscono 403 "Resource not accessible by integration" — l'app GitHub collegata ha permesso di sola lettura sui contenuti, confermato anche in scrittura API, non solo `git push` diretto | 05/08, riconfermato 06/08 | Aggirato una volta con GitHub Codespaces (terminale nel browser, autenticato all'account dell'utente): `git am` delle patch + push. Da rifare ad ogni sessione finché l'app non ha "Contents: Read and write". Finché resta così, ogni sessione deve terminare esportando una patch (`git format-patch`) da consegnare all'utente, non assumere che il lavoro sia pubblicato solo perché committato localmente |
 | 2 | **[IGNOTO]** se le variabili d'ambiente `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` sono impostate nel pannello Vercel. La build su Vercel risulta "Ready" e il collegamento automatico GitHub→Vercel funziona (smentendo la vecchia nota che lo dava per assente), ma una build che compila non prova che le variabili siano quelle giuste: Vite le incorpora al momento della build, un valore mancante non fa fallire nulla, produce solo un'app che non riesce a parlare con Supabase | 05/08 | Nessuna verifica diretta possibile da qui (nessun accesso al pannello Vercel). Da confermare aprendo il sito e provando login/generazione |
 
@@ -458,7 +469,7 @@ prese singolarmente non sarebbero verificabili.
 
 | Fase | Cosa | Stato |
 |---|---|---|
-| **2** | Database esercizi (79 voci, metadati completi) | ✅ Fatto |
+| **2** | Database esercizi (87 voci) e modello completo/versionabile | ✅ Fatto nel repository; migrazione remota da applicare |
 | **3** | Motore Bodybuilding: 13 split, fatica, muscoli prioritari | ✅ Fatto, **corretto in una sessione precedente** (sez. 7-8) |
 | **4** | Validatore | ✅ Integrato nella generazione stessa per tutti i motori (struttura garantita a priori + rete di sicurezza finale che dedupe/ricontrolla), non un modulo separato |
 | **5** | Motore Forza | ✅ Fatto |
@@ -485,3 +496,4 @@ prese singolarmente non sarebbero verificabili.
 | 2026-08-05 | Claude (Sonnet 5) | Dopo un confronto con l'app di riferimento costruita con Base44, tre aggiunte UI (intensità, istruzioni per esercizio nel database, stima calorie attive con placeholder FC onesto) e costruzione del motore Forza (`strength.ts`, fase 5), che riusa `shared.ts`/`weakPoints.ts`/`calories.ts` invece di duplicare Bodybuilding. Aggiunte colonne `instructions` su `exercises` e `weight_kg`/`default_intensity` su `user_settings`. 13 nuovi test (36 totali). Corretta la nota obsoleta sul collegamento GitHub→Vercel, che in realtà funziona |
 | 2026-08-06 | Claude (Sonnet 5) | Fase 6: motore CrossFit Standard (`crossfit.ts`) — Riscaldamento → Forza/Skill (riusa il tag `roles: 'strength'`, scende a un compound equivalente senza bilanciere) → Metcon AMRAP (3-4 movimenti bodyweight/kettlebell/manubri/cardio, uno per categoria). Solo formato AMRAP di proposito: EMOM/For Time/Rounds/Circuit/Intervals restano la differenza del futuro motore Condizionamento (fase 8). Aggiunti 8 esercizi al catalogo Supabase (87 totali: burpee, mountain climber, kettlebell swing/thruster, dumbbell thruster, box step-up, vogatore, sit-up). `GeneratedWorkout.split` diventato `Split \| null` (lo schema DB lo prevedeva già). Runner esteso con uno stopwatch AMRAP e un contatore di giri. 16 nuovi test (52 totali) |
 | 2026-08-06 | Claude (Sonnet 5) | Fasi 7-9 in sequenza, su richiesta esplicita dell'utente di completare tutte e sei le modalità: **CrossFit Hybrid** (`hybrid.ts`, forza+cardio alternati in coppie dentro un unico blocco `main`, nessuna modalità nuova richiesta al Runner), **Condizionamento** (`conditioning.ts`, solo Metcon, formato scelto dall'utente fra AMRAP/EMOM/For Time/Rounds/Circuit/Intervals), **Tabata** (`tabata.ts`, protocollo fisso 20″/10″×8, sequenziale per movimento non round-robin). `shared.ts` esteso con le utilità comuni ai motori Metcon (`poolMetcon`, `costruisciCircuito`, `CATEGORIA_PATTERN`, `repsMetcon`) e CrossFit Standard rifattorizzato per usarle prima di scrivere gli altri tre. Runner esteso con due nuove famiglie di UI (stopwatch a giri, timer a intervalli) oltre all'AMRAP. Trovati e corretti 2 bug reali eseguendo i motori (non solo build): reps a tempo corrotte da `parseInt`, durata sballata nei formati senza `interval_sec`. 42 nuovi test (94 totali). **Non pubblicato**: il push resta bloccato da questo ambiente anche via API GitHub (non solo `git push`), consegnata una patch da applicare manualmente |
+| 2026-08-06 | Codex | Ripreso il master prompt dalla Phase 2 mantenendo `AIOS_STATE.md`/`AIOS_PROJECT.json` come unica memoria ufficiale su decisione dell'utente. Esteso il modello Exercise con metadati canonici e separazione fra tipo e ruolo nel workout; aggiunta normalizzazione retrocompatibile; creata con Supabase CLI la migrazione `exercise_catalog_v2` con backfill, vincoli, RLS, grant esplicito e indice parziale. Aggiunti 3 test (97 totali), build verde. Migrazione remota ancora da applicare. |
