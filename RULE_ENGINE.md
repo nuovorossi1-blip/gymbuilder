@@ -29,6 +29,6 @@ Il replacement ranking rispetta pattern, muscolo, ruolo, attrezzatura, livello, 
 
 ## Vincolo del giorno Bodybuilding
 
-Per Push/Pull/Legs la selezione richiede sia il muscolo dello slot sia un movement pattern ammesso. Thruster/squat non sono validi in Push anche se coinvolgono i deltoidi. Le carenze braccia possono aggiungere elbow flexion/extension a Push/Pull; Legs conserva quad compound, posterior chain, isolamenti e polpacci. Il replacement applica lo stesso confine.
+Per Push/Pull/Legs la selezione richiede sia il muscolo dello slot sia un movement pattern ammesso. Thruster/squat non sono validi in Push anche se coinvolgono i deltoidi. Ogni carenza selezionata deve essere rappresentata in ogni sessione Bodybuilding: front/lateral/rear delts valgono come un unico requisito spalle per seduta; bicipiti e tricipiti hanno uno slot ciascuno. Il motore mantiene almeno quattro slot identitari e massimo sette totali, eliminando prima gli extra non prioritari. Un richiamo fuori split porta `note: carenza`; il replacement mantiene il suo pattern originale invece di convertirlo nel pattern del giorno.
 
 Combinazioni testate: BB+Hybrid; BB+CrossFit Standard; BB+Forza+Hybrid; BB+Hybrid+Tabata; Forza+Hybrid; BB+Tabata; CrossFit Standard+Hybrid; BB+CrossFit Standard+Hybrid+Tabata.

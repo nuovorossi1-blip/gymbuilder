@@ -29,11 +29,10 @@ import type {
   Equipment, EquipmentItem, Exercise, Experience, GeneratedWorkout, Goal, Intensity, Muscle,
   PrescribedExercise, Split, WorkoutBlock,
 } from '../types'
-import { MUSCLE_LABELS, SPLIT_LABELS } from '../types'
+import { SPLIT_LABELS } from '../types'
 import { isExerciseAvailable } from './equipment'
-import { decidiRichiami } from './weakPoints'
 import { PESO_DEFAULT_KG, stimaCalorieEsercizio } from './calories'
-import { minutiBlocco, minutiEsercizio, rimuoviDuplicati, rng, scegliRiscaldamento, vuotoVolume } from './shared'
+import { minutiBlocco, minutiEsercizio, rimuoviDuplicati, rng, scegliRiscaldamento } from './shared'
 
 export interface GenerationConfig {
   split: Split
@@ -59,6 +58,8 @@ export interface GenerationConfig {
 interface SlotDef {
   muscle: Muscle
   compound: boolean
+  /** Una carenza selezionata è obbligatoria nella sessione, non un bonus casuale. */
+  weakPoint?: boolean
 }
 
 /**
@@ -232,30 +233,6 @@ const SPLIT_MUSCLE_POOL: Record<Split, Muscle[]> = {
 }
 
 /**
- * Muscoli per cui è anatomicamente sensato un "richiamo incrociato" oltre
- * al pool naturale dello split (sez. 8 della correzione: tricipiti in Pull,
- * bicipiti in Push — la classica accoppiata "braccia" di palestra). Per
- * tutti gli altri split il richiamo resta dentro il pool naturale: le gambe
- * non richiamano mai braccia o spalle (sez. 11), qualunque sia la carenza
- * dichiarata.
- */
-const RICHIAMO_POOL: Record<Split, Muscle[]> = {
-  push: ['chest', 'front_delts', 'lateral_delts', 'triceps', 'biceps'],
-  pull: ['back', 'rear_delts', 'biceps', 'triceps'],
-  legs: ['quads', 'hamstrings', 'glutes', 'calves', 'core'],
-  upper: ['chest', 'back', 'front_delts', 'lateral_delts', 'rear_delts', 'biceps', 'triceps'],
-  lower: ['quads', 'hamstrings', 'glutes', 'calves', 'core'],
-  full_body: ['chest', 'back', 'quads', 'hamstrings', 'lateral_delts', 'core', 'biceps', 'triceps'],
-  bro_chest: ['chest', 'front_delts', 'triceps'],
-  bro_back: ['back', 'rear_delts', 'biceps'],
-  bro_shoulders: ['front_delts', 'lateral_delts', 'rear_delts'],
-  bro_arms: ['biceps', 'triceps'],
-  bro_legs: ['quads', 'hamstrings', 'glutes', 'calves', 'core'],
-  front_body: ['chest', 'quads', 'front_delts', 'lateral_delts', 'core'],
-  back_body: ['back', 'hamstrings', 'rear_delts', 'biceps', 'glutes'],
-}
-
-/**
  * Serie, ripetizioni e recupero secondo l'obiettivo (sez. 10), modulati
  * dall'intensità scelta per oggi (Bassa/Media/Alta): sposta il recupero
  * verso gli estremi dell'intervallo dell'obiettivo, non cambia obiettivo.
@@ -298,6 +275,45 @@ function targetEsercizi(duration_min: number): number {
 const SOGLIA_PESANTE = 3
 const MAX_COMPOUND_PESANTI = 2
 
+const SHOULDER_MUSCLES: Muscle[] = ['front_delts', 'lateral_delts', 'rear_delts']
+
+/**
+ * Collassa le tre porzioni del deltoide in un solo richiamo "spalle" per
+ * sessione. Se lo split ne copre già una selezionata usa quella naturale
+ * (laterale in Push, posteriore in Pull); altrimenti sceglie la prima carenza
+ * dichiarata. Bicipiti e tricipiti restano due requisiti distinti.
+ */
+function requisitiCarenze(priority: Muscle[], slots: SlotDef[]): Muscle[] {
+  const requirements: Muscle[] = []
+  const shoulders = priority.filter((muscle) => SHOULDER_MUSCLES.includes(muscle))
+  if (shoulders.length > 0) {
+    requirements.push(slots.find((slot) => shoulders.includes(slot.muscle))?.muscle ?? shoulders[0])
+  }
+  for (const muscle of priority.filter((item) => !SHOULDER_MUSCLES.includes(item))) {
+    if (!requirements.includes(muscle)) requirements.push(muscle)
+  }
+  return requirements
+}
+
+/** Mantiene almeno quattro slot identitari e riserva fino a tre richiami. */
+function applicaCarenzeObbligatorie(base: SlotDef[], priority: Muscle[]): { slots: SlotDef[]; requirements: Muscle[] } {
+  const requirements = requisitiCarenze(priority, base).slice(0, 3)
+  const slots = base.map((slot) => ({ ...slot }))
+  const represented = new Set<Muscle>()
+  for (const requirement of requirements) {
+    const existing = slots.find((slot) => slot.muscle === requirement && !slot.weakPoint)
+    if (existing) { existing.weakPoint = true; represented.add(requirement) }
+  }
+  const missing = requirements.filter((muscle) => !represented.has(muscle))
+  while (slots.length + missing.length > 7 && slots.length > 4) {
+    const removable = slots.map((slot, index) => ({ slot, index })).reverse().find(({ slot }) => !slot.weakPoint)
+    if (!removable) break
+    slots.splice(removable.index, 1)
+  }
+  for (const muscle of missing) slots.push({ muscle, compound: false, weakPoint: true })
+  return { slots, requirements }
+}
+
 export function generaBodybuilding(
   catalogo: Exercise[],
   cfg: GenerationConfig
@@ -305,7 +321,6 @@ export function generaBodybuilding(
   const warnings: string[] = []
   const random = rng(cfg.seed ?? 1)
   const preferiti = new Set(cfg.preferred_exercises ?? [])
-  const volumeSettimanale = cfg.weekly_volume
 
   // 1-3. Attrezzatura, esclusioni, esperienza
   const disponibili = catalogo.filter(
@@ -319,52 +334,16 @@ export function generaBodybuilding(
 
   // 4. Struttura: 5 slot fissi + fino a 2 aggiuntivi secondo il tempo (sez. 3, 11)
   const pool = SPLIT_MUSCLE_POOL[cfg.split]
-  let baseSlot = [...BASE_SLOTS[cfg.split]]
-
-  // 5a. Muscoli carenti "naturali" per lo split: ridistribuiscono gli slot base, non li aggiungono (sez. 6-7)
-  const prioritaInSplit = cfg.priority_muscles.filter((m) => pool.includes(m))
-  const prioritaFuoriSplit = cfg.priority_muscles.filter((m) => !pool.includes(m))
-  if (prioritaInSplit.length > 0) {
-    baseSlot = ridistribuisci(baseSlot, prioritaInSplit)
-  }
-
-  const target = targetEsercizi(cfg.duration_min)
-
-  // 5b. Richiami settimanali (sez. 6-10): solo per i muscoli davvero indietro
-  // sul volume delle ultime settimane, non per ogni carenza dichiarata, e
-  // solo fra i muscoli anatomicamente sensati per questo split (sez. 11: le
-  // gambe non richiamano mai braccia o spalle).
-  const volumeStimato = volumeSettimanale ?? vuotoVolume()
-  // Prima i richiami incrociati non già rappresentati dallo split (es. tricipiti
-  // in Pull), poi l'eventuale volume extra sui muscoli già presenti.
-  const priortaRichiamabili = cfg.priority_muscles
-    .filter((m) => RICHIAMO_POOL[cfg.split].includes(m))
-    .sort((a, b) => Number(pool.includes(a)) - Number(pool.includes(b)))
-  const richiami = decidiRichiami(
-    priortaRichiamabili,
-    volumeStimato,
-    baseSlot.map((s) => s.muscle),
-    2,
-    { last_trained_at: cfg.last_trained_at }
-  )
-  if (prioritaFuoriSplit.length > 0 && richiami.length === 0) {
-    warnings.push(
-      `${prioritaFuoriSplit.map((m) => MUSCLE_LABELS[m]).join(', ')}: già a posto sul volume ` +
-        `settimanale, ${prioritaFuoriSplit.length > 1 ? 'verranno' : 'verrà'} richiamat${prioritaFuoriSplit.length > 1 ? 'i' : 'o'} quando serve.`
-    )
-  }
+  const structured = applicaCarenzeObbligatorie(BASE_SLOTS[cfg.split], cfg.priority_muscles)
+  const baseSlot = structured.slots
+  const target = Math.min(7, Math.max(targetEsercizi(cfg.duration_min), baseSlot.length))
 
   // 6. Slot 6°-7°: prima i richiami, poi gli extra generici dello split
   const extraSlot: SlotDef[] = []
-  for (const m of richiami) {
-    if (baseSlot.length + extraSlot.length >= target) break
-    extraSlot.push({ muscle: m, compound: false })
-  }
   for (const s of EXTRA_SLOTS[cfg.split]) {
     if (baseSlot.length + extraSlot.length >= target) break
     extraSlot.push(s)
   }
-  const richiamoSet = new Set(richiami)
   const slot = [...baseSlot, ...extraSlot]
 
   // 7. Selezione esercizi per slot
@@ -376,8 +355,8 @@ export function generaBodybuilding(
 
   for (let i = 0; i < slot.length; i++) {
     const s = slot[i]
-    const isRichiamo = i >= baseSlot.length && richiamoSet.has(s.muscle)
-    const musclesDaProvare = [s.muscle, ...pool.filter((m) => m !== s.muscle)]
+    const isRichiamo = !!s.weakPoint
+    const musclesDaProvare = [s.muscle, ...(!isRichiamo ? pool.filter((m) => m !== s.muscle) : [])]
 
     let scelto: Exercise | undefined
     let muscoloUsato: Muscle = s.muscle
@@ -434,7 +413,7 @@ export function generaBodybuilding(
       sets: p.sets,
       reps: p.reps,
       rest_sec: p.rest,
-      note: isRichiamo ? 'richiamo' : undefined,
+      note: isRichiamo ? 'carenza' : undefined,
       instructions: scelto.instructions || undefined,
     }
 
@@ -535,45 +514,9 @@ function adattaAlTempo(scelti: PrescribedExercise[], budgetMin: number): void {
 
   // Fase 3: ultima risorsa, droppa lo slot meno prioritario, mai sotto 5.
   while (sforo() > 0 && scelti.length > 5) {
-    let iRimuovi = scelti.map((e) => e.note === 'richiamo').lastIndexOf(true)
-    if (iRimuovi < 0) iRimuovi = scelti.map((e) => e.role === 'isolation').lastIndexOf(true)
-    if (iRimuovi < 0) iRimuovi = scelti.length - 1
+    let iRimuovi = scelti.map((e) => e.note !== 'carenza' && e.role === 'isolation').lastIndexOf(true)
+    if (iRimuovi < 0) iRimuovi = scelti.map((e) => e.note !== 'carenza').lastIndexOf(true)
+    if (iRimuovi < 0) break
     scelti.splice(iRimuovi, 1)
   }
-}
-
-/**
- * Ridistribuisce gli slot base verso i muscoli prioritari CHE NON HANNO
- * ANCORA UNO SLOT PROPRIO in questo split, senza aggiungerne di nuovi:
- * toglie uno slot al muscolo più rappresentato e lo assegna alla priorità
- * (sez. 6: è una redistribuzione, non un'aggiunta).
- *
- * Un muscolo prioritario che lo split copre già naturalmente (es. bicipiti
- * in un Pull, che ha già il suo slot dedicato) non viene toccato qui: se ha
- * davvero bisogno di più volume ci pensa il richiamo settimanale
- * (weakPoints.ts), non una seconda redistribuzione nella stessa sessione.
- * Prima di questa correzione, due muscoli prioritari già presenti potevano
- * "spolpare" lo stesso donatore in sequenza fino a farlo sparire quasi
- * del tutto — misurato nei test sullo scenario Pull con carenze braccia.
- */
-function ridistribuisci(slot: SlotDef[], priorita: Muscle[]): SlotDef[] {
-  const out = [...slot]
-  for (const p of priorita) {
-    const conteggio = new Map<Muscle, number>()
-    out.forEach((s) => conteggio.set(s.muscle, (conteggio.get(s.muscle) ?? 0) + 1))
-    if ((conteggio.get(p) ?? 0) > 0) continue // già rappresentato: niente da redistribuire
-
-    let donatore: Muscle | null = null
-    let max = 1
-    for (const [m, n] of conteggio) {
-      if (!priorita.includes(m) && n > max) {
-        max = n
-        donatore = m
-      }
-    }
-    if (!donatore) continue
-    const i = out.map((s) => s.muscle).lastIndexOf(donatore)
-    if (i >= 0) out[i] = { muscle: p, compound: false }
-  }
-  return out
 }

@@ -22,7 +22,7 @@ La navigazione pubblica contiene solo Genera, Salvati e Profilo. Le modalità pu
 
 ## Stato verificato
 
-Al 2026-08-06: 149 test verdi, build verde, lint senza errori bloccanti. Il giorno Bodybuilding è un vincolo strutturale anche a livello di movement pattern; carenze e replacement non possono trasformare Push/Pull/Legs. Il Runner usa timestamp reali, eventi tipizzati e Web Audio (Beep/Ding/Silenzioso) sbloccato dall'interazione utente. Il contratto Profile usa `profiles.user_id`; la migration RLS `20260806170000_profiles_contract_and_rls.sql` deve essere applicata al Supabase di produzione, non accessibile dal connettore corrente.
+Al 2026-08-06: build verde e lint senza errori bloccanti. Il giorno Bodybuilding è un vincolo strutturale anche a livello di movement pattern. Le carenze sono requisiti per ogni sessione Bodybuilding: le porzioni deltoidee formano un requisito spalle, mentre bicipiti e tricipiti sono distinti; il motore riserva gli slot prima degli extra. Il replacement conserva il ruolo anche per un richiamo fuori split. Il Runner usa timestamp reali, eventi tipizzati e Web Audio. Il contratto Profile usa `profiles.user_id`; la migration RLS `20260806170000_profiles_contract_and_rls.sql` deve essere applicata al Supabase di produzione.
 
 ## Prossimo passo
 

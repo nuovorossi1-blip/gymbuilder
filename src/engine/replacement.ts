@@ -37,7 +37,7 @@ export function findExerciseReplacement(
   const candidates = catalog.filter((exercise) => {
     if (exercise.id === original.id || usedIds.has(exercise.id) || options.rejectedIds?.has(exercise.id)) return false
     const splitPatterns = options.split ? SPLIT_PATTERNS[options.split] : undefined
-    if (splitPatterns && !splitPatterns.has(exercise.movement_pattern)) return false
+    if (splitPatterns && current.note !== 'carenza' && !splitPatterns.has(exercise.movement_pattern)) return false
     if (!isExerciseAvailable(exercise, equipment.preset, equipment.available) || !isExerciseAllowed(exercise, preferences, placement)) return false
     if (options.experience && EXPERIENCE_RANK[exercise.min_experience] > EXPERIENCE_RANK[options.experience]) return false
     if (options.adaptivePreferences?.[exercise.id]?.permanently_excluded) return false
