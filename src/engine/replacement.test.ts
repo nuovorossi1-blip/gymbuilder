@@ -28,6 +28,13 @@ describe('Exercise Feedback & Replacement Engine', () => {
     expect(replacement.movement_pattern).not.toBe('squat')
   })
 
+  it('un richiamo carenza in Legs viene sostituito con lo stesso pattern e non con un esercizio gambe', () => {
+    const current = { ...prescribed('curl_manubri', 'isolation'), note: 'carenza' }
+    const replacement = findExerciseReplacement(current, catalog, { ...equipment, available: [...equipment.available] }, preferences, new Set(['curl_manubri']), { reason: 'dislike', experience: 'advanced', split: 'legs' })!
+    expect(replacement.movement_pattern).toBe('elbow_flexion')
+    expect(replacement.primary_muscles).toContain('biceps')
+  })
+
   it('Troppo difficile seleziona una regressione dello stesso pattern', () => {
     const replacement = replace('trazioni', 'too_hard')
     expect(replacement.movement_pattern).toBe('vertical_pull')

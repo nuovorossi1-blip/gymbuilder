@@ -1,5 +1,15 @@
 # Changelog AI
 
+## 2026-08-06 — Carenze obbligatorie in ogni sessione Bodybuilding
+
+- Trasformate le carenze da richiamo condizionale a requisito strutturale della seduta.
+- Raggruppati deltoide anteriore/laterale/posteriore in un requisito spalle per sessione.
+- Riservato uno slot distinto a bicipiti e tricipiti quando selezionati.
+- Gli extra non prioritari, come le croci aggiuntive, cedono lo slot alle carenze.
+- Legs conserva almeno quattro slot identitari e può usare tre slot per spalle/braccia, restando entro sette esercizi.
+- Il replacement di un richiamo fuori split mantiene pattern, muscolo e ruolo.
+- Test completi: 153/153 verdi; build e asset Vite verificati.
+
 ## 2026-08-06 — Regole PPL, Profile e Timer Audio
 
 - Corretto il difetto che ammetteva Thruster in Push: muscolo+ruolo non bastano più, ora lo slot impone anche il movement pattern.

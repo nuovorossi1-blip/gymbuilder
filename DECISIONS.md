@@ -31,3 +31,7 @@ Il giorno selezionato dall'utente è un vincolo strutturale. Le carenze modifica
 ## 2026-08-06 — Timer a eventi e timestamp
 
 Un solo Timer Engine descrive le transizioni; la UI e l'Audio Engine reagiscono agli stessi eventi. Il tempo deriva da deadline/start timestamp, non dal numero di callback ricevuti, così cambio focus e throttling non accumulano drift. Web Audio viene sbloccato solo dal tap dell'utente e non modifica il volume globale.
+
+## 2026-08-06 — Carenze obbligatorie per seduta Bodybuilding
+
+Una carenza selezionata non è più subordinata al contatore di volume per apparire: deve ricevere almeno uno slot in ogni sessione Bodybuilding. Le porzioni deltoidee sono raggruppate come “spalle” per evitare tre esercizi spalle nella stessa seduta; bicipiti e tricipiti restano separati. Gli slot vengono riservati prima degli extra (per esempio le croci dopo due esercizi petto) e non possono essere eliminati dall'adattamento alla durata.

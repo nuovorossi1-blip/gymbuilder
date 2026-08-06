@@ -18,7 +18,8 @@
 - Vincoli movement-pattern per Push/Pull/Legs e replacement contestuale.
 - Profile contract `user_id`, RLS e persistenza fisica in migration idempotente.
 - Timer Engine a timestamp con eventi e audio Beep/Ding/Silenzioso.
-- 149 test, build Vite e asset CSS verificati.
+- 153 test, build Vite e asset CSS verificati.
+- Carenze spalle/bicipiti/tricipiti garantite in ogni sessione Bodybuilding, prima degli extra.
 
 ## IN SVILUPPO
 

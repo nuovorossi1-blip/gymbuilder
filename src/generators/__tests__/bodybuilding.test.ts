@@ -90,17 +90,31 @@ describe('generaBodybuilding — attrezzatura (sez. 21, 31)', () => {
   })
 })
 
-describe('generaBodybuilding — split che non toccano braccia/spalle nelle gambe (sez. 11)', () => {
-  it('legs non include mai bicipiti, tricipiti o deltoidi anche con carenze dichiarate', () => {
+describe('generaBodybuilding — carenze obbligatorie in ogni sessione', () => {
+  it.each(['push', 'pull', 'legs'] as const)('%s contiene spalle, bicipiti e tricipiti selezionati come carenze', (split) => {
     const w = generaBodybuilding(catalogo, {
-      split: 'legs', goal: 'hypertrophy', experience: 'advanced', equipment: 'full_gym',
-      duration_min: 90, priority_muscles: ['biceps', 'triceps', 'front_delts'],
+      split, goal: 'hypertrophy', experience: 'advanced', equipment: 'full_gym',
+      duration_min: 60, priority_muscles: ['lateral_delts', 'rear_delts', 'biceps', 'triceps'],
       excluded_exercises: [], seed: 11,
     })
-    const muscoli = mainBlock(w).exercises.map((e) => e.muscle)
-    expect(muscoli).not.toContain('biceps')
-    expect(muscoli).not.toContain('triceps')
-    expect(muscoli).not.toContain('front_delts')
+    const main = mainBlock(w).exercises
+    const muscles = main.map((exercise) => exercise.muscle)
+    expect(muscles.some((muscle) => muscle === 'lateral_delts' || muscle === 'rear_delts')).toBe(true)
+    expect(muscles).toContain('biceps')
+    expect(muscles).toContain('triceps')
+    expect(main.filter((exercise) => exercise.note === 'carenza').length).toBeGreaterThanOrEqual(3)
+    expect(main.length).toBeLessThanOrEqual(7)
+  })
+
+  it('Push 60 minuti usa due petto e riserva gli slot alle carenze prima delle croci extra', () => {
+    const w = generaBodybuilding(catalogo, {
+      split: 'push', goal: 'hypertrophy', experience: 'advanced', equipment: 'full_gym', duration_min: 60,
+      priority_muscles: ['lateral_delts', 'biceps', 'triceps'], excluded_exercises: [], seed: 7,
+    })
+    const main = mainBlock(w).exercises
+    expect(main).toHaveLength(6)
+    expect(main.filter((exercise) => exercise.muscle === 'chest')).toHaveLength(2)
+    expect(main.map((exercise) => exercise.muscle)).toEqual(expect.arrayContaining(['lateral_delts', 'biceps', 'triceps']))
   })
 })
 
@@ -131,10 +145,10 @@ describe('generaBodybuilding — scenario critico sez. 28 della correzione', () 
     expect(muscles).toContain('rear_delts'); expect(muscles).toContain('biceps'); expect(muscles).toContain('triceps')
   })
 
-  it('Legs mantiene la struttura quad compound, posterior chain, isolamenti e polpacci', () => {
+  it('Legs senza carenze esterne mantiene quad compound, posterior chain, isolamenti e polpacci', () => {
     const w = generaBodybuilding(catalogo, {
       split: 'legs', goal: 'hypertrophy', experience: 'advanced', equipment: 'full_gym', duration_min: 60,
-      priority_muscles: ['biceps', 'triceps'], excluded_exercises: [], seed: 5,
+      priority_muscles: [], excluded_exercises: [], seed: 5,
     })
     const main = mainBlock(w).exercises
     expect(main.slice(0, 5).map((exercise) => exercise.muscle)).toEqual(['quads', 'hamstrings', 'quads', 'hamstrings', 'calves'])
