@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../features/auth/AuthProvider'
 import { useSettings } from '../features/profile/useSettings'
 import { useWorkout } from '../features/workout/WorkoutContext'
-import { caricaCatalogo, salvaAllenamento, volumeSettimanaleUtente } from '../lib/api'
+import { caricaCatalogo, salvaAllenamento, situazioneSettimanaleUtente } from '../lib/api'
 import { generaBodybuilding } from '../generators/bodybuilding'
 import { generaForza } from '../generators/strength'
 import { generaCrossFit } from '../generators/crossfit'
@@ -41,7 +41,7 @@ export default function WorkoutPreview() {
   async function rigenera() {
     if (!settings || !workout || !user) return
     const catalogo = await caricaCatalogo()
-    const volumeSettimanale = await volumeSettimanaleUtente(user.id, catalogo)
+    const situazioneSettimanale = await situazioneSettimanaleUtente(user.id, catalogo)
 
     if (workout.mode === 'crossfit' || workout.mode === 'crossfit_hybrid' || workout.mode === 'tabata') {
       const cfg = {
@@ -96,7 +96,8 @@ export default function WorkoutPreview() {
       priority_muscles: settings.priority_muscles,
       excluded_exercises: settings.excluded_exercises,
       preferred_exercises: settings.favorite_exercises,
-      weekly_volume: volumeSettimanale,
+      weekly_volume: situazioneSettimanale?.volume,
+      last_trained_at: situazioneSettimanale?.last_trained_at,
       intensity: settings.default_intensity,
       weight_kg: settings.weight_kg,
       seed: Date.now() % 100000,

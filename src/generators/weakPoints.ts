@@ -16,6 +16,11 @@
 
 import type { CompletedWorkout, Exercise, Muscle } from '../types'
 
+export interface WeeklyTrainingState {
+  volume: Record<Muscle, number>
+  last_trained_at: Partial<Record<Muscle, string>>
+}
+
 /** Serie settimanali "sufficienti" per muscolo, sotto le quali scatta il richiamo. */
 export const TARGET_SETTIMANALE: Record<Muscle, number> = {
   chest: 14,
@@ -44,27 +49,42 @@ function vuoto(): Record<Muscle, number> {
  * ultimi `giorni`. Diretto = serie piene, indiretto (muscoli secondari
  * dell'esercizio) = metà peso. Il riscaldamento non conta.
  */
+export function analizzaSettimana(
+  completati: CompletedWorkout[],
+  catalogo: Exercise[],
+  giorni = 7
+): WeeklyTrainingState {
+  const soglia = Date.now() - giorni * 24 * 60 * 60 * 1000
+  const perId = new Map(catalogo.map((e) => [e.id, e]))
+  const volume = vuoto()
+  const last_trained_at: Partial<Record<Muscle, string>> = {}
+
+  for (const w of completati) {
+    if (new Date(w.completed_at).getTime() < soglia) continue
+    for (const blocco of w.blocks.filter((b) => b.kind !== 'warmup')) {
+      for (const es of blocco.exercises) {
+        const ex = perId.get(es.exercise_id)
+        if (!ex) continue
+        for (const m of ex.primary_muscles) {
+          volume[m] += es.sets
+          if (!last_trained_at[m] || w.completed_at > last_trained_at[m]!) last_trained_at[m] = w.completed_at
+        }
+        for (const m of ex.secondary_muscles) {
+          volume[m] += es.sets * 0.5
+          if (!last_trained_at[m] || w.completed_at > last_trained_at[m]!) last_trained_at[m] = w.completed_at
+        }
+      }
+    }
+  }
+  return { volume, last_trained_at }
+}
+
 export function volumeSettimanale(
   completati: CompletedWorkout[],
   catalogo: Exercise[],
   giorni = 7
 ): Record<Muscle, number> {
-  const soglia = Date.now() - giorni * 24 * 60 * 60 * 1000
-  const perId = new Map(catalogo.map((e) => [e.id, e]))
-  const volume = vuoto()
-
-  for (const w of completati) {
-    if (new Date(w.completed_at).getTime() < soglia) continue
-    const principale = w.blocks.find((b) => b.kind === 'main')
-    if (!principale) continue
-    for (const es of principale.exercises) {
-      const ex = perId.get(es.exercise_id)
-      if (!ex) continue
-      for (const m of ex.primary_muscles) volume[m] += es.sets
-      for (const m of ex.secondary_muscles) volume[m] += es.sets * 0.5
-    }
-  }
-  return volume
+  return analizzaSettimana(completati, catalogo, giorni).volume
 }
 
 /**
@@ -78,7 +98,12 @@ export function decidiRichiami(
   prioritari: Muscle[],
   volumeAttuale: Record<Muscle, number>,
   muscoliGiaCoperti: Muscle[],
-  massimo = 2
+  massimo = 2,
+  recupero?: {
+    last_trained_at?: Partial<Record<Muscle, string>>
+    now?: number
+    minimum_hours?: number
+  }
 ): Muscle[] {
   const conteggioCoperti = new Map<Muscle, number>()
   muscoliGiaCoperti.forEach((m) => conteggioCoperti.set(m, (conteggioCoperti.get(m) ?? 0) + 1))
@@ -88,6 +113,11 @@ export function decidiRichiami(
     // Se lo split di oggi gli dà già 2+ slot propri, il volume diretto di
     // oggi probabilmente basta: non serve un richiamo aggiuntivo.
     if (giaSlotDedicati >= 2) return false
+    const ultimo = recupero?.last_trained_at?.[m]
+    if (ultimo) {
+      const ore = ((recupero.now ?? Date.now()) - new Date(ultimo).getTime()) / 3_600_000
+      if (ore < (recupero.minimum_hours ?? 48)) return false
+    }
     return volumeAttuale[m] < TARGET_SETTIMANALE[m] * 0.6
   })
 

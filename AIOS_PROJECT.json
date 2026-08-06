@@ -61,6 +61,6 @@
   "last_session": {
     "model": "Codex",
     "date": "2026-08-06",
-    "summary": "Ripresa la roadmap dal master prompt mantenendo AIOS_STATE.md come memoria unica. Phase 2 riallineata: modello Exercise canonico esteso, normalizzazione retrocompatibile, migrazione Supabase versionata con RLS e grant espliciti, 97 test totali. Migrazione pronta ma non ancora applicata al progetto remoto. Dettagli in AIOS_STATE.md."
+    "summary": "Ripresa la roadmap dal master prompt mantenendo AIOS_STATE.md come memoria unica. Phase 2 riallineata con modello Exercise esteso e migrazione versionata; Phase 3 verificata; Phase 4 completata aggiungendo recupero minimo ai richiami Weak Point e conteggio dei blocchi Metcon. 100 test totali, build verde. Migrazione Phase 2 pronta ma non ancora applicata al progetto remoto."
   }
 }

@@ -38,6 +38,7 @@ export interface StrengthConfig {
   excluded_exercises: string[]
   preferred_exercises?: string[]
   weekly_volume?: Record<Muscle, number>
+  last_trained_at?: Partial<Record<Muscle, string>>
   intensity?: Intensity
   weight_kg?: number | null
   seed?: number
@@ -183,7 +184,13 @@ export function generaForza(catalogo: Exercise[], cfg: StrengthConfig): Generate
   const volumeStimato = cfg.weekly_volume ?? vuotoVolume()
   const priortaRichiamabili = cfg.priority_muscles.filter((m) => RICHIAMO_POOL[cfg.split].includes(m))
   // Un solo richiamo (non due come in Bodybuilding): la Forza resta sulle alzate base.
-  const richiami = decidiRichiami(priortaRichiamabili, volumeStimato, baseSlot.map((s) => s.muscle), 1)
+  const richiami = decidiRichiami(
+    priortaRichiamabili,
+    volumeStimato,
+    baseSlot.map((s) => s.muscle),
+    1,
+    { last_trained_at: cfg.last_trained_at }
+  )
   if (prioritaFuoriSplit.length > 0 && richiami.length === 0) {
     warnings.push(
       `${prioritaFuoriSplit.map((m) => MUSCLE_LABELS[m]).join(', ')}: già a posto sul volume ` +

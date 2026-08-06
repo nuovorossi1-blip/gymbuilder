@@ -46,6 +46,7 @@ export interface GenerationConfig {
   preferred_exercises?: string[]
   /** Volume settimanale già accumulato per muscolo, dagli allenamenti completati (weakPoints.ts). */
   weekly_volume?: Record<Muscle, number>
+  last_trained_at?: Partial<Record<Muscle, string>>
   /** Bassa/Media/Alta: modula recupero e ripetizioni entro l'obiettivo scelto (sez. UI Base44). */
   intensity?: Intensity
   /** Per la stima delle calorie attive (sez. 60); senza valore si usa una media adulta dichiarata. */
@@ -310,7 +311,8 @@ export function generaBodybuilding(
     priortaRichiamabili,
     volumeStimato,
     baseSlot.map((s) => s.muscle),
-    2
+    2,
+    { last_trained_at: cfg.last_trained_at }
   )
   if (prioritaFuoriSplit.length > 0 && richiami.length === 0) {
     warnings.push(
@@ -541,4 +543,3 @@ function ridistribuisci(slot: SlotDef[], priorita: Muscle[]): SlotDef[] {
   }
   return out
 }
-

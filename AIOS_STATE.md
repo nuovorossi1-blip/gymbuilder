@@ -181,6 +181,14 @@ finché qualcuno non applica la patch manualmente
   i metadati, impone vincoli, abilita RLS, concede solo la lettura necessaria agli
   utenti autenticati e aggiunge l'indice parziale del catalogo attivo.
 - [FACT] 97 test automatici totali; build TypeScript/Vite verde.
+- [FACT] Phase 3 verificata contro il master prompt: tutte le strutture
+  Bodybuilding, compreso il Pull critico, sono già coperte dai test e non hanno
+  richiesto una riscrittura.
+- [FACT] Phase 4: il Weak Point Engine registra ora anche l'ultimo allenamento
+  diretto o indiretto per muscolo e impedisce richiami aggiuntivi nelle 48 ore
+  successive. Il volume considera tutti i blocchi non-warm-up, incluso il
+  Metcon, e non soltanto il primo blocco `main`.
+- [FACT] 100 test automatici totali; build TypeScript/Vite verde.
 
 ## 4. Cosa è in lavorazione
 
@@ -470,8 +478,8 @@ prese singolarmente non sarebbero verificabili.
 | Fase | Cosa | Stato |
 |---|---|---|
 | **2** | Database esercizi (87 voci) e modello completo/versionabile | ✅ Fatto nel repository; migrazione remota da applicare |
-| **3** | Motore Bodybuilding: 13 split, fatica, muscoli prioritari | ✅ Fatto, **corretto in una sessione precedente** (sez. 7-8) |
-| **4** | Validatore | ✅ Integrato nella generazione stessa per tutti i motori (struttura garantita a priori + rete di sicurezza finale che dedupe/ricontrolla), non un modulo separato |
+| **3** | Motore Bodybuilding: 13 split, fatica, muscoli prioritari | ✅ Verificato nella sessione 3 |
+| **4** | Weak Point settimanali: volume diretto/indiretto, frequenza e recupero | ✅ Completato nella sessione 3 |
 | **5** | Motore Forza | ✅ Fatto |
 | **6** | CrossFit Standard: Forza/Skill + Metcon AMRAP | ✅ Fatto |
 | **7** | CrossFit Hybrid — funzionalità distintiva del prodotto (sez. 18 correzione) | ✅ Fatto in questa sessione |
@@ -497,3 +505,4 @@ prese singolarmente non sarebbero verificabili.
 | 2026-08-06 | Claude (Sonnet 5) | Fase 6: motore CrossFit Standard (`crossfit.ts`) — Riscaldamento → Forza/Skill (riusa il tag `roles: 'strength'`, scende a un compound equivalente senza bilanciere) → Metcon AMRAP (3-4 movimenti bodyweight/kettlebell/manubri/cardio, uno per categoria). Solo formato AMRAP di proposito: EMOM/For Time/Rounds/Circuit/Intervals restano la differenza del futuro motore Condizionamento (fase 8). Aggiunti 8 esercizi al catalogo Supabase (87 totali: burpee, mountain climber, kettlebell swing/thruster, dumbbell thruster, box step-up, vogatore, sit-up). `GeneratedWorkout.split` diventato `Split \| null` (lo schema DB lo prevedeva già). Runner esteso con uno stopwatch AMRAP e un contatore di giri. 16 nuovi test (52 totali) |
 | 2026-08-06 | Claude (Sonnet 5) | Fasi 7-9 in sequenza, su richiesta esplicita dell'utente di completare tutte e sei le modalità: **CrossFit Hybrid** (`hybrid.ts`, forza+cardio alternati in coppie dentro un unico blocco `main`, nessuna modalità nuova richiesta al Runner), **Condizionamento** (`conditioning.ts`, solo Metcon, formato scelto dall'utente fra AMRAP/EMOM/For Time/Rounds/Circuit/Intervals), **Tabata** (`tabata.ts`, protocollo fisso 20″/10″×8, sequenziale per movimento non round-robin). `shared.ts` esteso con le utilità comuni ai motori Metcon (`poolMetcon`, `costruisciCircuito`, `CATEGORIA_PATTERN`, `repsMetcon`) e CrossFit Standard rifattorizzato per usarle prima di scrivere gli altri tre. Runner esteso con due nuove famiglie di UI (stopwatch a giri, timer a intervalli) oltre all'AMRAP. Trovati e corretti 2 bug reali eseguendo i motori (non solo build): reps a tempo corrotte da `parseInt`, durata sballata nei formati senza `interval_sec`. 42 nuovi test (94 totali). **Non pubblicato**: il push resta bloccato da questo ambiente anche via API GitHub (non solo `git push`), consegnata una patch da applicare manualmente |
 | 2026-08-06 | Codex | Ripreso il master prompt dalla Phase 2 mantenendo `AIOS_STATE.md`/`AIOS_PROJECT.json` come unica memoria ufficiale su decisione dell'utente. Esteso il modello Exercise con metadati canonici e separazione fra tipo e ruolo nel workout; aggiunta normalizzazione retrocompatibile; creata con Supabase CLI la migrazione `exercise_catalog_v2` con backfill, vincoli, RLS, grant esplicito e indice parziale. Aggiunti 3 test (97 totali), build verde. Migrazione remota ancora da applicare. |
+| 2026-08-06 | Codex | Phase 3 verificata senza riscritture; Phase 4 completata. `analizzaSettimana` calcola volume diretto/indiretto su tutti i blocchi allenanti e ultima esposizione per muscolo; `decidiRichiami` applica 48 ore minime di recupero agli slot aggiuntivi. Flusso Create/Rigenera aggiornato. 100 test totali, build verde. |

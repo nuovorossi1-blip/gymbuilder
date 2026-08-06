@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../features/auth/AuthProvider'
 import { useSettings } from '../features/profile/useSettings'
 import { useWorkout } from '../features/workout/WorkoutContext'
-import { caricaCatalogo, volumeSettimanaleUtente } from '../lib/api'
+import { caricaCatalogo, situazioneSettimanaleUtente } from '../lib/api'
+import type { WeeklyTrainingState } from '../generators/weakPoints'
 import { generaBodybuilding } from '../generators/bodybuilding'
 import { generaForza, SPLIT_FORZA } from '../generators/strength'
 import { generaCrossFit } from '../generators/crossfit'
@@ -27,7 +28,7 @@ export default function Create() {
 
   const [catalogo, setCatalogo] = useState<Exercise[] | null>(null)
   const [erroreCatalogo, setErroreCatalogo] = useState<string | null>(null)
-  const [volumeSettimanale, setVolumeSettimanale] = useState<Record<Muscle, number> | undefined>()
+  const [situazioneSettimanale, setSituazioneSettimanale] = useState<WeeklyTrainingState | undefined>()
 
   // Scelte di oggi. Partono dal profilo ma valgono solo per questa sessione (sez. 7).
   const [mode, setMode] = useState<Mode>('bodybuilding')
@@ -52,7 +53,7 @@ export default function Create() {
 
   useEffect(() => {
     if (!catalogo || !user) return
-    volumeSettimanaleUtente(user.id, catalogo).then(setVolumeSettimanale)
+    situazioneSettimanaleUtente(user.id, catalogo).then(setSituazioneSettimanale)
   }, [catalogo, user])
 
   // Valori effettivi: la scelta di oggi se c'è, altrimenti il profilo
@@ -128,7 +129,8 @@ export default function Create() {
             priority_muscles: eff.muscoli,
             excluded_exercises: settings.excluded_exercises,
             preferred_exercises: settings.favorite_exercises,
-            weekly_volume: volumeSettimanale,
+            weekly_volume: situazioneSettimanale?.volume,
+            last_trained_at: situazioneSettimanale?.last_trained_at,
             intensity: eff.intensita,
             weight_kg: settings.weight_kg,
             seed: Date.now() % 100000,
@@ -142,7 +144,8 @@ export default function Create() {
             priority_muscles: eff.muscoli,
             excluded_exercises: settings.excluded_exercises,
             preferred_exercises: settings.favorite_exercises,
-            weekly_volume: volumeSettimanale,
+            weekly_volume: situazioneSettimanale?.volume,
+            last_trained_at: situazioneSettimanale?.last_trained_at,
             intensity: eff.intensita,
             weight_kg: settings.weight_kg,
             seed: Date.now() % 100000,

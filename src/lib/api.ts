@@ -1,6 +1,6 @@
 import { supabase } from './supabase'
-import type { CompletedWorkout, Exercise, ExerciseRecord, GeneratedWorkout, Muscle, SavedWorkout } from '../types'
-import { volumeSettimanale } from '../generators/weakPoints'
+import type { CompletedWorkout, Exercise, ExerciseRecord, GeneratedWorkout, SavedWorkout } from '../types'
+import { analizzaSettimana, type WeeklyTrainingState } from '../generators/weakPoints'
 import { normalizeExercise } from '../data/exercises/normalize'
 
 export async function caricaCatalogo(): Promise<Exercise[]> {
@@ -89,13 +89,13 @@ export async function elencoStorico(userId: string): Promise<CompletedWorkout[]>
  * dal motore per decidere i richiami sui muscoli carenti (weakPoints.ts).
  * In caso di errore non blocca la generazione: si genera senza quel dato.
  */
-export async function volumeSettimanaleUtente(
+export async function situazioneSettimanaleUtente(
   userId: string,
   catalogo: Exercise[]
-): Promise<Record<Muscle, number> | undefined> {
+): Promise<WeeklyTrainingState | undefined> {
   try {
     const storico = await elencoStorico(userId)
-    return volumeSettimanale(storico, catalogo)
+    return analizzaSettimana(storico, catalogo)
   } catch {
     return undefined
   }
