@@ -11,7 +11,7 @@
  * del master prompt, regola 15).
  */
 
-import type { Mode, PrescribedExercise } from '../types'
+import type { Intensity, Mode, PrescribedExercise, Sex } from '../types'
 
 export const PESO_DEFAULT_KG = 75
 
@@ -48,4 +48,41 @@ export function stimaCalorieEsercizio(
 ): number {
   const met = metPer(mode, role)
   return Math.round(met * 3.5 * pesoKg / 200 * minuti)
+}
+
+export interface CalorieEstimateInput {
+  mode: Mode
+  durationMin: number
+  weightKg: number | null
+  age: number | null
+  sex: Sex
+  intensity: Intensity
+  averageHeartRate?: number | null
+}
+
+export interface CalorieEstimate { kcal: number; method: 'heart_rate' | 'met'; estimated: true }
+
+/** Provider sostituibile da HealthKit, Health Connect o dispositivi compatibili. */
+export interface HealthDataProvider {
+  isAvailable(): Promise<boolean>
+  getAverageHeartRate(startedAt: Date, endedAt: Date): Promise<number | null>
+}
+
+/** Stima HR (Keytel) quando i dati minimi sono disponibili, altrimenti MET. */
+export function estimateActiveCalories(input: CalorieEstimateInput): CalorieEstimate {
+  const weight = input.weightKg ?? PESO_DEFAULT_KG
+  const hr = input.averageHeartRate
+  if (hr && input.age && input.sex !== 'other' && input.sex !== 'unspecified') {
+    const perMinute = input.sex === 'male'
+      ? (-55.0969 + 0.6309 * hr + 0.1988 * weight + 0.2017 * input.age) / 4.184
+      : (-20.4022 + 0.4472 * hr - 0.1263 * weight + 0.074 * input.age) / 4.184
+    return { kcal: Math.max(0, Math.round(perMinute * input.durationMin)), method: 'heart_rate', estimated: true }
+  }
+  const intensityMultiplier = { low: 0.85, medium: 1, high: 1.15 }[input.intensity]
+  const baseMet = MET[input.mode].metcon ?? MET[input.mode].compound
+  return {
+    kcal: Math.round(baseMet * intensityMultiplier * 3.5 * weight / 200 * input.durationMin),
+    method: 'met',
+    estimated: true,
+  }
 }

@@ -153,7 +153,7 @@ export default function Runner() {
         note.trim() || null
       )
       setWorkout(null)
-      naviga('/storico')
+      naviga('/')
     } catch {
       setSalvataggio('errore')
     }
@@ -252,7 +252,7 @@ export default function Runner() {
             {formato === 'circuit' && `${metconBlock?.rounds} giri, recupero fisso fra un esercizio e l'altro`}
             {formato === 'emom' && `${metconBlock?.rounds} minuti, un compito ogni minuto`}
             {formato === 'intervals' && `${metconBlock?.interval_sec}″ lavoro / recupero, a ripetere`}
-            {formato === 'tabata' && `20″ lavoro / 10″ riposo × 8, un movimento alla volta`}
+            {formato === 'tabata' && `${metconBlock?.interval_sec ?? 20}″ lavoro / ${metconEsercizi[0]?.rest_sec ?? 10}″ riposo × ${metconBlock?.rounds ?? 8}, un movimento alla volta`}
           </p>
           <ul className="mt-7 space-y-2.5">
             {metconEsercizi.map((e, i) => (

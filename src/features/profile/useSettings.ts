@@ -21,12 +21,20 @@ export function useSettings(userId: string | undefined) {
     if (!userId) return
     setState((s) => ({ ...s, loading: true, error: null }))
 
-    const [p, s] = await Promise.all([
-      supabase.from('profiles').select('id, display_name').eq('id', userId).maybeSingle(),
+    const results = await Promise.all([
+      supabase.from('profiles').select('id, display_name, weight_kg, height_cm, age, sex').eq('id', userId).maybeSingle(),
       supabase.from('user_settings').select('*').eq('user_id', userId).maybeSingle(),
     ])
+    let p = results[0]
+    const settingsResult = results[1]
 
-    if (p.error || s.error) {
+    // Compatibilità mentre la migrazione dei dati fisici non è ancora applicata al remoto.
+    if (p.error) {
+      const legacy = await supabase.from('profiles').select('id, display_name').eq('id', userId).maybeSingle()
+      p = legacy.error ? p : { ...legacy, data: legacy.data ? { ...legacy.data, weight_kg: null, height_cm: null, age: null, sex: 'unspecified' } : null }
+    }
+
+    if (p.error || settingsResult.error) {
       setState({
         profile: null,
         settings: null,
@@ -38,7 +46,7 @@ export function useSettings(userId: string | undefined) {
 
     setState({
       profile: p.data as Profile | null,
-      settings: s.data as UserSettings | null,
+      settings: settingsResult.data as UserSettings | null,
       loading: false,
       error: null,
     })
@@ -77,5 +85,13 @@ export function useSettings(userId: string | undefined) {
     [userId]
   )
 
-  return { ...state, reload: load, saveSettings, saveName }
+  const saveProfile = useCallback(async (patch: Partial<Profile>): Promise<boolean> => {
+    if (!userId) return false
+    const { error } = await supabase.from('profiles').upsert({ id: userId, ...patch }, { onConflict: 'id' })
+    if (error) return false
+    setState((current) => current.profile ? { ...current, profile: { ...current.profile, ...patch } } : current)
+    return true
+  }, [userId])
+
+  return { ...state, reload: load, saveSettings, saveName, saveProfile }
 }

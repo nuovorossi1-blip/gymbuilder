@@ -30,6 +30,10 @@ export interface TabataConfig {
   excluded_exercises: string[]
   preferred_exercises?: string[]
   weight_kg?: number | null
+  work_sec?: number
+  rest_sec?: number
+  rounds?: number
+  prescription?: 'time' | 'reps'
   seed?: number
 }
 
@@ -48,6 +52,9 @@ export function generaTabata(catalogo: Exercise[], cfg: TabataConfig): Generated
   const warnings: string[] = []
   const random = rng(cfg.seed ?? 1)
   const preferiti = new Set(cfg.preferred_exercises ?? [])
+  const rounds = Math.max(1, cfg.rounds ?? ROUNDS)
+  const workSec = Math.max(1, cfg.work_sec ?? LAVORO_SEC)
+  const restSec = Math.max(1, cfg.rest_sec ?? RIPOSO_SEC)
 
   const disponibili = catalogo.filter(
     (e) =>
@@ -78,14 +85,14 @@ export function generaTabata(catalogo: Exercise[], cfg: TabataConfig): Generated
     name: m.exercise.name,
     role: 'metcon',
     muscle: m.exercise.primary_muscles[0] ?? null,
-    sets: ROUNDS,
-    reps: 'max',
-    rest_sec: RIPOSO_SEC,
+    sets: rounds,
+    reps: cfg.prescription === 'reps' ? m.exercise.default_reps : 'max',
+    rest_sec: restSec,
     instructions: m.exercise.instructions || undefined,
   }))
   rimuoviDuplicati(exercises)
 
-  const minutiTabata = (exercises.length * ROUNDS * (LAVORO_SEC + RIPOSO_SEC)) / 60
+  const minutiTabata = (exercises.length * rounds * (workSec + restSec)) / 60
   if (cfg.duration_min - (minutiRiscaldamento + minutiTabata) > 10) {
     warnings.push(
       `Il Tabata resta intorno ai ${Math.round(minutiTabata)} minuti anche scegliendo più tempo: ` +
@@ -111,8 +118,8 @@ export function generaTabata(catalogo: Exercise[], cfg: TabataConfig): Generated
       kind: 'metcon',
       title: `Tabata × ${exercises.length}`,
       format: 'tabata',
-      rounds: ROUNDS,
-      interval_sec: LAVORO_SEC,
+      rounds,
+      interval_sec: workSec,
       exercises,
     },
   ]

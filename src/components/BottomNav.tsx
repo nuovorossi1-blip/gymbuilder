@@ -1,9 +1,8 @@
 import { NavLink } from 'react-router-dom'
 
 const VOCI = [
-  { to: '/', label: 'Crea' },
+  { to: '/', label: 'Genera' },
   { to: '/salvati', label: 'Salvati' },
-  { to: '/storico', label: 'Storico' },
   { to: '/profilo', label: 'Profilo' },
 ]
 
