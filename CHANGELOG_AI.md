@@ -9,6 +9,8 @@
 - Legs conserva almeno quattro slot identitari e può usare tre slot per spalle/braccia, restando entro sette esercizi.
 - Il replacement di un richiamo fuori split mantiene pattern, muscolo e ruolo.
 - Test completi: 153/153 verdi; build e asset Vite verificati.
+- Commit produzione `e9bcc38` tramite PR #4; deployment Vercel `DedRcx36UrFwvixGto6aNWGeHKMa` completato.
+- Verifica pubblica: homepage, JS `index-DSl8TQl0.js` e CSS `index-CCYuonA-.css` rispondono HTTP 200.
 
 ## 2026-08-06 — Regole PPL, Profile e Timer Audio
 
