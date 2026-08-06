@@ -10,6 +10,8 @@
 - Runner dotato di Audio timer ON/OFF, Beep/Ding/Silenzioso e countdown configurabile.
 - `npm install` eseguito; 149 test verdi; build Vite verde; asset CSS referenziato presente in `dist`.
 - Supabase remoto non modificato: il progetto usato dalla produzione non è esposto al connettore corrente.
+- Commit produzione `64112ac` tramite PR #3; Vercel deployment `Gb3wGEvzb24GdQ4c7RhWsqaDndMZ` completato.
+- Verifica pubblica: homepage, bundle JS e CSS hashati rispondono HTTP 200; bundle contiene Timer Audio e contratto Profile aggiornato.
 
 ## 2026-08-06 — Recovery scoring ed Exercise Feedback Engine
 
