@@ -307,7 +307,11 @@ export function generaBodybuilding(
   // solo fra i muscoli anatomicamente sensati per questo split (sez. 11: le
   // gambe non richiamano mai braccia o spalle).
   const volumeStimato = volumeSettimanale ?? vuotoVolume()
-  const priortaRichiamabili = cfg.priority_muscles.filter((m) => RICHIAMO_POOL[cfg.split].includes(m))
+  // Prima i richiami incrociati non già rappresentati dallo split (es. tricipiti
+  // in Pull), poi l'eventuale volume extra sui muscoli già presenti.
+  const priortaRichiamabili = cfg.priority_muscles
+    .filter((m) => RICHIAMO_POOL[cfg.split].includes(m))
+    .sort((a, b) => Number(pool.includes(a)) - Number(pool.includes(b)))
   const richiami = decidiRichiami(
     priortaRichiamabili,
     volumeStimato,

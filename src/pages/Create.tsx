@@ -1,481 +1,164 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { filterExercisesByPreferences } from '../engine/preferences'
+import { generateWeeklyProgram, updateWeeklySession } from '../engine/weeklyPlan'
+import { validateWorkout } from '../engine/validator'
 import { useAuth } from '../features/auth/AuthProvider'
 import { useSettings } from '../features/profile/useSettings'
 import { useWorkout } from '../features/workout/WorkoutContext'
-import { caricaCatalogo, situazioneSettimanaleUtente } from '../lib/api'
-import type { WeeklyTrainingState } from '../generators/weakPoints'
 import { generaBodybuilding } from '../generators/bodybuilding'
-import { generaForza, SPLIT_FORZA } from '../generators/strength'
-import { FORMATI_CROSSFIT, generaCrossFit, type CrossFitFormat } from '../generators/crossfit'
-import { generaHybrid } from '../generators/hybrid'
-import { generaCondizionamento, FORMATI_CONDIZIONAMENTO, type ConditioningFormat } from '../generators/conditioning'
-import { generaTabata } from '../generators/tabata'
+import { generaCrossFit } from '../generators/crossfit'
 import { PRESET_EQUIPMENT } from '../generators/equipment'
+import { generaHybrid } from '../generators/hybrid'
+import { generaForza } from '../generators/strength'
+import { generaTabata } from '../generators/tabata'
+import type { WeeklyTrainingState } from '../generators/weakPoints'
+import { caricaCatalogo, situazioneSettimanaleUtente } from '../lib/api'
 import {
-  DURATIONS, EQUIPMENT_ITEM_LABELS, EQUIPMENT_LABELS, GOAL_LABELS, INTENSITY_LABELS, METCON_FORMAT_HINTS, METCON_FORMAT_LABELS,
-  MODES_IN_ARRIVO, MODE_LABELS, MUSCLE_LABELS, SPLIT_GROUPS, SPLIT_HINTS, SPLIT_LABELS,
-  type Equipment, type EquipmentItem, type Exercise, type Goal, type Intensity, type Mode, type Muscle, type Split,
+  DURATIONS, EQUIPMENT_ITEM_LABELS, EQUIPMENT_LABELS, EXERCISE_POLICY_LABELS,
+  EXPERIENCE_LABELS, MODE_LABELS, MUSCLE_LABELS, PUBLIC_MODES, SPLIT_LABELS,
+  SPLIT_SYSTEM_LABELS, type Equipment, type EquipmentItem, type Exercise,
+  type ExercisePolicy, type Experience, type Goal, type Intensity, type Muscle,
+  type PublicMode, type Split, type SplitSystem, type Weekday, type WeeklyProgram,
+  type WeeklyProgramConfig, type WeeklySession, type WorkoutGenerationConfig,
 } from '../types'
 
-const SPLIT_GROUPS_FORZA = [{ label: 'Split', splits: SPLIT_FORZA }]
-const MODI_SENZA_SPLIT: Mode[] = ['crossfit', 'crossfit_hybrid', 'conditioning', 'tabata']
+const DAY_LABELS: Record<Weekday, string> = { monday: 'Lunedì', tuesday: 'Martedì', wednesday: 'Mercoledì', thursday: 'Giovedì', friday: 'Venerdì', saturday: 'Sabato', sunday: 'Domenica' }
+const INTENSITY_LABELS: Record<Intensity, string> = { low: 'Bassa', medium: 'Media', high: 'Alta' }
+const GOAL_OPTIONS: { value: Goal; label: string }[] = [{ value: 'hypertrophy', label: 'Ipertrofia' }, { value: 'strength', label: 'Forza' }, { value: 'conditioning', label: 'Condizionamento' }, { value: 'mixed', label: 'Misto' }]
+const EDITABLE_SPLITS: Split[] = ['push', 'pull', 'legs', 'upper', 'lower', 'full_body', 'front_body', 'back_body', 'bro_chest', 'bro_back', 'bro_shoulders', 'bro_arms', 'bro_legs']
+const STRENGTH_SPLITS: Split[] = ['push', 'pull', 'legs', 'upper', 'lower', 'full_body']
+
+const DEFAULT_CONFIG: WeeklyProgramConfig = {
+  training_days: 5, selected_modes: ['bodybuilding', 'crossfit_hybrid'], goal: 'hypertrophy',
+  split_system: 'ppl', experience: 'intermediate', duration_min: 60,
+  equipment: { preset: 'full_gym', available: PRESET_EQUIPMENT.full_gym }, weak_points: [],
+  preferences: { excluded_exercise_ids: [], preferred_exercise_ids: [], bodyweight_policy: 'always', elastic_policy: 'always' },
+  intensity: 'medium', crossfit_format: 'amrap',
+  tabata: { work_sec: 20, rest_sec: 10, rounds: 8, prescription: 'time' },
+}
 
 export default function Create() {
   const { user } = useAuth()
-  const { profile, settings, loading } = useSettings(user?.id)
-  const { setWorkout } = useWorkout()
-  const naviga = useNavigate()
+  const { profile } = useSettings(user?.id)
+  const { weeklyProgram, setWeeklyProgram, setWorkout, setGenerationConfig, setCatalog } = useWorkout()
+  const navigate = useNavigate()
+  const [catalog, setLocalCatalog] = useState<Exercise[]>([])
+  const [weeklyState, setWeeklyState] = useState<WeeklyTrainingState>()
+  const [error, setError] = useState<string | null>(null)
 
-  const [catalogo, setCatalogo] = useState<Exercise[] | null>(null)
-  const [erroreCatalogo, setErroreCatalogo] = useState<string | null>(null)
-  const [situazioneSettimanale, setSituazioneSettimanale] = useState<WeeklyTrainingState | undefined>()
+  useEffect(() => {
+    caricaCatalogo().then((items) => {
+      setLocalCatalog(items); setCatalog(items)
+      if (user) void situazioneSettimanaleUtente(user.id, items).then(setWeeklyState)
+    }).catch((reason: Error) => setError(reason.message))
+  }, [setCatalog, user])
 
-  // Scelte di oggi. Partono dal profilo ma valgono solo per questa sessione (sez. 7).
-  const [mode, setMode] = useState<Mode>('bodybuilding')
-  const [split, setSplit] = useState<Split>('push')
-  const [goal, setGoal] = useState<Goal | null>(null)
-  const [durata, setDurata] = useState<number | null>(null)
-  const [attrezzi, setAttrezzi] = useState<Equipment | null>(null)
-  const [attrezzaturaOggi, setAttrezzaturaOggi] = useState<EquipmentItem[] | null>(null)
-  const [muscoli, setMuscoli] = useState<Muscle[] | null>(null)
-  const [intensita, setIntensita] = useState<Intensity | null>(null)
-  const [formato, setFormato] = useState<ConditioningFormat>('amrap')
-  const [formatoCrossFit, setFormatoCrossFit] = useState<CrossFitFormat>('amrap')
-  const [avanzate, setAvanzate] = useState(false)
-
-  // Cambiando modalità, si torna a uno split valido per quella modalità (sez. 84: Forza non usa Bro Split/Front/Back).
-  function cambiaModalita(m: Mode) {
-    setMode(m)
-    if (m === 'strength' && !SPLIT_FORZA.includes(split)) setSplit('push')
+  function createProgram(config: WeeklyProgramConfig) {
+    try { setWeeklyProgram(generateWeeklyProgram(config)); setError(null) }
+    catch (reason) { setError(reason instanceof Error ? reason.message : 'Configurazione settimanale non valida.') }
   }
 
-  useEffect(() => {
-    caricaCatalogo().then(setCatalogo).catch((e) => setErroreCatalogo(e.message))
-  }, [])
-
-  useEffect(() => {
-    if (!catalogo || !user) return
-    situazioneSettimanaleUtente(user.id, catalogo).then(setSituazioneSettimanale)
-  }, [catalogo, user])
-
-  // Valori effettivi: la scelta di oggi se c'è, altrimenti il profilo
-  const eff = useMemo(() => {
-    if (!settings) return null
-    return {
-      goal: goal ?? settings.primary_goal,
-      durata: durata ?? settings.default_duration,
-      attrezzi: attrezzi ?? settings.equipment,
-      attrezzaturaDisponibile: attrezzaturaOggi ?? settings.available_equipment ?? PRESET_EQUIPMENT[attrezzi ?? settings.equipment],
-      muscoli: muscoli ?? settings.priority_muscles,
-      intensita: intensita ?? settings.default_intensity,
+  function generateDay(session: WeeklySession) {
+    if (!weeklyProgram || catalog.length === 0) return
+    const global = weeklyProgram.config
+    const usableCatalog = filterExercisesByPreferences(catalog, {
+      excludedExerciseIds: global.preferences.excluded_exercise_ids,
+      bodyweightPolicy: global.preferences.bodyweight_policy,
+      elasticPolicy: global.preferences.elastic_policy,
+    }, 'normal')
+    const common = {
+      experience: global.experience, equipment: global.equipment.preset,
+      available_equipment: global.equipment.available, duration_min: global.duration_min,
+      priority_muscles: global.weak_points,
+      excluded_exercises: global.preferences.excluded_exercise_ids,
+      preferred_exercises: global.preferences.preferred_exercise_ids,
+      intensity: global.intensity, weight_kg: profile?.weight_kg ?? null,
+      seed: Date.now() % 100000,
     }
-  }, [settings, goal, durata, attrezzi, attrezzaturaOggi, muscoli, intensita])
-
-  function genera() {
-    if (!catalogo || !eff || !settings) return
-
-    const w =
-      mode === 'crossfit'
-        ? generaCrossFit(catalogo, {
-            experience: settings.experience,
-            format: formatoCrossFit,
-            equipment: eff.attrezzi,
-            available_equipment: eff.attrezzaturaDisponibile,
-            duration_min: eff.durata,
-            priority_muscles: eff.muscoli,
-            excluded_exercises: settings.excluded_exercises,
-            preferred_exercises: settings.favorite_exercises,
-            intensity: eff.intensita,
-            weight_kg: settings.weight_kg,
-            seed: Date.now() % 100000,
-          })
-        : mode === 'crossfit_hybrid'
-        ? generaHybrid(catalogo, {
-            experience: settings.experience,
-            equipment: eff.attrezzi,
-            available_equipment: eff.attrezzaturaDisponibile,
-            duration_min: eff.durata,
-            priority_muscles: eff.muscoli,
-            excluded_exercises: settings.excluded_exercises,
-            preferred_exercises: settings.favorite_exercises,
-            intensity: eff.intensita,
-            weight_kg: settings.weight_kg,
-            seed: Date.now() % 100000,
-          })
-        : mode === 'conditioning'
-        ? generaCondizionamento(catalogo, {
-            format: formato,
-            experience: settings.experience,
-            equipment: eff.attrezzi,
-            available_equipment: eff.attrezzaturaDisponibile,
-            duration_min: eff.durata,
-            priority_muscles: eff.muscoli,
-            excluded_exercises: settings.excluded_exercises,
-            preferred_exercises: settings.favorite_exercises,
-            intensity: eff.intensita,
-            weight_kg: settings.weight_kg,
-            seed: Date.now() % 100000,
-          })
-        : mode === 'tabata'
-        ? generaTabata(catalogo, {
-            experience: settings.experience,
-            equipment: eff.attrezzi,
-            available_equipment: eff.attrezzaturaDisponibile,
-            duration_min: eff.durata,
-            priority_muscles: eff.muscoli,
-            excluded_exercises: settings.excluded_exercises,
-            preferred_exercises: settings.favorite_exercises,
-            weight_kg: settings.weight_kg,
-            seed: Date.now() % 100000,
-          })
-        : mode === 'strength'
-        ? generaForza(catalogo, {
-            split,
-            experience: settings.experience,
-            equipment: eff.attrezzi,
-            available_equipment: eff.attrezzaturaDisponibile,
-            duration_min: eff.durata,
-            priority_muscles: eff.muscoli,
-            excluded_exercises: settings.excluded_exercises,
-            preferred_exercises: settings.favorite_exercises,
-            weekly_volume: situazioneSettimanale?.volume,
-            last_trained_at: situazioneSettimanale?.last_trained_at,
-            intensity: eff.intensita,
-            weight_kg: settings.weight_kg,
-            seed: Date.now() % 100000,
-          })
-        : generaBodybuilding(catalogo, {
-            split,
-            goal: eff.goal,
-            experience: settings.experience,
-            equipment: eff.attrezzi,
-            available_equipment: eff.attrezzaturaDisponibile,
-            duration_min: eff.durata,
-            priority_muscles: eff.muscoli,
-            excluded_exercises: settings.excluded_exercises,
-            preferred_exercises: settings.favorite_exercises,
-            weekly_volume: situazioneSettimanale?.volume,
-            last_trained_at: situazioneSettimanale?.last_trained_at,
-            intensity: eff.intensita,
-            weight_kg: settings.weight_kg,
-            seed: Date.now() % 100000,
-          })
-    setWorkout(w)
-    naviga('/allenamento')
+    const split = session.split ?? 'full_body'
+    const workout = session.mode === 'crossfit'
+      ? generaCrossFit(usableCatalog, { ...common, format: global.crossfit_format })
+      : session.mode === 'crossfit_hybrid' ? generaHybrid(usableCatalog, common)
+      : session.mode === 'strength' ? generaForza(usableCatalog, { ...common, split, weekly_volume: weeklyState?.volume, last_trained_at: weeklyState?.last_trained_at })
+      : session.mode === 'tabata' ? generaTabata(usableCatalog, { ...common, ...global.tabata })
+      : generaBodybuilding(usableCatalog, { ...common, split, goal: global.goal, weekly_volume: weeklyState?.volume, last_trained_at: weeklyState?.last_trained_at })
+    workout.name = `${DAY_LABELS[session.day]} — ${workout.name}`
+    workout.max_duration_min = Math.ceil(global.duration_min * 1.15)
+    const config: WorkoutGenerationConfig = {
+      mode: session.mode, goal: global.goal, split_system: global.split_system,
+      training_days: global.training_days, current_day: session.split,
+      experience: global.experience, duration_min: global.duration_min,
+      equipment: global.equipment, weak_points: global.weak_points,
+      preferences: global.preferences, intensity: global.intensity,
+      workout_format: session.mode === 'crossfit' ? global.crossfit_format : undefined,
+      tabata: session.mode === 'tabata' ? global.tabata : undefined,
+    }
+    const validation = validateWorkout(workout, config, catalog)
+    if (!validation.valid) { setError(validation.errors.join(' ')); return }
+    setGenerationConfig(config); setWorkout(workout); setError(null); navigate('/allenamento')
   }
 
-  const pronto = !!catalogo && !!eff && !loading
-
-  return (
-    <div className="px-5 pt-12 pb-4">
-      <p className="eyebrow mb-3">
-        {profile?.display_name ? `Ciao ${profile.display_name.split(' ')[0]}` : 'Bentornato'}
-      </p>
-      <h1 className="font-display font-extrabold uppercase leading-[0.88] tracking-tight text-[2.6rem]">
-        Cosa alleni
-        <br />
-        oggi?
-      </h1>
-
-      {/* 0. Modalità (sez. 84: quelle non costruite si vedono ma non si finge che esistano) */}
-      <p className="field-label mt-8">Modalità</p>
-      <div className="grid grid-cols-2 gap-2">
-        {(Object.keys(MODE_LABELS) as Mode[]).map((m) => (
-          <button
-            key={m}
-            onClick={() => cambiaModalita(m)}
-            aria-pressed={mode === m}
-            className={`chip text-left ${mode === m ? 'chip-on' : ''}`}
-          >
-            {MODE_LABELS[m]}
-          </button>
-        ))}
-      </div>
-      {MODES_IN_ARRIVO.length > 0 && (
-        <div className="mt-2 grid grid-cols-2 gap-2">
-          {MODES_IN_ARRIVO.map((m) => (
-            <div
-              key={m.label}
-              className="chip cursor-not-allowed text-left opacity-40"
-              aria-disabled="true"
-              title="In arrivo, non ancora costruita"
-            >
-              <span className="block">{m.label}</span>
-              <span className="block text-[11px] text-slate2">{m.hint}</span>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* 1. Gruppo muscolare, raggruppato per tipo di split (sez. 15/71). I motori Metcon non hanno uno split: struttura fissa o formato a scelta. */}
-      {mode === 'crossfit' && (
-        <div className="mt-8">
-          <div className="slab">
-            <span className="block font-display font-bold uppercase tracking-wide text-[17px]">
-              Forza/Skill + Metcon
-            </span>
-            <span className="block text-[13px] text-slate2 mt-0.5">
-              1-2 alzate, poi un Metcon nel formato scelto.
-            </span>
-          </div>
-          <p className="field-label mt-5">Formato Metcon</p>
-          <div className="grid grid-cols-2 gap-2">
-            {FORMATI_CROSSFIT.map((value) => (
-              <button
-                key={value}
-                type="button"
-                aria-pressed={formatoCrossFit === value}
-                className={`chip text-left ${formatoCrossFit === value ? 'chip-on' : ''}`}
-                onClick={() => setFormatoCrossFit(value)}
-              >
-                {METCON_FORMAT_LABELS[value]}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {mode === 'crossfit_hybrid' && (
-        <div className="mt-8 slab">
-          <span className="block font-display font-bold uppercase tracking-wide text-[17px]">
-            Forza + Cardio alternati
-          </span>
-          <span className="block text-[13px] text-slate2 mt-0.5">
-            Un'alzata, poi una scarica cardio, a rotazione su tutto il corpo per 3-5 coppie.
-          </span>
-        </div>
-      )}
-
-      {mode === 'tabata' && (
-        <div className="mt-8 slab">
-          <span className="block font-display font-bold uppercase tracking-wide text-[17px]">
-            Tabata
-          </span>
-          <span className="block text-[13px] text-slate2 mt-0.5">
-            Protocollo fisso: 20″ lavoro, 10″ riposo, 8 round per movimento.
-          </span>
-        </div>
-      )}
-
-      {mode === 'conditioning' && (
-        <div className="mt-8">
-          <p className="field-label">Formato</p>
-          <div className="space-y-2.5">
-            {FORMATI_CONDIZIONAMENTO.map((f) => {
-              const on = formato === f
-              return (
-                <button
-                  key={f}
-                  onClick={() => setFormato(f)}
-                  aria-pressed={on}
-                  className={`slab flex items-center gap-4 w-full ${on ? '!border-chalk' : ''}`}
-                >
-                  <span aria-hidden className={`h-9 w-[3px] rounded-full ${on ? 'bg-amber2' : 'bg-edge'}`} />
-                  <span className="text-left">
-                    <span className="block font-display font-bold uppercase tracking-wide text-[17px]">
-                      {METCON_FORMAT_LABELS[f]}
-                    </span>
-                    <span className="block text-[13px] text-slate2 mt-0.5">{METCON_FORMAT_HINTS[f]}</span>
-                  </span>
-                </button>
-              )
-            })}
-          </div>
-        </div>
-      )}
-
-      {!MODI_SENZA_SPLIT.includes(mode) && (
-        <div className="mt-8 space-y-5">
-          {(mode === 'strength' ? SPLIT_GROUPS_FORZA : SPLIT_GROUPS).map((gruppo) => (
-            <div key={gruppo.label}>
-              <p className="font-data text-[10px] uppercase tracking-[0.16em] text-slate2 mb-2">
-                {gruppo.label}
-              </p>
-              <div className="space-y-2.5">
-                {gruppo.splits.map((s) => {
-                  const on = split === s
-                  return (
-                    <button
-                      key={s}
-                      onClick={() => setSplit(s)}
-                      aria-pressed={on}
-                      className={`slab flex items-center gap-4 ${on ? '!border-chalk' : ''}`}
-                    >
-                      <span
-                        aria-hidden
-                        className={`h-9 w-[3px] rounded-full ${on ? 'bg-amber2' : 'bg-edge'}`}
-                      />
-                      <span>
-                        <span className="block font-display font-bold uppercase tracking-wide text-[17px]">
-                          {SPLIT_LABELS[s]}
-                        </span>
-                        <span className="block text-[13px] text-slate2 mt-0.5">{SPLIT_HINTS[s]}</span>
-                      </span>
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* 2. Durata: la scelta che cambia di più giorno per giorno */}
-      <p className="field-label mt-8">Quanto tempo hai</p>
-      <div className="grid grid-cols-5 gap-2">
-        {DURATIONS.map((d) => (
-          <button
-            key={d}
-            onClick={() => setDurata(d)}
-            aria-pressed={eff?.durata === d}
-            className={`chip font-data ${eff?.durata === d ? 'chip-on' : ''}`}
-          >
-            {d}
-          </button>
-        ))}
-      </div>
-
-      {/* 3. Il resto, aperto solo se serve */}
-      <button
-        onClick={() => setAvanzate((v) => !v)}
-        className="mt-6 flex w-full items-center justify-between border-t border-edge pt-4"
-        aria-expanded={avanzate}
-      >
-        <span className="eyebrow !text-chalk">Cambia altro per oggi</span>
-        <span className="font-data text-[11px] text-slate2">{avanzate ? '−' : '+'}</span>
-      </button>
-
-      {avanzate && eff && (
-        <div className="mt-5 space-y-7">
-          {mode === 'bodybuilding' && (
-            <div>
-              <p className="field-label">Obiettivo</p>
-              <div className="grid grid-cols-2 gap-2">
-                {(Object.keys(GOAL_LABELS) as Goal[]).map((g) => (
-                  <button
-                    key={g}
-                    onClick={() => setGoal(g)}
-                    aria-pressed={eff.goal === g}
-                    className={`chip text-left ${eff.goal === g ? 'chip-on' : ''}`}
-                  >
-                    {GOAL_LABELS[g]}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div>
-            <p className="field-label">Intensità</p>
-            <div className="grid grid-cols-3 gap-2">
-              {(Object.keys(INTENSITY_LABELS) as Intensity[]).map((i) => (
-                <button
-                  key={i}
-                  onClick={() => setIntensita(i)}
-                  aria-pressed={eff.intensita === i}
-                  className={`chip text-center ${eff.intensita === i ? 'chip-on' : ''}`}
-                >
-                  {INTENSITY_LABELS[i]}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <p className="field-label">Attrezzatura di oggi</p>
-            <div className="grid grid-cols-2 gap-2">
-              {(Object.keys(EQUIPMENT_LABELS) as Equipment[]).map((e) => (
-                <button
-                  key={e}
-                  onClick={() => {
-                    setAttrezzi(e)
-                    setAttrezzaturaOggi(PRESET_EQUIPMENT[e])
-                  }}
-                  aria-pressed={eff.attrezzi === e}
-                  className={`chip text-left ${eff.attrezzi === e ? 'chip-on' : ''}`}
-                >
-                  {EQUIPMENT_LABELS[e]}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <p className="field-label">Attrezzatura avanzata di oggi</p>
-            <div className="grid grid-cols-2 gap-2">
-              {(Object.keys(EQUIPMENT_ITEM_LABELS) as EquipmentItem[]).map((item) => {
-                const on = eff.attrezzaturaDisponibile.includes(item)
-                return (
-                  <button
-                    key={item}
-                    type="button"
-                    aria-pressed={on}
-                    className={`chip text-left ${on ? 'chip-on' : ''}`}
-                    onClick={() => setAttrezzaturaOggi(
-                      on
-                        ? eff.attrezzaturaDisponibile.filter((value) => value !== item)
-                        : [...eff.attrezzaturaDisponibile, item]
-                    )}
-                  >
-                    {EQUIPMENT_ITEM_LABELS[item]}
-                  </button>
-                )
-              })}
-            </div>
-            <p className="mt-2 text-[12px] text-slate2">
-              Il generatore userà esclusivamente gli attrezzi selezionati.
-            </p>
-          </div>
-
-          <div>
-            <p className="field-label">Muscoli da recuperare</p>
-            <div className="flex flex-wrap gap-2">
-              {(Object.keys(MUSCLE_LABELS) as Muscle[]).map((m) => {
-                const on = eff.muscoli.includes(m)
-                return (
-                  <button
-                    key={m}
-                    aria-pressed={on}
-                    className={`chip ${on ? 'chip-on' : ''}`}
-                    onClick={() =>
-                      setMuscoli(on ? eff.muscoli.filter((x) => x !== m) : [...eff.muscoli, m])
-                    }
-                  >
-                    {MUSCLE_LABELS[m]}
-                  </button>
-                )
-              })}
-            </div>
-            <p className="mt-2 text-[12px] text-slate2">
-              Il volume si sposta su questi senza allungare la sessione.
-            </p>
-          </div>
-
-          <p className="text-[12px] text-slate2">
-            Queste modifiche valgono solo per oggi. Le impostazioni fisse stanno nel profilo.
-          </p>
-        </div>
-      )}
-
-      {erroreCatalogo && (
-        <p className="mt-6 text-sm text-amber2" role="alert">
-          {erroreCatalogo}
-        </p>
-      )}
-
-      {/* Il bottone che chiude tutto */}
-      <button className="btn mt-8 !py-4 text-lg" disabled={!pronto} onClick={genera}>
-        {pronto ? 'Genera allenamento' : 'Un attimo…'}
-      </button>
-
-      {eff && (
-        <p className="mt-3 text-center font-data text-[11px] uppercase tracking-[0.14em] text-slate2">
-          {mode === 'conditioning' ? METCON_FORMAT_LABELS[formato] : MODI_SENZA_SPLIT.includes(mode) ? MODE_LABELS[mode] : SPLIT_LABELS[split]}
-          {' '}· {eff.durata} min ·{' '}
-          {mode === 'strength' ? GOAL_LABELS.strength : MODI_SENZA_SPLIT.includes(mode) ? GOAL_LABELS.conditioning : GOAL_LABELS[eff.goal]}
-        </p>
-      )}
-    </div>
-  )
+  return <main className="px-5 pb-6 pt-10">
+    <p className="eyebrow mb-3">{profile?.display_name ? `Ciao ${profile.display_name.split(' ')[0]}` : 'GymBuilder'}</p>
+    {weeklyProgram
+      ? <WeekView program={weeklyProgram} error={error} onUpdate={setWeeklyProgram} onGenerate={generateDay} onReset={() => setWeeklyProgram(null)} />
+      : <WeeklyBuilder catalog={catalog} error={error} initial={DEFAULT_CONFIG} onCreate={createProgram} />}
+  </main>
 }
+
+function WeeklyBuilder({ catalog, error, initial, onCreate }: { catalog: Exercise[]; error: string | null; initial: WeeklyProgramConfig; onCreate: (config: WeeklyProgramConfig) => void }) {
+  const [config, setConfig] = useState(initial)
+  const [advanced, setAdvanced] = useState(false)
+  const [exercisePreferences, setExercisePreferences] = useState(false)
+  const valid = config.selected_modes.length > 0 && config.selected_modes.length <= config.training_days && catalog.length > 0
+  const patch = <K extends keyof WeeklyProgramConfig>(key: K, value: WeeklyProgramConfig[K]) => setConfig((old) => ({ ...old, [key]: value }))
+  const toggleMode = (mode: PublicMode) => patch('selected_modes', config.selected_modes.includes(mode) ? config.selected_modes.filter((item) => item !== mode) : [...config.selected_modes, mode])
+  const toggleMuscle = (muscle: Muscle) => patch('weak_points', config.weak_points.includes(muscle) ? config.weak_points.filter((item) => item !== muscle) : [...config.weak_points, muscle])
+  const setPolicy = (key: 'bodyweight_policy' | 'elastic_policy', value: ExercisePolicy) => patch('preferences', { ...config.preferences, [key]: value })
+  const toggleExercise = (key: 'preferred_exercise_ids' | 'excluded_exercise_ids', id: string) => {
+    const current = config.preferences[key]
+    patch('preferences', { ...config.preferences, [key]: current.includes(id) ? current.filter((item) => item !== id) : [...current, id] })
+  }
+  return <>
+    <h1 className="font-display text-[2.7rem] font-extrabold uppercase leading-[.88] tracking-tight">Costruisci la<br />tua settimana</h1>
+    <Field title="Numero giorni"><div className="grid grid-cols-5 gap-2">{[3, 4, 5, 6, 7].map((days) => <Choice key={days} active={config.training_days === days} onClick={() => patch('training_days', days)}>{days}</Choice>)}</div></Field>
+    <Field title="Discipline della settimana"><div className="space-y-2">{PUBLIC_MODES.map((mode) => <Choice key={mode} active={config.selected_modes.includes(mode)} onClick={() => toggleMode(mode)}>{MODE_LABELS[mode]}</Choice>)}</div><p className="mt-2 text-xs text-slate2">Scegline da 1 a {config.training_days}. Ogni disciplina comparirà almeno una volta.</p></Field>
+    <Field title="Obiettivo globale"><Grid>{GOAL_OPTIONS.map((goal) => <Choice key={goal.value} active={config.goal === goal.value} onClick={() => patch('goal', goal.value)}>{goal.label}</Choice>)}</Grid></Field>
+    {config.selected_modes.includes('bodybuilding') ? <Field title="Sistema Bodybuilding"><Grid>{(Object.keys(SPLIT_SYSTEM_LABELS) as SplitSystem[]).map((system) => <Choice key={system} active={config.split_system === system} onClick={() => patch('split_system', system)}>{SPLIT_SYSTEM_LABELS[system]}</Choice>)}</Grid></Field> : null}
+    {config.selected_modes.includes('crossfit') ? <Field title="Formato CrossFit Standard"><div className="grid grid-cols-3 gap-2">{(['amrap', 'emom', 'for_time'] as const).map((format) => <Choice key={format} active={config.crossfit_format === format} onClick={() => patch('crossfit_format', format)}>{format === 'for_time' ? 'For Time' : format.toUpperCase()}</Choice>)}</div></Field> : null}
+    {config.selected_modes.includes('tabata') ? <Field title="Protocollo Tabata"><NumberField label="Lavoro (sec)" value={config.tabata.work_sec} onChange={(work_sec) => patch('tabata', { ...config.tabata, work_sec })} /><NumberField label="Riposo (sec)" value={config.tabata.rest_sec} onChange={(rest_sec) => patch('tabata', { ...config.tabata, rest_sec })} /><NumberField label="Round" value={config.tabata.rounds} onChange={(rounds) => patch('tabata', { ...config.tabata, rounds })} /><Grid><Choice active={config.tabata.prescription === 'time'} onClick={() => patch('tabata', { ...config.tabata, prescription: 'time' })}>A tempo</Choice><Choice active={config.tabata.prescription === 'reps'} onClick={() => patch('tabata', { ...config.tabata, prescription: 'reps' })}>A ripetizioni</Choice></Grid></Field> : null}
+    <Field title="Livello"><div className="grid grid-cols-3 gap-2">{(Object.keys(EXPERIENCE_LABELS) as Experience[]).map((experience) => <Choice key={experience} active={config.experience === experience} onClick={() => patch('experience', experience)}>{EXPERIENCE_LABELS[experience]}</Choice>)}</div></Field>
+    <Field title="Durata per sessione"><div className="grid grid-cols-5 gap-2">{DURATIONS.map((duration) => <Choice key={duration} active={config.duration_min === duration} onClick={() => patch('duration_min', duration)}>{duration}</Choice>)}</div></Field>
+    <Field title="Intensità"><div className="grid grid-cols-3 gap-2">{(Object.keys(INTENSITY_LABELS) as Intensity[]).map((intensity) => <Choice key={intensity} active={config.intensity === intensity} onClick={() => patch('intensity', intensity)}>{INTENSITY_LABELS[intensity]}</Choice>)}</div></Field>
+    <Field title="Attrezzatura globale"><Grid>{(Object.keys(EQUIPMENT_LABELS) as Equipment[]).filter((item) => ['full_gym', 'dumbbells', 'barbell', 'machines', 'home_gym'].includes(item)).map((equipment) => <Choice key={equipment} active={config.equipment.preset === equipment} onClick={() => patch('equipment', { preset: equipment, available: PRESET_EQUIPMENT[equipment] })}>{EQUIPMENT_LABELS[equipment]}</Choice>)}</Grid><button className="mt-3 text-xs uppercase tracking-wider text-amber2" onClick={() => setAdvanced((old) => !old)}>{advanced ? 'Chiudi inventario' : 'Configurazione avanzata'}</button>{advanced ? <div className="mt-3 grid grid-cols-2 gap-2">{(Object.keys(EQUIPMENT_ITEM_LABELS) as EquipmentItem[]).map((item) => <Choice key={item} active={config.equipment.available.includes(item)} onClick={() => patch('equipment', { ...config.equipment, available: config.equipment.available.includes(item) ? config.equipment.available.filter((value) => value !== item) : [...config.equipment.available, item] })}>{EQUIPMENT_ITEM_LABELS[item]}</Choice>)}</div> : null}</Field>
+    <Field title="Muscoli carenti globali"><div className="flex flex-wrap gap-2">{(Object.keys(MUSCLE_LABELS) as Muscle[]).map((muscle) => <Choice key={muscle} active={config.weak_points.includes(muscle)} onClick={() => toggleMuscle(muscle)}>{MUSCLE_LABELS[muscle]}</Choice>)}</div></Field>
+    <Field title="Policy globali"><Policy title="Corpo libero" value={config.preferences.bodyweight_policy} onChange={(value) => setPolicy('bodyweight_policy', value)} /><Policy title="Elastici" value={config.preferences.elastic_policy} onChange={(value) => setPolicy('elastic_policy', value)} /><button className="mt-4 text-xs uppercase tracking-wider text-amber2" onClick={() => setExercisePreferences((old) => !old)}>{exercisePreferences ? 'Chiudi esercizi' : 'Preferiti / Esclusi'}</button>{exercisePreferences ? <div className="mt-3 max-h-80 space-y-2 overflow-y-auto">{catalog.filter((exercise) => !exercise.roles.includes('warmup')).map((exercise) => <div key={exercise.id} className="grid grid-cols-[1fr_auto_auto] items-center gap-2 border-b border-edge py-2 text-sm"><span>{exercise.name}</span><button className={config.preferences.preferred_exercise_ids.includes(exercise.id) ? 'text-amber2' : 'text-slate2'} onClick={() => toggleExercise('preferred_exercise_ids', exercise.id)}>Preferito</button><button className={config.preferences.excluded_exercise_ids.includes(exercise.id) ? 'text-amber2' : 'text-slate2'} onClick={() => toggleExercise('excluded_exercise_ids', exercise.id)}>Escludi</button></div>)}</div> : null}</Field>
+    {config.selected_modes.length > config.training_days ? <p className="mt-5 text-amber2">Hai selezionato più discipline dei giorni disponibili.</p> : null}
+    {error ? <p role="alert" className="mt-5 text-amber2">{error}</p> : null}
+    <button className="btn mt-8 !py-4 text-lg" disabled={!valid} onClick={() => onCreate(config)}>{catalog.length ? 'Genera la settimana' : 'Caricamento esercizi…'}</button>
+  </>
+}
+
+function WeekView({ program, error, onUpdate, onGenerate, onReset }: { program: WeeklyProgram; error: string | null; onUpdate: (program: WeeklyProgram) => void; onGenerate: (session: WeeklySession) => void; onReset: () => void }) {
+  const [editing, setEditing] = useState<string | null>(null)
+  return <>
+    <p className="eyebrow mb-3">Programma settimanale</p><h1 className="font-display text-[2.7rem] font-extrabold uppercase leading-[.88] tracking-tight">La tua<br />settimana</h1>
+    <p className="mt-4 text-sm text-slate2">{program.config.training_days} giorni · {program.config.selected_modes.map((mode) => MODE_LABELS[mode]).join(' + ')}</p>
+    {program.warnings.map((warning) => <p key={`${warning.code}-${warning.day_ids.join('-')}`} className="mt-4 rounded-lg border border-amber2/40 bg-amber2/10 px-3 py-2 text-sm text-amber2">{warning.message}</p>)}
+    <div className="mt-7 space-y-3">{program.week.map((session) => <article key={session.id} className="slab"><p className="eyebrow">{DAY_LABELS[session.day]}</p><h2 className="mt-1 font-display text-lg font-bold uppercase">{session.label}</h2>{editing === session.id ? <SessionEditor session={session} onChange={(patch) => onUpdate(updateWeeklySession(program, session.id, patch))} onClose={() => setEditing(null)} /> : <div className="mt-4 grid grid-cols-2 gap-2"><button className="rounded-xl border border-edge py-3 font-data text-xs uppercase" onClick={() => setEditing(session.id)}>Modifica</button><button className="rounded-xl bg-chalk py-3 font-data text-xs uppercase text-ink" onClick={() => onGenerate(session)}>Genera giorno</button></div>}</article>)}</div>
+    {error ? <p role="alert" className="mt-5 text-amber2">{error}</p> : null}
+    <button className="mt-7 w-full rounded-xl border border-edge py-3.5 font-data text-xs uppercase text-slate2" onClick={onReset}>Crea una nuova settimana</button>
+  </>
+}
+
+function SessionEditor({ session, onChange, onClose }: { session: WeeklySession; onChange: (patch: Partial<Pick<WeeklySession, 'day' | 'mode' | 'split'>>) => void; onClose: () => void }) {
+  const splits = session.mode === 'strength' ? STRENGTH_SPLITS : EDITABLE_SPLITS
+  return <div className="mt-4 space-y-3 border-t border-edge pt-4"><label className="block text-xs text-slate2">Giorno<select className="input mt-1" value={session.day} onChange={(event) => onChange({ day: event.target.value as Weekday })}>{(Object.keys(DAY_LABELS) as Weekday[]).map((day) => <option key={day} value={day}>{DAY_LABELS[day]}</option>)}</select></label><label className="block text-xs text-slate2">Modalità<select className="input mt-1" value={session.mode} onChange={(event) => onChange({ mode: event.target.value as PublicMode, split: null })}>{PUBLIC_MODES.map((mode) => <option key={mode} value={mode}>{MODE_LABELS[mode]}</option>)}</select></label>{session.mode === 'bodybuilding' || session.mode === 'strength' ? <label className="block text-xs text-slate2">Split<select className="input mt-1" value={session.split ?? 'full_body'} onChange={(event) => onChange({ split: event.target.value as Split })}>{splits.map((split) => <option key={split} value={split}>{SPLIT_LABELS[split]}</option>)}</select></label> : null}<button className="text-xs uppercase tracking-wider text-amber2" onClick={onClose}>Fine modifica</button></div>
+}
+
+function Field({ title, children }: { title: string; children: React.ReactNode }) { return <section className="mt-8"><h2 className="field-label">{title}</h2>{children}</section> }
+function Grid({ children }: { children: React.ReactNode }) { return <div className="grid grid-cols-2 gap-2">{children}</div> }
+function Choice({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) { return <button type="button" aria-pressed={active} onClick={onClick} className={`chip w-full text-left ${active ? 'chip-on' : ''}`}>{children}</button> }
+function Policy({ title, value, onChange }: { title: string; value: ExercisePolicy; onChange: (value: ExercisePolicy) => void }) { return <div className="mt-3"><p className="mb-2 text-sm">{title}</p><div className="grid grid-cols-3 gap-2">{(Object.keys(EXERCISE_POLICY_LABELS) as ExercisePolicy[]).map((policy) => <Choice key={policy} active={value === policy} onClick={() => onChange(policy)}>{EXERCISE_POLICY_LABELS[policy]}</Choice>)}</div></div> }
+function NumberField({ label, value, onChange }: { label: string; value: number; onChange: (value: number) => void }) { return <label className="mb-3 grid grid-cols-[1fr_6rem] items-center gap-3 text-sm">{label}<input className="input" type="number" min="1" value={value} onChange={(event) => onChange(Math.max(1, Number(event.target.value)))} /></label> }

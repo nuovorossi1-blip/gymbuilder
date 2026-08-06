@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import type { CompletedWorkout, Exercise, ExerciseRecord, GeneratedWorkout, SavedWorkout } from '../types'
+import type { CompletedWorkout, Exercise, ExerciseRecord, GeneratedWorkout, SavedWorkout, WorkoutGenerationConfig } from '../types'
 import { analizzaSettimana, type WeeklyTrainingState } from '../generators/weakPoints'
 import { normalizeExercise } from '../data/exercises/normalize'
 
@@ -16,22 +16,19 @@ export async function caricaCatalogo(): Promise<Exercise[]> {
 export async function salvaAllenamento(
   userId: string,
   w: GeneratedWorkout,
-  nome?: string
+  nome?: string,
+  generationConfig?: WorkoutGenerationConfig | null
 ): Promise<string> {
-  const { data, error } = await supabase
-    .from('saved_workouts')
-    .insert({
-      user_id: userId,
-      name: nome?.trim() || w.name,
-      mode: w.mode,
-      split: w.split,
-      goal: w.goal,
-      experience: w.experience,
-      duration_min: w.duration_min,
-      blocks: w.blocks,
-    })
-    .select('id')
-    .single()
+  const base = {
+    user_id: userId, name: nome?.trim() || w.name, mode: w.mode, split: w.split,
+    goal: w.goal, experience: w.experience, duration_min: w.duration_min, blocks: w.blocks,
+  }
+  let result = await supabase.from('saved_workouts').insert({ ...base, generation_config: generationConfig ?? null }).select('id').single()
+  // Continuità col database remoto finché la nuova migrazione non viene applicata.
+  if (result.error?.code === 'PGRST204' || result.error?.code === '42703') {
+    result = await supabase.from('saved_workouts').insert(base).select('id').single()
+  }
+  const { data, error } = result
   if (error) throw new Error('Non siamo riusciti a salvare. Riprova.')
   return data.id as string
 }

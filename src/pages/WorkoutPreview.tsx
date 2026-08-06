@@ -1,21 +1,14 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../features/auth/AuthProvider'
-import { useSettings } from '../features/profile/useSettings'
 import { useWorkout } from '../features/workout/WorkoutContext'
-import { caricaCatalogo, salvaAllenamento, situazioneSettimanaleUtente } from '../lib/api'
-import { generaBodybuilding } from '../generators/bodybuilding'
-import { generaForza } from '../generators/strength'
-import { generaCrossFit, type CrossFitFormat } from '../generators/crossfit'
-import { generaHybrid } from '../generators/hybrid'
-import { generaCondizionamento, type ConditioningFormat } from '../generators/conditioning'
-import { generaTabata } from '../generators/tabata'
+import { salvaAllenamento } from '../lib/api'
+import { findExerciseReplacement } from '../engine/replacement'
 import { EXPERIENCE_LABELS, GOAL_LABELS, MODE_LABELS, MUSCLE_LABELS, SPLIT_LABELS, type WorkoutBlock } from '../types'
 
 export default function WorkoutPreview() {
   const { user } = useAuth()
-  const { settings } = useSettings(user?.id)
-  const { workout, setWorkout } = useWorkout()
+  const { workout, setWorkout, generationConfig, catalog } = useWorkout()
   const naviga = useNavigate()
   const [stato, setStato] = useState<'fermo' | 'salvo' | 'salvato' | 'errore'>('fermo')
   const [messaggio, setMessaggio] = useState<string | null>(null)
@@ -38,90 +31,31 @@ export default function WorkoutPreview() {
   const principale = workout.blocks.find((b) => b.kind === 'main')
   const metcon = workout.blocks.find((b) => b.kind === 'metcon')
 
-  async function rigenera() {
-    if (!settings || !workout || !user) return
-    const catalogo = await caricaCatalogo()
-    const situazioneSettimanale = await situazioneSettimanaleUtente(user.id, catalogo)
-
-    if (workout.mode === 'crossfit' || workout.mode === 'crossfit_hybrid' || workout.mode === 'tabata') {
-      const cfg = {
-        experience: settings.experience,
-        equipment: settings.equipment,
-        available_equipment: settings.available_equipment,
-        duration_min: workout.duration_min,
-        priority_muscles: settings.priority_muscles,
-        excluded_exercises: settings.excluded_exercises,
-        preferred_exercises: settings.favorite_exercises,
-        intensity: settings.default_intensity,
-        weight_kg: settings.weight_kg,
-        seed: Date.now() % 100000,
-      }
-      setWorkout(
-        workout.mode === 'crossfit'
-          ? generaCrossFit(catalogo, {
-              ...cfg,
-              format: (workout.blocks.find((block) => block.kind === 'metcon')?.format ?? 'amrap') as CrossFitFormat,
-            })
-          : workout.mode === 'crossfit_hybrid'
-          ? generaHybrid(catalogo, cfg)
-          : generaTabata(catalogo, cfg)
-      )
-      setStato('fermo')
-      setMessaggio(null)
-      return
-    }
-
-    if (workout.mode === 'conditioning') {
-      const formato = (workout.blocks.find((b) => b.kind === 'metcon')?.format ?? 'amrap') as ConditioningFormat
-      setWorkout(
-        generaCondizionamento(catalogo, {
-          format: formato,
-          experience: settings.experience,
-          equipment: settings.equipment,
-          available_equipment: settings.available_equipment,
-          duration_min: workout.duration_min,
-          priority_muscles: settings.priority_muscles,
-          excluded_exercises: settings.excluded_exercises,
-          preferred_exercises: settings.favorite_exercises,
-          intensity: settings.default_intensity,
-          weight_kg: settings.weight_kg,
-          seed: Date.now() % 100000,
-        })
-      )
-      setStato('fermo')
-      setMessaggio(null)
-      return
-    }
-
-    const baseCfg = {
-      split: workout.split as NonNullable<typeof workout.split>,
-      experience: settings.experience,
-      equipment: settings.equipment,
-      available_equipment: settings.available_equipment,
-      duration_min: workout.duration_min,
-      priority_muscles: settings.priority_muscles,
-      excluded_exercises: settings.excluded_exercises,
-      preferred_exercises: settings.favorite_exercises,
-      weekly_volume: situazioneSettimanale?.volume,
-      last_trained_at: situazioneSettimanale?.last_trained_at,
-      intensity: settings.default_intensity,
-      weight_kg: settings.weight_kg,
-      seed: Date.now() % 100000,
-    }
-    setWorkout(
-      workout.mode === 'strength'
-        ? generaForza(catalogo, baseCfg)
-        : generaBodybuilding(catalogo, { ...baseCfg, goal: workout.goal })
-    )
-    setStato('fermo')
-    setMessaggio(null)
+  function cambiaEsercizio(blockIndex: number, exerciseIndex: number) {
+    if (!workout || !generationConfig) return
+    const current = workout.blocks[blockIndex].exercises[exerciseIndex]
+    const used = new Set(workout.blocks.flatMap((block) => block.exercises.map((exercise) => exercise.exercise_id)))
+    const replacement = findExerciseReplacement(current, catalog, generationConfig.equipment, {
+      excludedExerciseIds: generationConfig.preferences.excluded_exercise_ids,
+      bodyweightPolicy: generationConfig.preferences.bodyweight_policy,
+      elasticPolicy: generationConfig.preferences.elastic_policy,
+    }, used)
+    if (!replacement) { setMessaggio('Nessuna alternativa compatibile disponibile.'); return }
+    const blocks = workout.blocks.map((block, index) => index !== blockIndex ? block : {
+      ...block, exercises: block.exercises.map((exercise, itemIndex) => itemIndex !== exerciseIndex ? exercise : {
+        ...exercise, exercise_id: replacement.id, name: replacement.name,
+        muscle: replacement.primary_muscles[0] ?? null, instructions: replacement.instructions,
+      }),
+    })
+    setWorkout({ ...workout, blocks })
+    setMessaggio(`${current.name} sostituito con ${replacement.name}.`)
   }
 
   async function salva() {
     if (!user || !workout) return
     setStato('salvo')
     try {
-      await salvaAllenamento(user.id, workout)
+      await salvaAllenamento(user.id, workout, undefined, generationConfig)
       setStato('salvato')
       setMessaggio('Lo trovi in Salvati.')
     } catch (e) {
@@ -137,11 +71,12 @@ export default function WorkoutPreview() {
         {workout.split ? SPLIT_LABELS[workout.split] : MODE_LABELS[workout.mode]}
       </h1>
 
-      <div className="mt-4 flex items-baseline gap-6 font-data">
+      <div className="mt-4 flex flex-wrap items-baseline gap-6 font-data">
         <span>
           <span className="text-3xl">{workout.duration_min}</span>
           <span className="text-slate2 text-[13px]"> min</span>
         </span>
+        <span><span className="text-3xl">{workout.max_duration_min ?? Math.ceil(workout.duration_min * 1.15)}</span><span className="text-slate2 text-[13px]"> min max</span></span>
         <span>
           <span className="text-3xl">{(principale?.exercises.length ?? 0) + (metcon?.exercises.length ?? 0)}</span>
           <span className="text-slate2 text-[13px]"> esercizi</span>
@@ -210,6 +145,7 @@ export default function WorkoutPreview() {
                 {e.instructions && (
                   <p className="mt-1.5 pl-7 text-[12px] text-slate2 leading-relaxed">{e.instructions}</p>
                 )}
+                <button className="mt-3 pl-7 font-data text-[10px] uppercase tracking-wider text-amber2" onClick={() => cambiaEsercizio(workout.blocks.indexOf(principale), i)}>Cambia · Non mi piace</button>
               </li>
             ))}
           </ol>
@@ -238,6 +174,7 @@ export default function WorkoutPreview() {
                 {e.instructions && (
                   <p className="mt-1.5 pl-7 text-[12px] text-slate2 leading-relaxed">{e.instructions}</p>
                 )}
+                <button className="mt-3 pl-7 font-data text-[10px] uppercase tracking-wider text-amber2" onClick={() => cambiaEsercizio(workout.blocks.indexOf(metcon), i)}>Cambia · Non mi piace</button>
               </li>
             ))}
           </ol>
@@ -254,7 +191,7 @@ export default function WorkoutPreview() {
       {/* Azioni */}
       <div className="mt-8 space-y-2.5">
         <button className="btn !py-4 text-lg" onClick={() => naviga('/avvia')}>
-          Avvia allenamento
+          Inizia
         </button>
         <div className="grid grid-cols-2 gap-2.5">
           <button
@@ -266,9 +203,9 @@ export default function WorkoutPreview() {
           </button>
           <button
             className="rounded-xl border border-edge bg-steel py-3.5 font-data text-[11px] uppercase tracking-[0.14em] text-chalk active:bg-edge"
-            onClick={rigenera}
+            onClick={() => naviga('/')}
           >
-            Rigenera
+            Torna alla settimana
           </button>
         </div>
       </div>

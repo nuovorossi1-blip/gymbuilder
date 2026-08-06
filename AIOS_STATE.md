@@ -4,7 +4,7 @@
 > da qui. Va **aggiornato** a ogni sessione, non accodato all'infinito.
 > L'identità del progetto e il percorso di AI-OS stanno in `AIOS_PROJECT.json`.
 
-**Ultimo aggiornamento:** 2026-08-06 (sessione 4) — Codex
+**Ultimo aggiornamento:** 2026-08-06 (ristrutturazione master) — Codex
 
 Etichette: `[FACT]` verificato nel codice · `[RICOSTRUITO]` dedotto da indizi ·
 `[IGNOTO]` non ricavabile dal repository
@@ -18,8 +18,9 @@ predefinita: dichiara le proprie caratteristiche, gli obiettivi, il tempo che ha
 oggi e il tipo di allenamento che vuole fare, e l'app costruisce una sessione
 coerente — esercizi, ordine, serie, ripetizioni, recuperi, timer, durata stimata.
 
-Sei modalità: Bodybuilding, Forza, CrossFit Standard, CrossFit Hybrid,
-Condizionamento, Tabata.
+Cinque modalità pubbliche: Bodybuilding, Forza, CrossFit Standard, CrossFit
+Hybrid e Tabata. Condizionamento resta una categoria/motore tecnico interno e
+non è più selezionabile dalla home.
 
 **Vincolo architetturale non negoziabile** (specifica sez. 37): il motore di
 generazione è **deterministico e guidato dai dati**, non un LLM. Un LLM potrà in
@@ -30,7 +31,14 @@ e validare un allenamento anche senza AI.
 
 ## 2. Dove siamo adesso
 
-**Fasi 1-9 implementate; riallineamento al master prompt in corso dalla Phase 2.**
+**Ristrutturazione master implementata localmente e in verifica infrastrutturale.**
+Il flusso è ora Genera → configura → anteprima → Salva/Inizia; il Profilo è
+separato dalle preferenze della sessione. I nuovi servizi centrali vivono in
+`src/engine`, la configurazione tipizzata in `WorkoutGenerationConfig`.
+Il Genera ora supporta più discipline contemporaneamente tramite un Weekly
+Program Engine: genera 3-7 giorni, mostra e modifica la settimana, quindi passa
+un solo giorno al generatore specifico. Configurazione globale e settimana
+restano in `sessionStorage`. Suite aggiornata a 131 test verdi.
 L'app ha autenticazione, profilo, un database di 87 esercizi in Supabase (con
 istruzioni testuali per ciascuno) e sei motori di generazione:
 

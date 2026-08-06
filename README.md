@@ -1,21 +1,24 @@
 # GymBuilder
 
-Genera allenamenti su misura. Dici che esperienza hai, che attrezzatura trovi in
-palestra e quanto tempo hai oggi; l'app costruisce la sessione — esercizi, ordine,
-serie, ripetizioni, recuperi e timer.
+App mobile-first per generare, salvare ed eseguire allenamenti personalizzati.
+Il flusso principale è **Genera → configura la settimana → modifica i giorni → genera una sessione → Salva o Inizia**.
 
-Sei modalità previste: Bodybuilding, Forza, CrossFit Standard, CrossFit Hybrid,
-Condizionamento, Tabata.
+Le modalità pubbliche sono Bodybuilding, CrossFit Standard, CrossFit Hybrid,
+Forza e Tabata. Vedi `AI_CONTEXT.md` per un orientamento rapido e
+`RULE_ENGINE.md` per le regole implementate.
+
+Combina una o più discipline su 3-7 giorni. Il Weekly Program Engine costruisce
+la settimana considerando obiettivo, recupero e sovrapposizione; i generatori
+specifici costruiscono poi esercizi, ordine, serie, ripetizioni, recuperi e timer.
 
 ---
 
 ## A che punto è
 
-**Fase 1 di 15.** Funzionano registrazione, accesso e il profilo di allenamento
-completo: quello che imposti qui deciderà come verranno costruiti gli allenamenti.
-
-I motori di generazione arrivano dalla fase 3 in poi. Il piano completo sta in
-[`AIOS_STATE.md`](./AIOS_STATE.md).
+Sono implementati autenticazione, profilo fisico, Weekly Program Engine, cinque
+generatori, anteprima, sostituzione esercizi, salvataggi, runner e stima calorie.
+La suite automatica contiene 131 test. Il piano completo sta in
+[`ROADMAP.md`](./ROADMAP.md).
 
 ---
 

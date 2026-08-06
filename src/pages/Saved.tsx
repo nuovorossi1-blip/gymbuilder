@@ -7,7 +7,7 @@ import { GOAL_LABELS, SPLIT_LABELS, type Goal, type Mode, type SavedWorkout, typ
 
 export default function Saved() {
   const { user } = useAuth()
-  const { setWorkout } = useWorkout()
+  const { setWorkout, setGenerationConfig } = useWorkout()
   const naviga = useNavigate()
   const [lista, setLista] = useState<SavedWorkout[] | null>(null)
   const [errore, setErrore] = useState<string | null>(null)
@@ -20,6 +20,7 @@ export default function Saved() {
   useEffect(carica, [carica])
 
   function apri(s: SavedWorkout) {
+    setGenerationConfig(s.generation_config ?? null)
     setWorkout({
       name: s.name, mode: s.mode as Mode, split: s.split as Split | null,
       goal: s.goal as Goal, experience: s.experience as never,

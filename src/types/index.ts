@@ -4,6 +4,11 @@ export type Experience = 'beginner' | 'intermediate' | 'advanced'
 export type Goal = 'hypertrophy' | 'strength' | 'conditioning' | 'mixed'
 export type Intensity = 'low' | 'medium' | 'high'
 export type Mode = 'bodybuilding' | 'strength' | 'crossfit' | 'crossfit_hybrid' | 'conditioning' | 'tabata'
+export type PublicMode = Exclude<Mode, 'conditioning'>
+export type Sex = 'female' | 'male' | 'other' | 'unspecified'
+export type SplitSystem = 'ppl' | 'upper_lower' | 'bro_split' | 'front_back'
+export type ExercisePolicy = 'always' | 'finisher_only' | 'never'
+export type Weekday = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday'
 
 /**
  * Formato del Metcon. CrossFit Standard usa solo 'amrap' (struttura fissa di
@@ -128,15 +133,110 @@ export interface GeneratedWorkout {
   goal: Goal
   experience: Experience
   duration_min: number
+  /** Limite prudenziale oltre il quale la sessione non dovrebbe andare. */
+  max_duration_min?: number
   blocks: WorkoutBlock[]
   warnings: string[]
   /** Calorie attive stimate per l'intera sessione (sez. 60-61): sempre una stima, mai un valore esatto. */
   est_kcal?: number
 }
 
+/** Dati stabili dell'utente. Non contiene preferenze della singola generazione. */
+export interface UserProfile {
+  id: string
+  display_name: string | null
+  email: string | null
+  weight_kg: number | null
+  height_cm: number | null
+  age: number | null
+  sex: Sex
+}
+
+export interface ExercisePreference {
+  excluded_exercise_ids: string[]
+  preferred_exercise_ids: string[]
+  bodyweight_policy: ExercisePolicy
+  elastic_policy: ExercisePolicy
+}
+
+export interface EquipmentInventory {
+  preset: Equipment
+  available: EquipmentItem[]
+}
+
+/** Configurazione effimera: nasce in Genera e viaggia insieme al workout. */
+export interface WorkoutGenerationConfig {
+  mode: PublicMode
+  goal: Goal
+  split_system?: SplitSystem
+  training_days: number
+  current_day: Split | null
+  experience: Experience
+  duration_min: number
+  equipment: EquipmentInventory
+  weak_points: Muscle[]
+  preferences: ExercisePreference
+  intensity: Intensity
+  workout_format?: MetconFormat
+  tabata?: { work_sec: number; rest_sec: number; rounds: number; prescription: 'time' | 'reps' }
+}
+
+/** Preferenze globali condivise da tutte le sessioni della settimana. */
+export interface WeeklyProgramConfig {
+  training_days: number
+  selected_modes: PublicMode[]
+  goal: Goal
+  split_system: SplitSystem
+  experience: Experience
+  duration_min: number
+  equipment: EquipmentInventory
+  weak_points: Muscle[]
+  preferences: ExercisePreference
+  intensity: Intensity
+  crossfit_format: Extract<MetconFormat, 'amrap' | 'emom' | 'for_time'>
+  tabata: { work_sec: number; rest_sec: number; rounds: number; prescription: 'time' | 'reps' }
+}
+
+export interface WeeklySession {
+  id: string
+  day: Weekday
+  mode: PublicMode
+  split: Split | null
+  label: string
+  estimated_fatigue: 1 | 2 | 3
+  muscle_load: Muscle[]
+}
+
+export interface WeeklyProgramWarning {
+  code: 'consecutive_high_fatigue' | 'muscle_overlap' | 'mode_density' | 'limited_recovery'
+  message: string
+  day_ids: string[]
+}
+
+export interface WeeklyProgram {
+  id: string
+  config: WeeklyProgramConfig
+  week: WeeklySession[]
+  warnings: WeeklyProgramWarning[]
+}
+
+export interface WorkoutSession {
+  id: string
+  workout: GeneratedWorkout
+  started_at: string
+  completed_at: string | null
+  elapsed_sec: number
+  average_heart_rate: number | null
+  estimated_calories: number | null
+}
+
 export interface Profile {
   id: string
   display_name: string | null
+  weight_kg?: number | null
+  height_cm?: number | null
+  age?: number | null
+  sex?: Sex
 }
 
 export interface UserSettings {
@@ -167,6 +267,7 @@ export interface SavedWorkout {
   blocks: WorkoutBlock[]
   favorite: boolean
   created_at: string
+  generation_config?: WorkoutGenerationConfig | null
 }
 
 export interface CompletedWorkout {
@@ -206,6 +307,21 @@ export const MODE_LABELS: Record<Mode, string> = {
   crossfit_hybrid: 'CrossFit Hybrid',
   conditioning: 'Condizionamento',
   tabata: 'Tabata',
+}
+
+export const PUBLIC_MODES: PublicMode[] = ['bodybuilding', 'crossfit', 'crossfit_hybrid', 'strength', 'tabata']
+
+export const SPLIT_SYSTEM_LABELS: Record<SplitSystem, string> = {
+  ppl: 'PPL',
+  upper_lower: 'Upper / Lower',
+  bro_split: 'Bro Split',
+  front_back: 'Front / Back',
+}
+
+export const EXERCISE_POLICY_LABELS: Record<ExercisePolicy, string> = {
+  always: 'Sempre consentito',
+  finisher_only: 'Solo finisher',
+  never: 'Mai',
 }
 
 export const METCON_FORMAT_LABELS: Record<MetconFormat, string> = {
