@@ -62,6 +62,34 @@ interface SlotDef {
 }
 
 /**
+ * Il muscolo da solo non descrive il ruolo biomeccanico di uno slot. Per
+ * esempio un thruster ha i deltoidi anteriori fra i target, ma resta uno
+ * squat full-body e non appartiene a un Push Bodybuilding. Questi pattern
+ * sono quindi un vincolo strutturale, precedente a carenze e preferenze.
+ */
+const PATTERN_PER_MUSCOLO: Partial<Record<Muscle, string[]>> = {
+  chest: ['horizontal_push'],
+  back: ['horizontal_pull', 'vertical_pull'],
+  front_delts: ['vertical_push'],
+  lateral_delts: ['lateral_raise'],
+  rear_delts: ['rear_delt'],
+  biceps: ['elbow_flexion'],
+  triceps: ['elbow_extension'],
+  // Il catalogo storico classifica Leg Extension e Leg Curl entrambi come
+  // knee_flexion: lo accettiamo qui finché la migration catalogo li separa.
+  quads: ['squat', 'lunge', 'knee_extension', 'knee_flexion'],
+  hamstrings: ['hinge', 'knee_flexion'],
+  glutes: ['hinge', 'lunge'],
+  calves: ['calf_raise', 'jump'],
+  core: ['core'],
+}
+
+function patternCoerente(exercise: Exercise, muscle: Muscle): boolean {
+  const ammessi = PATTERN_PER_MUSCOLO[muscle]
+  return !ammessi || ammessi.includes(exercise.movement_pattern)
+}
+
+/**
  * Struttura base di ogni split (sez. 3, 11 della correzione): sempre 5 slot,
  * sempre presenti, indipendentemente dal tempo a disposizione. Il tempo
  * decide quante serie e quanto recupero, non se questi 5 esistono.
@@ -358,6 +386,7 @@ export function generaBodybuilding(
       const candidati = allenamento
         .filter((e) => !usati.has(e.id))
         .filter((e) => e.primary_muscles.includes(m))
+        .filter((e) => patternCoerente(e, m))
         .filter((e) => e.roles.includes(s.compound ? 'compound' : 'isolation'))
         // Fatica di presa (sez. 32): si escludono solo gli esercizi MOLTO esigenti
         // quando la presa è già carica, non l'intero pool dopo due tirate.

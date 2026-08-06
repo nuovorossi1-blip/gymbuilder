@@ -105,6 +105,41 @@ describe('generaBodybuilding — split che non toccano braccia/spalle nelle gamb
 })
 
 describe('generaBodybuilding — scenario critico sez. 28 della correzione', () => {
+  it('Push PPL avanzato resta Push: nessun thruster/squat e richiama bicipiti + tricipiti', () => {
+    const w = generaBodybuilding(catalogo, {
+      split: 'push', goal: 'hypertrophy', experience: 'advanced', equipment: 'full_gym',
+      duration_min: 60, priority_muscles: ['lateral_delts', 'rear_delts', 'biceps', 'triceps'],
+      excluded_exercises: [], seed: 42,
+    })
+    const main = mainBlock(w)
+    const byId = new Map(catalogo.map((exercise) => [exercise.id, exercise]))
+    expect(main.exercises.length).toBeGreaterThanOrEqual(5)
+    expect(main.exercises.length).toBeLessThanOrEqual(7)
+    expect(main.exercises.map((exercise) => exercise.muscle)).toContain('biceps')
+    expect(main.exercises.map((exercise) => exercise.muscle)).toContain('triceps')
+    expect(main.exercises.every((exercise) => byId.get(exercise.exercise_id)?.movement_pattern !== 'squat')).toBe(true)
+    expect(main.exercises.some((exercise) => exercise.exercise_id.includes('thruster'))).toBe(false)
+  })
+
+  it('Pull PPL mantiene tre esercizi dorso + rear delts + bicipiti + richiamo tricipiti', () => {
+    const w = generaBodybuilding(catalogo, {
+      split: 'pull', goal: 'hypertrophy', experience: 'advanced', equipment: 'full_gym', duration_min: 60,
+      priority_muscles: ['rear_delts', 'biceps', 'triceps'], excluded_exercises: [], seed: 9,
+    })
+    const muscles = mainBlock(w).exercises.map((exercise) => exercise.muscle)
+    expect(muscles.filter((muscle) => muscle === 'back')).toHaveLength(3)
+    expect(muscles).toContain('rear_delts'); expect(muscles).toContain('biceps'); expect(muscles).toContain('triceps')
+  })
+
+  it('Legs mantiene la struttura quad compound, posterior chain, isolamenti e polpacci', () => {
+    const w = generaBodybuilding(catalogo, {
+      split: 'legs', goal: 'hypertrophy', experience: 'advanced', equipment: 'full_gym', duration_min: 60,
+      priority_muscles: ['biceps', 'triceps'], excluded_exercises: [], seed: 5,
+    })
+    const main = mainBlock(w).exercises
+    expect(main.slice(0, 5).map((exercise) => exercise.muscle)).toEqual(['quads', 'hamstrings', 'quads', 'hamstrings', 'calves'])
+  })
+
   it('Pull avanzato con carenze braccia/deltoidi e preferiti resta un Pull coerente, non un accorpamento di tutti i muscoli carenti', () => {
     const w = generaBodybuilding(catalogo, {
       split: 'pull',

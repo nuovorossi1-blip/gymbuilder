@@ -12,7 +12,8 @@ Ordine applicato: sicurezza/validità → attrezzatura non disponibile → esclu
 - generatori CrossFit/Hybrid/Tabata: strutture specifiche e pool Metcon sicuro.
 - `replacement.ts`: sostituto con stesso tipo/muscolo e fatica vicina, rispettando hard-block.
 - `validator.ts`: modalità, giorno, catalogo, duplicati, attrezzatura, esclusioni e durata massima.
-- `timer.ts`: macchina a stati pura per lavoro/riposo/round; il Runner gestisce anche AMRAP, EMOM e For Time.
+- `timer.ts`: clock a timestamp ed eventi per countdown/lavoro/riposo/round/set/EMOM/AMRAP/For Time/Tabata/cap.
+- `audio.ts`: mapping eventi→Beep/Ding/Silenzioso tramite Web Audio sbloccato dal tap.
 
 Un workout non viene mostrato se `validateWorkout` fallisce. Il messaggio rimanda alla configurazione invece di proporre attrezzi vietati.
 
@@ -25,5 +26,9 @@ Le sessioni candidate hanno un `RecoveryProfile`: fatica, stress per muscolo, ca
 ## Feedback e sostituzioni
 
 Il replacement ranking rispetta pattern, muscolo, ruolo, attrezzatura, livello, fatica, preferiti e feedback storico. I sei motivi hanno pesi distinti. I rifiuti temporanei vivono nella sessione; esclusioni esplicite, disagio e attrezzi assenti alimentano la memoria adattiva locale per utente.
+
+## Vincolo del giorno Bodybuilding
+
+Per Push/Pull/Legs la selezione richiede sia il muscolo dello slot sia un movement pattern ammesso. Thruster/squat non sono validi in Push anche se coinvolgono i deltoidi. Le carenze braccia possono aggiungere elbow flexion/extension a Push/Pull; Legs conserva quad compound, posterior chain, isolamenti e polpacci. Il replacement applica lo stesso confine.
 
 Combinazioni testate: BB+Hybrid; BB+CrossFit Standard; BB+Forza+Hybrid; BB+Hybrid+Tabata; Forza+Hybrid; BB+Tabata; CrossFit Standard+Hybrid; BB+CrossFit Standard+Hybrid+Tabata.

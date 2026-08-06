@@ -15,11 +15,16 @@
 - Recovery profile reale e scheduling multi-candidato fatigue-aware.
 - Exercise Feedback Engine con sei motivazioni e replacement semantico.
 - 137 test totali, inclusi regressione/progressione/disagio/attrezzatura.
+- Vincoli movement-pattern per Push/Pull/Legs e replacement contestuale.
+- Profile contract `user_id`, RLS e persistenza fisica in migration idempotente.
+- Timer Engine a timestamp con eventi e audio Beep/Ding/Silenzioso.
+- 149 test, build Vite e asset CSS verificati.
 
 ## IN SVILUPPO
 
 - Applicazione della migrazione dati fisici al Supabase remoto.
 - Verifica end-to-end autenticata su deployment.
+- Verifica audio su dispositivi iPhone/Android reali.
 
 ## PROSSIMO
 

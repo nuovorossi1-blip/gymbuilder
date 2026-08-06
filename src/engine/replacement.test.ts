@@ -22,6 +22,12 @@ describe('Exercise Feedback & Replacement Engine', () => {
     expect(replacement.exercise_types).toContain('compound')
   })
 
+  it('in Push non può proporre un pattern gambe', () => {
+    const current = prescribed('panca_piana')
+    const replacement = findExerciseReplacement(current, catalog, { ...equipment, available: [...equipment.available] }, preferences, new Set(['panca_piana']), { reason: 'dislike', experience: 'advanced', split: 'push' })!
+    expect(replacement.movement_pattern).not.toBe('squat')
+  })
+
   it('Troppo difficile seleziona una regressione dello stesso pattern', () => {
     const replacement = replace('trazioni', 'too_hard')
     expect(replacement.movement_pattern).toBe('vertical_pull')

@@ -22,17 +22,11 @@ export function useSettings(userId: string | undefined) {
     setState((s) => ({ ...s, loading: true, error: null }))
 
     const results = await Promise.all([
-      supabase.from('profiles').select('id, display_name, weight_kg, height_cm, age, sex').eq('id', userId).maybeSingle(),
+      supabase.from('profiles').select('id:user_id, display_name, weight_kg, height_cm, age, sex').eq('user_id', userId).maybeSingle(),
       supabase.from('user_settings').select('*').eq('user_id', userId).maybeSingle(),
     ])
-    let p = results[0]
+    const p = results[0]
     const settingsResult = results[1]
-
-    // Compatibilità mentre la migrazione dei dati fisici non è ancora applicata al remoto.
-    if (p.error) {
-      const legacy = await supabase.from('profiles').select('id, display_name').eq('id', userId).maybeSingle()
-      p = legacy.error ? p : { ...legacy, data: legacy.data ? { ...legacy.data, weight_kg: null, height_cm: null, age: null, sex: 'unspecified' } : null }
-    }
 
     if (p.error || settingsResult.error) {
       setState({
@@ -77,7 +71,7 @@ export function useSettings(userId: string | undefined) {
       if (!userId) return false
       const { error } = await supabase
         .from('profiles')
-        .upsert({ id: userId, display_name }, { onConflict: 'id' })
+        .upsert({ user_id: userId, display_name }, { onConflict: 'user_id' })
       if (error) return false
       setState((s) => (s.profile ? { ...s, profile: { ...s.profile, display_name } } : s))
       return true
@@ -87,7 +81,9 @@ export function useSettings(userId: string | undefined) {
 
   const saveProfile = useCallback(async (patch: Partial<Profile>): Promise<boolean> => {
     if (!userId) return false
-    const { error } = await supabase.from('profiles').upsert({ id: userId, ...patch }, { onConflict: 'id' })
+    const profilePatch = { ...patch }
+    delete profilePatch.id
+    const { error } = await supabase.from('profiles').upsert({ user_id: userId, ...profilePatch }, { onConflict: 'user_id' })
     if (error) return false
     setState((current) => current.profile ? { ...current, profile: { ...current.profile, ...patch } } : current)
     return true

@@ -1,5 +1,16 @@
 # Changelog AI
 
+## 2026-08-06 — Regole PPL, Profile e Timer Audio
+
+- Corretto il difetto che ammetteva Thruster in Push: muscolo+ruolo non bastano più, ora lo slot impone anche il movement pattern.
+- Aggiunti test espliciti Push, Pull e Legs con carenze globali spalle/braccia.
+- Il Replacement Engine riceve lo split e non può sostituire un esercizio con un pattern estraneo al giorno.
+- Allineato il client Profile da `id` a `user_id`; aggiunta migration con colonne fisiche, unique index, grant e policy SELECT/INSERT/UPDATE proprietarie.
+- Creati Unified Timer Engine e Audio Engine: timestamp reali, pausa senza drift, countdown, work/rest/round/set, AMRAP, EMOM, For Time, Tabata, cap e completamento.
+- Runner dotato di Audio timer ON/OFF, Beep/Ding/Silenzioso e countdown configurabile.
+- `npm install` eseguito; 149 test verdi; build Vite verde; asset CSS referenziato presente in `dist`.
+- Supabase remoto non modificato: il progetto usato dalla produzione non è esposto al connettore corrente.
+
 ## 2026-08-06 — Recovery scoring ed Exercise Feedback Engine
 
 - Chiarite nell’interfaccia le differenze fra obiettivi globali e discipline.
