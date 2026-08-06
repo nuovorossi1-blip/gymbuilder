@@ -9,6 +9,8 @@
 - Aggiunti rifiuto temporaneo, esclusione futura, aggiornamento inventario e memoria adattiva.
 - Replacement ranking esteso a pattern, ruolo, muscolo, difficoltà, fatica, livello e feedback.
 - Aggiunti sei test funzionali del feedback; totale 137 test verdi.
+- Commit produzione `8344953`; Vercel deployment `99Z9q62KR9DgFqZbReyNyK9m9Wkv` completato.
+- Verifica pubblica: homepage HTTP 200 e bundle contenente Feedback Engine e descrizioni obiettivi.
 
 ## 2026-08-06 — Weekly Program Generator multi-modalità
 
