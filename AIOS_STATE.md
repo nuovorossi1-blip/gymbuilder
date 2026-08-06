@@ -4,7 +4,7 @@
 > da qui. Va **aggiornato** a ogni sessione, non accodato all'infinito.
 > L'identità del progetto e il percorso di AI-OS stanno in `AIOS_PROJECT.json`.
 
-**Ultimo aggiornamento:** 2026-08-06 (sessione 3) — Codex
+**Ultimo aggiornamento:** 2026-08-06 (sessione 4) — Codex
 
 Etichette: `[FACT]` verificato nel codice · `[RICOSTRUITO]` dedotto da indizi ·
 `[IGNOTO]` non ricavabile dal repository
@@ -61,9 +61,10 @@ mancavano dei motori).
 una sessione precedente. Il collegamento automatico GitHub→Vercel **è attivo**
 (la nota precedente che lo dava per assente era sbagliata/superata — vedi
 problema risolto in sez. 7): ogni push su `main` pubblica da solo in un minuto.
-**Da riverificare dopo questa sessione**: il push è ancora bloccato da questo
-ambiente (problema aperto #1), quindi il lavoro di fasi 7-9 non è online
-finché qualcuno non applica la patch manualmente
+Il commit `e3a824c` è stato pubblicato su `main` e il relativo deployment Vercel
+di produzione è `Ready`; il dominio pubblico risponde HTTP 200 e mostra il form
+di accesso. Le variabili `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` sono
+presenti negli ambienti Preview e Production (valori mantenuti nascosti).
 
 ---
 
@@ -211,10 +212,13 @@ finché qualcuno non applica la patch manualmente
 
 ## 4. Cosa è in lavorazione
 
-Riallineamento sequenziale al master prompt richiesto dall'utente. Phase 2
-completata nel repository; si prosegue dalla Phase 3 senza ricostruire le parti
-già corrette. La migrazione Phase 2 non è ancora applicata al database remoto
-perché questa sessione non dispone di credenziali Supabase con privilegi schema.
+Riallineamento sequenziale al master prompt richiesto dall'utente. Le Phase 2-7
+sono completate; la Phase 8 è stata verificata contro i requisiti conservati in
+questo repository senza richiedere modifiche. Il master prompt originale di 100
+sezioni non è presente nel workspace, quindi un confronto testuale ulteriore
+richiede che venga nuovamente fornito. Le migrazioni Phase 2/5 non sono ancora
+applicate al database remoto: CLI priva di token e connettore Supabase privo dei
+permessi sul progetto.
 
 ## 5. Cosa manca
 
@@ -235,9 +239,8 @@ Capacitor (fase 14): non iniziato.
 
 | # | Problema | Da quando | Cosa si è già provato |
 |---|---|---|---|
-| 3 | Le migrazioni locali `exercise_catalog_v2` e `advanced_equipment` non sono ancora applicate al progetto Supabase remoto | 06/08 | Migrazioni create con Supabase CLI e frontend reso retrocompatibile; serve una sessione Supabase autenticata per applicarle e verificare query/advisor |
-| 1 | Push diretto su GitHub non autenticato da questo ambiente. **Confermato di nuovo in questa sessione con due meccanismi distinti**: `git push` via HTTPS restituisce 403 dalla policy di rete dell'ambiente (non da GitHub); `mcp__github__push_files`/`create_or_update_file` restituiscono 403 "Resource not accessible by integration" — l'app GitHub collegata ha permesso di sola lettura sui contenuti, confermato anche in scrittura API, non solo `git push` diretto | 05/08, riconfermato 06/08 | Aggirato una volta con GitHub Codespaces (terminale nel browser, autenticato all'account dell'utente): `git am` delle patch + push. Da rifare ad ogni sessione finché l'app non ha "Contents: Read and write". Finché resta così, ogni sessione deve terminare esportando una patch (`git format-patch`) da consegnare all'utente, non assumere che il lavoro sia pubblicato solo perché committato localmente |
-| 2 | **[IGNOTO]** se le variabili d'ambiente `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` sono impostate nel pannello Vercel. La build su Vercel risulta "Ready" e il collegamento automatico GitHub→Vercel funziona (smentendo la vecchia nota che lo dava per assente), ma una build che compila non prova che le variabili siano quelle giuste: Vite le incorpora al momento della build, un valore mancante non fa fallire nulla, produce solo un'app che non riesce a parlare con Supabase | 05/08 | Nessuna verifica diretta possibile da qui (nessun accesso al pannello Vercel). Da confermare aprendo il sito e provando login/generazione |
+| 3 | Le migrazioni locali `exercise_catalog_v2` e `advanced_equipment` non sono ancora applicate al progetto Supabase remoto | 06/08 | Migrazioni create e frontend retrocompatibile. Il 06/08 la CLI risultava senza `SUPABASE_ACCESS_TOKEN`; il connettore Supabase autenticato ha restituito `You do not have permission to perform this action` anche su `list_migrations`. Servono permessi database sul progetto prima di applicare e verificare query/advisor |
+| 4 | Verifica end-to-end autenticata incompleta: pagina pubblica e configurazione sono verificate, ma login→generazione→salvataggio richiede un account di test | 06/08 | Deployment, HTTP 200, rendering browser e presenza delle variabili verificati; non è stato creato un utente persistente fittizio |
 
 ## 7. Problemi risolti
 
@@ -477,15 +480,11 @@ riprendere è una delle fasi 10-14 rimaste aperte (sez. 11): modifica di un
 salvato esercizio per esercizio, frequenza cardiaca reale, packaging
 mobile.
 
-**Non pubblicato.** Il push diretto da questo ambiente è bloccato sia via
-`git push` che via le API GitHub (problema aperto #1, riconfermato in questa
-sessione con dettaglio nuovo: anche l'integrazione GitHub ha permesso di
-sola lettura, non solo il proxy di rete). Il lavoro di questa sessione è
-committato in locale (3 commit) ma **non è su GitHub né su Vercel** finché
-qualcuno non applica la patch consegnata all'utente.
-
-Build (`npm run build`) e test (`npm test`, 94 test) verificati entrambi
-verdi prima di chiudere la sessione.
+**Pubblicato.** Il 06/08 l'ambiente disponeva di un token GitHub funzionante:
+i commit locali e la configurazione ESLint sono stati inviati a `main`. Vercel
+ha completato automaticamente il deployment di produzione; build, 112 test e
+lint (zero errori, quattro avvisi non bloccanti) sono stati verificati prima del
+push. Il blocco di pubblicazione delle sessioni precedenti è quindi risolto.
 
 ---
 

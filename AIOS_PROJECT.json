@@ -61,6 +61,6 @@
   "last_session": {
     "model": "Codex",
     "date": "2026-08-06",
-    "summary": "Riallineamento al master prompt: Phase 2-6 completate/verificate; Phase 7 riallineata con blocco Strength/Bodybuilding separato e Hybrid Metcon cardio-isolamento sicuro. 112 test, build verde. Migrazioni Phase 2/5 da applicare al Supabase remoto."
+    "summary": "Phase 2-7 completate e Phase 8 verificata sui requisiti disponibili. Sei commit pubblicati su main fino a e3a824c; deployment Vercel di produzione Ready, dominio HTTP 200 e variabili Supabase presenti. 112 test e build verdi, lint senza errori. Migrazioni Phase 2/5 ancora bloccate dai permessi Supabase; verifica autenticata richiede un account di test."
   }
 }
