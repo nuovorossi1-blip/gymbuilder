@@ -6,6 +6,7 @@ import { useWorkout } from '../features/workout/WorkoutContext'
 import { caricaCatalogo, volumeSettimanaleUtente } from '../lib/api'
 import { generaBodybuilding } from '../generators/bodybuilding'
 import { generaForza, SPLIT_FORZA } from '../generators/strength'
+import { generaCrossFit } from '../generators/crossfit'
 import {
   DURATIONS, EQUIPMENT_LABELS, GOAL_LABELS, INTENSITY_LABELS, MODES_IN_ARRIVO,
   MODE_LABELS, MUSCLE_LABELS, SPLIT_GROUPS, SPLIT_HINTS, SPLIT_LABELS,
@@ -65,7 +66,19 @@ export default function Create() {
     if (!catalogo || !eff || !settings) return
 
     const w =
-      mode === 'strength'
+      mode === 'crossfit'
+        ? generaCrossFit(catalogo, {
+            experience: settings.experience,
+            equipment: eff.attrezzi,
+            duration_min: eff.durata,
+            priority_muscles: eff.muscoli,
+            excluded_exercises: settings.excluded_exercises,
+            preferred_exercises: settings.favorite_exercises,
+            intensity: eff.intensita,
+            weight_kg: settings.weight_kg,
+            seed: Date.now() % 100000,
+          })
+        : mode === 'strength'
         ? generaForza(catalogo, {
             split,
             experience: settings.experience,
@@ -138,40 +151,51 @@ export default function Create() {
         ))}
       </div>
 
-      {/* 1. Gruppo muscolare, raggruppato per tipo di split (sez. 15/71) */}
-      <div className="mt-8 space-y-5">
-        {(mode === 'strength' ? SPLIT_GROUPS_FORZA : SPLIT_GROUPS).map((gruppo) => (
-          <div key={gruppo.label}>
-            <p className="font-data text-[10px] uppercase tracking-[0.16em] text-slate2 mb-2">
-              {gruppo.label}
-            </p>
-            <div className="space-y-2.5">
-              {gruppo.splits.map((s) => {
-                const on = split === s
-                return (
-                  <button
-                    key={s}
-                    onClick={() => setSplit(s)}
-                    aria-pressed={on}
-                    className={`slab flex items-center gap-4 ${on ? '!border-chalk' : ''}`}
-                  >
-                    <span
-                      aria-hidden
-                      className={`h-9 w-[3px] rounded-full ${on ? 'bg-amber2' : 'bg-edge'}`}
-                    />
-                    <span>
-                      <span className="block font-display font-bold uppercase tracking-wide text-[17px]">
-                        {SPLIT_LABELS[s]}
+      {/* 1. Gruppo muscolare, raggruppato per tipo di split (sez. 15/71). CrossFit Standard non ha uno split: struttura fissa Forza/Skill + Metcon. */}
+      {mode === 'crossfit' ? (
+        <div className="mt-8 slab">
+          <span className="block font-display font-bold uppercase tracking-wide text-[17px]">
+            Forza/Skill + Metcon
+          </span>
+          <span className="block text-[13px] text-slate2 mt-0.5">
+            Struttura fissa della classe: 1-2 alzate, poi un Metcon AMRAP a tempo.
+          </span>
+        </div>
+      ) : (
+        <div className="mt-8 space-y-5">
+          {(mode === 'strength' ? SPLIT_GROUPS_FORZA : SPLIT_GROUPS).map((gruppo) => (
+            <div key={gruppo.label}>
+              <p className="font-data text-[10px] uppercase tracking-[0.16em] text-slate2 mb-2">
+                {gruppo.label}
+              </p>
+              <div className="space-y-2.5">
+                {gruppo.splits.map((s) => {
+                  const on = split === s
+                  return (
+                    <button
+                      key={s}
+                      onClick={() => setSplit(s)}
+                      aria-pressed={on}
+                      className={`slab flex items-center gap-4 ${on ? '!border-chalk' : ''}`}
+                    >
+                      <span
+                        aria-hidden
+                        className={`h-9 w-[3px] rounded-full ${on ? 'bg-amber2' : 'bg-edge'}`}
+                      />
+                      <span>
+                        <span className="block font-display font-bold uppercase tracking-wide text-[17px]">
+                          {SPLIT_LABELS[s]}
+                        </span>
+                        <span className="block text-[13px] text-slate2 mt-0.5">{SPLIT_HINTS[s]}</span>
                       </span>
-                      <span className="block text-[13px] text-slate2 mt-0.5">{SPLIT_HINTS[s]}</span>
-                    </span>
-                  </button>
-                )
-              })}
+                    </button>
+                  )
+                })}
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       {/* 2. Durata: la scelta che cambia di più giorno per giorno */}
       <p className="field-label mt-8">Quanto tempo hai</p>
@@ -293,8 +317,8 @@ export default function Create() {
 
       {eff && (
         <p className="mt-3 text-center font-data text-[11px] uppercase tracking-[0.14em] text-slate2">
-          {SPLIT_LABELS[split]} · {eff.durata} min ·{' '}
-          {mode === 'strength' ? GOAL_LABELS.strength : GOAL_LABELS[eff.goal]}
+          {mode === 'crossfit' ? MODE_LABELS.crossfit : SPLIT_LABELS[split]} · {eff.durata} min ·{' '}
+          {mode === 'crossfit' ? GOAL_LABELS.conditioning : mode === 'strength' ? GOAL_LABELS.strength : GOAL_LABELS[eff.goal]}
         </p>
       )}
     </div>

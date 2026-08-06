@@ -4,7 +4,7 @@
 > da qui. Va **aggiornato** a ogni sessione, non accodato all'infinito.
 > L'identità del progetto e il percorso di AI-OS stanno in `AIOS_PROJECT.json`.
 
-**Ultimo aggiornamento:** 2026-08-05 — Claude (Sonnet 5)
+**Ultimo aggiornamento:** 2026-08-06 — Claude (Sonnet 5)
 
 Etichette: `[FACT]` verificato nel codice · `[RICOSTRUITO]` dedotto da indizi ·
 `[IGNOTO]` non ricavabile dal repository
@@ -30,19 +30,22 @@ e validare un allenamento anche senza AI.
 
 ## 2. Dove siamo adesso
 
-**Fasi 1-5 completate.** L'app ha autenticazione, profilo, un database di 79
-esercizi in Supabase (con istruzioni testuali per ciascuno) e due motori di
+**Fasi 1-6 completate.** L'app ha autenticazione, profilo, un database di 87
+esercizi in Supabase (con istruzioni testuali per ciascuno) e tre motori di
 generazione: **Bodybuilding** (13 split, corretto in profondità in una
-sessione precedente) e **Forza** (nuovo, 6 split). Entrambi condividono
-un'infrastruttura comune (`shared.ts`, `weakPoints.ts`, `calories.ts`) invece
-di duplicare la logica.
+sessione precedente), **Forza** (6 split) e **CrossFit Standard** (nuovo,
+fase 6: Riscaldamento → Forza/Skill → Metcon AMRAP, niente split per gruppo
+muscolare). Tutti e tre condividono un'infrastruttura comune (`shared.ts`,
+`weakPoints.ts`, `calories.ts`) invece di duplicare la logica.
 
-Gli altri quattro motori (CrossFit Standard, CrossFit Hybrid, Condizionamento,
-Tabata) **non esistono ancora**: nella schermata Genera compaiono come
-riquadri disattivati con l'etichetta "in arrivo" (sez. 84 della correzione:
-non si finge che una modalità esista quando non è costruita). Quando la
-specifica parla di Metcon, EMOM/AMRAP o timer Tabata, sono requisiti per il
-lavoro futuro (fasi 6-9), non bug di qualcosa già costruito.
+Gli altri tre motori (CrossFit Hybrid, Condizionamento, Tabata) **non
+esistono ancora**: nella schermata Genera compaiono come riquadri disattivati
+con l'etichetta "in arrivo" (sez. 84 della correzione: non si finge che una
+modalità esista quando non è costruita). Quando la specifica parla di EMOM,
+For Time, Rounds, Circuit/Intervals o timer Tabata, sono requisiti per il
+lavoro futuro (fasi 7-9, principalmente Condizionamento), non bug di qualcosa
+già costruito: CrossFit Standard usa solo il formato AMRAP di proposito (vedi
+sez. 8).
 
 **Sito online:** `gymbuilder-lemon.vercel.app` — **[FACT]**, verificato in
 questa sessione. Il collegamento automatico GitHub→Vercel **è attivo**
@@ -105,26 +108,41 @@ problema risolto in sez. 7): ogni push su `main` pubblica da solo in un minuto
 - [FACT] Placeholder frequenza cardiaca ("FC non disponibile") nel runner:
   nessuna connessione hardware finta, come richiesto dalla sez. 84 — l'unico
   altro generatore reale della specifica (Base44) fa la stessa cosa
-- [FACT] 36 test automatici (`npm test`): 23 su Bodybuilding, 13 su Forza,
-  eseguiti contro il catalogo reale di 79 esercizi (fixture copiata da
-  Supabase, non dati inventati)
+- [FACT] Motore **CrossFit Standard** (`src/generators/crossfit.ts`, nuovo,
+  fase 6): struttura fissa Riscaldamento → Forza/Skill (1-2 alzate, riusa il
+  tag `roles: 'strength'` del catalogo, scende a un compound non-conditioning
+  equivalente se manca il bilanciere) → Metcon AMRAP (3-4 movimenti
+  bodyweight/kettlebell/manubri/cardio, uno per categoria: monostrutturale,
+  gambe, spinta/tirata, core). `GeneratedWorkout.split` è `null` per questa
+  modalità: non ha uno split per gruppo muscolare
+- [FACT] 8 nuovi esercizi in Supabase per il Metcon (87 totali): burpee,
+  mountain climber, swing/thruster con kettlebell, thruster con manubri,
+  step-up su rialzo, vogatore, sit-up — tutti taggati `conditioning` o
+  `cardio`, mai sovrapposti al catalogo `strength`/`hypertrophy` esistente
+- [FACT] Runner esteso per il Metcon: dopo la parte Forza/Skill, uno stopwatch
+  a conto alla rovescia (il tempo dell'AMRAP) con un contatore di giri
+  completati, invece del ciclo serie+recupero usato da Bodybuilding/Forza
+- [FACT] 52 test automatici (`npm test`): 23 su Bodybuilding, 13 su Forza, 16
+  su CrossFit Standard, eseguiti contro il catalogo reale di 87 esercizi
+  (fixture copiata da Supabase, non dati inventati)
 
 ## 4. Cosa è in lavorazione
 
-Niente aperto a metà. Il prossimo lavoro non iniziato è il motore CrossFit
-Standard (fase 6).
+Niente aperto a metà. Il prossimo lavoro non iniziato è il motore
+Condizionamento (fase 8) o CrossFit Hybrid (fase 7), a scelta dell'utente.
 
 ## 5. Cosa manca
 
-CrossFit Standard, CrossFit Hybrid, Condizionamento, Tabata. Validatore come
-modulo separato per le nuove modalità (per Bodybuilding e Forza la
-validazione è già integrata nella generazione, vedi sez. 8). Frequenza
-cardiaca reale (Bluetooth/HealthKit/Health Connect): solo il placeholder
-onesto esiste, non l'architettura `HealthDataProvider` della sez. 56.
-Integrazioni wearable, notifiche (tutto rimandato a V1.2/V2 nella roadmap
-originale). Modifica di un workout salvato esercizio per esercizio (sez. 45
-della specifica): oggi si può solo rigenerare o eliminare, non editare i
-singoli esercizi.
+CrossFit Hybrid, Condizionamento (con i formati EMOM/For Time/Rounds/
+Circuit/Intervals che CrossFit Standard non usa apposta, vedi sez. 8), Tabata.
+Validatore come modulo separato per le nuove modalità (per Bodybuilding e
+Forza la validazione è già integrata nella generazione, vedi sez. 8;
+CrossFit Standard segue lo stesso schema). Frequenza cardiaca reale
+(Bluetooth/HealthKit/Health Connect): solo il placeholder onesto esiste, non
+l'architettura `HealthDataProvider` della sez. 56. Integrazioni wearable,
+notifiche (tutto rimandato a V1.2/V2 nella roadmap originale). Modifica di un
+workout salvato esercizio per esercizio (sez. 45 della specifica): oggi si
+può solo rigenerare o eliminare, non editare i singoli esercizi.
 
 ---
 
@@ -226,6 +244,38 @@ singoli esercizi.
   onestamente etichettato come stima è più utile di non mostrare nulla, purché
   non si dica mai che è un valore preciso (sez. 82, regola 15 del master prompt).
   Il peso in Profilo resta facoltativo — 05/08
+- **CrossFit Standard usa solo il formato AMRAP per il Metcon**, non tutti
+  quelli citati dalla specifica (EMOM/For Time/Rounds/Circuit/Intervals) —
+  motivo: quei formati sono la differenza esplicita del futuro motore
+  Condizionamento (fase 8); anticiparli qui avrebbe reso le due modalità
+  indistinguibili quando arriverà. AMRAP è il più classico di una classe
+  standard e il più semplice da eseguire con un solo timer — 06/08
+- **Il Forza/Skill di CrossFit Standard non usa la programmazione settimanale
+  sui muscoli carenti** (`weakPoints.ts`) come Bodybuilding/Forza — motivo:
+  con solo 1-2 alzate per sessione non è un contesto in cui il volume
+  settimanale ha senso; `priority_muscles` resta usato ma solo come
+  spareggio nella scelta del pattern (squat/hinge vs push/pull), non come
+  richiamo aggiuntivo — 06/08
+- **La sessione CrossFit Standard ha un tetto reale (~47 minuti: 9 di
+  riscaldamento, fino a 18 di Forza/Skill, fino a 20 di Metcon) anche
+  scegliendo 90 minuti**, con un avviso esplicito quando succede — motivo:
+  una classe CrossFit non si allunga solo perché l'utente ha più tempo
+  libero, è la durata tipica del formato (sez. 82, mai un dato taciuto
+  silenziosamente) — 06/08
+- **Il Metcon pesca solo movimenti bodyweight/kettlebell/manubri/cardio
+  (mai bilanciere, macchine o cavi)**, presi dal catalogo con tag
+  `conditioning`/`cardio` — motivo: tiene la parte Metcon nettamente
+  separata dalla parte Forza/Skill (nessuna sovrapposizione di esercizi fra
+  i due blocchi) e replica la reale distinzione CrossFit fra alzate pesanti
+  e movimenti funzionali ad alta ripetizione. Aggiunti 8 esercizi al
+  catalogo per coprire la categoria (burpee, mountain climber, kettlebell
+  swing/thruster, dumbbell thruster, box step-up, vogatore, sit-up), perché
+  il catalogo esistente (pensato per Bodybuilding/Forza) non ne aveva
+  a sufficienza — 06/08
+- **Il Forza/Skill scende a un compound non-conditioning equivalente se
+  l'attrezzatura non consente bilanciere** (es. goblet squat, piegamenti),
+  invece di lasciare il blocco vuoto — motivo: stessa regola sez. 84, non un
+  buco silenzioso quando l'utente ha solo manubri o corpo libero — 06/08
 
 ---
 
@@ -264,16 +314,19 @@ singoli esercizi.
 
 ## 10. Dove si è fermato l'ultimo lavoro
 
-**Modello:** Claude (Sonnet 5) · **Data:** 2026-08-05
+**Modello:** Claude (Sonnet 5) · **Data:** 2026-08-06
 
-Corretto il motore Bodybuilding, poi costruito il motore Forza da zero
-riusando la stessa infrastruttura, più tre aggiunte UI richieste dal
-confronto con l'app di riferimento (Base44): intensità, istruzioni per
-esercizio, stima calorie con placeholder FC onesto. Il punto esatto in cui
-riprendere è la **fase 6: motore CrossFit Standard**.
+Costruito il motore CrossFit Standard (fase 6) da zero: Riscaldamento →
+Forza/Skill → Metcon AMRAP, riusando `shared.ts`/`calories.ts` come gli altri
+due motori. Aggiunti 8 esercizi al catalogo Supabase per il Metcon (87
+totali), esteso il Runner con uno stopwatch AMRAP + contatore giri al posto
+del ciclo serie/recupero, e reso `GeneratedWorkout.split` nullable (era già
+previsto dallo schema DB, mai sfruttato finora). Il punto esatto in cui
+riprendere è la **fase 7 (CrossFit Hybrid) o la fase 8 (Condizionamento)**,
+a scelta.
 
 Nessun lavoro lasciato a metà. Build (`npm run build`) e test (`npm test`,
-36 test) verificati entrambi verdi prima di chiudere la sessione.
+52 test) verificati entrambi verdi prima di chiudere la sessione.
 
 ---
 
@@ -288,14 +341,14 @@ prese singolarmente non sarebbero verificabili.
 | **3** | Motore Bodybuilding: 13 split, fatica, muscoli prioritari | ✅ Fatto, **corretto in questa sessione** (sez. 7-8) |
 | **4** | Validatore | ✅ Integrato nella generazione stessa per Bodybuilding (struttura garantita a priori + rete di sicurezza finale che dedupe/ricontrolla). Da rifare come modulo esplicito quando arrivano le modalità CrossFit/Conditioning, che hanno regole di validità diverse (formati Metcon, cap di tempo, ecc.) |
 | **5** | Motore Forza | ✅ Fatto |
-| **6** | CrossFit Standard | ⬜ Prossimo passo |
-| **7** | CrossFit Hybrid — funzionalità distintiva del prodotto (sez. 18 correzione) | ⬜ Non iniziato |
+| **6** | CrossFit Standard: Forza/Skill + Metcon AMRAP | ✅ Fatto |
+| **7** | CrossFit Hybrid — funzionalità distintiva del prodotto (sez. 18 correzione) | ⬜ Prossimo passo |
 | **8** | Condizionamento: AMRAP, EMOM, For Time, Rounds, Circuit, Intervals | ⬜ Non iniziato |
 | **9** | Tabata, motore separato | ⬜ Non iniziato |
-| **10** | Workout Runner e timer | ✅ Fatto per Bodybuilding (timer di recupero). EMOM/AMRAP/Tabata timer arrivano con le fasi 6-9 |
-| **11** | Salvataggio, preferiti, ripeti identico, rigenera variante | ✅ Salvataggio/rigenerazione fatti. Modifica esercizio-per-esercizio di un salvato: non ancora |
+| **10** | Workout Runner e timer | ✅ Fatto per Bodybuilding/Forza (timer di recupero) e per il Metcon AMRAP di CrossFit Standard (stopwatch + contatore giri). EMOM/Tabata timer arrivano con le fasi 8-9 |
+| **11** | Salvataggio, preferiti, ripeti identico, rigenera variante | ✅ Salvataggio/rigenerazione fatti, anche per CrossFit Standard. Modifica esercizio-per-esercizio di un salvato: non ancora |
 | **12** | Storico e valutazione post-allenamento | ✅ Fatto (valutazione soggettiva + note; niente HR/calorie, rimandato a V1.2) |
-| **13** | Test sulle parti critiche | 🟡 Iniziato: 23 test sul motore Bodybuilding (`npm test`). Da estendere quando arrivano gli altri motori |
+| **13** | Test sulle parti critiche | 🟡 Iniziato: 52 test sui tre motori di generazione (`npm test`). Da estendere quando arrivano gli altri motori |
 | **14** | Preparazione all'impacchettamento mobile con Capacitor | ⬜ Non iniziato |
 
 ---
@@ -309,3 +362,4 @@ prese singolarmente non sarebbero verificabili.
 | 2026-08-05 | Claude (Sonnet 5) | Handoff: ricostruito lo stato reale del progetto (questo file era rimasto indietro di una sessione), verificata la build |
 | 2026-08-05 | Claude (Sonnet 5) | Correzione del motore Bodybuilding su richiesta esplicita dell'utente: architettura riscritta da "genera poi valida" a "struttura prima, poi seleziona, poi adatta al tempo, poi valida come rete di sicurezza". Aggiunti richiami settimanali sui muscoli carenti (`weakPoints.ts`), esercizi preferiti realmente pesati, riscaldamento contestuale, 7 nuovi split (Bro Split ×5, Front/Back). Trovati e corretti 3 bug reali tramite 23 test automatici (vitest) eseguiti contro il catalogo reale di 79 esercizi: richiami che finivano su split sbagliati, redistribuzione che faceva collassare un muscolo target, preferiti senza effetto reale sulla probabilità di scelta. Pubblicato su GitHub tramite Codespaces (push diretto bloccato in questo ambiente) e verificato live su Vercel |
 | 2026-08-05 | Claude (Sonnet 5) | Dopo un confronto con l'app di riferimento costruita con Base44, tre aggiunte UI (intensità, istruzioni per esercizio nel database, stima calorie attive con placeholder FC onesto) e costruzione del motore Forza (`strength.ts`, fase 5), che riusa `shared.ts`/`weakPoints.ts`/`calories.ts` invece di duplicare Bodybuilding. Aggiunte colonne `instructions` su `exercises` e `weight_kg`/`default_intensity` su `user_settings`. 13 nuovi test (36 totali). Corretta la nota obsoleta sul collegamento GitHub→Vercel, che in realtà funziona |
+| 2026-08-06 | Claude (Sonnet 5) | Fase 6: motore CrossFit Standard (`crossfit.ts`) — Riscaldamento → Forza/Skill (riusa il tag `roles: 'strength'`, scende a un compound equivalente senza bilanciere) → Metcon AMRAP (3-4 movimenti bodyweight/kettlebell/manubri/cardio, uno per categoria). Solo formato AMRAP di proposito: EMOM/For Time/Rounds/Circuit/Intervals restano la differenza del futuro motore Condizionamento (fase 8). Aggiunti 8 esercizi al catalogo Supabase (87 totali: burpee, mountain climber, kettlebell swing/thruster, dumbbell thruster, box step-up, vogatore, sit-up). `GeneratedWorkout.split` diventato `Split \| null` (lo schema DB lo prevedeva già). Runner esteso con uno stopwatch AMRAP e un contatore di giri. 16 nuovi test (52 totali) |

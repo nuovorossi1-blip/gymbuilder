@@ -3,7 +3,15 @@
 export type Experience = 'beginner' | 'intermediate' | 'advanced'
 export type Goal = 'hypertrophy' | 'strength' | 'conditioning' | 'mixed'
 export type Intensity = 'low' | 'medium' | 'high'
-export type Mode = 'bodybuilding' | 'strength'
+export type Mode = 'bodybuilding' | 'strength' | 'crossfit'
+
+/**
+ * Formato del Metcon (sez. CrossFit Standard). Solo AMRAP per ora: è il
+ * formato classico di una classe standard (Strength/Skill + Metcon a tempo).
+ * EMOM/For Time/Rounds/Circuit/Intervals restano del futuro motore
+ * Condizionamento (fase 8), che li userà come vera scelta di formato.
+ */
+export type MetconFormat = 'amrap'
 
 export type Equipment =
   | 'full_gym' | 'barbell' | 'dumbbells' | 'machines'
@@ -47,7 +55,7 @@ export interface Exercise {
 export interface PrescribedExercise {
   exercise_id: string
   name: string
-  role: 'compound' | 'isolation' | 'warmup'
+  role: 'compound' | 'isolation' | 'warmup' | 'metcon'
   muscle: Muscle | null
   sets: number
   reps: string
@@ -59,16 +67,21 @@ export interface PrescribedExercise {
 }
 
 export interface WorkoutBlock {
-  kind: 'warmup' | 'main'
+  kind: 'warmup' | 'main' | 'metcon'
   title: string
   duration_min?: number
   exercises: PrescribedExercise[]
+  /** Solo per kind 'metcon': come si esegue il blocco. */
+  format?: MetconFormat
+  /** Solo per kind 'metcon': tempo a disposizione per il Metcon (AMRAP). */
+  time_cap_min?: number
 }
 
 export interface GeneratedWorkout {
   name: string
   mode: Mode
-  split: Split
+  /** Null per CrossFit Standard: non ha uno split per gruppo muscolare, ha Strength/Skill + Metcon. */
+  split: Split | null
   goal: Goal
   experience: Experience
   duration_min: number
@@ -144,11 +157,15 @@ export const INTENSITY_LABELS: Record<Intensity, string> = {
 export const MODE_LABELS: Record<Mode, string> = {
   bodybuilding: 'Bodybuilding',
   strength: 'Forza',
+  crossfit: 'CrossFit Standard',
+}
+
+export const METCON_FORMAT_LABELS: Record<MetconFormat, string> = {
+  amrap: 'AMRAP',
 }
 
 /** Modalità della specifica non ancora costruite: mostrate ma disattivate (sez. 84, non si finge che esistano). */
 export const MODES_IN_ARRIVO: { label: string; hint: string }[] = [
-  { label: 'CrossFit Standard', hint: 'Strength/Skill + Metcon' },
   { label: 'CrossFit Hybrid', hint: 'Forza e cardio alternati' },
   { label: 'Tabata', hint: 'Timer a intervalli fissi' },
   { label: 'Condizionamento', hint: 'AMRAP, EMOM, For Time' },

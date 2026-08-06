@@ -60,7 +60,7 @@
 
   "last_session": {
     "model": "Claude (Sonnet 5)",
-    "date": "2026-08-05",
-    "summary": "Corretto il motore Bodybuilding e costruito il motore Forza (fase 5), riusando un'infrastruttura condivisa (shared.ts/weakPoints.ts/calories.ts). Aggiunte intensita, istruzioni per esercizio e stima calorie in UI, dopo confronto con l'app di riferimento Base44. 36 test automatici totali. Dettagli completi in AIOS_STATE.md sez. 3, 7-8"
+    "date": "2026-08-06",
+    "summary": "Costruito il motore CrossFit Standard (fase 6): Riscaldamento + Forza/Skill + Metcon AMRAP, riusando l'infrastruttura condivisa. Aggiunti 8 esercizi al catalogo Supabase (87 totali) per il Metcon. GeneratedWorkout.split diventato nullable. Runner esteso con stopwatch AMRAP. 52 test automatici totali. Dettagli completi in AIOS_STATE.md sez. 2-3, 8, 10-12"
   }
 }

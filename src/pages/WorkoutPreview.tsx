@@ -6,7 +6,8 @@ import { useWorkout } from '../features/workout/WorkoutContext'
 import { caricaCatalogo, salvaAllenamento, volumeSettimanaleUtente } from '../lib/api'
 import { generaBodybuilding } from '../generators/bodybuilding'
 import { generaForza } from '../generators/strength'
-import { EXPERIENCE_LABELS, GOAL_LABELS, MUSCLE_LABELS, SPLIT_LABELS } from '../types'
+import { generaCrossFit } from '../generators/crossfit'
+import { EXPERIENCE_LABELS, GOAL_LABELS, MODE_LABELS, MUSCLE_LABELS, SPLIT_LABELS } from '../types'
 
 export default function WorkoutPreview() {
   const { user } = useAuth()
@@ -32,13 +33,34 @@ export default function WorkoutPreview() {
 
   const riscaldamento = workout.blocks.find((b) => b.kind === 'warmup')
   const principale = workout.blocks.find((b) => b.kind === 'main')
+  const metcon = workout.blocks.find((b) => b.kind === 'metcon')
 
   async function rigenera() {
     if (!settings || !workout || !user) return
     const catalogo = await caricaCatalogo()
     const volumeSettimanale = await volumeSettimanaleUtente(user.id, catalogo)
+
+    if (workout.mode === 'crossfit') {
+      setWorkout(
+        generaCrossFit(catalogo, {
+          experience: settings.experience,
+          equipment: settings.equipment,
+          duration_min: workout.duration_min,
+          priority_muscles: settings.priority_muscles,
+          excluded_exercises: settings.excluded_exercises,
+          preferred_exercises: settings.favorite_exercises,
+          intensity: settings.default_intensity,
+          weight_kg: settings.weight_kg,
+          seed: Date.now() % 100000,
+        })
+      )
+      setStato('fermo')
+      setMessaggio(null)
+      return
+    }
+
     const baseCfg = {
-      split: workout.split,
+      split: workout.split as NonNullable<typeof workout.split>,
       experience: settings.experience,
       equipment: settings.equipment,
       duration_min: workout.duration_min,
@@ -76,7 +98,7 @@ export default function WorkoutPreview() {
     <div className="px-5 pt-12 pb-8">
       <p className="eyebrow mb-2">{EXPERIENCE_LABELS[workout.experience]} · {GOAL_LABELS[workout.goal]}</p>
       <h1 className="font-display font-extrabold uppercase leading-[0.9] tracking-tight text-[2.4rem]">
-        {SPLIT_LABELS[workout.split]}
+        {workout.split ? SPLIT_LABELS[workout.split] : MODE_LABELS[workout.mode]}
       </h1>
 
       <div className="mt-4 flex items-baseline gap-6 font-data">
@@ -85,7 +107,7 @@ export default function WorkoutPreview() {
           <span className="text-slate2 text-[13px]"> min</span>
         </span>
         <span>
-          <span className="text-3xl">{principale?.exercises.length ?? 0}</span>
+          <span className="text-3xl">{(principale?.exercises.length ?? 0) + (metcon?.exercises.length ?? 0)}</span>
           <span className="text-slate2 text-[13px]"> esercizi</span>
         </span>
         {!!workout.est_kcal && (
@@ -122,7 +144,7 @@ export default function WorkoutPreview() {
 
       {/* Allenamento */}
       <section className="mt-8">
-        <h2 className="field-label">Allenamento</h2>
+        <h2 className="field-label">{workout.mode === 'crossfit' ? 'Forza/Skill' : 'Allenamento'}</h2>
         <ol className="space-y-2.5">
           {principale?.exercises.map((e, i) => (
             <li key={i} className="slab !py-3.5">
@@ -153,6 +175,37 @@ export default function WorkoutPreview() {
           ))}
         </ol>
       </section>
+
+      {/* Metcon */}
+      {metcon && metcon.exercises.length > 0 && (
+        <section className="mt-8">
+          <div className="flex items-baseline justify-between">
+            <h2 className="field-label !mb-0">{metcon.title}</h2>
+            <span className="font-data text-[11px] text-slate2">
+              {metcon.time_cap_min} min · quanti giri fai
+            </span>
+          </div>
+          <ol className="mt-3 space-y-2.5">
+            {metcon.exercises.map((e, i) => (
+              <li key={i} className="slab !py-3.5">
+                <div className="flex items-baseline gap-3">
+                  <span className="font-data text-[13px] text-slate2 w-4 shrink-0">{i + 1}</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-[15px] leading-snug">{e.name}</p>
+                    <p className="mt-1 text-chalk font-data text-[15px]">{e.reps}</p>
+                  </div>
+                </div>
+                {e.instructions && (
+                  <p className="mt-1.5 pl-7 text-[12px] text-slate2 leading-relaxed">{e.instructions}</p>
+                )}
+              </li>
+            ))}
+          </ol>
+          <p className="mt-2 text-[12px] text-slate2">
+            Ripeti il giro finché non finisce il tempo: quanti giri completi è il tuo punteggio.
+          </p>
+        </section>
+      )}
 
       {messaggio && (
         <p className={`mt-6 text-[13px] ${stato === 'errore' ? 'text-amber2' : 'text-slate2'}`} role="status">

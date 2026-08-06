@@ -21,7 +21,7 @@ export default function Saved() {
 
   function apri(s: SavedWorkout) {
     setWorkout({
-      name: s.name, mode: s.mode as Mode, split: s.split as Split,
+      name: s.name, mode: s.mode as Mode, split: s.split as Split | null,
       goal: s.goal as Goal, experience: s.experience as never,
       duration_min: s.duration_min, blocks: s.blocks, warnings: [],
     })

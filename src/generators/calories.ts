@@ -15,16 +15,20 @@ import type { Mode, PrescribedExercise } from '../types'
 
 export const PESO_DEFAULT_KG = 75
 
-const MET: Record<Mode, { compound: number; isolation: number }> = {
+const MET: Record<Mode, { compound: number; isolation: number; metcon?: number }> = {
   // Bodybuilding: recuperi più brevi, densità di lavoro più alta.
   bodybuilding: { compound: 5, isolation: 3.5 },
   // Forza: singole ripetizioni più intense ma recuperi lunghi abbassano la media.
   strength: { compound: 4.5, isolation: 3.5 },
+  // CrossFit: la parte Strength/Skill è simile alla Forza, il Metcon è
+  // sforzo cardio-metabolico continuo (MET ~8, "vigorous circuit training").
+  crossfit: { compound: 4.5, isolation: 3.5, metcon: 8 },
 }
 const MET_WARMUP = 2.5
 
 function metPer(mode: Mode, role: PrescribedExercise['role']): number {
   if (role === 'warmup') return MET_WARMUP
+  if (role === 'metcon') return MET[mode].metcon ?? MET[mode].compound
   return MET[mode][role]
 }
 
