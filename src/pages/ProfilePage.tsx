@@ -4,18 +4,21 @@ import { useSettings } from '../features/profile/useSettings'
 import { caricaCatalogo } from '../lib/api'
 import {
   DURATIONS,
+  EQUIPMENT_ITEM_LABELS,
   EQUIPMENT_LABELS,
   EXPERIENCE_LABELS,
   GOAL_LABELS,
   INTENSITY_LABELS,
   MUSCLE_LABELS,
   type Equipment,
+  type EquipmentItem,
   type Experience,
   type Exercise,
   type Goal,
   type Intensity,
   type Muscle,
 } from '../types'
+import { PRESET_EQUIPMENT } from '../generators/equipment'
 
 export default function ProfilePage() {
   const { user, signOut } = useAuth()
@@ -188,13 +191,38 @@ export default function ProfilePage() {
             <button
               key={e}
               className={`chip text-left ${settings.equipment === e ? 'chip-on' : ''}`}
-              onClick={() => applica(() => saveSettings({ equipment: e }))}
+              onClick={() => applica(() => saveSettings({ equipment: e, available_equipment: null }))}
               aria-pressed={settings.equipment === e}
             >
               {EQUIPMENT_LABELS[e]}
             </button>
           ))}
         </div>
+        <p className="field-label mt-5">Inventario avanzato</p>
+        <div className="grid grid-cols-2 gap-2">
+          {(Object.keys(EQUIPMENT_ITEM_LABELS) as EquipmentItem[]).map((item) => {
+            const inventario = settings.available_equipment ?? PRESET_EQUIPMENT[settings.equipment]
+            const on = inventario.includes(item)
+            return (
+              <button
+                key={item}
+                type="button"
+                className={`chip text-left ${on ? 'chip-on' : ''}`}
+                aria-pressed={on}
+                onClick={() => applica(() => saveSettings({
+                  available_equipment: on
+                    ? inventario.filter((value) => value !== item)
+                    : [...inventario, item],
+                }))}
+              >
+                {EQUIPMENT_ITEM_LABELS[item]}
+              </button>
+            )
+          })}
+        </div>
+        <p className="mt-2 text-[12px] text-slate2">
+          Personalizza il preset: un esercizio che richiede un attrezzo disattivato non verrà generato.
+        </p>
       </Gruppo>
 
       <Gruppo titolo="Muscoli da recuperare">

@@ -15,6 +15,7 @@ describe('normalizeExercise', () => {
       expect(exercise.workout_roles.length).toBeGreaterThan(0)
       expect(exercise.description).not.toBe('')
       expect(Array.isArray(exercise.substitutions)).toBe(true)
+      expect(Array.isArray(exercise.required_equipment)).toBe(true)
       expect(typeof exercise.metcon_safe).toBe('boolean')
       expect(typeof exercise.warmup_relevant).toBe('boolean')
     }

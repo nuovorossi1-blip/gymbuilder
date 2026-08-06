@@ -15,8 +15,8 @@
  * calcolarle come nel Metcon di CrossFit Standard/Condizionamento.
  */
 
-import type { Equipment, Experience, Exercise, GeneratedWorkout, Muscle, PrescribedExercise, WorkoutBlock } from '../types'
-import { EQUIPMENT_MAP } from '../types'
+import type { Equipment, EquipmentItem, Experience, Exercise, GeneratedWorkout, Muscle, PrescribedExercise, WorkoutBlock } from '../types'
+import { isExerciseAvailable } from './equipment'
 import { RANK_EXP } from './crossfit'
 import { PESO_DEFAULT_KG, stimaCalorieEsercizio } from './calories'
 import { costruisciCircuito, poolMetcon, rimuoviDuplicati, rng, scegliRiscaldamento } from './shared'
@@ -24,6 +24,7 @@ import { costruisciCircuito, poolMetcon, rimuoviDuplicati, rng, scegliRiscaldame
 export interface TabataConfig {
   experience: Experience
   equipment: Equipment
+  available_equipment?: EquipmentItem[] | null
   duration_min: number
   priority_muscles: Muscle[]
   excluded_exercises: string[]
@@ -46,12 +47,11 @@ function numeroMovimenti(budget: number): number {
 export function generaTabata(catalogo: Exercise[], cfg: TabataConfig): GeneratedWorkout {
   const warnings: string[] = []
   const random = rng(cfg.seed ?? 1)
-  const attrezziOk = EQUIPMENT_MAP[cfg.equipment]
   const preferiti = new Set(cfg.preferred_exercises ?? [])
 
   const disponibili = catalogo.filter(
     (e) =>
-      attrezziOk.includes(e.equipment) &&
+      isExerciseAvailable(e, cfg.equipment, cfg.available_equipment) &&
       !cfg.excluded_exercises.includes(e.id) &&
       RANK_EXP[e.min_experience] <= RANK_EXP[cfg.experience]
   )

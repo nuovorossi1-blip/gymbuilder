@@ -11,10 +11,11 @@ import { generaCrossFit } from '../generators/crossfit'
 import { generaHybrid } from '../generators/hybrid'
 import { generaCondizionamento, FORMATI_CONDIZIONAMENTO, type ConditioningFormat } from '../generators/conditioning'
 import { generaTabata } from '../generators/tabata'
+import { PRESET_EQUIPMENT } from '../generators/equipment'
 import {
-  DURATIONS, EQUIPMENT_LABELS, GOAL_LABELS, INTENSITY_LABELS, METCON_FORMAT_HINTS, METCON_FORMAT_LABELS,
+  DURATIONS, EQUIPMENT_ITEM_LABELS, EQUIPMENT_LABELS, GOAL_LABELS, INTENSITY_LABELS, METCON_FORMAT_HINTS, METCON_FORMAT_LABELS,
   MODES_IN_ARRIVO, MODE_LABELS, MUSCLE_LABELS, SPLIT_GROUPS, SPLIT_HINTS, SPLIT_LABELS,
-  type Equipment, type Exercise, type Goal, type Intensity, type Mode, type Muscle, type Split,
+  type Equipment, type EquipmentItem, type Exercise, type Goal, type Intensity, type Mode, type Muscle, type Split,
 } from '../types'
 
 const SPLIT_GROUPS_FORZA = [{ label: 'Split', splits: SPLIT_FORZA }]
@@ -36,6 +37,7 @@ export default function Create() {
   const [goal, setGoal] = useState<Goal | null>(null)
   const [durata, setDurata] = useState<number | null>(null)
   const [attrezzi, setAttrezzi] = useState<Equipment | null>(null)
+  const [attrezzaturaOggi, setAttrezzaturaOggi] = useState<EquipmentItem[] | null>(null)
   const [muscoli, setMuscoli] = useState<Muscle[] | null>(null)
   const [intensita, setIntensita] = useState<Intensity | null>(null)
   const [formato, setFormato] = useState<ConditioningFormat>('amrap')
@@ -63,10 +65,11 @@ export default function Create() {
       goal: goal ?? settings.primary_goal,
       durata: durata ?? settings.default_duration,
       attrezzi: attrezzi ?? settings.equipment,
+      attrezzaturaDisponibile: attrezzaturaOggi ?? settings.available_equipment ?? PRESET_EQUIPMENT[attrezzi ?? settings.equipment],
       muscoli: muscoli ?? settings.priority_muscles,
       intensita: intensita ?? settings.default_intensity,
     }
-  }, [settings, goal, durata, attrezzi, muscoli, intensita])
+  }, [settings, goal, durata, attrezzi, attrezzaturaOggi, muscoli, intensita])
 
   function genera() {
     if (!catalogo || !eff || !settings) return
@@ -76,6 +79,7 @@ export default function Create() {
         ? generaCrossFit(catalogo, {
             experience: settings.experience,
             equipment: eff.attrezzi,
+            available_equipment: eff.attrezzaturaDisponibile,
             duration_min: eff.durata,
             priority_muscles: eff.muscoli,
             excluded_exercises: settings.excluded_exercises,
@@ -88,6 +92,7 @@ export default function Create() {
         ? generaHybrid(catalogo, {
             experience: settings.experience,
             equipment: eff.attrezzi,
+            available_equipment: eff.attrezzaturaDisponibile,
             duration_min: eff.durata,
             priority_muscles: eff.muscoli,
             excluded_exercises: settings.excluded_exercises,
@@ -101,6 +106,7 @@ export default function Create() {
             format: formato,
             experience: settings.experience,
             equipment: eff.attrezzi,
+            available_equipment: eff.attrezzaturaDisponibile,
             duration_min: eff.durata,
             priority_muscles: eff.muscoli,
             excluded_exercises: settings.excluded_exercises,
@@ -113,6 +119,7 @@ export default function Create() {
         ? generaTabata(catalogo, {
             experience: settings.experience,
             equipment: eff.attrezzi,
+            available_equipment: eff.attrezzaturaDisponibile,
             duration_min: eff.durata,
             priority_muscles: eff.muscoli,
             excluded_exercises: settings.excluded_exercises,
@@ -125,6 +132,7 @@ export default function Create() {
             split,
             experience: settings.experience,
             equipment: eff.attrezzi,
+            available_equipment: eff.attrezzaturaDisponibile,
             duration_min: eff.durata,
             priority_muscles: eff.muscoli,
             excluded_exercises: settings.excluded_exercises,
@@ -140,6 +148,7 @@ export default function Create() {
             goal: eff.goal,
             experience: settings.experience,
             equipment: eff.attrezzi,
+            available_equipment: eff.attrezzaturaDisponibile,
             duration_min: eff.durata,
             priority_muscles: eff.muscoli,
             excluded_exercises: settings.excluded_exercises,
@@ -361,7 +370,10 @@ export default function Create() {
               {(Object.keys(EQUIPMENT_LABELS) as Equipment[]).map((e) => (
                 <button
                   key={e}
-                  onClick={() => setAttrezzi(e)}
+                  onClick={() => {
+                    setAttrezzi(e)
+                    setAttrezzaturaOggi(PRESET_EQUIPMENT[e])
+                  }}
                   aria-pressed={eff.attrezzi === e}
                   className={`chip text-left ${eff.attrezzi === e ? 'chip-on' : ''}`}
                 >
@@ -369,6 +381,33 @@ export default function Create() {
                 </button>
               ))}
             </div>
+          </div>
+
+          <div>
+            <p className="field-label">Attrezzatura avanzata di oggi</p>
+            <div className="grid grid-cols-2 gap-2">
+              {(Object.keys(EQUIPMENT_ITEM_LABELS) as EquipmentItem[]).map((item) => {
+                const on = eff.attrezzaturaDisponibile.includes(item)
+                return (
+                  <button
+                    key={item}
+                    type="button"
+                    aria-pressed={on}
+                    className={`chip text-left ${on ? 'chip-on' : ''}`}
+                    onClick={() => setAttrezzaturaOggi(
+                      on
+                        ? eff.attrezzaturaDisponibile.filter((value) => value !== item)
+                        : [...eff.attrezzaturaDisponibile, item]
+                    )}
+                  >
+                    {EQUIPMENT_ITEM_LABELS[item]}
+                  </button>
+                )
+              })}
+            </div>
+            <p className="mt-2 text-[12px] text-slate2">
+              Il generatore userà esclusivamente gli attrezzi selezionati.
+            </p>
           </div>
 
           <div>

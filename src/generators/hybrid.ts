@@ -18,10 +18,10 @@
  */
 
 import type {
-  Equipment, Exercise, Experience, GeneratedWorkout, Intensity, Muscle,
+  Equipment, EquipmentItem, Exercise, Experience, GeneratedWorkout, Intensity, Muscle,
   PrescribedExercise, WorkoutBlock,
 } from '../types'
-import { EQUIPMENT_MAP } from '../types'
+import { isExerciseAvailable } from './equipment'
 import { RANK_EXP } from './crossfit'
 import { PESO_DEFAULT_KG, stimaCalorieEsercizio } from './calories'
 import {
@@ -32,6 +32,7 @@ import {
 export interface HybridConfig {
   experience: Experience
   equipment: Equipment
+  available_equipment?: EquipmentItem[] | null
   duration_min: number
   priority_muscles: Muscle[]
   excluded_exercises: string[]
@@ -70,13 +71,12 @@ function transizione(intensity: Intensity): number {
 export function generaHybrid(catalogo: Exercise[], cfg: HybridConfig): GeneratedWorkout {
   const warnings: string[] = []
   const random = rng(cfg.seed ?? 1)
-  const attrezziOk = EQUIPMENT_MAP[cfg.equipment]
   const preferiti = new Set(cfg.preferred_exercises ?? [])
   const intensity = cfg.intensity ?? 'medium'
 
   const disponibili = catalogo.filter(
     (e) =>
-      attrezziOk.includes(e.equipment) &&
+      isExerciseAvailable(e, cfg.equipment, cfg.available_equipment) &&
       !cfg.excluded_exercises.includes(e.id) &&
       RANK_EXP[e.min_experience] <= RANK_EXP[cfg.experience]
   )

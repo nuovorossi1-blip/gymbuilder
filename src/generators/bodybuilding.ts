@@ -26,10 +26,11 @@
  */
 
 import type {
-  Equipment, Exercise, Experience, GeneratedWorkout, Goal, Intensity, Muscle,
+  Equipment, EquipmentItem, Exercise, Experience, GeneratedWorkout, Goal, Intensity, Muscle,
   PrescribedExercise, Split, WorkoutBlock,
 } from '../types'
-import { EQUIPMENT_MAP, MUSCLE_LABELS, SPLIT_LABELS } from '../types'
+import { MUSCLE_LABELS, SPLIT_LABELS } from '../types'
+import { isExerciseAvailable } from './equipment'
 import { decidiRichiami } from './weakPoints'
 import { PESO_DEFAULT_KG, stimaCalorieEsercizio } from './calories'
 import { minutiBlocco, minutiEsercizio, rimuoviDuplicati, rng, scegliRiscaldamento, vuotoVolume } from './shared'
@@ -39,6 +40,7 @@ export interface GenerationConfig {
   goal: Goal
   experience: Experience
   equipment: Equipment
+  available_equipment?: EquipmentItem[] | null
   duration_min: number
   priority_muscles: Muscle[]
   excluded_exercises: string[]
@@ -274,14 +276,13 @@ export function generaBodybuilding(
 ): GeneratedWorkout {
   const warnings: string[] = []
   const random = rng(cfg.seed ?? 1)
-  const attrezziOk = EQUIPMENT_MAP[cfg.equipment]
   const preferiti = new Set(cfg.preferred_exercises ?? [])
   const volumeSettimanale = cfg.weekly_volume
 
   // 1-3. Attrezzatura, esclusioni, esperienza
   const disponibili = catalogo.filter(
     (e) =>
-      attrezziOk.includes(e.equipment) &&
+      isExerciseAvailable(e, cfg.equipment, cfg.available_equipment) &&
       !cfg.excluded_exercises.includes(e.id) &&
       RANK_EXP[e.min_experience] <= RANK_EXP[cfg.experience]
   )

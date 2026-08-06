@@ -47,6 +47,7 @@ export default function WorkoutPreview() {
       const cfg = {
         experience: settings.experience,
         equipment: settings.equipment,
+        available_equipment: settings.available_equipment,
         duration_min: workout.duration_min,
         priority_muscles: settings.priority_muscles,
         excluded_exercises: settings.excluded_exercises,
@@ -74,6 +75,7 @@ export default function WorkoutPreview() {
           format: formato,
           experience: settings.experience,
           equipment: settings.equipment,
+          available_equipment: settings.available_equipment,
           duration_min: workout.duration_min,
           priority_muscles: settings.priority_muscles,
           excluded_exercises: settings.excluded_exercises,
@@ -92,6 +94,7 @@ export default function WorkoutPreview() {
       split: workout.split as NonNullable<typeof workout.split>,
       experience: settings.experience,
       equipment: settings.equipment,
+      available_equipment: settings.available_equipment,
       duration_min: workout.duration_min,
       priority_muscles: settings.priority_muscles,
       excluded_exercises: settings.excluded_exercises,

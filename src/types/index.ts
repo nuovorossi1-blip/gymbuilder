@@ -35,6 +35,11 @@ export type Split =
 /** Attrezzo di un singolo esercizio, come sta nel database. */
 export type Gear = 'barbell' | 'dumbbell' | 'machine' | 'cable' | 'bodyweight' | 'kettlebell' | 'cardio'
 
+export type EquipmentItem =
+  | 'barbell' | 'dumbbells' | 'machines' | 'cable' | 'kettlebells'
+  | 'row_erg' | 'ski_erg' | 'assault_bike' | 'treadmill' | 'jump_rope'
+  | 'pullup_bar' | 'parallel_bars' | 'bench' | 'box' | 'resistance_bands'
+
 export type ExerciseCategory =
   | 'barbell' | 'dumbbell' | 'machine' | 'cable' | 'kettlebell'
   | 'bodyweight' | 'conditioning' | 'cardio' | 'mobility' | 'olympic' | 'gymnastics'
@@ -67,6 +72,7 @@ export interface Exercise {
   warmup_relevant: boolean
   description: string
   substitutions: string[]
+  required_equipment: EquipmentItem[]
   /** Campo storico usato dai motori attuali; verrà rimosso solo dopo la migrazione completa ai ruoli tipizzati. */
   roles: string[]
   /** Come eseguire il movimento, una riga. */
@@ -77,11 +83,11 @@ export interface Exercise {
 export type ExerciseRecord = Omit<
   Exercise,
   'english_name' | 'category' | 'exercise_types' | 'workout_roles' |
-  'metcon_safe' | 'warmup_relevant' | 'description' | 'substitutions'
+  'metcon_safe' | 'warmup_relevant' | 'description' | 'substitutions' | 'required_equipment'
 > & Partial<Pick<
   Exercise,
   'english_name' | 'category' | 'exercise_types' | 'workout_roles' |
-  'metcon_safe' | 'warmup_relevant' | 'description' | 'substitutions'
+  'metcon_safe' | 'warmup_relevant' | 'description' | 'substitutions' | 'required_equipment'
 >>
 
 /** Un esercizio gia' prescritto: serie, ripetizioni e recupero decisi dal motore. */
@@ -140,6 +146,8 @@ export interface UserSettings {
   training_frequency: number
   default_duration: number
   equipment: Equipment
+  /** Null/undefined usa il preset; un array rappresenta l'inventario granulare personalizzato. */
+  available_equipment: EquipmentItem[] | null
   priority_muscles: Muscle[]
   excluded_exercises: string[]
   favorite_exercises: string[]
@@ -274,6 +282,24 @@ export const EQUIPMENT_LABELS: Record<Equipment, string> = {
   dumbbells_machines: 'Manubri e macchine',
   home_gym: 'Palestra in casa',
   bodyweight: 'Corpo libero',
+}
+
+export const EQUIPMENT_ITEM_LABELS: Record<EquipmentItem, string> = {
+  barbell: 'Bilanciere',
+  dumbbells: 'Manubri',
+  machines: 'Macchine',
+  cable: 'Cavi',
+  kettlebells: 'Kettlebell',
+  row_erg: 'Row Erg',
+  ski_erg: 'Ski Erg',
+  assault_bike: 'Assault Bike / Cyclette',
+  treadmill: 'Tapis roulant',
+  jump_rope: 'Corda',
+  pullup_bar: 'Sbarra trazioni',
+  parallel_bars: 'Parallele',
+  bench: 'Panca',
+  box: 'Box / rialzo',
+  resistance_bands: 'Elastici',
 }
 
 export const MUSCLE_LABELS: Record<Muscle, string> = {

@@ -5,6 +5,7 @@ import type {
   ExerciseType,
   WorkoutRole,
 } from '../../types'
+import { inferRequiredEquipment } from '../../generators/equipment'
 
 const CATEGORIA_ATTREZZO: Record<ExerciseRecord['equipment'], ExerciseCategory> = {
   barbell: 'barbell',
@@ -64,5 +65,6 @@ export function normalizeExercise(record: ExerciseRecord): Exercise {
     warmup_relevant: record.warmup_relevant ?? record.roles.includes('warmup'),
     description: record.description?.trim() || record.instructions?.trim() || record.name,
     substitutions: record.substitutions ?? [],
+    required_equipment: inferRequiredEquipment(record),
   }
 }
