@@ -7,7 +7,7 @@ import { caricaCatalogo, situazioneSettimanaleUtente } from '../lib/api'
 import type { WeeklyTrainingState } from '../generators/weakPoints'
 import { generaBodybuilding } from '../generators/bodybuilding'
 import { generaForza, SPLIT_FORZA } from '../generators/strength'
-import { generaCrossFit } from '../generators/crossfit'
+import { FORMATI_CROSSFIT, generaCrossFit, type CrossFitFormat } from '../generators/crossfit'
 import { generaHybrid } from '../generators/hybrid'
 import { generaCondizionamento, FORMATI_CONDIZIONAMENTO, type ConditioningFormat } from '../generators/conditioning'
 import { generaTabata } from '../generators/tabata'
@@ -41,6 +41,7 @@ export default function Create() {
   const [muscoli, setMuscoli] = useState<Muscle[] | null>(null)
   const [intensita, setIntensita] = useState<Intensity | null>(null)
   const [formato, setFormato] = useState<ConditioningFormat>('amrap')
+  const [formatoCrossFit, setFormatoCrossFit] = useState<CrossFitFormat>('amrap')
   const [avanzate, setAvanzate] = useState(false)
 
   // Cambiando modalità, si torna a uno split valido per quella modalità (sez. 84: Forza non usa Bro Split/Front/Back).
@@ -78,6 +79,7 @@ export default function Create() {
       mode === 'crossfit'
         ? generaCrossFit(catalogo, {
             experience: settings.experience,
+            format: formatoCrossFit,
             equipment: eff.attrezzi,
             available_equipment: eff.attrezzaturaDisponibile,
             duration_min: eff.durata,
@@ -208,13 +210,29 @@ export default function Create() {
 
       {/* 1. Gruppo muscolare, raggruppato per tipo di split (sez. 15/71). I motori Metcon non hanno uno split: struttura fissa o formato a scelta. */}
       {mode === 'crossfit' && (
-        <div className="mt-8 slab">
-          <span className="block font-display font-bold uppercase tracking-wide text-[17px]">
-            Forza/Skill + Metcon
-          </span>
-          <span className="block text-[13px] text-slate2 mt-0.5">
-            Struttura fissa della classe: 1-2 alzate, poi un Metcon AMRAP a tempo.
-          </span>
+        <div className="mt-8">
+          <div className="slab">
+            <span className="block font-display font-bold uppercase tracking-wide text-[17px]">
+              Forza/Skill + Metcon
+            </span>
+            <span className="block text-[13px] text-slate2 mt-0.5">
+              1-2 alzate, poi un Metcon nel formato scelto.
+            </span>
+          </div>
+          <p className="field-label mt-5">Formato Metcon</p>
+          <div className="grid grid-cols-2 gap-2">
+            {FORMATI_CROSSFIT.map((value) => (
+              <button
+                key={value}
+                type="button"
+                aria-pressed={formatoCrossFit === value}
+                className={`chip text-left ${formatoCrossFit === value ? 'chip-on' : ''}`}
+                onClick={() => setFormatoCrossFit(value)}
+              >
+                {METCON_FORMAT_LABELS[value]}
+              </button>
+            ))}
+          </div>
         </div>
       )}
 

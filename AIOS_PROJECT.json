@@ -61,6 +61,6 @@
   "last_session": {
     "model": "Codex",
     "date": "2026-08-06",
-    "summary": "Riallineamento al master prompt in corso: Phase 2 completa nel repository, Phase 3 verificata, Phase 4 completata con recupero Weak Point, Phase 5 completata con inventario granulare di 15 attrezzi usato da tutti i generatori e UI Profilo/sessione. 103 test, build verde. Migrazioni Phase 2/5 da applicare al Supabase remoto."
+    "summary": "Riallineamento al master prompt: Phase 2-5 completate/verificate; Phase 6 completa CrossFit Standard con sette formati Metcon selezionabili mantenendo Strength/Skill separato. 111 test, build verde. Migrazioni Phase 2/5 da applicare al Supabase remoto."
   }
 }

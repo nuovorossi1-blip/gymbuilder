@@ -25,7 +25,7 @@
  */
 
 import type {
-  Equipment, EquipmentItem, Exercise, Experience, GeneratedWorkout, Intensity, Muscle,
+  Equipment, EquipmentItem, Exercise, Experience, GeneratedWorkout, Intensity, MetconFormat, Muscle,
   PrescribedExercise, WorkoutBlock,
 } from '../types'
 import { isExerciseAvailable } from './equipment'
@@ -36,6 +36,7 @@ import {
 } from './shared'
 
 export interface CrossFitConfig {
+  format?: CrossFitFormat
   experience: Experience
   equipment: Equipment
   available_equipment?: EquipmentItem[] | null
@@ -47,6 +48,11 @@ export interface CrossFitConfig {
   weight_kg?: number | null
   seed?: number
 }
+
+export type CrossFitFormat = Exclude<MetconFormat, 'circuit' | 'tabata'>
+export const FORMATI_CROSSFIT: CrossFitFormat[] = [
+  'amrap', 'for_time', 'emom', 'rounds', 'chipper', 'ladder', 'intervals',
+]
 
 export const RANK_EXP: Record<Experience, number> = { beginner: 1, intermediate: 2, advanced: 3 }
 
@@ -128,6 +134,7 @@ export function generaCrossFit(catalogo: Exercise[], cfg: CrossFitConfig): Gener
   const random = rng(cfg.seed ?? 1)
   const preferiti = new Set(cfg.preferred_exercises ?? [])
   const intensity = cfg.intensity ?? 'medium'
+  const format = cfg.format ?? 'amrap'
 
   const disponibili = catalogo.filter(
     (e) =>
@@ -173,7 +180,7 @@ export function generaCrossFit(catalogo: Exercise[], cfg: CrossFitConfig): Gener
     warnings.push('Nessun esercizio disponibile per la parte Forza/Skill con questa attrezzatura.')
   }
 
-  // --- Metcon: AMRAP con 3-4 movimenti bodyweight/kettlebell/manubri/cardio, uno per categoria. ---
+  // --- Metcon: formato scelto, con 3-4 movimenti sicuri sotto fatica, uno per categoria. ---
   const metconPool = poolMetcon(allenamento, usati)
   const numMovimenti = t.metcon >= 15 ? 4 : 3
   const circuito = costruisciCircuito(metconPool, numMovimenti, cfg.priority_muscles, preferiti, random)
@@ -207,6 +214,25 @@ export function generaCrossFit(catalogo: Exercise[], cfg: CrossFitConfig): Gener
   }
   const kcalTotali = [...strengthEsercizi, ...metconEsercizi].reduce((tot, e) => tot + (e.est_kcal ?? 0), 0)
 
+  const prescrizioneMetcon: Pick<WorkoutBlock, 'title' | 'format' | 'time_cap_min' | 'rounds' | 'interval_sec'> = (() => {
+    switch (format) {
+      case 'amrap': return { title: `AMRAP ${t.metcon}′`, format, time_cap_min: t.metcon }
+      case 'for_time': return { title: 'For Time', format, time_cap_min: t.metcon, rounds: 4 }
+      case 'rounds': return { title: 'Rounds For Time', format, time_cap_min: t.metcon, rounds: 5 }
+      case 'emom': return { title: `EMOM ${t.metcon}′`, format, rounds: t.metcon, interval_sec: 60 }
+      case 'intervals': return { title: 'Intervals 40″ / 20″', format, rounds: Math.max(8, t.metcon), interval_sec: 40 }
+      case 'chipper': return { title: 'Chipper For Time', format, time_cap_min: t.metcon, rounds: 1 }
+      case 'ladder': return { title: 'Ladder 2-4-6-8-10', format, time_cap_min: t.metcon, rounds: 5 }
+    }
+  })()
+
+  if (format === 'chipper') {
+    for (const esercizio of metconEsercizi) esercizio.reps = esercizio.reps === '1 min' ? '2 min' : `2 × ${esercizio.reps}`
+  }
+  if (format === 'ladder') {
+    for (const esercizio of metconEsercizi) esercizio.reps = '2-4-6-8-10'
+  }
+
   const blocchi: WorkoutBlock[] = [
     {
       kind: 'warmup',
@@ -217,9 +243,7 @@ export function generaCrossFit(catalogo: Exercise[], cfg: CrossFitConfig): Gener
     { kind: 'main', title: 'Forza/Skill', exercises: strengthEsercizi },
     {
       kind: 'metcon',
-      title: `AMRAP ${t.metcon}′`,
-      format: 'amrap',
-      time_cap_min: t.metcon,
+      ...prescrizioneMetcon,
       exercises: metconEsercizi,
     },
   ]

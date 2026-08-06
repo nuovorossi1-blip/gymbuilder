@@ -6,7 +6,7 @@ import { useWorkout } from '../features/workout/WorkoutContext'
 import { caricaCatalogo, salvaAllenamento, situazioneSettimanaleUtente } from '../lib/api'
 import { generaBodybuilding } from '../generators/bodybuilding'
 import { generaForza } from '../generators/strength'
-import { generaCrossFit } from '../generators/crossfit'
+import { generaCrossFit, type CrossFitFormat } from '../generators/crossfit'
 import { generaHybrid } from '../generators/hybrid'
 import { generaCondizionamento, type ConditioningFormat } from '../generators/conditioning'
 import { generaTabata } from '../generators/tabata'
@@ -58,7 +58,10 @@ export default function WorkoutPreview() {
       }
       setWorkout(
         workout.mode === 'crossfit'
-          ? generaCrossFit(catalogo, cfg)
+          ? generaCrossFit(catalogo, {
+              ...cfg,
+              format: (workout.blocks.find((block) => block.kind === 'metcon')?.format ?? 'amrap') as CrossFitFormat,
+            })
           : workout.mode === 'crossfit_hybrid'
           ? generaHybrid(catalogo, cfg)
           : generaTabata(catalogo, cfg)

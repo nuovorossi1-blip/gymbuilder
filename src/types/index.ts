@@ -12,11 +12,11 @@ export type Mode = 'bodybuilding' | 'strength' | 'crossfit' | 'crossfit_hybrid' 
  * selezionabile: ha un motore proprio perché la prescrizione è rigida, non
  * una vera scelta di formato come gli altri.
  */
-export type MetconFormat = 'amrap' | 'emom' | 'for_time' | 'rounds' | 'circuit' | 'intervals' | 'tabata'
+export type MetconFormat = 'amrap' | 'emom' | 'for_time' | 'rounds' | 'circuit' | 'chipper' | 'ladder' | 'intervals' | 'tabata'
 
 /** Le due famiglie di comportamento del Runner per i formati Metcon (sez. Runner). */
 export const FORMATO_A_INTERVALLI: MetconFormat[] = ['emom', 'intervals', 'tabata']
-export const FORMATO_A_GIRI: MetconFormat[] = ['for_time', 'rounds', 'circuit']
+export const FORMATO_A_GIRI: MetconFormat[] = ['for_time', 'rounds', 'circuit', 'chipper', 'ladder']
 
 export type Equipment =
   | 'full_gym' | 'barbell' | 'dumbbells' | 'machines'
@@ -214,6 +214,8 @@ export const METCON_FORMAT_LABELS: Record<MetconFormat, string> = {
   for_time: 'For Time',
   rounds: 'A giri',
   circuit: 'Circuit',
+  chipper: 'Chipper',
+  ladder: 'Ladder',
   intervals: 'Intervals',
   tabata: 'Tabata',
 }
@@ -224,6 +226,8 @@ export const METCON_FORMAT_HINTS: Record<MetconFormat, string> = {
   for_time: 'Il volume prescritto il più veloce possibile',
   rounds: 'Un numero fisso di giri, riposando il necessario',
   circuit: 'Stazioni in sequenza con recupero fisso',
+  chipper: 'Una lista lunga da completare una sola volta',
+  ladder: 'Ripetizioni che salgono a ogni giro',
   intervals: 'Lavoro e riposo a intervalli regolari',
   tabata: 'Protocollo fisso 20″ lavoro / 10″ riposo × 8',
 }

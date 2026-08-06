@@ -48,6 +48,32 @@ describe('generaCrossFit — struttura (Forza/Skill + Metcon AMRAP)', () => {
     expect(m.time_cap_min).toBeLessThanOrEqual(20)
   })
 
+  it.each(['amrap', 'for_time', 'emom', 'rounds', 'chipper', 'ladder', 'intervals'] as const)(
+    'supporta il formato %s mantenendo Strength/Skill separato',
+    (format) => {
+      const w = generaCrossFit(catalogo, {
+        format,
+        experience: 'advanced', equipment: 'full_gym', duration_min: 60,
+        priority_muscles: [], excluded_exercises: [], seed: 12,
+      })
+      expect(w.blocks.map((block) => block.kind)).toEqual(['warmup', 'main', 'metcon'])
+      expect(metconBlock(w).format).toBe(format)
+    }
+  )
+
+  it('For Time dichiara round e time cap; EMOM dichiara intervallo e round', () => {
+    const base = {
+      experience: 'intermediate' as const, equipment: 'full_gym' as const, duration_min: 60,
+      priority_muscles: [], excluded_exercises: [], seed: 3,
+    }
+    const forTime = metconBlock(generaCrossFit(catalogo, { ...base, format: 'for_time' }))
+    expect(forTime.rounds).toBeGreaterThan(0)
+    expect(forTime.time_cap_min).toBeGreaterThan(0)
+    const emom = metconBlock(generaCrossFit(catalogo, { ...base, format: 'emom' }))
+    expect(emom.interval_sec).toBe(60)
+    expect(emom.rounds).toBeGreaterThan(0)
+  })
+
   it('con palestra completa il Metcon ha fra 3 e 4 movimenti', () => {
     for (const durata of [30, 45, 60, 75, 90]) {
       const w = generaCrossFit(catalogo, {

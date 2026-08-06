@@ -15,7 +15,7 @@
 
 import type {
   Equipment, EquipmentItem, Experience, Exercise, GeneratedWorkout, Intensity, Muscle,
-  MetconFormat, PrescribedExercise, WorkoutBlock,
+  PrescribedExercise, WorkoutBlock,
 } from '../types'
 import { METCON_FORMAT_LABELS } from '../types'
 import { isExerciseAvailable } from './equipment'
@@ -26,7 +26,7 @@ import {
 } from './shared'
 
 /** Formati scelti dall'utente per Condizionamento. 'tabata' ha un motore proprio (fase 9): non è fra le scelte qui. */
-export type ConditioningFormat = Exclude<MetconFormat, 'tabata'>
+export type ConditioningFormat = 'amrap' | 'emom' | 'for_time' | 'rounds' | 'circuit' | 'intervals'
 export const FORMATI_CONDIZIONAMENTO: ConditioningFormat[] = ['amrap', 'emom', 'for_time', 'rounds', 'circuit', 'intervals']
 
 export interface ConditioningConfig {

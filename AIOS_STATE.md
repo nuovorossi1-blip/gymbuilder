@@ -197,6 +197,12 @@ finché qualcuno non applica la patch manualmente
 - [FACT] Migrazione `advanced_equipment` pronta: aggiunge
   `exercises.required_equipment` e `user_settings.available_equipment`.
 - [FACT] 103 test automatici totali; build TypeScript/Vite verde.
+- [FACT] Phase 6 riallineata: CrossFit Standard supporta AMRAP, For Time,
+  EMOM, Rounds For Time, Chipper, Ladder e Intervals. La scelta è disponibile
+  nella schermata Crea; Strength/Skill resta un blocco distinto dal Metcon e
+  Rigenera conserva il formato. Chipper/Ladder riusano il runner a giri,
+  EMOM/Intervals il runner a intervalli.
+- [FACT] 111 test automatici totali; build TypeScript/Vite verde.
 
 ## 4. Cosa è in lavorazione
 
@@ -489,7 +495,7 @@ prese singolarmente non sarebbero verificabili.
 | **3** | Motore Bodybuilding: 13 split, fatica, muscoli prioritari | ✅ Verificato nella sessione 3 |
 | **4** | Weak Point settimanali: volume diretto/indiretto, frequenza e recupero | ✅ Completato nella sessione 3 |
 | **5** | Equipment Engine e attrezzatura avanzata | ✅ Completato nella sessione 3 |
-| **6** | CrossFit Standard: Forza/Skill + Metcon AMRAP | ✅ Fatto |
+| **6** | CrossFit Standard: Forza/Skill + 7 formati Metcon | ✅ Completato nella sessione 3 |
 | **7** | CrossFit Hybrid — funzionalità distintiva del prodotto (sez. 18 correzione) | ✅ Fatto in questa sessione |
 | **8** | Condizionamento: AMRAP, EMOM, For Time, Rounds, Circuit, Intervals | ✅ Fatto in questa sessione |
 | **9** | Tabata, motore separato | ✅ Fatto in questa sessione |
@@ -515,3 +521,4 @@ prese singolarmente non sarebbero verificabili.
 | 2026-08-06 | Codex | Ripreso il master prompt dalla Phase 2 mantenendo `AIOS_STATE.md`/`AIOS_PROJECT.json` come unica memoria ufficiale su decisione dell'utente. Esteso il modello Exercise con metadati canonici e separazione fra tipo e ruolo nel workout; aggiunta normalizzazione retrocompatibile; creata con Supabase CLI la migrazione `exercise_catalog_v2` con backfill, vincoli, RLS, grant esplicito e indice parziale. Aggiunti 3 test (97 totali), build verde. Migrazione remota ancora da applicare. |
 | 2026-08-06 | Codex | Phase 3 verificata senza riscritture; Phase 4 completata. `analizzaSettimana` calcola volume diretto/indiretto su tutti i blocchi allenanti e ultima esposizione per muscolo; `decidiRichiami` applica 48 ore minime di recupero agli slot aggiuntivi. Flusso Create/Rigenera aggiornato. 100 test totali, build verde. |
 | 2026-08-06 | Codex | Phase 5 completata: inventario granulare di 15 attrezzi, mapping retrocompatibile dai record Exercise legacy, filtro centralizzato usato da tutti i generatori, personalizzazione persistente nel Profilo e override per la sessione corrente. Migrazione `advanced_equipment`, 3 nuovi test, 103 totali, build verde. |
+| 2026-08-06 | Codex | Phase 6 completata: CrossFit Standard esteso da AMRAP fisso a sette formati selezionabili (AMRAP, For Time, EMOM, Rounds For Time, Chipper, Ladder, Intervals), conservando il blocco Strength/Skill separato. UI, rigenerazione, modello e Runner riallineati; 111 test totali, build verde. |
