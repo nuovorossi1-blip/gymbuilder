@@ -203,6 +203,11 @@ finché qualcuno non applica la patch manualmente
   Rigenera conserva il formato. Chipper/Ladder riusano il runner a giri,
   EMOM/Intervals il runner a intervalli.
 - [FACT] 111 test automatici totali; build TypeScript/Vite verde.
+- [FACT] Phase 7 riallineata: CrossFit Hybrid ha ora tre blocchi distinti
+  (warm-up, Strength/Bodybuilding, Hybrid AMRAP). Nel Metcon movimenti cardio
+  e isolamenti si alternano; gli isolamenti sono ammessi solo con complessità
+  tecnica 1, fatica sistemica 1 e presa al massimo 2.
+- [FACT] 112 test automatici totali; build TypeScript/Vite verde.
 
 ## 4. Cosa è in lavorazione
 
@@ -496,7 +501,7 @@ prese singolarmente non sarebbero verificabili.
 | **4** | Weak Point settimanali: volume diretto/indiretto, frequenza e recupero | ✅ Completato nella sessione 3 |
 | **5** | Equipment Engine e attrezzatura avanzata | ✅ Completato nella sessione 3 |
 | **6** | CrossFit Standard: Forza/Skill + 7 formati Metcon | ✅ Completato nella sessione 3 |
-| **7** | CrossFit Hybrid — funzionalità distintiva del prodotto (sez. 18 correzione) | ✅ Fatto in questa sessione |
+| **7** | CrossFit Hybrid: Strength separato + Metcon cardio/isolamento | ✅ Riallineato nella sessione 3 |
 | **8** | Condizionamento: AMRAP, EMOM, For Time, Rounds, Circuit, Intervals | ✅ Fatto in questa sessione |
 | **9** | Tabata, motore separato | ✅ Fatto in questa sessione |
 | **10** | Workout Runner e timer | ✅ Fatto per tutte e sei le modalità: ciclo serie/recupero (Bodybuilding/Forza/CrossFit Standard Forza-Skill/Hybrid), stopwatch a giri (For Time/Rounds/Circuit), timer a intervalli (AMRAP/EMOM/Intervals/Tabata) |
@@ -522,3 +527,4 @@ prese singolarmente non sarebbero verificabili.
 | 2026-08-06 | Codex | Phase 3 verificata senza riscritture; Phase 4 completata. `analizzaSettimana` calcola volume diretto/indiretto su tutti i blocchi allenanti e ultima esposizione per muscolo; `decidiRichiami` applica 48 ore minime di recupero agli slot aggiuntivi. Flusso Create/Rigenera aggiornato. 100 test totali, build verde. |
 | 2026-08-06 | Codex | Phase 5 completata: inventario granulare di 15 attrezzi, mapping retrocompatibile dai record Exercise legacy, filtro centralizzato usato da tutti i generatori, personalizzazione persistente nel Profilo e override per la sessione corrente. Migrazione `advanced_equipment`, 3 nuovi test, 103 totali, build verde. |
 | 2026-08-06 | Codex | Phase 6 completata: CrossFit Standard esteso da AMRAP fisso a sette formati selezionabili (AMRAP, For Time, EMOM, Rounds For Time, Chipper, Ladder, Intervals), conservando il blocco Strength/Skill separato. UI, rigenerazione, modello e Runner riallineati; 111 test totali, build verde. |
+| 2026-08-06 | Codex | Phase 7 riallineata: CrossFit Hybrid passa dal singolo blocco compound/cardio alternato a warm-up + Strength/Bodybuilding + Hybrid AMRAP. Il circuito alterna cardio e isolamenti filtrati per sicurezza sotto fatica. Aggiornati i test strutturali e di sicurezza; 112 test totali, build verde. |

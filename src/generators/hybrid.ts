@@ -45,12 +45,6 @@ export interface HybridConfig {
 /** Rotazione di default su tutto il corpo: gambe, spinta, tirata, gambe posteriori, core. */
 const ROTAZIONE_BASE: Muscle[] = ['quads', 'chest', 'back', 'hamstrings', 'core']
 
-function numeroCoppie(duration_min: number): number {
-  if (duration_min < 45) return 3
-  if (duration_min < 75) return 4
-  return 5
-}
-
 function ordineRotazione(priorita: Muscle[]): Muscle[] {
   const prioritaInRotazione = priorita.filter((m) => ROTAZIONE_BASE.includes(m))
   const resto = ROTAZIONE_BASE.filter((m) => !prioritaInRotazione.includes(m))
@@ -62,10 +56,6 @@ function prescrizioneForza(exp: Experience, intensity: Intensity) {
   const rest = { low: 60, medium: 75, high: 90 }[intensitaEffettiva]
   const sets = { beginner: 2, intermediate: 3, advanced: 3 }[exp]
   return { sets, reps: '8-12', rest }
-}
-
-function transizione(intensity: Intensity): number {
-  return { low: 60, medium: 45, high: 30 }[intensity]
 }
 
 export function generaHybrid(catalogo: Exercise[], cfg: HybridConfig): GeneratedWorkout {
@@ -83,21 +73,18 @@ export function generaHybrid(catalogo: Exercise[], cfg: HybridConfig): Generated
   const allenamento = disponibili.filter((e) => !e.roles.includes('warmup'))
   const riscaldamentoPool = disponibili.filter((e) => e.roles.includes('warmup'))
 
-  const target = numeroCoppie(cfg.duration_min)
   const rotazione = ordineRotazione(cfg.priority_muscles)
-
   const usati = new Set<string>()
-  const scelti: PrescribedExercise[] = []
+  const forza: PrescribedExercise[] = []
   const forzaPool = allenamento.filter(
     (e) => e.roles.includes('compound') && (e.roles.includes('hypertrophy') || e.roles.includes('strength'))
   )
 
-  let ultimaCategoriaCardio: string | null = null
-
-  for (let i = 0; i < target; i++) {
+  // Parte Strength/Bodybuilding separata: una alzata nelle sessioni brevi,
+  // due da 45 minuti in su. I movimenti più tecnici restano qui, mai nel circuito.
+  const numeroAlzate = cfg.duration_min < 45 ? 1 : 2
+  for (let i = 0; i < numeroAlzate; i++) {
     const muscoloTarget = rotazione[i % rotazione.length]
-
-    // --- Alzata ---
     const candidatiForza = forzaPool.filter((e) => e.primary_muscles.includes(muscoloTarget))
     const alzata = scegliCandidato(
       candidatiForza.length > 0 ? candidatiForza : forzaPool,
@@ -109,7 +96,7 @@ export function generaHybrid(catalogo: Exercise[], cfg: HybridConfig): Generated
     if (alzata) {
       usati.add(alzata.id)
       const p = prescrizioneForza(cfg.experience, intensity)
-      scelti.push({
+      forza.push({
         exercise_id: alzata.id,
         name: alzata.name,
         role: 'compound',
@@ -120,60 +107,75 @@ export function generaHybrid(catalogo: Exercise[], cfg: HybridConfig): Generated
         instructions: alzata.instructions || undefined,
       })
     }
+  }
 
-    // --- Scarica cardio: categoria diversa dall'ultima, per varietà. ---
-    const poolCardio = poolMetcon(allenamento, usati)
-    const cardioVario = poolCardio.filter((e) => CATEGORIA_PATTERN[e.movement_pattern] !== ultimaCategoriaCardio)
-    const cardio = scegliCandidato(
-      cardioVario.length > 0 ? cardioVario : poolCardio,
-      usati,
-      cfg.priority_muscles,
-      preferiti,
-      random
-    )
+  // Hybrid Metcon: cardio e isolamenti semplici si alternano. Gli isolamenti
+  // devono avere tecnica semplice e fatica sistemica/presa bassa.
+  const metcon: PrescribedExercise[] = []
+  const cardioPool = poolMetcon(allenamento, usati)
+  const isolationPool = allenamento.filter(
+    (e) => e.roles.includes('isolation') && e.technical_complexity <= 1 &&
+      e.systemic_fatigue <= 1 && e.grip_fatigue <= 2
+  )
+  const coppie = cfg.duration_min < 45 ? 1 : 2
+  for (let i = 0; i < coppie; i++) {
+    const cardio = scegliCandidato(cardioPool, usati, cfg.priority_muscles, preferiti, random)
     if (cardio) {
       usati.add(cardio.id)
       const categoria = CATEGORIA_PATTERN[cardio.movement_pattern]
-      ultimaCategoriaCardio = categoria
-      scelti.push({
-        exercise_id: cardio.id,
-        name: cardio.name,
-        role: 'metcon',
-        muscle: cardio.primary_muscles[0] ?? null,
-        sets: 1,
-        reps: repsMetcon(categoria, cfg.experience, intensity),
-        rest_sec: transizione(intensity),
-        note: 'cardio',
-        instructions: cardio.instructions || undefined,
+      metcon.push({
+        exercise_id: cardio.id, name: cardio.name, role: 'metcon',
+        muscle: cardio.primary_muscles[0] ?? null, sets: 1,
+        reps: repsMetcon(categoria, cfg.experience, intensity), rest_sec: 0,
+        note: 'cardio', instructions: cardio.instructions || undefined,
+      })
+    }
+    const isolamento = scegliCandidato(isolationPool, usati, cfg.priority_muscles, preferiti, random)
+    if (isolamento) {
+      usati.add(isolamento.id)
+      metcon.push({
+        exercise_id: isolamento.id, name: isolamento.name, role: 'metcon',
+        muscle: isolamento.primary_muscles[0] ?? null, sets: 1,
+        reps: '12-15', rest_sec: 30, note: 'isolamento',
+        instructions: isolamento.instructions || undefined,
       })
     }
   }
 
-  adattaAlTempo(scelti, cfg.duration_min)
-  rimuoviDuplicati(scelti)
+  rimuoviDuplicati(forza)
+  rimuoviDuplicati(metcon)
 
-  if (scelti.filter((e) => e.role === 'compound').length === 0) {
+  if (forza.length === 0) {
     warnings.push('Nessuna alzata disponibile per la parte Forza con questa attrezzatura.')
   }
-  if (scelti.filter((e) => e.role === 'metcon').length === 0) {
-    warnings.push('Nessun movimento cardio disponibile con questa attrezzatura.')
+  if (metcon.length === 0) {
+    warnings.push('Nessun movimento disponibile per il Metcon Hybrid con questa attrezzatura.')
   }
 
   const minutiRiscaldamento = cfg.duration_min >= 45 ? 9 : 6
+  const minutiMetcon = Math.max(8, Math.min(18, cfg.duration_min - minutiRiscaldamento - minutiBlocco(forza)))
   const peso = cfg.weight_kg || PESO_DEFAULT_KG
-  for (const e of scelti) {
+  for (const e of forza) {
     e.est_kcal = stimaCalorieEsercizio('crossfit_hybrid', e.role, minutiEsercizio(e), peso)
   }
-  const kcalTotali = scelti.reduce((t, e) => t + (e.est_kcal ?? 0), 0)
+  for (const e of metcon) {
+    e.est_kcal = stimaCalorieEsercizio('crossfit_hybrid', e.role, minutiMetcon / Math.max(1, metcon.length), peso)
+  }
+  const tutti = [...forza, ...metcon]
+  const kcalTotali = tutti.reduce((t, e) => t + (e.est_kcal ?? 0), 0)
 
   const blocchi: WorkoutBlock[] = [
     {
       kind: 'warmup',
       title: 'Riscaldamento',
       duration_min: minutiRiscaldamento,
-      exercises: scegliRiscaldamento(riscaldamentoPool, allenamento, scelti, random),
+      exercises: scegliRiscaldamento(riscaldamentoPool, allenamento, tutti, random),
     },
-    { kind: 'main', title: 'Forza + Cardio alternati', exercises: scelti },
+    { kind: 'main', title: 'Forza / Bodybuilding', exercises: forza },
+    {
+      kind: 'metcon', title: `Hybrid AMRAP ${minutiMetcon}′`, format: 'amrap',
+      time_cap_min: minutiMetcon, exercises: metcon,
+    },
   ]
 
   return {
@@ -182,41 +184,9 @@ export function generaHybrid(catalogo: Exercise[], cfg: HybridConfig): Generated
     split: null,
     goal: 'mixed',
     experience: cfg.experience,
-    duration_min: Math.round(minutiRiscaldamento + minutiBlocco(scelti)),
+    duration_min: Math.round(minutiRiscaldamento + minutiBlocco(forza) + minutiMetcon),
     blocks: blocchi,
     warnings,
     est_kcal: kcalTotali,
-  }
-}
-
-function adattaAlTempo(scelti: PrescribedExercise[], duration_min: number): void {
-  const minutiRiscaldamento = duration_min >= 45 ? 9 : 6
-  const budget = duration_min - minutiRiscaldamento
-  const REST_MINIMO_FORZA = 45
-  const REST_MINIMO_CARDIO = 20
-
-  const sforo = () => minutiBlocco(scelti) - budget
-  if (sforo() <= 0) return
-
-  let iter = 0
-  while (sforo() > 0 && iter++ < 80) {
-    const candidato = scelti
-      .filter((e) => e.rest_sec > (e.role === 'compound' ? REST_MINIMO_FORZA : REST_MINIMO_CARDIO))
-      .sort((a, b) => b.rest_sec - a.rest_sec)[0]
-    if (!candidato) break
-    const minimo = candidato.role === 'compound' ? REST_MINIMO_FORZA : REST_MINIMO_CARDIO
-    candidato.rest_sec = Math.max(minimo, candidato.rest_sec - 15)
-  }
-
-  iter = 0
-  while (sforo() > 0 && iter++ < 50) {
-    const candidato = [...scelti].sort((a, b) => b.sets - a.sets).find((e) => e.role === 'compound' && e.sets > 2)
-    if (!candidato) break
-    candidato.sets -= 1
-  }
-
-  // Se ancora troppo lunga, si tolgono le ultime coppie (due voci alla volta), mai sotto 2 coppie (4 voci).
-  while (sforo() > 0 && scelti.length > 4) {
-    scelti.splice(scelti.length - 2, 2)
   }
 }
