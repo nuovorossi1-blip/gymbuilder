@@ -12,6 +12,9 @@ interface Valore {
   setCatalog: (catalog: Exercise[]) => void
   weeklyProgram: WeeklyProgram | null
   setWeeklyProgram: (program: WeeklyProgram | null) => void
+  rejectedExerciseIds: string[]
+  rejectExercise: (id: string) => void
+  clearRejectedExercises: () => void
 }
 
 const Ctx = createContext<Valore | null>(null)
@@ -40,6 +43,9 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
       return raw ? JSON.parse(raw) as WeeklyProgram : null
     } catch { return null }
   })
+  const [rejectedExerciseIds, setRejectedExerciseIds] = useState<string[]>(() => {
+    try { return JSON.parse(sessionStorage.getItem(`${CHIAVE}:rejected`) ?? '[]') as string[] } catch { return [] }
+  })
 
   function setWorkout(w: GeneratedWorkout | null) {
     set(w)
@@ -67,7 +73,20 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
     } catch { /* si continua senza persistenza locale */ }
   }
 
-  return <Ctx.Provider value={{ workout, setWorkout, generationConfig, setGenerationConfig: updateGenerationConfig, catalog, setCatalog, weeklyProgram, setWeeklyProgram }}>{children}</Ctx.Provider>
+  function rejectExercise(id: string) {
+    setRejectedExerciseIds((current) => {
+      const next = current.includes(id) ? current : [...current, id]
+      try { sessionStorage.setItem(`${CHIAVE}:rejected`, JSON.stringify(next)) } catch { /* opzionale */ }
+      return next
+    })
+  }
+
+  function clearRejectedExercises() {
+    setRejectedExerciseIds([])
+    try { sessionStorage.removeItem(`${CHIAVE}:rejected`) } catch { /* opzionale */ }
+  }
+
+  return <Ctx.Provider value={{ workout, setWorkout, generationConfig, setGenerationConfig: updateGenerationConfig, catalog, setCatalog, weeklyProgram, setWeeklyProgram, rejectedExerciseIds, rejectExercise, clearRejectedExercises }}>{children}</Ctx.Provider>
 }
 
 export function useWorkout() {

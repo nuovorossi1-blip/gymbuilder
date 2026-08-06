@@ -19,3 +19,7 @@ Nessun valore HR inventato. `HealthDataProvider` è il confine per adapter futur
 ## 2026-08-06 — Weekly Engine prima del Workout Engine
 
 La programmazione settimanale è un dominio separato. Decide disciplina/split/ordine con una vista sull'intera settimana; i generatori esistenti ricevono poi un solo `WeeklySession`. Configurazione e settimana restano in sessione quando l'utente salva, avvia o torna indietro.
+
+## 2026-08-06 — Scoring esaustivo e feedback deterministico
+
+Con al massimo sette sessioni, valutare fino a 7! candidati è semplice e verificabile. Il feedback non usa ML: conserva contatori per motivo e influenza solo la scelta fra alternative già valide. Il disagio evita prudenzialmente lo stesso pattern senza formulare diagnosi.

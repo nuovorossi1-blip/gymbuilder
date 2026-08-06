@@ -14,6 +14,7 @@ La navigazione pubblica contiene solo Genera, Salvati e Profilo. Le modalità pu
 - `src/generators/`: motori deterministici esistenti.
 - `src/engine/weeklyPlan.ts`: Weekly Program Engine fitness-aware.
 - `src/engine/`: policy, sostituzioni, validazione workout e timer.
+- `src/engine/feedback.ts`: memoria adattiva dei motivi di sostituzione.
 - `src/pages/WorkoutPreview.tsx`: scheda, salvataggio e cambio esercizio.
 - `src/pages/Runner.tsx`: runner pesi e Metcon/Tabata.
 - `src/lib/api.ts`: accesso Supabase.
@@ -21,7 +22,7 @@ La navigazione pubblica contiene solo Genera, Salvati e Profilo. Le modalità pu
 
 ## Stato verificato
 
-Al 2026-08-06: 131 test verdi, build verde, lint senza errori. Le migrazioni dati fisici e `saved_workout_generation_config` devono essere applicate al progetto Supabase remoto. I provider wearable reali non sono implementati: esiste il contratto modulare `HealthDataProvider` e il fallback MET.
+Al 2026-08-06: 137 test verdi, build verde, lint senza errori. Il Weekly Engine valuta tutte le permutazioni con recovery profile; il Feedback Engine ricorda localmente motivi e divieti per utente. Le migrazioni dati fisici e `saved_workout_generation_config` devono essere applicate al progetto Supabase remoto.
 
 ## Prossimo passo
 

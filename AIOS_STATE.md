@@ -38,7 +38,9 @@ separato dalle preferenze della sessione. I nuovi servizi centrali vivono in
 Il Genera ora supporta più discipline contemporaneamente tramite un Weekly
 Program Engine: genera 3-7 giorni, mostra e modifica la settimana, quindi passa
 un solo giorno al generatore specifico. Configurazione globale e settimana
-restano in `sessionStorage`. Suite aggiornata a 131 test verdi.
+restano in `sessionStorage`. Il Weekly Engine usa recovery profile e scoring
+esaustivo dei candidati; il replacement integra sei motivazioni e memoria
+adattiva locale. Suite aggiornata a 137 test verdi.
 L'app ha autenticazione, profilo, un database di 87 esercizi in Supabase (con
 istruzioni testuali per ciascuno) e sei motori di generazione:
 

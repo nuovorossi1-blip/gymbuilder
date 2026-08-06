@@ -20,6 +20,10 @@ Un workout non viene mostrato se `validateWorkout` fallisce. Il messaggio rimand
 
 Riceve 3-7 giorni, una o più delle cinque modalità, obiettivo, livello, tempo e regole globali. Garantisce una presenza minima per ogni modalità e assegna i giorni restanti usando pesi diversi per obiettivo, non una divisione aritmetica. Tabata resta una sessione complementare quando è combinato.
 
-Le sessioni candidate hanno carico muscolare e fatica stimata. Un ordinamento greedy penalizza sovrapposizione, due giornate ad alta fatica e ripetizione della stessa disciplina. Il validatore segnala giornate duplicate, fatica alta consecutiva, sovrapposizione e attrezzatura metabolica insufficiente senza impedire modifiche manuali.
+Le sessioni candidate hanno un `RecoveryProfile`: fatica, stress per muscolo, cardio, grip, stress sistemico, durata e recupero richiesto. Il motore valuta tutte le permutazioni possibili e sceglie il punteggio migliore per recupero, sovrapposizione e weak point. Dopo la generazione, il profilo previsto viene sostituito dai dati reali degli esercizi scelti.
+
+## Feedback e sostituzioni
+
+Il replacement ranking rispetta pattern, muscolo, ruolo, attrezzatura, livello, fatica, preferiti e feedback storico. I sei motivi hanno pesi distinti. I rifiuti temporanei vivono nella sessione; esclusioni esplicite, disagio e attrezzi assenti alimentano la memoria adattiva locale per utente.
 
 Combinazioni testate: BB+Hybrid; BB+CrossFit Standard; BB+Forza+Hybrid; BB+Hybrid+Tabata; Forza+Hybrid; BB+Tabata; CrossFit Standard+Hybrid; BB+CrossFit Standard+Hybrid+Tabata.

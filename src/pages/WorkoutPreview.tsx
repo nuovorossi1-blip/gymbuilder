@@ -4,14 +4,16 @@ import { useAuth } from '../features/auth/AuthProvider'
 import { useWorkout } from '../features/workout/WorkoutContext'
 import { salvaAllenamento } from '../lib/api'
 import { findExerciseReplacement } from '../engine/replacement'
-import { EXPERIENCE_LABELS, GOAL_LABELS, MODE_LABELS, MUSCLE_LABELS, SPLIT_LABELS, type WorkoutBlock } from '../types'
+import { recordExerciseFeedback } from '../engine/feedback'
+import { EXPERIENCE_LABELS, GOAL_LABELS, MODE_LABELS, MUSCLE_LABELS, SPLIT_LABELS, type ExerciseFeedbackReason, type WorkoutBlock } from '../types'
 
 export default function WorkoutPreview() {
   const { user } = useAuth()
-  const { workout, setWorkout, generationConfig, catalog } = useWorkout()
+  const { workout, setWorkout, generationConfig, setGenerationConfig, catalog, weeklyProgram, setWeeklyProgram, rejectedExerciseIds, rejectExercise } = useWorkout()
   const naviga = useNavigate()
   const [stato, setStato] = useState<'fermo' | 'salvo' | 'salvato' | 'errore'>('fermo')
   const [messaggio, setMessaggio] = useState<string | null>(null)
+  const [feedbackTarget, setFeedbackTarget] = useState<{ block: number; exercise: number } | null>(null)
 
   if (!workout) {
     return (
@@ -31,15 +33,23 @@ export default function WorkoutPreview() {
   const principale = workout.blocks.find((b) => b.kind === 'main')
   const metcon = workout.blocks.find((b) => b.kind === 'metcon')
 
-  function cambiaEsercizio(blockIndex: number, exerciseIndex: number) {
-    if (!workout || !generationConfig) return
+  function cambiaEsercizio(blockIndex: number, exerciseIndex: number, reason: ExerciseFeedbackReason, permanent: boolean) {
+    if (!workout || !generationConfig || !user) return
     const current = workout.blocks[blockIndex].exercises[exerciseIndex]
+    const original = catalog.find((exercise) => exercise.id === current.exercise_id)
+    if (!original) return
+    rejectExercise(original.id)
+    const adaptive = recordExerciseFeedback(user.id, original, reason, permanent)
+    const available = reason === 'unavailable'
+      ? generationConfig.equipment.available.filter((item) => !original.required_equipment.includes(item))
+      : generationConfig.equipment.available
+    const equipment = { ...generationConfig.equipment, available }
     const used = new Set(workout.blocks.flatMap((block) => block.exercises.map((exercise) => exercise.exercise_id)))
-    const replacement = findExerciseReplacement(current, catalog, generationConfig.equipment, {
+    const replacement = findExerciseReplacement(current, catalog, equipment, {
       excludedExerciseIds: generationConfig.preferences.excluded_exercise_ids,
       bodyweightPolicy: generationConfig.preferences.bodyweight_policy,
       elasticPolicy: generationConfig.preferences.elastic_policy,
-    }, used)
+    }, used, { reason, rejectedIds: new Set([...rejectedExerciseIds, original.id]), adaptivePreferences: adaptive, experience: generationConfig.experience, preferredIds: new Set(generationConfig.preferences.preferred_exercise_ids) })
     if (!replacement) { setMessaggio('Nessuna alternativa compatibile disponibile.'); return }
     const blocks = workout.blocks.map((block, index) => index !== blockIndex ? block : {
       ...block, exercises: block.exercises.map((exercise, itemIndex) => itemIndex !== exerciseIndex ? exercise : {
@@ -48,7 +58,12 @@ export default function WorkoutPreview() {
       }),
     })
     setWorkout({ ...workout, blocks })
-    setMessaggio(`${current.name} sostituito con ${replacement.name}.`)
+    const excluded = permanent || reason === 'discomfort' ? [...new Set([...generationConfig.preferences.excluded_exercise_ids, original.id])] : generationConfig.preferences.excluded_exercise_ids
+    const nextConfig = { ...generationConfig, equipment, preferences: { ...generationConfig.preferences, excluded_exercise_ids: excluded } }
+    setGenerationConfig(nextConfig)
+    if (weeklyProgram) setWeeklyProgram({ ...weeklyProgram, config: { ...weeklyProgram.config, equipment, preferences: { ...weeklyProgram.config.preferences, excluded_exercise_ids: excluded } } })
+    setFeedbackTarget(null)
+    setMessaggio(reason === 'discomfort' ? `${current.name} sostituito con ${replacement.name}. Se il dolore persiste, interrompi l’esercizio e valuta un professionista qualificato.` : `${current.name} sostituito con ${replacement.name}. Il resto del workout non è cambiato.`)
   }
 
   async function salva() {
@@ -145,7 +160,7 @@ export default function WorkoutPreview() {
                 {e.instructions && (
                   <p className="mt-1.5 pl-7 text-[12px] text-slate2 leading-relaxed">{e.instructions}</p>
                 )}
-                <button className="mt-3 pl-7 font-data text-[10px] uppercase tracking-wider text-amber2" onClick={() => cambiaEsercizio(workout.blocks.indexOf(principale), i)}>Cambia · Non mi piace</button>
+                <button className="mt-3 pl-7 font-data text-[10px] uppercase tracking-wider text-amber2" onClick={() => setFeedbackTarget({ block: workout.blocks.indexOf(principale), exercise: i })}>↻ Sostituisci</button>
               </li>
             ))}
           </ol>
@@ -174,7 +189,7 @@ export default function WorkoutPreview() {
                 {e.instructions && (
                   <p className="mt-1.5 pl-7 text-[12px] text-slate2 leading-relaxed">{e.instructions}</p>
                 )}
-                <button className="mt-3 pl-7 font-data text-[10px] uppercase tracking-wider text-amber2" onClick={() => cambiaEsercizio(workout.blocks.indexOf(metcon), i)}>Cambia · Non mi piace</button>
+                <button className="mt-3 pl-7 font-data text-[10px] uppercase tracking-wider text-amber2" onClick={() => setFeedbackTarget({ block: workout.blocks.indexOf(metcon), exercise: i })}>↻ Sostituisci</button>
               </li>
             ))}
           </ol>
@@ -187,6 +202,7 @@ export default function WorkoutPreview() {
           {messaggio}
         </p>
       )}
+      {feedbackTarget ? <FeedbackPanel exerciseName={workout.blocks[feedbackTarget.block].exercises[feedbackTarget.exercise].name} onCancel={() => setFeedbackTarget(null)} onSubmit={(reason, permanent) => cambiaEsercizio(feedbackTarget.block, feedbackTarget.exercise, reason, permanent)} /> : null}
 
       {/* Azioni */}
       <div className="mt-8 space-y-2.5">
@@ -211,6 +227,18 @@ export default function WorkoutPreview() {
       </div>
     </div>
   )
+}
+
+const FEEDBACK_REASONS: { value: ExerciseFeedbackReason; label: string }[] = [
+  { value: 'dislike', label: 'Non mi piace' }, { value: 'unavailable', label: 'Attrezzatura non disponibile' },
+  { value: 'too_hard', label: 'Troppo difficile' }, { value: 'too_easy', label: 'Troppo facile' },
+  { value: 'discomfort', label: 'Dolore o disagio' }, { value: 'prefer_other', label: 'Preferisco un altro movimento' },
+]
+
+function FeedbackPanel({ exerciseName, onCancel, onSubmit }: { exerciseName: string; onCancel: () => void; onSubmit: (reason: ExerciseFeedbackReason, permanent: boolean) => void }) {
+  const [reason, setReason] = useState<ExerciseFeedbackReason>('dislike')
+  const [permanent, setPermanent] = useState(false)
+  return <div className="fixed inset-0 z-40 grid items-end bg-black/70 p-4 sm:items-center"><section role="dialog" aria-modal="true" aria-labelledby="feedback-title" className="mx-auto w-full max-w-md rounded-2xl border border-edge bg-ink p-5"><p className="eyebrow">{exerciseName}</p><h2 id="feedback-title" className="mt-2 font-display text-xl font-bold uppercase">Perché vuoi sostituirlo?</h2><div className="mt-4 space-y-2">{FEEDBACK_REASONS.map((item) => <label key={item.value} className="flex items-center gap-3 rounded-xl border border-edge p-3 text-sm"><input type="radio" name="feedback-reason" checked={reason === item.value} onChange={() => setReason(item.value)} />{item.label}</label>)}</div><label className="mt-4 flex items-start gap-3 text-sm text-slate2"><input className="mt-1" type="checkbox" checked={permanent} onChange={(event) => setPermanent(event.target.checked)} /><span>Non mostrarlo più nelle prossime generazioni.</span></label>{reason === 'discomfort' ? <p className="mt-3 text-xs text-amber2">Non è una diagnosi: se il dolore persiste, interrompi l’esercizio e valuta un professionista qualificato.</p> : null}<div className="mt-5 grid grid-cols-2 gap-2"><button className="rounded-xl border border-edge py-3 text-sm" onClick={onCancel}>Annulla</button><button className="rounded-xl bg-chalk py-3 text-sm font-semibold text-ink" onClick={() => onSubmit(reason, permanent)}>Sostituisci</button></div></section></div>
 }
 
 export function formattaRec(sec: number): string {
