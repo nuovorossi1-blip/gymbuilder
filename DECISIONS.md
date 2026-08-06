@@ -23,3 +23,11 @@ La programmazione settimanale è un dominio separato. Decide disciplina/split/or
 ## 2026-08-06 — Scoring esaustivo e feedback deterministico
 
 Con al massimo sette sessioni, valutare fino a 7! candidati è semplice e verificabile. Il feedback non usa ML: conserva contatori per motivo e influenza solo la scelta fra alternative già valide. Il disagio evita prudenzialmente lo stesso pattern senza formulare diagnosi.
+
+## 2026-08-06 — Giorno come vincolo strutturale
+
+Il giorno selezionato dall'utente è un vincolo strutturale. Le carenze modificano la priorità e possono aggiungere richiami, ma non trasformano arbitrariamente Push, Pull o Legs. Ogni esercizio deve essere giustificabile rispetto a giorno + obiettivo + carenza + attrezzatura + fatica + preferenze. Per questo il filtro usa anche il movement pattern e precede weak point e varietà.
+
+## 2026-08-06 — Timer a eventi e timestamp
+
+Un solo Timer Engine descrive le transizioni; la UI e l'Audio Engine reagiscono agli stessi eventi. Il tempo deriva da deadline/start timestamp, non dal numero di callback ricevuti, così cambio focus e throttling non accumulano drift. Web Audio viene sbloccato solo dal tap dell'utente e non modifica il volume globale.

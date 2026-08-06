@@ -22,8 +22,8 @@ La navigazione pubblica contiene solo Genera, Salvati e Profilo. Le modalità pu
 
 ## Stato verificato
 
-Al 2026-08-06: 137 test verdi, build verde, lint senza errori. Il Weekly Engine valuta tutte le permutazioni con recovery profile; il Feedback Engine ricorda localmente motivi e divieti per utente. Le migrazioni dati fisici e `saved_workout_generation_config` devono essere applicate al progetto Supabase remoto.
+Al 2026-08-06: 149 test verdi, build verde, lint senza errori bloccanti. Il giorno Bodybuilding è un vincolo strutturale anche a livello di movement pattern; carenze e replacement non possono trasformare Push/Pull/Legs. Il Runner usa timestamp reali, eventi tipizzati e Web Audio (Beep/Ding/Silenzioso) sbloccato dall'interazione utente. Il contratto Profile usa `profiles.user_id`; la migration RLS `20260806170000_profiles_contract_and_rls.sql` deve essere applicata al Supabase di produzione, non accessibile dal connettore corrente.
 
 ## Prossimo passo
 
-Applicare la migrazione remota, verificare con un account autenticato Genera → Salva → Inizia e integrare adapter HealthKit/Health Connect solo in un contenitore mobile compatibile.
+Applicare le migration remote, verificare con un account autenticato Profile logout/login e Genera → Salva → Inizia, poi provare l'audio su iOS/Android reali (le policy browser variano).

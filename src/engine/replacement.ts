@@ -1,5 +1,5 @@
 import { isExerciseAvailable } from '../generators/equipment'
-import type { AdaptiveExercisePreference, EquipmentInventory, Exercise, ExerciseFeedbackReason, Experience, PrescribedExercise } from '../types'
+import type { AdaptiveExercisePreference, EquipmentInventory, Exercise, ExerciseFeedbackReason, Experience, PrescribedExercise, Split } from '../types'
 import { isExerciseAllowed, type RuntimePreferences } from './preferences'
 
 const EXPERIENCE_RANK: Record<Experience, number> = { beginner: 1, intermediate: 2, advanced: 3 }
@@ -10,6 +10,13 @@ export interface ReplacementOptions {
   adaptivePreferences?: Record<string, AdaptiveExercisePreference>
   experience?: Experience
   preferredIds?: Set<string>
+  split?: Split | null
+}
+
+const SPLIT_PATTERNS: Partial<Record<Split, Set<string>>> = {
+  push: new Set(['horizontal_push', 'vertical_push', 'lateral_raise', 'elbow_extension', 'elbow_flexion']),
+  pull: new Set(['horizontal_pull', 'vertical_pull', 'rear_delt', 'elbow_flexion', 'elbow_extension']),
+  legs: new Set(['squat', 'lunge', 'hinge', 'knee_flexion', 'knee_extension', 'calf_raise', 'jump', 'core']),
 }
 
 export function findExerciseReplacement(
@@ -29,6 +36,8 @@ export function findExerciseReplacement(
 
   const candidates = catalog.filter((exercise) => {
     if (exercise.id === original.id || usedIds.has(exercise.id) || options.rejectedIds?.has(exercise.id)) return false
+    const splitPatterns = options.split ? SPLIT_PATTERNS[options.split] : undefined
+    if (splitPatterns && !splitPatterns.has(exercise.movement_pattern)) return false
     if (!isExerciseAvailable(exercise, equipment.preset, equipment.available) || !isExerciseAllowed(exercise, preferences, placement)) return false
     if (options.experience && EXPERIENCE_RANK[exercise.min_experience] > EXPERIENCE_RANK[options.experience]) return false
     if (options.adaptivePreferences?.[exercise.id]?.permanently_excluded) return false

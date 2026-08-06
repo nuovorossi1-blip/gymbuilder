@@ -4,6 +4,8 @@ import { useAuth } from '../features/auth/AuthProvider'
 import { useWorkout } from '../features/workout/WorkoutContext'
 import { registraCompletato } from '../lib/api'
 import { FORMATO_A_GIRI, FORMATO_A_INTERVALLI, MUSCLE_LABELS, type PrescribedExercise } from '../types'
+import { loadAudioSettings, saveAudioSettings, TimerAudio, type AudioTimerSettings, type TimerSound } from '../engine/audio'
+import type { TimerEventType, TimerPhase } from '../engine/timer'
 
 type Fase = { tipo: 'serie'; iEs: number; serie: number } | { tipo: 'recupero'; iEs: number; serie: number; sec: number }
 
@@ -53,16 +55,93 @@ export default function Runner() {
   const [note, setNote] = useState('')
   const [salvataggio, setSalvataggio] = useState<'fermo' | 'salvo' | 'errore'>('fermo')
   const inizio = useRef<number>(Date.now())
+  const [audioSettings, setAudioSettings] = useState<AudioTimerSettings>(() => loadAudioSettings())
+  const audio = useRef<TimerAudio | null>(null)
+  const [countdown, setCountdown] = useState<number | null>(null)
+  const countdownDeadline = useRef(0)
+  const afterCountdown = useRef<(() => void) | null>(null)
+  const restDeadline = useRef(0)
+  const metconDeadline = useRef(0)
+  const intervalDeadline = useRef(0)
+  const metconStartedAt = useRef(0)
+  const lastWarning = useRef<string>('')
+  const restPausedAt = useRef(0)
+  const metconPausedAt = useRef(0)
+
+  if (!audio.current) audio.current = new TimerAudio(audioSettings)
+
+  function emit(type: TimerEventType, phase: TimerPhase, round?: number) {
+    audio.current?.play({ type, phase, round, at: Date.now() })
+  }
+
+  function updateAudio(patch: Partial<AudioTimerSettings>) {
+    const next = { ...audioSettings, ...patch }
+    setAudioSettings(next); saveAudioSettings(next); audio.current?.update(next)
+  }
+
+  async function startWithCountdown(action: () => void) {
+    await audio.current?.unlock()
+    afterCountdown.current = action
+    countdownDeadline.current = Date.now() + 3_000
+    lastWarning.current = ''
+    setCountdown(3)
+    emit('COUNTDOWN_STARTED', 'countdown')
+  }
+
+  function toggleRestPause() {
+    const now = Date.now()
+    setInPausa((paused) => {
+      if (paused) restDeadline.current += now - restPausedAt.current
+      else restPausedAt.current = now
+      return !paused
+    })
+  }
+
+  function toggleMetconPause() {
+    const now = Date.now()
+    setMetconInPausa((paused) => {
+      if (paused) {
+        const delta = now - metconPausedAt.current
+        metconDeadline.current += delta; intervalDeadline.current += delta; metconStartedAt.current += delta
+      } else metconPausedAt.current = now
+      return !paused
+    })
+  }
+
+  useEffect(() => {
+    if (countdown === null) return
+    const tick = () => {
+      const next = Math.max(0, Math.ceil((countdownDeadline.current - Date.now()) / 1000))
+      setCountdown(next)
+      if (next > 0 && lastWarning.current !== `countdown-${next}`) {
+        lastWarning.current = `countdown-${next}`; emit('WARNING', 'countdown')
+      }
+      if (next === 0) {
+        emit('TIMER_STARTED', 'work')
+        const action = afterCountdown.current; afterCountdown.current = null
+        setCountdown(null); action?.()
+      }
+    }
+    tick(); const timer = window.setInterval(tick, 100)
+    return () => window.clearInterval(timer)
+  }, [countdown])
 
   // Timer del recupero
   useEffect(() => {
     if (fase.tipo !== 'recupero' || inPausa) return
     if (rimanente <= 0) {
+      emit('SET_STARTED', 'set')
       avanza()
       return
     }
-    const t = setTimeout(() => setRimanente((r) => r - 1), 1000)
-    return () => clearTimeout(t)
+    const tick = () => {
+      const next = Math.max(0, Math.ceil((restDeadline.current - Date.now()) / 1000))
+      setRimanente(next)
+      if (next > 0 && next <= 3 && lastWarning.current !== `rest-${next}`) { lastWarning.current = `rest-${next}`; emit('WARNING', 'rest') }
+    }
+    const t = window.setInterval(tick, 200); tick()
+    return () => window.clearInterval(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fase, rimanente, inPausa])
 
   // Timer del Metcon AMRAP: conto alla rovescia dal tempo a disposizione.
@@ -72,38 +151,60 @@ export default function Runner() {
       setMetconFase('fatto')
       return
     }
-    const t = setTimeout(() => setMetconRimanente((r) => r - 1), 1000)
-    return () => clearTimeout(t)
+    const tick = () => {
+      const next = Math.max(0, Math.ceil((metconDeadline.current - Date.now()) / 1000))
+      setMetconRimanente(next)
+      if (next > 0 && next <= 3 && lastWarning.current !== `amrap-${next}`) { lastWarning.current = `amrap-${next}`; emit('WARNING', 'amrap') }
+      if (next === 0 && lastWarning.current !== 'amrap-complete') { lastWarning.current = 'amrap-complete'; emit('TIMER_COMPLETED', 'amrap') }
+    }
+    const t = window.setInterval(tick, 200); tick()
+    return () => window.clearInterval(t)
   }, [sezione, metconFase, formato, metconRimanente, metconInPausa])
 
   // Cronometro del Metcon a giri (For Time/A giri/Circuit): conta in avanti, il tempo è il punteggio.
   useEffect(() => {
     if (sezione !== 'metcon' || metconFase !== 'via' || !aGiri || metconInPausa) return
-    const t = setTimeout(() => setMetconTrascorsi((s) => s + 1), 1000)
-    return () => clearTimeout(t)
-  }, [sezione, metconFase, aGiri, metconTrascorsi, metconInPausa])
+    const tick = () => {
+      const elapsed = Math.max(0, Math.floor((Date.now() - metconStartedAt.current) / 1000))
+      const cap = (metconBlock?.time_cap_min ?? 0) * 60
+      setMetconTrascorsi(elapsed)
+      if (cap > 0 && elapsed >= cap && lastWarning.current !== 'time-cap') { lastWarning.current = 'time-cap'; emit('TIME_CAP_REACHED', 'cap'); setMetconFase('fatto') }
+    }
+    const t = window.setInterval(tick, 200); tick()
+    return () => window.clearInterval(t)
+  }, [sezione, metconFase, aGiri, metconTrascorsi, metconInPausa, metconBlock?.time_cap_min])
 
   // Timer a intervalli (EMOM/Intervals/Tabata): lavoro poi riposo (se previsto), poi il round successivo da solo.
   useEffect(() => {
     if (sezione !== 'metcon' || metconFase !== 'via' || !aIntervalli || metconInPausa) return
     if (intervalRimanente > 0) {
-      const t = setTimeout(() => setIntervalRimanente((r) => r - 1), 1000)
-      return () => clearTimeout(t)
+      const tick = () => {
+        const next = Math.max(0, Math.ceil((intervalDeadline.current - Date.now()) / 1000))
+        setIntervalRimanente(next)
+        if (next > 0 && next <= 3 && lastWarning.current !== `interval-${intervalIndice}-${intervalSottofase}-${next}`) { lastWarning.current = `interval-${intervalIndice}-${intervalSottofase}-${next}`; emit('WARNING', intervalSottofase === 'lavoro' ? 'work' : 'rest', intervalIndice + 1) }
+      }
+      const t = window.setInterval(tick, 200); tick()
+      return () => window.clearInterval(t)
     }
     const esCorrente = esercizioIntervallo(intervalIndice)
     if (intervalSottofase === 'lavoro' && esCorrente && esCorrente.rest_sec > 0) {
       setIntervalSottofase('riposo')
       setIntervalRimanente(esCorrente.rest_sec)
+      intervalDeadline.current = Date.now() + esCorrente.rest_sec * 1000
+      emit('REST_STARTED', 'rest', intervalIndice + 1)
       return
     }
     const prossimo = intervalIndice + 1
     if (prossimo >= intervalliTotali) {
+      emit('TIMER_COMPLETED', isTabata ? 'tabata' : formato === 'emom' ? 'emom' : 'completed')
       setMetconFase('fatto')
       return
     }
     setIntervalIndice(prossimo)
     setIntervalSottofase('lavoro')
     setIntervalRimanente(metconBlock?.interval_sec ?? 20)
+    intervalDeadline.current = Date.now() + (metconBlock?.interval_sec ?? 20) * 1000
+    emit('ROUND_STARTED', formato === 'emom' ? 'emom' : isTabata ? 'tabata' : 'round', prossimo + 1)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sezione, metconFase, aIntervalli, intervalRimanente, intervalSottofase, intervalIndice, metconInPausa])
 
@@ -116,18 +217,28 @@ export default function Runner() {
     )
   }
 
+  if (countdown !== null) {
+    return <div className="grid min-h-dvh place-items-center px-5 text-center" aria-live="assertive"><div><p className="eyebrow">Preparati</p><p className="mt-5 font-data text-[8rem] leading-none text-amber2">{countdown || 'VIA'}</p><p className="mt-5 font-display text-xl font-bold uppercase">Inizia ora</p></div></div>
+  }
+
   const es = esercizi[fase.iEs]
 
   function completaSerie() {
     if (fase.serie < es.sets) {
       setFase({ tipo: 'recupero', iEs: fase.iEs, serie: fase.serie, sec: es.rest_sec })
       setRimanente(es.rest_sec)
+      restDeadline.current = Date.now() + es.rest_sec * 1000
+      emit('REST_STARTED', 'rest')
     } else if (fase.iEs < esercizi.length - 1) {
       setFase({ tipo: 'recupero', iEs: fase.iEs, serie: fase.serie, sec: es.rest_sec })
       setRimanente(es.rest_sec)
+      restDeadline.current = Date.now() + es.rest_sec * 1000
+      emit('REST_STARTED', 'rest')
     } else if (metconEsercizi.length > 0) {
+      emit('TIMER_COMPLETED', 'set')
       setSezione('metcon')
     } else {
+      emit('TIMER_COMPLETED', 'completed')
       setFinito(true)
     }
   }
@@ -229,7 +340,8 @@ export default function Runner() {
             </li>
           ))}
         </ul>
-        <button className="btn mt-8 !py-4 text-lg" onClick={() => { inizio.current = Date.now(); setIniziato(true) }}>
+        <AudioControls settings={audioSettings} onChange={updateAudio} />
+        <button className="btn mt-8 !py-4 text-lg" onClick={() => void startWithCountdown(() => { inizio.current = Date.now(); setIniziato(true); emit('SET_STARTED', 'set') })}>
           Comincia
         </button>
       </div>
@@ -266,19 +378,22 @@ export default function Runner() {
           </ul>
           <button
             className="btn mt-auto !py-4 text-lg"
-            onClick={() => {
+            onClick={() => void startWithCountdown(() => {
               if (formato === 'amrap') {
-                setMetconRimanente((metconBlock?.time_cap_min ?? 0) * 60)
+                const duration = (metconBlock?.time_cap_min ?? 0) * 60
+                setMetconRimanente(duration); metconDeadline.current = Date.now() + duration * 1000
               } else if (aGiri) {
-                setMetconTrascorsi(0)
+                setMetconTrascorsi(0); metconStartedAt.current = Date.now()
                 setMetconGiri(0)
               } else if (aIntervalli) {
                 setIntervalIndice(0)
                 setIntervalSottofase('lavoro')
-                setIntervalRimanente(metconBlock?.interval_sec ?? 20)
+                const duration = metconBlock?.interval_sec ?? 20
+                setIntervalRimanente(duration); intervalDeadline.current = Date.now() + duration * 1000
+                emit('ROUND_STARTED', formato === 'emom' ? 'emom' : isTabata ? 'tabata' : 'round', 1)
               }
               setMetconFase('via')
-            }}
+            })}
           >
             Comincia
           </button>
@@ -315,7 +430,7 @@ export default function Runner() {
             <div className="grid grid-cols-2 gap-2.5">
               <button
                 className="rounded-xl border border-edge bg-steel py-3.5 font-data text-[11px] uppercase tracking-[0.14em] text-chalk active:bg-edge"
-                onClick={() => setMetconInPausa((p) => !p)}
+                onClick={toggleMetconPause}
               >
                 {metconInPausa ? 'Riprendi' : 'Pausa'}
               </button>
@@ -361,7 +476,7 @@ export default function Runner() {
               onClick={() => {
                 const nuovi = metconGiri + 1
                 setMetconGiri(nuovi)
-                if (formato === 'for_time' || (rounds > 1 && nuovi >= rounds)) setMetconFase('fatto')
+                if (formato === 'for_time' || (rounds > 1 && nuovi >= rounds)) { emit('TIMER_COMPLETED', 'for_time'); setMetconFase('fatto') }
               }}
             >
               {ultimoGiro || formato === 'for_time' ? 'Fatto' : '+1 Giro completato'}
@@ -369,7 +484,7 @@ export default function Runner() {
             <div className="grid grid-cols-2 gap-2.5">
               <button
                 className="rounded-xl border border-edge bg-steel py-3.5 font-data text-[11px] uppercase tracking-[0.14em] text-chalk active:bg-edge"
-                onClick={() => setMetconInPausa((p) => !p)}
+                onClick={toggleMetconPause}
               >
                 {metconInPausa ? 'Riprendi' : 'Pausa'}
               </button>
@@ -407,7 +522,7 @@ export default function Runner() {
           <div className="mt-auto space-y-2.5 pt-10">
             <button
               className="w-full rounded-xl border border-edge py-3.5 font-data text-[11px] uppercase tracking-[0.14em] text-slate2 active:bg-steel"
-              onClick={() => setMetconInPausa((p) => !p)}
+              onClick={toggleMetconPause}
             >
               {metconInPausa ? 'Riprendi' : 'Pausa'}
             </button>
@@ -471,7 +586,7 @@ export default function Runner() {
           <button className="btn !py-4" onClick={avanza}>Salta il recupero</button>
           <button
             className="w-full rounded-xl border border-edge py-3.5 font-data text-[11px] uppercase tracking-[0.14em] text-slate2 active:bg-steel"
-            onClick={() => setInPausa((p) => !p)}
+            onClick={toggleRestPause}
           >
             {inPausa ? 'Riprendi' : 'Pausa'}
           </button>
@@ -527,4 +642,13 @@ export default function Runner() {
       </div>
     </div>
   )
+}
+
+function AudioControls({ settings, onChange }: { settings: AudioTimerSettings; onChange: (patch: Partial<AudioTimerSettings>) => void }) {
+  const sounds: TimerSound[] = ['beep', 'ding', 'silent']
+  return <section className="mt-7 rounded-xl border border-edge bg-steel p-4"><div className="flex items-center justify-between"><span className="text-sm font-medium">Audio timer</span><button className={`chip ${settings.enabled ? 'chip-on' : ''}`} aria-pressed={settings.enabled} onClick={() => onChange({ enabled: !settings.enabled })}>{settings.enabled ? 'ON' : 'OFF'}</button></div>{settings.enabled ? <div className="mt-4 grid grid-cols-2 gap-3"><AudioSelect label="Suono inizio" value={settings.startSound} sounds={sounds} onChange={(startSound) => onChange({ startSound })} /><AudioSelect label="Suono fine" value={settings.endSound} sounds={sounds} onChange={(endSound) => onChange({ endSound })} /><label className="col-span-2 flex items-center gap-3 text-sm text-slate2"><input type="checkbox" checked={settings.countdown} onChange={(event) => onChange({ countdown: event.target.checked })} />Countdown 3–2–1</label></div> : null}</section>
+}
+
+function AudioSelect({ label, value, sounds, onChange }: { label: string; value: TimerSound; sounds: TimerSound[]; onChange: (sound: TimerSound) => void }) {
+  return <label className="text-xs text-slate2">{label}<select className="input mt-1 !py-2" value={value} onChange={(event) => onChange(event.target.value as TimerSound)}>{sounds.map((sound) => <option key={sound} value={sound}>{sound === 'beep' ? 'Beep' : sound === 'ding' ? 'Ding' : 'Silenzioso'}</option>)}</select></label>
 }

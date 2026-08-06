@@ -41,6 +41,8 @@ describe('Weekly Program Engine', () => {
     expect(program.week.filter((session) => session.mode === 'bodybuilding')).toHaveLength(3)
     expect(program.week.filter((session) => session.mode === 'crossfit_hybrid')).toHaveLength(2)
     expect(program.week.filter((session) => session.mode === 'bodybuilding').map((session) => session.split).sort()).toEqual(['legs', 'pull', 'push'])
+    const hybrids = program.week.filter((session) => session.mode === 'crossfit_hybrid').map((session) => session.day)
+    expect(hybrids).not.toEqual(['friday', 'saturday'])
   })
 
   it('Tabata resta complementare quando è combinato con altre discipline', () => {
