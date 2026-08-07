@@ -1,0 +1,12 @@
+{
+  "name": "GymBuilder",
+  "short_name": "GymBuilder",
+  "description": "Allenamenti e timer GymBuilder",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0A0C0E",
+  "theme_color": "#0A0C0E",
+  "icons": [
+    { "src": "/gymbuilder-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

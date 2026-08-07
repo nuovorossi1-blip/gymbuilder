@@ -1,6 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { AuthProvider, useAuth } from './features/auth/AuthProvider'
-import { WorkoutProvider } from './features/workout/WorkoutContext'
+import { WorkoutProvider, useWorkout } from './features/workout/WorkoutContext'
 import LoginPage from './features/auth/LoginPage'
 import BottomNav from './components/BottomNav'
 import Create from './pages/Create'
@@ -9,9 +9,11 @@ import Runner from './pages/Runner'
 import Saved from './pages/Saved'
 import History from './pages/History'
 import ProfilePage from './pages/ProfilePage'
+import ActiveTimerBanner from './components/ActiveTimerBanner'
 
 function Guscio() {
   const { user, loading } = useAuth()
+  const { workout } = useWorkout()
   const { pathname } = useLocation()
 
   if (loading) {
@@ -22,13 +24,16 @@ function Guscio() {
     )
   }
 
-  if (!user) return <LoginPage />
+  // Una sessione già iniziata resta accessibile anche durante un rinnovo token
+  // fallito o un periodo offline. Le altre pagine restano protette.
+  if (!user && !(pathname === '/avvia' && workout)) return <LoginPage />
 
   // Durante l'allenamento la navigazione sparisce: si resta sul pezzo.
   const conNav = pathname !== '/avvia'
 
   return (
     <div className={`mx-auto min-h-dvh max-w-lg ${conNav ? 'pb-24' : ''}`}>
+      <ActiveTimerBanner />
       <Routes>
         <Route path="/" element={<Create />} />
         <Route path="/allenamento" element={<WorkoutPreview />} />

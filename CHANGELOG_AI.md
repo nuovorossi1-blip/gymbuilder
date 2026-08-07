@@ -1,5 +1,13 @@
 # Changelog AI
 
+## 2026-08-07 — PWA, timer globale e continuità allenamento
+
+- GymBuilder è installabile come PWA e dispone di Service Worker con shell offline e apertura diretta del Runner dalle notifiche.
+- Aggiunto un mini-timer globale in alto quando si naviga dentro l'app durante un recupero o un intervallo attivo.
+- Le notifiche del timer usano la registrazione Service Worker dove disponibile, con fallback browser.
+- Una sessione locale attiva resta visibile durante errori di rete o rinnovo della sessione Supabase; il caricamento Auth non rimane bloccato.
+- Aggiunti nel Runner Indietro, Pausa/Riprendi e Stop con conferma; l'eliminazione delle schede salvate è ora esplicita, confermata e gestisce gli errori.
+
 ## 2026-08-07 — Programmi multi-settimana, Hybrid e timer background
 
 - Separati Programma e Sessione singola: il programma dura minimo due settimane ed è salvato su Supabase prima di mostrare le giornate; la sessione singola resta effimera.

@@ -29,6 +29,16 @@ export default function Saved() {
     naviga('/allenamento')
   }
 
+  async function elimina(s: SavedWorkout) {
+    if (!window.confirm(`Eliminare “${s.name}” dai tuoi allenamenti salvati?`)) return
+    try {
+      await eliminaSalvato(s.id)
+      setLista((current) => current?.filter((item) => item.id !== s.id) ?? [])
+    } catch {
+      setErrore('Non siamo riusciti a eliminare la scheda. Riprova.')
+    }
+  }
+
   return (
     <div className="px-5 pt-12 pb-4">
       <h1 className="font-display font-extrabold uppercase text-[2.4rem] leading-none tracking-tight">Salvati</h1>
@@ -66,10 +76,10 @@ export default function Saved() {
                 {s.favorite ? '★ preferito' : '☆ preferito'}
               </button>
               <button
-                className="ml-auto font-data text-[11px] uppercase tracking-[0.12em] text-slate2"
-                onClick={async () => { await eliminaSalvato(s.id); carica() }}
+                className="ml-auto rounded-lg border border-red-400/30 px-3 py-1.5 font-data text-[11px] uppercase tracking-[0.12em] text-red-300"
+                onClick={() => void elimina(s)}
               >
-                elimina
+                Elimina scheda
               </button>
             </div>
           </li>
