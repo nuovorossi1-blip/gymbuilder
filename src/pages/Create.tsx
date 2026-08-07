@@ -14,7 +14,7 @@ import { generaHybrid } from '../generators/hybrid'
 import { generaForza } from '../generators/strength'
 import { generaTabata } from '../generators/tabata'
 import type { WeeklyTrainingState } from '../generators/weakPoints'
-import { caricaCatalogo, situazioneSettimanaleUtente } from '../lib/api'
+import { aggiornaProgramma, caricaCatalogo, salvaProgramma, situazioneSettimanaleUtente } from '../lib/api'
 import {
   DURATIONS, EQUIPMENT_ITEM_LABELS, EQUIPMENT_LABELS, EXERCISE_POLICY_LABELS,
   EXPERIENCE_LABELS, MODE_LABELS, MUSCLE_LABELS, PUBLIC_MODES, SPLIT_LABELS,
@@ -36,6 +36,7 @@ const EDITABLE_SPLITS: Split[] = ['push', 'pull', 'legs', 'upper', 'lower', 'ful
 const STRENGTH_SPLITS: Split[] = ['push', 'pull', 'legs', 'upper', 'lower', 'full_body']
 
 const DEFAULT_CONFIG: WeeklyProgramConfig = {
+  program_kind: 'program', duration_weeks: 4,
   training_days: 5, selected_modes: ['bodybuilding', 'crossfit_hybrid'], goal: 'hypertrophy',
   split_system: 'ppl', experience: 'intermediate', duration_min: 60,
   equipment: { preset: 'full_gym', available: PRESET_EQUIPMENT.full_gym }, weak_points: [],
@@ -60,9 +61,18 @@ export default function Create() {
     }).catch((reason: Error) => setError(reason.message))
   }, [setCatalog, user])
 
-  function createProgram(config: WeeklyProgramConfig) {
-    try { setWeeklyProgram(generateWeeklyProgram(config)); setError(null) }
+  async function createProgram(config: WeeklyProgramConfig) {
+    try {
+      const generated = generateWeeklyProgram(config)
+      const program = config.program_kind === 'program' && user ? await salvaProgramma(user.id, generated) : generated
+      setWeeklyProgram(program); setError(null)
+    }
     catch (reason) { setError(reason instanceof Error ? reason.message : 'Configurazione settimanale non valida.') }
+  }
+
+  function updateProgram(program: WeeklyProgram) {
+    setWeeklyProgram(program)
+    if (user && program.persisted) void aggiornaProgramma(user.id, program).catch((reason: Error) => setError(reason.message))
   }
 
   function generateDay(session: WeeklySession) {
@@ -87,7 +97,7 @@ export default function Create() {
     const split = session.split ?? 'full_body'
     const workout = session.mode === 'crossfit'
       ? generaCrossFit(usableCatalog, { ...common, format: global.crossfit_format })
-      : session.mode === 'crossfit_hybrid' ? generaHybrid(usableCatalog, common)
+      : session.mode === 'crossfit_hybrid' ? generaHybrid(usableCatalog, { ...common, format: session.variant === 'A' ? 'amrap' : 'emom' })
       : session.mode === 'strength' ? generaForza(usableCatalog, { ...common, split, weekly_volume: weeklyState?.volume, last_trained_at: weeklyState?.last_trained_at })
       : session.mode === 'tabata' ? generaTabata(usableCatalog, { ...common, ...global.tabata })
       : generaBodybuilding(usableCatalog, { ...common, priority_muscles: session.priority_muscles ?? global.weak_points, split, goal: global.goal, weekly_volume: weeklyState?.volume, last_trained_at: weeklyState?.last_trained_at })
@@ -105,23 +115,23 @@ export default function Create() {
     const validation = validateWorkout(workout, config, catalog)
     if (!validation.valid) { setError(validation.errors.join(' ')); return }
     clearRejectedExercises()
-    setWeeklyProgram(applyWorkoutRecovery(weeklyProgram, session.id, workout, catalog))
+    updateProgram(applyWorkoutRecovery(weeklyProgram, session.id, workout, catalog))
     setGenerationConfig(config); setWorkout(workout); setError(null); navigate('/allenamento')
   }
 
   return <main className="px-5 pb-6 pt-10">
     <p className="eyebrow mb-3">{profile?.display_name ? `Ciao ${profile.display_name.split(' ')[0]}` : 'GymBuilder'}</p>
     {weeklyProgram
-      ? <WeekView program={weeklyProgram} error={error} onUpdate={setWeeklyProgram} onGenerate={generateDay} onReset={() => setWeeklyProgram(null)} />
+      ? <WeekView program={weeklyProgram} error={error} onUpdate={updateProgram} onGenerate={generateDay} onReset={() => setWeeklyProgram(null)} />
       : <WeeklyBuilder catalog={catalog} error={error} initial={DEFAULT_CONFIG} onCreate={createProgram} />}
   </main>
 }
 
-function WeeklyBuilder({ catalog, error, initial, onCreate }: { catalog: Exercise[]; error: string | null; initial: WeeklyProgramConfig; onCreate: (config: WeeklyProgramConfig) => void }) {
+function WeeklyBuilder({ catalog, error, initial, onCreate }: { catalog: Exercise[]; error: string | null; initial: WeeklyProgramConfig; onCreate: (config: WeeklyProgramConfig) => void | Promise<void> }) {
   const [config, setConfig] = useState(initial)
   const [advanced, setAdvanced] = useState(false)
   const [exercisePreferences, setExercisePreferences] = useState(false)
-  const valid = config.selected_modes.length > 0 && config.selected_modes.length <= config.training_days && catalog.length > 0
+  const valid = config.selected_modes.length > 0 && (config.program_kind === 'single_session' || config.selected_modes.length <= config.training_days) && catalog.length > 0
   const patch = <K extends keyof WeeklyProgramConfig>(key: K, value: WeeklyProgramConfig[K]) => setConfig((old) => ({ ...old, [key]: value }))
   const toggleMode = (mode: PublicMode) => patch('selected_modes', config.selected_modes.includes(mode) ? config.selected_modes.filter((item) => item !== mode) : [...config.selected_modes, mode])
   const toggleMuscle = (muscle: Muscle) => patch('weak_points', config.weak_points.includes(muscle) ? config.weak_points.filter((item) => item !== muscle) : [...config.weak_points, muscle])
@@ -131,9 +141,10 @@ function WeeklyBuilder({ catalog, error, initial, onCreate }: { catalog: Exercis
     patch('preferences', { ...config.preferences, [key]: current.includes(id) ? current.filter((item) => item !== id) : [...current, id] })
   }
   return <>
-    <h1 className="font-display text-[2.7rem] font-extrabold uppercase leading-[.88] tracking-tight">Costruisci la<br />tua settimana</h1>
-    <Field title="Numero giorni"><div className="grid grid-cols-5 gap-2">{[3, 4, 5, 6, 7].map((days) => <Choice key={days} active={config.training_days === days} onClick={() => patch('training_days', days)}>{days}</Choice>)}</div></Field>
-    <Field title="Discipline della settimana"><div className="space-y-2">{PUBLIC_MODES.map((mode) => <Choice key={mode} active={config.selected_modes.includes(mode)} onClick={() => toggleMode(mode)}>{MODE_LABELS[mode]}</Choice>)}</div><p className="mt-2 text-xs text-slate2">Scegline da 1 a {config.training_days}. Ogni disciplina comparirà almeno una volta.</p></Field>
+    <h1 className="font-display text-[2.7rem] font-extrabold uppercase leading-[.88] tracking-tight">Costruisci il<br />tuo allenamento</h1>
+    <Field title="Cosa vuoi creare?"><Grid><Choice active={config.program_kind === 'program'} onClick={() => patch('program_kind', 'program')}>Programma</Choice><Choice active={config.program_kind === 'single_session'} onClick={() => { patch('program_kind', 'single_session'); patch('selected_modes', [config.selected_modes[0] ?? 'bodybuilding']) }}>Sessione singola</Choice></Grid><p className="mt-2 text-xs text-slate2">Il programma salva una split ripetibile; la sessione singola vale soltanto per oggi.</p></Field>
+    {config.program_kind === 'program' ? <><Field title="Numero giorni"><div className="grid grid-cols-5 gap-2">{[3, 4, 5, 6, 7].map((days) => <Choice key={days} active={config.training_days === days} onClick={() => patch('training_days', days)}>{days}</Choice>)}</div></Field><Field title="Durata programma"><div className="grid grid-cols-4 gap-2">{[2, 4, 6, 8].map((weeks) => <Choice key={weeks} active={config.duration_weeks === weeks} onClick={() => patch('duration_weeks', weeks)}>{weeks} sett.</Choice>)}</div><p className="mt-2 text-xs text-slate2">Minimo due settimane. Potrai mantenere gli stessi slot e alternare le varianti A/B.</p></Field></> : null}
+    <Field title={config.program_kind === 'program' ? 'Discipline della settimana' : 'Tipo di sessione'}><div className="space-y-2">{PUBLIC_MODES.map((mode) => <Choice key={mode} active={config.selected_modes.includes(mode)} onClick={() => config.program_kind === 'single_session' ? patch('selected_modes', [mode]) : toggleMode(mode)}>{MODE_LABELS[mode]}</Choice>)}</div><p className="mt-2 text-xs text-slate2">{config.program_kind === 'program' ? `Scegline da 1 a ${config.training_days}. Ogni disciplina comparirà almeno una volta.` : 'Scegli una sola modalità per l’allenamento di oggi.'}</p></Field>
     <Field title="Obiettivo globale"><div className="space-y-2">{GOAL_OPTIONS.map((goal) => <button type="button" key={goal.value} aria-pressed={config.goal === goal.value} onClick={() => patch('goal', goal.value)} className={`slab w-full text-left ${config.goal === goal.value ? '!border-chalk' : ''}`}><span className="block font-display font-bold uppercase">{goal.label}</span><span className="mt-1 block text-xs text-slate2">{goal.description}</span></button>)}</div><p className="mt-2 text-xs text-slate2">L’obiettivo regola le priorità della settimana; ogni disciplina mantiene la propria struttura.</p></Field>
     {config.selected_modes.includes('bodybuilding') ? <Field title="Sistema Bodybuilding"><Grid>{(Object.keys(SPLIT_SYSTEM_LABELS) as SplitSystem[]).map((system) => <Choice key={system} active={config.split_system === system} onClick={() => patch('split_system', system)}>{SPLIT_SYSTEM_LABELS[system]}</Choice>)}</Grid></Field> : null}
     {config.selected_modes.includes('crossfit') ? <Field title="Formato CrossFit Standard"><div className="grid grid-cols-3 gap-2">{(['amrap', 'emom', 'for_time'] as const).map((format) => <Choice key={format} active={config.crossfit_format === format} onClick={() => patch('crossfit_format', format)}>{format === 'for_time' ? 'For Time' : format.toUpperCase()}</Choice>)}</div></Field> : null}
@@ -146,15 +157,15 @@ function WeeklyBuilder({ catalog, error, initial, onCreate }: { catalog: Exercis
     <Field title="Policy globali"><Policy title="Corpo libero" value={config.preferences.bodyweight_policy} onChange={(value) => setPolicy('bodyweight_policy', value)} /><Policy title="Elastici" value={config.preferences.elastic_policy} onChange={(value) => setPolicy('elastic_policy', value)} /><button className="mt-4 text-xs uppercase tracking-wider text-amber2" onClick={() => setExercisePreferences((old) => !old)}>{exercisePreferences ? 'Chiudi esercizi' : 'Preferiti / Esclusi'}</button>{exercisePreferences ? <div className="mt-3 max-h-80 space-y-2 overflow-y-auto">{catalog.filter((exercise) => !exercise.roles.includes('warmup')).map((exercise) => <div key={exercise.id} className="grid grid-cols-[1fr_auto_auto] items-center gap-2 border-b border-edge py-2 text-sm"><span>{exercise.name}</span><button className={config.preferences.preferred_exercise_ids.includes(exercise.id) ? 'text-amber2' : 'text-slate2'} onClick={() => toggleExercise('preferred_exercise_ids', exercise.id)}>Preferito</button><button className={config.preferences.excluded_exercise_ids.includes(exercise.id) ? 'text-amber2' : 'text-slate2'} onClick={() => toggleExercise('excluded_exercise_ids', exercise.id)}>Escludi</button></div>)}</div> : null}</Field>
     {config.selected_modes.length > config.training_days ? <p className="mt-5 text-amber2">Hai selezionato più discipline dei giorni disponibili.</p> : null}
     {error ? <p role="alert" className="mt-5 text-amber2">{error}</p> : null}
-    <button className="btn mt-8 !py-4 text-lg" disabled={!valid} onClick={() => onCreate(config)}>{catalog.length ? 'Genera la settimana' : 'Caricamento esercizi…'}</button>
+    <button className="btn mt-8 !py-4 text-lg" disabled={!valid} onClick={() => void onCreate(config)}>{catalog.length ? (config.program_kind === 'program' ? 'Salva la split' : 'Genera la sessione') : 'Caricamento esercizi…'}</button>
   </>
 }
 
 function WeekView({ program, error, onUpdate, onGenerate, onReset }: { program: WeeklyProgram; error: string | null; onUpdate: (program: WeeklyProgram) => void; onGenerate: (session: WeeklySession) => void; onReset: () => void }) {
   const [editing, setEditing] = useState<string | null>(null)
   return <>
-    <p className="eyebrow mb-3">Programma settimanale</p><h1 className="font-display text-[2.7rem] font-extrabold uppercase leading-[.88] tracking-tight">La tua<br />settimana</h1>
-    <p className="mt-4 text-sm text-slate2">{program.config.training_days} giorni · {program.config.selected_modes.map((mode) => MODE_LABELS[mode]).join(' + ')}</p>
+    <p className="eyebrow mb-3">{program.config.program_kind === 'program' ? 'Programma salvato' : 'Sessione singola'}</p><h1 className="font-display text-[2.7rem] font-extrabold uppercase leading-[.88] tracking-tight">{program.config.program_kind === 'program' ? <>La tua<br />settimana</> : <>Allenamento<br />di oggi</>}</h1>
+    <p className="mt-4 text-sm text-slate2">{program.config.program_kind === 'program' ? `${program.config.training_days} giorni · ${program.config.duration_weeks} settimane · ` : ''}{program.config.selected_modes.map((mode) => MODE_LABELS[mode]).join(' + ')}</p>
     {program.warnings.map((warning) => <p key={`${warning.code}-${warning.day_ids.join('-')}`} className="mt-4 rounded-lg border border-amber2/40 bg-amber2/10 px-3 py-2 text-sm text-amber2">{warning.message}</p>)}
     <div className="mt-7 space-y-3">{program.week.map((session) => <article key={session.id} className="slab"><p className="eyebrow">{DAY_LABELS[session.day]}</p><h2 className="mt-1 font-display text-lg font-bold uppercase">{session.label}</h2>{editing === session.id ? <SessionEditor session={session} onChange={(patch) => onUpdate(updateWeeklySession(program, session.id, patch))} onClose={() => setEditing(null)} /> : <div className="mt-4 grid grid-cols-2 gap-2"><button className="rounded-xl border border-edge py-3 font-data text-xs uppercase" onClick={() => setEditing(session.id)}>Modifica</button><button className="rounded-xl bg-chalk py-3 font-data text-xs uppercase text-ink" onClick={() => onGenerate(session)}>Genera giorno</button></div>}</article>)}</div>
     {error ? <p role="alert" className="mt-5 text-amber2">{error}</p> : null}

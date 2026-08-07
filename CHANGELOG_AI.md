@@ -1,5 +1,16 @@
 # Changelog AI
 
+## 2026-08-07 — Programmi multi-settimana, Hybrid e timer background
+
+- Separati Programma e Sessione singola: il programma dura minimo due settimane ed è salvato su Supabase prima di mostrare le giornate; la sessione singola resta effimera.
+- Aggiunta `training_programs` con RLS proprietaria completa per SELECT/INSERT/UPDATE/DELETE.
+- PPL a quattro giorni usa il quarto giorno per carenze Upper/Lower oppure Total Body senza carenze; a cinque giorni resta PPL + Upper/Lower.
+- I programmi Bodybuilding + Hybrid su cinque giorni distribuiscono tre sessioni PPL e due Hybrid senza accodare le due Hybrid.
+- Hybrid supporta AMRAP, EMOM, For Time e Intervals applicati a cardio e isolamenti bodybuilding leggeri; le sessioni A/B alternano AMRAP ed EMOM.
+- Il Replacement Engine restituisce una graduatoria completa, mantiene lo slot ed è ora compatibile con gli isolamenti bodybuilding inseriti nei Metcon Hybrid.
+- Il timer web aggiorna il titolo in background e invia notifiche per lavoro, recupero, fine e time cap, oltre a bip e vibrazione.
+- Verifica: 166 test, lint senza errori e build Vite verde; migrazione programmi applicata e policy remote verificate.
+
 ## 2026-08-07 — Catalogo esercizi curato e metadati interni
 
 - Espanso il catalogo Supabase da 88 a 118 esercizi attivi con 30 varianti realmente distintive per traiettoria, supporto, presa, unilateralità o attrezzatura.

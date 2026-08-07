@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import type { CompletedWorkout, Exercise, ExerciseRecord, GeneratedWorkout, SavedWorkout, WorkoutGenerationConfig } from '../types'
+import type { CompletedWorkout, Exercise, ExerciseRecord, GeneratedWorkout, SavedWorkout, WeeklyProgram, WorkoutGenerationConfig } from '../types'
 import { analizzaSettimana, type WeeklyTrainingState } from '../generators/weakPoints'
 import { normalizeExercise } from '../data/exercises/normalize'
 
@@ -31,6 +31,32 @@ export async function salvaAllenamento(
   const { data, error } = result
   if (error) throw new Error('Non siamo riusciti a salvare. Riprova.')
   return data.id as string
+}
+
+export async function salvaProgramma(userId: string, program: WeeklyProgram): Promise<WeeklyProgram> {
+  if (program.config.program_kind !== 'program' || program.config.duration_weeks < 2) {
+    throw new Error('Un programma deve durare almeno due settimane.')
+  }
+  const { data, error } = await supabase.from('training_programs').insert({
+    user_id: userId,
+    name: `${program.config.training_days} giorni · ${program.config.duration_weeks} settimane`,
+    duration_weeks: program.config.duration_weeks,
+    config: program.config,
+    week: program.week,
+  }).select('id').single()
+  if (error) throw new Error('Non siamo riusciti a salvare il programma.')
+  return { ...program, id: data.id as string, persisted: true }
+}
+
+export async function aggiornaProgramma(userId: string, program: WeeklyProgram): Promise<void> {
+  if (!program.persisted || program.config.program_kind !== 'program') return
+  const { error } = await supabase.from('training_programs').update({
+    duration_weeks: program.config.duration_weeks,
+    config: program.config,
+    week: program.week,
+    updated_at: new Date().toISOString(),
+  }).eq('id', program.id).eq('user_id', userId)
+  if (error) throw new Error('Non siamo riusciti ad aggiornare il programma.')
 }
 
 export async function elencoSalvati(userId: string): Promise<SavedWorkout[]> {

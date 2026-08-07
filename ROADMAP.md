@@ -23,6 +23,9 @@
 - Ordine Bodybuilding fatigue-aware: Legs parte da squat/pressa, alterna catena anteriore/posteriore e chiude con isolamenti/polpacci; Push separa i press pesanti con il lavoro spalle.
 - Countdown percepibile con tre bip e vibrazione opzionale; Belt Squat aggiunto al catalogo remoto.
 - Catalogo curato portato a 118 esercizi: le varianti restano solo quando cambiano traiettoria, supporto, presa, unilateralità o attrezzatura; stabilità e carico assiale sono informazioni interne del motore.
+- Programma e sessione singola separati; programmi da minimo due settimane salvati su Supabase con split e sessioni A/B.
+- Bodybuilding Hybrid: PPL + due giornate HY su cinque giorni, con metodiche AMRAP/EMOM/For Time/Intervals applicate a esercizi bodybuilding a carico controllato.
+- Web background: titolo e notifiche del timer implementati. Dynamic Island/Live Activity resta una feature nativa ActivityKit da compilare in un contenitore iOS con Widget Extension e credenziali Apple.
 
 ## IN SVILUPPO
 

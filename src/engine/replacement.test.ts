@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import fixture from '../generators/__tests__/fixtures/exercises.json'
 import { normalizeExercise } from '../data/exercises/normalize'
 import type { ExerciseFeedbackReason, ExerciseRecord, PrescribedExercise } from '../types'
-import { findExerciseReplacement } from './replacement'
+import { findExerciseReplacement, findExerciseReplacements } from './replacement'
 
 const catalog = (fixture as ExerciseRecord[]).map(normalizeExercise)
 const equipment = { preset: 'full_gym' as const, available: ['barbell', 'dumbbells', 'machines', 'cable', 'pullup_bar', 'bench'] as const }
@@ -87,5 +87,31 @@ describe('Exercise Feedback & Replacement Engine', () => {
     expect(replacement.id).not.toBe(original.id)
     expect(replacement.exercise_types).toContain('compound')
     expect(replacement.movement_pattern).toBe('horizontal_pull')
+  })
+
+  it('restituisce una lista ordinata di alternative senza duplicati', () => {
+    const alternatives = findExerciseReplacements(
+      prescribed('squat'), catalog,
+      { ...equipment, available: [...equipment.available] }, preferences,
+      new Set(['squat', 'front_squat']),
+      { reason: 'dislike', experience: 'advanced', split: 'legs' },
+    )
+    expect(alternatives.length).toBeGreaterThan(1)
+    expect(alternatives.every(({ exercise }) => exercise.id !== 'front_squat')).toBe(true)
+    expect(alternatives.every(({ exercise }) => exercise.exercise_types.includes('compound'))).toBe(true)
+    expect(alternatives.map(({ score }) => score)).toEqual([...alternatives.map(({ score }) => score)].sort((a, b) => a - b))
+  })
+
+  it('nel Metcon Hybrid sostituisce un isolamento con bodybuilding leggero dello stesso muscolo', () => {
+    const current = { ...prescribed('alzate_laterali', 'metcon'), note: 'isolamento', reps: '12-15', rest_sec: 30 }
+    const replacement = findExerciseReplacement(
+      current, catalog,
+      { ...equipment, available: [...equipment.available] }, preferences,
+      new Set(['alzate_laterali']),
+      { reason: 'dislike', experience: 'advanced' },
+    )!
+    expect(replacement.primary_muscles).toContain('lateral_delts')
+    expect(replacement.exercise_types).toContain('isolation')
+    expect(replacement.systemic_fatigue).toBeLessThanOrEqual(1)
   })
 })
