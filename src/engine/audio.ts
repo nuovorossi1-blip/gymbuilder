@@ -1,6 +1,6 @@
 import type { TimerEvent, TimerEventType } from './timer'
 
-export type TimerSound = 'beep' | 'ding' | 'silent'
+export type TimerSound = 'beep' | 'ding' | 'ring' | 'silent'
 export interface AudioTimerSettings { enabled: boolean; startSound: TimerSound; endSound: TimerSound; countdown: boolean; vibration: boolean }
 
 export const DEFAULT_AUDIO_SETTINGS: AudioTimerSettings = { enabled: true, startSound: 'beep', endSound: 'ding', countdown: true, vibration: true }
@@ -18,7 +18,7 @@ export function saveAudioSettings(settings: AudioTimerSettings): void {
 export function soundForEvent(type: TimerEventType, settings: AudioTimerSettings): TimerSound | null {
   if (!settings.enabled) return null
   if (type === 'WARNING') return settings.countdown ? 'beep' : null
-  if (type === 'TIMER_COMPLETED' || type === 'TIME_CAP_REACHED' || type === 'REST_STARTED') return settings.endSound
+  if (type === 'COUNTDOWN_COMPLETED' || type === 'TIMER_COMPLETED' || type === 'TIME_CAP_REACHED' || type === 'REST_STARTED') return settings.endSound
   if (type === 'TIMER_STARTED' || type === 'WORK_STARTED' || type === 'ROUND_STARTED' || type === 'SET_STARTED') return settings.startSound
   return null
 }
@@ -26,6 +26,7 @@ export function soundForEvent(type: TimerEventType, settings: AudioTimerSettings
 export function vibrationForEvent(type: TimerEventType, settings: AudioTimerSettings): number | number[] | null {
   if (!settings.vibration) return null
   if (type === 'WARNING') return 70
+  if (type === 'COUNTDOWN_COMPLETED') return [250, 80, 350]
   if (type === 'TIMER_COMPLETED' || type === 'TIME_CAP_REACHED') return [140, 80, 180]
   if (type === 'REST_STARTED' || type === 'WORK_STARTED' || type === 'ROUND_STARTED' || type === 'SET_STARTED') return 45
   return null
@@ -48,10 +49,21 @@ export class TimerAudio {
     if (!sound || sound === 'silent' || !this.context || this.context.state !== 'running') return
     const now = this.context.currentTime
     if (event.type === 'WARNING') this.tone(now, 760, 0.1, 0.28, 'square')
-    else if (event.type === 'TIMER_COMPLETED') { this.tone(now, 880, 0.12, 0.18); this.tone(now + 0.18, 1040, 0.16, 0.18) }
+    else if (event.type === 'COUNTDOWN_COMPLETED') this.longSignal(now, sound)
+    else if (event.type === 'TIMER_COMPLETED') this.longSignal(now, sound)
     else if (event.type === 'TIME_CAP_REACHED') { this.tone(now, 330, 0.2, 0.22); this.tone(now + 0.26, 330, 0.2, 0.22) }
     else if (sound === 'ding') this.tone(now, 1040, 0.18, 0.22)
     else this.tone(now, 780, 0.12, 0.16)
+  }
+  private longSignal(at: number, sound: Exclude<TimerSound, 'silent'>) {
+    if (sound === 'ring') {
+      this.tone(at, 880, 0.22, 0.2)
+      this.tone(at + 0.24, 1175, 0.55, 0.2)
+    } else if (sound === 'ding') {
+      this.tone(at, 1040, 0.8, 0.24)
+    } else {
+      this.tone(at, 720, 0.7, 0.3, 'square')
+    }
   }
   private tone(at: number, frequency: number, duration: number, gainValue: number, type: OscillatorType = 'sine') {
     if (!this.context) return

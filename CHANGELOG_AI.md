@@ -1,5 +1,10 @@
 # Changelog AI
 
+## 2026-08-07 — Segnale finale countdown distinto
+
+- I secondi 3–2–1 producono tre bip brevi; allo zero viene emesso un evento separato con biiip lungo, diiing lungo o riiing secondo la preferenza.
+- La modalità silenziosa può usare soltanto una vibrazione lunga e riconoscibile se la vibrazione è attiva.
+
 ## 2026-08-07 — Apertura compound universale
 
 - Bodybuilding, Forza e Hybrid condividono ora un'invariante finale: richiami, carenze e isolamenti non possono precedere il primo esercizio compound multiarticolare.
