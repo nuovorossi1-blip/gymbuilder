@@ -1,5 +1,12 @@
 # Changelog AI
 
+## 2026-08-07 — Nomi e istruzioni catalogo curate
+
+- Tutti i 141 esercizi attivi hanno ora un nome italiano naturale quando traducibile e un cue esecutivo breve e specifico; termini tecnici consolidati restano in inglese.
+- Rimossi tutti i testi generici dalle varianti Bodybuilding e CrossFit; il rematore chest-supported è ora “Rematore con manubri su panca a 45°” con istruzione dedicata.
+- Disattivata la Leg Extension unilaterale duplicata e ricondotte le sostituzioni alla Leg Extension classica.
+- Le vecchie schede salvate vengono aggiornate in memoria con nomi e istruzioni del catalogo corrente quando vengono aperte.
+
 ## 2026-08-07 — PPL separata dall'obiettivo settimanale
 
 - La priorità globale serve soltanto allo scheduling delle discipline e non cambia più ripetizioni/recuperi della giornata Bodybuilding.

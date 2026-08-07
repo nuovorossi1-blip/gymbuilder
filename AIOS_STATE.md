@@ -547,3 +547,4 @@ prese singolarmente non sarebbero verificabili.
 | 2026-08-07 | Codex | Resa universale l'apertura compound: Bodybuilding, Forza e Hybrid spostano il primo multiarticolare davanti a isolamenti, richiami e carenze senza alterare l'ordine relativo degli slot successivi. |
 | 2026-08-07 | Codex | Separato il completamento del countdown dagli avvisi 3–2–1: tre beep brevi seguiti da un segnale lungo configurabile (beep, ding, ring o sola vibrazione). |
 | 2026-08-07 | Codex | Separata la priorità globale dalla prescrizione del singolo giorno: PPL resta sempre Bodybuilding/ipertrofia; Forza, CrossFit e Hybrid non vengono più presentati come varianti PPL miste o conditioning. |
+| 2026-08-07 | Codex | Catalogo remoto curato a 141 esercizi attivi con zero cue generici/mancanti, nomi italiani dove naturali e termini tecnici preservati. Disattivata Leg Extension unilaterale duplicata; le schede salvate vengono idratate col catalogo corrente all'apertura. |
