@@ -34,6 +34,8 @@
 - Priorità settimanale separata dalle metodiche: PPL sempre Bodybuilding, senza varianti fittizie PPL Conditioning/Mista.
 - Catalogo curato a 141 esercizi attivi: nomi IT quando naturali, cue esecutivi specifici per ogni esercizio e duplicati reali rimossi.
 - Flussi separati: programma = struttura settimanale prima degli esercizi; sessione singola = scelta diretta della seduta e generazione immediata.
+- Programmi limitati a una o due discipline, senza combinazioni triple; sessioni singole limitate a una disciplina.
+- Metodiche dedicate per Bodybuilding, Forza, CrossFit e Hybrid; Forza + CrossFit su sei giorni alterna le discipline e adatta ogni WOD alla fatica della seduta precedente.
 
 ## IN SVILUPPO
 

@@ -176,3 +176,11 @@
 - Corretto il richiamo incrociato tricipiti nel Pull.
 - Aggiunti test master; totale verificato: 118 test verdi.
 - Aggiunto binding Rolldown Linux necessario all'esecuzione affidabile di Vitest nell'ambiente corrente.
+## 2026-08-07 — Programmi limitati a due discipline e metodiche dedicate
+
+- La sessione singola accetta una sola disciplina; il programma settimanale ne accetta una o due, mai tre.
+- Forza espone metodiche reali 5×5, 3×5, forza massimale e forza con complementari.
+- CrossFit conserva i propri sette formati; Hybrid permette focus e formato separati dalla split Bodybuilding.
+- Forza + CrossFit su sei giorni alterna tre sedute per disciplina con riposo il giovedì.
+- Ogni CrossFit successivo evita i distretti più affaticati dalla seduta Forza precedente.
+- Aggiunti test di regressione per combinazioni triple, prescrizioni Forza e calendario adattivo; 175 test verdi.

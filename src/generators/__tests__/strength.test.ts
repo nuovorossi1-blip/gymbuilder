@@ -71,17 +71,30 @@ describe('generaForza — struttura di base (poche alzate pesanti, non un Bodybu
 })
 
 describe('generaForza — intensità (sez. UI Base44)', () => {
+  it('5×5 e 3×5 producono prescrizioni realmente differenti', () => {
+    const common = {
+      split: 'full_body' as const, experience: 'advanced' as const, equipment: 'full_gym' as const,
+      duration_min: 90, priority_muscles: [], excluded_exercises: [], seed: 6,
+    }
+    const five = generaForza(catalogo, { ...common, method: '5x5' })
+    const three = generaForza(catalogo, { ...common, method: '3x5' })
+    expect(mainBlock(five).exercises[0]).toMatchObject({ sets: 5, reps: '5' })
+    expect(mainBlock(three).exercises[0]).toMatchObject({ sets: 3, reps: '5' })
+    expect(five.name).toContain('5×5')
+    expect(three.name).toContain('3×5')
+  })
+
   it('intensità Alta abbassa le ripetizioni e allunga il recupero rispetto a Bassa, a parità di tempo sufficiente', () => {
     // Durata e serie scelte apposta abbondanti: qui verifichiamo l'effetto
     // dell'intensità, non l'adattamento al tempo (che ha un test a parte
     // e può legittimamente uniformare i recuperi quando il tempo è poco).
     const bassa = generaForza(catalogo, {
       split: 'push', experience: 'intermediate', equipment: 'full_gym', duration_min: 75,
-      priority_muscles: [], excluded_exercises: [], seed: 5, intensity: 'low',
+      priority_muscles: [], excluded_exercises: [], seed: 5, intensity: 'low', method: 'strength_accessories',
     })
     const alta = generaForza(catalogo, {
       split: 'push', experience: 'intermediate', equipment: 'full_gym', duration_min: 75,
-      priority_muscles: [], excluded_exercises: [], seed: 5, intensity: 'high',
+      priority_muscles: [], excluded_exercises: [], seed: 5, intensity: 'high', method: 'strength_accessories',
     })
     const compoundBassa = mainBlock(bassa).exercises.find((e) => e.role === 'compound')!
     const compoundAlta = mainBlock(alta).exercises.find((e) => e.role === 'compound')!

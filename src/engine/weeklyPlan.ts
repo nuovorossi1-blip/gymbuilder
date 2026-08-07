@@ -82,6 +82,7 @@ function bodybuildingSplits(config: WeeklyProgramConfig, count: number): Split[]
 function distributeModes(config: WeeklyProgramConfig): Record<PublicMode, number> {
   const modes = [...new Set(config.selected_modes)]
   if (modes.length === 0) throw new Error('Seleziona almeno una modalità.')
+  if (modes.length > 2) throw new Error('Un programma può combinare al massimo due discipline.')
   if (modes.length > config.training_days) throw new Error('I giorni devono essere almeno quanti le modalità selezionate.')
   if (modes.length === 2 && modes.includes('bodybuilding') && modes.includes('crossfit_hybrid')) {
     const balance = config.hybrid_balance ?? 'bb_dominant'
@@ -277,7 +278,11 @@ export function generateWeeklyProgram(config: WeeklyProgramConfig): WeeklyProgra
   }
   const days = Math.min(7, Math.max(3, Math.round(config.training_days)))
   const normalized = { ...config, training_days: days, duration_weeks: Math.min(52, Math.max(2, Math.round(config.duration_weeks))), selected_modes: [...new Set(config.selected_modes)] }
-  const activeDays = ACTIVE_DAYS[days]
+  const isStrengthCrossFitSix = days === 6 && normalized.selected_modes.length === 2 &&
+    normalized.selected_modes.includes('strength') && normalized.selected_modes.includes('crossfit')
+  const activeDays: Weekday[] = isStrengthCrossFitSix
+    ? ['monday', 'tuesday', 'wednesday', 'friday', 'saturday', 'sunday']
+    : ACTIVE_DAYS[days]
   const isPplBbHybridBlock = normalized.training_days === 5 && normalized.split_system === 'ppl' &&
     normalized.hybrid_balance !== 'hy_dominant' && normalized.selected_modes.length === 2 &&
     normalized.selected_modes.includes('bodybuilding') && normalized.selected_modes.includes('crossfit_hybrid')
@@ -286,7 +291,20 @@ export function generateWeeklyProgram(config: WeeklyProgramConfig): WeeklyProgra
   // Programmazione richiesta: Push/Pull/Legs, riposo, HY specializzazione,
   // HY funzionale, riposo. Qui il blocco metodologico prevale sul sorter generico.
   const candidates = makeCandidates(normalized)
-  const ordered = isPplBbHybridBlock
+  const ordered = isStrengthCrossFitSix
+    ? (() => {
+        const strength = candidates.filter((session) => session.mode === 'strength')
+        const crossfit = candidates.filter((session) => session.mode === 'crossfit')
+        const adapted = (index: number, label: string) => crossfit[index] ? {
+          ...crossfit[index], label, fatigue_avoid_muscles: strength[index]?.muscle_load ?? [],
+        } : undefined
+        return [
+          strength[0], adapted(0, 'CrossFit — Upper / Gymnastics'),
+          strength[1], adapted(1, 'CrossFit — Mixed adattato'),
+          strength[2], adapted(2, 'CrossFit — Endurance / Tecnica'),
+        ].filter((session): session is Omit<WeeklySession, 'id' | 'day'> => !!session)
+      })()
+    : isPplBbHybridBlock
     ? [...candidates.filter((session) => session.mode === 'bodybuilding'), ...candidates.filter((session) => session.mode === 'crossfit_hybrid')]
     : isBbCrossFitFourDays
       ? [

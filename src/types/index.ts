@@ -215,13 +215,16 @@ export interface WeeklyProgramConfig {
   single_session_split?: Split
   /** Rapporto fra giornate BB e HY nei programmi che usano entrambe. */
   hybrid_balance?: 'bb_dominant' | 'balanced' | 'hy_dominant'
+  strength_method?: '5x5' | '3x5' | 'max_strength' | 'strength_accessories'
+  hybrid_method?: 'upper_conditioning' | 'lower_conditioning' | 'full_body_functional' | 'specialization'
+  hybrid_format?: Extract<MetconFormat, 'amrap' | 'emom' | 'for_time' | 'intervals'>
   experience: Experience
   duration_min: number
   equipment: EquipmentInventory
   weak_points: Muscle[]
   preferences: ExercisePreference
   intensity: Intensity
-  crossfit_format: Extract<MetconFormat, 'amrap' | 'emom' | 'for_time'>
+  crossfit_format: Exclude<MetconFormat, 'circuit' | 'tabata'>
   tabata: { work_sec: number; rest_sec: number; rounds: number; prescription: 'time' | 'reps' }
 }
 
@@ -236,6 +239,8 @@ export interface WeeklySession {
   recovery_profile: RecoveryProfile
   /** Carenze assegnate a questa seduta dal programma, non tutte quelle globali. */
   priority_muscles: Muscle[]
+  /** Muscoli da non ricaricare con esercizi medio-pesanti il giorno successivo. */
+  fatigue_avoid_muscles?: Muscle[]
   /** Alternanza minima per distribuire le priorità nelle ripetizioni dello stesso split. */
   variant: 'A' | 'B'
 }

@@ -42,6 +42,7 @@ export interface HybridConfig {
   weight_kg?: number | null
   seed?: number
   format?: Extract<MetconFormat, 'amrap' | 'emom' | 'for_time' | 'intervals'>
+  method?: 'upper_conditioning' | 'lower_conditioning' | 'full_body_functional' | 'specialization'
 }
 
 /** Rotazione di default su tutto il corpo: gambe, spinta, tirata, gambe posteriori, core. */
@@ -66,6 +67,7 @@ export function generaHybrid(catalogo: Exercise[], cfg: HybridConfig): Generated
   const preferiti = new Set(cfg.preferred_exercises ?? [])
   const intensity = cfg.intensity ?? 'medium'
   const format = cfg.format ?? 'amrap'
+  const method = cfg.method ?? (cfg.priority_muscles.length > 0 ? 'specialization' : 'full_body_functional')
 
   const disponibili = catalogo.filter(
     (e) =>
@@ -76,7 +78,11 @@ export function generaHybrid(catalogo: Exercise[], cfg: HybridConfig): Generated
   const allenamento = disponibili.filter((e) => !e.roles.includes('warmup'))
   const riscaldamentoPool = disponibili.filter((e) => e.roles.includes('warmup'))
 
-  const rotazione = ordineRotazione(cfg.priority_muscles)
+  const methodPriority: Muscle[] = method === 'upper_conditioning' ? ['chest', 'back']
+    : method === 'lower_conditioning' ? ['quads', 'hamstrings', 'glutes']
+    : method === 'specialization' ? cfg.priority_muscles
+    : []
+  const rotazione = ordineRotazione(methodPriority)
   const usati = new Set<string>()
   const forza: PrescribedExercise[] = []
   const forzaPool = allenamento.filter(
@@ -197,7 +203,7 @@ export function generaHybrid(catalogo: Exercise[], cfg: HybridConfig): Generated
   ]
 
   return {
-    name: 'CrossFit Hybrid',
+    name: `Hybrid — ${method === 'upper_conditioning' ? 'Upper / Conditioning' : method === 'lower_conditioning' ? 'Lower / Conditioning' : method === 'specialization' ? 'Specializzazione' : 'Full Body Functional'}`,
     mode: 'crossfit_hybrid',
     split: null,
     goal: 'mixed',
