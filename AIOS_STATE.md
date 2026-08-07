@@ -4,7 +4,7 @@
 > da qui. Va **aggiornato** a ogni sessione, non accodato all'infinito.
 > L'identità del progetto e il percorso di AI-OS stanno in `AIOS_PROJECT.json`.
 
-**Ultimo aggiornamento:** 2026-08-06 (ristrutturazione master) — Codex
+**Ultimo aggiornamento:** 2026-08-07 (migrazioni Supabase remote) — Codex
 
 Etichette: `[FACT]` verificato nel codice · `[RICOSTRUITO]` dedotto da indizi ·
 `[IGNOTO]` non ricavabile dal repository
@@ -226,9 +226,9 @@ Riallineamento sequenziale al master prompt richiesto dall'utente. Le Phase 2-7
 sono completate; la Phase 8 è stata verificata contro i requisiti conservati in
 questo repository senza richiedere modifiche. Il master prompt originale di 100
 sezioni non è presente nel workspace, quindi un confronto testuale ulteriore
-richiede che venga nuovamente fornito. Le migrazioni Phase 2/5 non sono ancora
-applicate al database remoto: CLI priva di token e connettore Supabase privo dei
-permessi sul progetto.
+richiede che venga nuovamente fornito. Le migrazioni Phase 2/5, dati fisici,
+configurazione dei workout salvati e contratto/RLS del profilo sono applicate
+al database remoto. Tutte le 14 versioni risultano allineate fra locale e remoto.
 
 ## 5. Cosa manca
 
@@ -249,7 +249,6 @@ Capacitor (fase 14): non iniziato.
 
 | # | Problema | Da quando | Cosa si è già provato |
 |---|---|---|---|
-| 3 | Le migrazioni locali `exercise_catalog_v2` e `advanced_equipment` non sono ancora applicate al progetto Supabase remoto | 06/08 | Migrazioni create e frontend retrocompatibile. Il 06/08 la CLI risultava senza `SUPABASE_ACCESS_TOKEN`; il connettore Supabase autenticato ha restituito `You do not have permission to perform this action` anche su `list_migrations`. Servono permessi database sul progetto prima di applicare e verificare query/advisor |
 | 4 | Verifica end-to-end autenticata incompleta: pagina pubblica e configurazione sono verificate, ma login→generazione→salvataggio richiede un account di test | 06/08 | Deployment, HTTP 200, rendering browser e presenza delle variabili verificati; non è stato creato un utente persistente fittizio |
 
 ## 7. Problemi risolti
@@ -258,6 +257,8 @@ Capacitor (fase 14): non iniziato.
 
 | Problema | Causa vera | Soluzione |
 |---|---|---|
+| Il salvataggio del Profilo restituiva HTTP 400 su `profiles?on_conflict=user_id` | La tabella conservava `id` come PK obbligatoria, mentre il client inviava soltanto `user_id`; inoltre il trigger di registrazione valorizzava soltanto la chiave legacy | Il client invia entrambe le chiavi, il trigger crea `id=user_id`, i record esistenti sono riallineati e `user_id` è NOT NULL. Rimosse le policy legacy duplicate basate su `id` |
+| Le cinque migrazioni locali avanzate non erano applicabili al Supabase remoto | Un `SUPABASE_ACCESS_TOKEN` obsoleto del Codespace prevaleva sulle credenziali CLI; inoltre nove migrazioni già applicate al remoto mancavano dalla cartella locale | Escluso il token obsoleto, autenticata la CLI via browser, importate in sicurezza le nove migrazioni storiche e applicate le cinque pendenti. Verificati storico 14/14, colonne, 87 esercizi completi, policy profilo e advisor sicurezza |
 | L'advisor Supabase segnalava `handle_new_user` come funzione `SECURITY DEFINER` richiamabile via API da chiunque | Le funzioni nello schema `public` sono esposte come endpoint RPC anche quando servono solo a un trigger | `revoke execute` su `anon`, `authenticated` e `public` per entrambe le funzioni di trigger. Migrazione `blinda_funzione_trigger` |
 | Bodybuilding Push generava a volte solo 3-4 esercizi nonostante il minimo dichiarato di 5, e il messaggio all'utente era scoperto solo *dopo* la generazione | Il motore selezionava gli esercizi slot per slot e, se uno slot non trovava candidati, lo saltava semplicemente (`continue`); un ciclo di "riempimento" separato provava a rimediare ma si fermava appena finiva il budget di tempo. La struttura della sessione non era mai garantita a priori | Riscritto il motore con architettura "struttura-prima" (sez. 8 sotto): 5 slot base sempre presenti, 6°-7° decisi da richiami/extra, e un adattamento al tempo che riduce prima recuperi poi serie *prima* di togliere uno slot — mai sotto 5 se non per assenza reale di attrezzatura compatibile |
 | I muscoli carenti venivano ridistribuiti nella sessione ma potevano far collassare un altro muscolo target: con carenze `biceps`+`rear_delts` su uno split Pull, il dorso scendeva da 3 slot a 1 | `ridistribuisci()` toglieva uno slot al muscolo più rappresentato per OGNI muscolo prioritario, anche quando quel muscolo prioritario aveva già un suo slot naturale: due priorità in sequenza "spolpavano" lo stesso donatore (`back`) due volte | La funzione ora salta i muscoli prioritari già rappresentati nello split: la redistribuzione serve solo a colmare un vuoto, non a gonfiare un muscolo già coperto. Trovato e verificato con un test sullo scenario critico della correzione (sez. 28 del prompt di correzione) |

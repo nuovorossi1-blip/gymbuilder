@@ -6,5 +6,6 @@ dist
 .DS_Store
 *.log
 .vercel
+supabase/.temp/
 tsconfig.tsbuildinfo
 .env*

@@ -23,14 +23,12 @@
 
 ## IN SVILUPPO
 
-- Applicazione della migrazione dati fisici al Supabase remoto.
 - Verifica end-to-end autenticata su deployment.
 - Verifica audio su dispositivi iPhone/Android reali.
 
 ## PROSSIMO
 
 - Adapter HealthKit e Health Connect in packaging mobile.
-- Applicazione della migrazione `generation_config` ai workout salvati.
 - Rigenerazione automatica multi-tentativo quando una configurazione non supera il validatore.
 
 ## FUTURO
