@@ -13,26 +13,33 @@ export interface ReplacementOptions {
   split?: Split | null
 }
 
+export interface ReplacementCandidate {
+  exercise: Exercise
+  /** Quanto l'alternativa si discosta dallo slot originale; più basso è meglio. */
+  score: number
+}
+
 const SPLIT_PATTERNS: Partial<Record<Split, Set<string>>> = {
   push: new Set(['horizontal_push', 'vertical_push', 'lateral_raise', 'elbow_extension', 'elbow_flexion']),
   pull: new Set(['horizontal_pull', 'vertical_pull', 'rear_delt', 'elbow_flexion', 'elbow_extension']),
   legs: new Set(['squat', 'lunge', 'hinge', 'knee_flexion', 'knee_extension', 'calf_raise', 'jump', 'core']),
 }
 
-export function findExerciseReplacement(
+export function findExerciseReplacements(
   current: PrescribedExercise,
   catalog: Exercise[],
   equipment: EquipmentInventory,
   preferences: RuntimePreferences,
   usedIds: Set<string>,
   options: ReplacementOptions = {}
-): Exercise | undefined {
+): ReplacementCandidate[] {
   const original = catalog.find((exercise) => exercise.id === current.exercise_id)
-  if (!original) return undefined
+  if (!original) return []
   const reason = options.reason ?? 'dislike'
   const placement = current.note?.toLowerCase().includes('finisher') ? 'finisher' : current.role === 'compound' ? 'primary' : 'normal'
   const expectedType = current.role === 'compound' ? 'compound' : current.role === 'isolation' ? 'isolation' : 'conditioning'
   const metabolic = current.role === 'metcon'
+  const bodybuildingMetcon = metabolic && (current.note === 'isolamento' || current.note === 'bodybuilding leggero')
 
   const candidates = catalog.filter((exercise) => {
     if (exercise.id === original.id || usedIds.has(exercise.id) || options.rejectedIds?.has(exercise.id)) return false
@@ -41,6 +48,11 @@ export function findExerciseReplacement(
     if (!isExerciseAvailable(exercise, equipment.preset, equipment.available) || !isExerciseAllowed(exercise, preferences, placement)) return false
     if (options.experience && EXPERIENCE_RANK[exercise.min_experience] > EXPERIENCE_RANK[options.experience]) return false
     if (options.adaptivePreferences?.[exercise.id]?.permanently_excluded) return false
+    if (bodybuildingMetcon) {
+      return exercise.exercise_types.includes('isolation') && exercise.technical_complexity <= 1 &&
+        exercise.systemic_fatigue <= 1 && exercise.grip_fatigue <= 2 &&
+        exercise.primary_muscles.some((muscle) => original.primary_muscles.includes(muscle))
+    }
     if (metabolic) return exercise.exercise_types.includes('conditioning') && exercise.metcon_safe
     const sameMuscle = exercise.primary_muscles.some((muscle) => original.primary_muscles.includes(muscle))
     if (!sameMuscle) return false
@@ -72,5 +84,18 @@ export function findExerciseReplacement(
     if (adaptive) value += adaptive.dislike_score * 8 + adaptive.discomfort * 40 + adaptive.unavailable * 40
     return value
   }
-  return candidates.sort((a, b) => score(a) - score(b) || a.name.localeCompare(b.name))[0]
+  return candidates
+    .map((exercise) => ({ exercise, score: score(exercise) }))
+    .sort((a, b) => a.score - b.score || a.exercise.name.localeCompare(b.exercise.name))
+}
+
+export function findExerciseReplacement(
+  current: PrescribedExercise,
+  catalog: Exercise[],
+  equipment: EquipmentInventory,
+  preferences: RuntimePreferences,
+  usedIds: Set<string>,
+  options: ReplacementOptions = {}
+): Exercise | undefined {
+  return findExerciseReplacements(current, catalog, equipment, preferences, usedIds, options)[0]?.exercise
 }

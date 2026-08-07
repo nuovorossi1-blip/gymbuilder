@@ -72,6 +72,13 @@ export function proposeWeeklyPlan(system: SplitSystem, days: number): Split[] {
   return [...PIANI[system][safeDays]]
 }
 
+function bodybuildingSplits(config: WeeklyProgramConfig, count: number): Split[] {
+  if (config.split_system !== 'ppl' || count !== 4) return proposeWeeklyPlan(config.split_system, count)
+  const lowerPriority = config.weak_points.some((muscle) => ['quads', 'hamstrings', 'glutes', 'calves'].includes(muscle))
+  const upperPriority = config.weak_points.some((muscle) => ['chest', 'back', 'front_delts', 'lateral_delts', 'rear_delts', 'biceps', 'triceps'].includes(muscle))
+  return ['push', 'pull', 'legs', lowerPriority && !upperPriority ? 'lower' : upperPriority ? 'upper' : 'full_body']
+}
+
 function distributeModes(config: WeeklyProgramConfig): Record<PublicMode, number> {
   const modes = [...new Set(config.selected_modes)]
   if (modes.length === 0) throw new Error('Seleziona almeno una modalità.')
@@ -149,7 +156,7 @@ function makeCandidates(config: WeeklyProgramConfig): Omit<WeeklySession, 'id' |
   const sessions: Omit<WeeklySession, 'id' | 'day'>[] = []
   for (const mode of config.selected_modes) {
     const count = counts[mode] ?? 0
-    const splits = mode === 'bodybuilding' ? proposeWeeklyPlan(config.split_system, count) : mode === 'strength' ? strengthSplits(count) : Array<null>(count).fill(null)
+    const splits = mode === 'bodybuilding' ? bodybuildingSplits(config, count) : mode === 'strength' ? strengthSplits(count) : Array<null>(count).fill(null)
     const occurrences = new Map<Split | null, number>()
     splits.forEach((split) => {
       const occurrence = occurrences.get(split) ?? 0
@@ -176,6 +183,9 @@ function candidateScore(candidate: Omit<WeeklySession, 'id' | 'day'>[], days: We
     const previous = candidate[index - 1]
     const gapHours = (DAY_INDEX[days[index]] - DAY_INDEX[days[index - 1]]) * 24
     const sharedStress = overlap(previous.muscle_load, session.muscle_load)
+    // Nei programmi misti evita di ammucchiare le due giornate Hybrid:
+    // PPL + HY + HY viene distribuito come P/HY/P/HY/L quando il recupero lo consente.
+    if (previous.mode === session.mode && config.selected_modes.length > 1) score += 18
     if (gapHours < previous.recovery_profile.recovery_demand_hours) score += (previous.recovery_profile.recovery_demand_hours - gapHours) / 3
     score += sharedStress * (gapHours === 24 ? 3 : 0.8)
     score += Math.max(0, previous.recovery_profile.fatigue_score + session.recovery_profile.fatigue_score - 14) * (gapHours === 24 ? 2 : 0.5)
@@ -232,12 +242,27 @@ export function validateWeeklyProgram(week: WeeklySession[], config: WeeklyProgr
 }
 
 export function generateWeeklyProgram(config: WeeklyProgramConfig): WeeklyProgram {
+  if (config.program_kind === 'single_session') {
+    const mode = config.selected_modes[0]
+    if (!mode) throw new Error('Seleziona una modalità.')
+    const normalized = { ...config, training_days: 1, duration_weeks: 1, selected_modes: [mode] }
+    const split = mode === 'bodybuilding' || mode === 'strength' ? 'full_body' : null
+    const session: WeeklySession = {
+      id: 'single-session', day: 'monday', mode, split,
+      label: split ? `${MODE_LABELS[mode]} — ${SPLIT_LABELS[split]}` : MODE_LABELS[mode],
+      estimated_fatigue: mode === 'bodybuilding' ? 2 : 3,
+      muscle_load: split ? SPLIT_LOAD[split] : GENERIC_LOAD[mode as keyof typeof GENERIC_LOAD],
+      recovery_profile: forecastProfile(mode, split, config.duration_min),
+      priority_muscles: config.weak_points.slice(0, 2), variant: 'A',
+    }
+    return { id: `single-${Date.now()}`, persisted: false, config: normalized, week: [session], warnings: [] }
+  }
   const days = Math.min(7, Math.max(3, Math.round(config.training_days)))
-  const normalized = { ...config, training_days: days, selected_modes: [...new Set(config.selected_modes)] }
+  const normalized = { ...config, training_days: days, duration_weeks: Math.min(52, Math.max(2, Math.round(config.duration_weeks))), selected_modes: [...new Set(config.selected_modes)] }
   const activeDays = ACTIVE_DAYS[days]
   const ordered = orderForRecovery(makeCandidates(normalized), activeDays, normalized)
   const week = ordered.map((session, index): WeeklySession => ({ ...session, id: `session-${index + 1}`, day: activeDays[index] }))
-  return { id: `week-${Date.now()}`, config: normalized, week, warnings: validateWeeklyProgram(week, normalized) }
+  return { id: `week-${Date.now()}`, persisted: false, config: normalized, week, warnings: validateWeeklyProgram(week, normalized) }
 }
 
 export function updateWeeklySession(program: WeeklyProgram, id: string, patch: Partial<Pick<WeeklySession, 'day' | 'mode' | 'split'>>): WeeklyProgram {

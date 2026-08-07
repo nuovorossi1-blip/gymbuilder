@@ -4,7 +4,7 @@
 > da qui. Va **aggiornato** a ogni sessione, non accodato all'infinito.
 > L'identità del progetto e il percorso di AI-OS stanno in `AIOS_PROJECT.json`.
 
-**Ultimo aggiornamento:** 2026-08-07 (catalogo esercizi curato) — Codex
+**Ultimo aggiornamento:** 2026-08-07 (programmi multi-settimana e Hybrid) — Codex
 
 Etichette: `[FACT]` verificato nel codice · `[RICOSTRUITO]` dedotto da indizi ·
 `[IGNOTO]` non ricavabile dal repository
@@ -40,16 +40,15 @@ Program Engine: genera 3-7 giorni, mostra e modifica la settimana, quindi passa
 un solo giorno al generatore specifico. Configurazione globale e settimana
 restano in `sessionStorage`. Il Weekly Engine usa recovery profile e scoring
 esaustivo dei candidati; il replacement integra sei motivazioni e memoria
-adattiva locale. Suite aggiornata a 159 test verdi.
+adattiva locale. Suite aggiornata a 166 test verdi.
 L'app ha autenticazione, profilo, un database di 118 esercizi in Supabase (con
 istruzioni testuali per ciascuno) e sei motori di generazione:
 
 - **Bodybuilding** (13 split, corretto in profondità in una sessione precedente)
 - **Forza** (6 split)
 - **CrossFit Standard** (Riscaldamento → Forza/Skill → Metcon AMRAP, niente split)
-- **CrossFit Hybrid** (nuovo, fase 7: forza e cardio alternati in coppie, a
-  rotazione su tutto il corpo, niente split — la "funzionalità distintiva del
-  prodotto" della sez. 18 della correzione)
+- **CrossFit Hybrid** (blocco Bodybuilding + Metcon AMRAP/EMOM/For Time/
+  Intervals con cardio e isolamenti bodybuilding leggeri)
 - **Condizionamento** (nuovo, fase 8: solo Metcon, formato scelto
   dall'utente — AMRAP, EMOM, For Time, Rounds, Circuit, Intervals)
 - **Tabata** (nuovo, fase 9: protocollo fisso 20″ lavoro/10″ riposo × 8,
@@ -148,13 +147,10 @@ presenti negli ambienti Preview e Production (valori mantenuti nascosti).
 - [FACT] Runner esteso per il Metcon: dopo la parte Forza/Skill, uno stopwatch
   a conto alla rovescia (il tempo dell'AMRAP) con un contatore di giri
   completati, invece del ciclo serie+recupero usato da Bodybuilding/Forza
-- [FACT] Motore **CrossFit Hybrid** (`src/generators/hybrid.ts`, nuovo, fase
-  7): un unico blocco `kind: 'main'` con esercizi che si alternano
-  rigidamente compound/metcon (un'alzata, una scarica cardio, ripetuto 3-5
-  volte secondo la durata), a rotazione su tutto il corpo (quads → chest →
-  back → hamstrings → core). Nessun blocco o UI nuovi: essendo un'unica
-  sequenza ordinata di esercizi con sets/reps/rest, il Runner esistente
-  (ciclo serie→recupero) la esegue già così com'è
+- [FACT] Motore **CrossFit Hybrid** (`src/generators/hybrid.ts`): tre blocchi
+  distinti, warm-up → Bodybuilding → Metcon. Il Metcon alterna cardio e
+  isolamenti bodybuilding a carico controllato e supporta AMRAP, EMOM,
+  For Time e Intervals. Nei programmi misti le sessioni A/B usano AMRAP/EMOM.
 - [FACT] Motore **Condizionamento** (`src/generators/conditioning.ts`, nuovo,
   fase 8): solo Riscaldamento + Metcon, formato scelto dall'utente fra
   AMRAP, EMOM, For Time, Rounds, Circuit, Intervals — la vera "scelta di
@@ -383,12 +379,12 @@ Capacitor (fase 14): non iniziato.
   l'attrezzatura non consente bilanciere** (es. goblet squat, piegamenti),
   invece di lasciare il blocco vuoto — motivo: stessa regola sez. 84, non un
   buco silenzioso quando l'utente ha solo manubri o corpo libero — 06/08
-- **CrossFit Hybrid è un unico blocco `kind: 'main'` con esercizi alternati
+- **[SUPERATO] CrossFit Hybrid era un unico blocco `kind: 'main'` con esercizi alternati
   compound/metcon, non un blocco Metcon separato** — motivo: la sequenza
   ordinata sets/reps/rest che Bodybuilding/Forza già usano rappresenta
   perfettamente "un'alzata, poi una scarica cardio" senza inventare niente
   di nuovo nel modello dati; il Runner esistente la esegue già così com'è,
-  zero modifiche — 06/08
+  zero modifiche — decisione del 06/08, superata dal riallineamento successivo
 - **Hybrid non usa la programmazione settimanale sui muscoli carenti**
   (`weakPoints.ts`), a differenza di Bodybuilding/Forza — motivo: la
   rotazione tocca già tutto il corpo ad ogni sessione per costruzione, a

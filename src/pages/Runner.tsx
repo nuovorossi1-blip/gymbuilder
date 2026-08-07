@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../features/auth/AuthProvider'
 import { useWorkout } from '../features/workout/WorkoutContext'
@@ -6,6 +6,7 @@ import { registraCompletato } from '../lib/api'
 import { FORMATO_A_GIRI, FORMATO_A_INTERVALLI, MUSCLE_LABELS, type PrescribedExercise } from '../types'
 import { loadAudioSettings, saveAudioSettings, TimerAudio, type AudioTimerSettings, type TimerSound } from '../engine/audio'
 import type { TimerEventType, TimerPhase } from '../engine/timer'
+import { notifyTimerEvent, publishBackgroundTimer, requestTimerNotifications, resetBackgroundTimer } from '../engine/backgroundTimer'
 
 type Fase = { tipo: 'serie'; iEs: number; serie: number } | { tipo: 'recupero'; iEs: number; serie: number; sec: number }
 
@@ -67,12 +68,14 @@ export default function Runner() {
   const lastWarning = useRef<string>('')
   const restPausedAt = useRef(0)
   const metconPausedAt = useRef(0)
+  const backgroundState = useRef({ label: 'Allenamento', remaining: 0 })
 
   if (!audio.current) audio.current = new TimerAudio(audioSettings)
 
-  function emit(type: TimerEventType, phase: TimerPhase, round?: number) {
+  const emit = useCallback((type: TimerEventType, phase: TimerPhase, round?: number) => {
     audio.current?.play({ type, phase, round, at: Date.now() })
-  }
+    notifyTimerEvent(type, workout?.name ?? 'GymBuilder')
+  }, [workout?.name])
 
   function updateAudio(patch: Partial<AudioTimerSettings>) {
     const next = { ...audioSettings, ...patch }
@@ -82,6 +85,7 @@ export default function Runner() {
 
   async function startWithCountdown(action: () => void) {
     await audio.current?.unlock()
+    await requestTimerNotifications()
     afterCountdown.current = action
     countdownDeadline.current = Date.now() + 3_000
     lastWarning.current = ''
@@ -125,7 +129,7 @@ export default function Runner() {
     }
     tick(); const timer = window.setInterval(tick, 100)
     return () => window.clearInterval(timer)
-  }, [countdown])
+  }, [countdown, emit])
 
   // Timer del recupero
   useEffect(() => {
@@ -143,7 +147,7 @@ export default function Runner() {
     const t = window.setInterval(tick, 200); tick()
     return () => window.clearInterval(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fase, rimanente, inPausa])
+  }, [fase, rimanente, inPausa, emit])
 
   // Timer del Metcon AMRAP: conto alla rovescia dal tempo a disposizione.
   useEffect(() => {
@@ -160,7 +164,7 @@ export default function Runner() {
     }
     const t = window.setInterval(tick, 200); tick()
     return () => window.clearInterval(t)
-  }, [sezione, metconFase, formato, metconRimanente, metconInPausa])
+  }, [sezione, metconFase, formato, metconRimanente, metconInPausa, emit])
 
   // Cronometro del Metcon a giri (For Time/A giri/Circuit): conta in avanti, il tempo è il punteggio.
   useEffect(() => {
@@ -173,7 +177,7 @@ export default function Runner() {
     }
     const t = window.setInterval(tick, 200); tick()
     return () => window.clearInterval(t)
-  }, [sezione, metconFase, aGiri, metconTrascorsi, metconInPausa, metconBlock?.time_cap_min])
+  }, [sezione, metconFase, aGiri, metconTrascorsi, metconInPausa, metconBlock?.time_cap_min, emit])
 
   // Timer a intervalli (EMOM/Intervals/Tabata): lavoro poi riposo (se previsto), poi il round successivo da solo.
   useEffect(() => {
@@ -208,6 +212,23 @@ export default function Runner() {
     emit('ROUND_STARTED', formato === 'emom' ? 'emom' : isTabata ? 'tabata' : 'round', prossimo + 1)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sezione, metconFase, aIntervalli, intervalRimanente, intervalSottofase, intervalIndice, metconInPausa])
+
+  useEffect(() => {
+    let label = 'Allenamento'
+    let remaining = 0
+    if (countdown !== null) { label = 'Preparati'; remaining = countdown }
+    else if (fase.tipo === 'recupero') { label = 'Recupero'; remaining = rimanente }
+    else if (sezione === 'metcon' && formato === 'amrap') { label = 'AMRAP'; remaining = metconRimanente }
+    else if (sezione === 'metcon' && aIntervalli) { label = intervalSottofase === 'lavoro' ? 'Lavoro' : 'Recupero'; remaining = intervalRimanente }
+    backgroundState.current = { label, remaining }
+    publishBackgroundTimer(label, remaining)
+  }, [aIntervalli, countdown, fase.tipo, formato, intervalRimanente, intervalSottofase, metconRimanente, rimanente, sezione])
+
+  useEffect(() => {
+    const syncVisibility = () => publishBackgroundTimer(backgroundState.current.label, backgroundState.current.remaining)
+    document.addEventListener('visibilitychange', syncVisibility)
+    return () => { document.removeEventListener('visibilitychange', syncVisibility); resetBackgroundTimer() }
+  }, [])
 
   if (!workout || (esercizi.length === 0 && metconEsercizi.length === 0)) {
     return (

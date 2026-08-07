@@ -185,6 +185,8 @@ export interface EquipmentInventory {
 
 /** Configurazione effimera: nasce in Genera e viaggia insieme al workout. */
 export interface WorkoutGenerationConfig {
+  program_kind?: 'program' | 'single_session'
+  duration_weeks?: number
   mode: PublicMode
   goal: Goal
   split_system?: SplitSystem
@@ -202,6 +204,9 @@ export interface WorkoutGenerationConfig {
 
 /** Preferenze globali condivise da tutte le sessioni della settimana. */
 export interface WeeklyProgramConfig {
+  program_kind: 'program' | 'single_session'
+  /** Solo i programmi hanno una durata; una sessione singola usa sempre 1. */
+  duration_weeks: number
   training_days: number
   selected_modes: PublicMode[]
   goal: Goal
@@ -250,6 +255,7 @@ export interface WeeklyProgramWarning {
 
 export interface WeeklyProgram {
   id: string
+  persisted: boolean
   config: WeeklyProgramConfig
   week: WeeklySession[]
   warnings: WeeklyProgramWarning[]

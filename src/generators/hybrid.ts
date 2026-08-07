@@ -20,6 +20,7 @@
 import type {
   Equipment, EquipmentItem, Exercise, Experience, GeneratedWorkout, Intensity, Muscle,
   PrescribedExercise, WorkoutBlock,
+  MetconFormat,
 } from '../types'
 import { isExerciseAvailable } from './equipment'
 import { RANK_EXP } from './crossfit'
@@ -40,6 +41,7 @@ export interface HybridConfig {
   intensity?: Intensity
   weight_kg?: number | null
   seed?: number
+  format?: Extract<MetconFormat, 'amrap' | 'emom' | 'for_time' | 'intervals'>
 }
 
 /** Rotazione di default su tutto il corpo: gambe, spinta, tirata, gambe posteriori, core. */
@@ -63,6 +65,7 @@ export function generaHybrid(catalogo: Exercise[], cfg: HybridConfig): Generated
   const random = rng(cfg.seed ?? 1)
   const preferiti = new Set(cfg.preferred_exercises ?? [])
   const intensity = cfg.intensity ?? 'medium'
+  const format = cfg.format ?? 'amrap'
 
   const disponibili = catalogo.filter(
     (e) =>
@@ -136,7 +139,7 @@ export function generaHybrid(catalogo: Exercise[], cfg: HybridConfig): Generated
       metcon.push({
         exercise_id: isolamento.id, name: isolamento.name, role: 'metcon',
         muscle: isolamento.primary_muscles[0] ?? null, sets: 1,
-        reps: '12-15', rest_sec: 30, note: 'isolamento',
+        reps: intensity === 'high' ? '10-12' : '12-15', rest_sec: 30, note: 'isolamento',
         instructions: isolamento.instructions || undefined,
       })
     }
@@ -164,6 +167,14 @@ export function generaHybrid(catalogo: Exercise[], cfg: HybridConfig): Generated
   const tutti = [...forza, ...metcon]
   const kcalTotali = tutti.reduce((t, e) => t + (e.est_kcal ?? 0), 0)
 
+  const metconBlock: WorkoutBlock = {
+    kind: 'metcon', title: `Hybrid ${format === 'for_time' ? 'For Time' : format === 'intervals' ? 'Intervals' : format.toUpperCase()}`,
+    format,
+    time_cap_min: minutiMetcon,
+    rounds: format === 'emom' ? minutiMetcon : format === 'for_time' ? 4 : format === 'intervals' ? Math.max(6, Math.round(minutiMetcon / 2)) : undefined,
+    interval_sec: format === 'emom' ? 60 : format === 'intervals' ? 40 : undefined,
+    exercises: metcon,
+  }
   const blocchi: WorkoutBlock[] = [
     {
       kind: 'warmup',
@@ -171,11 +182,8 @@ export function generaHybrid(catalogo: Exercise[], cfg: HybridConfig): Generated
       duration_min: minutiRiscaldamento,
       exercises: scegliRiscaldamento(riscaldamentoPool, allenamento, tutti, random),
     },
-    { kind: 'main', title: 'Forza / Bodybuilding', exercises: forza },
-    {
-      kind: 'metcon', title: `Hybrid AMRAP ${minutiMetcon}′`, format: 'amrap',
-      time_cap_min: minutiMetcon, exercises: metcon,
-    },
+    { kind: 'main', title: 'Bodybuilding', exercises: forza },
+    metconBlock,
   ]
 
   return {

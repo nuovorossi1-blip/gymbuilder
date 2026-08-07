@@ -4,6 +4,7 @@ import type { PublicMode, WeeklyProgramConfig } from '../types'
 import { generateWeeklyProgram, updateWeeklySession } from './weeklyPlan'
 
 const base: WeeklyProgramConfig = {
+  program_kind: 'program', duration_weeks: 4,
   training_days: 5, selected_modes: ['bodybuilding'], goal: 'hypertrophy', split_system: 'ppl',
   experience: 'advanced', duration_min: 60,
   equipment: { preset: 'full_gym', available: PRESET_EQUIPMENT.full_gym },
@@ -43,6 +44,27 @@ describe('Weekly Program Engine', () => {
     expect(program.week.filter((session) => session.mode === 'bodybuilding').map((session) => session.split).sort()).toEqual(['legs', 'pull', 'push'])
     const hybrids = program.week.filter((session) => session.mode === 'crossfit_hybrid').map((session) => session.day)
     expect(hybrids).not.toEqual(['friday', 'saturday'])
+  })
+
+  it('4 giorni PPL usa carenze per il quarto giorno e Total Body senza carenze', () => {
+    const specialized = generateWeeklyProgram({ ...base, training_days: 4, selected_modes: ['bodybuilding'], weak_points: ['lateral_delts', 'biceps'] })
+    expect(specialized.week.map((session) => session.split)).toContain('upper')
+    const balanced = generateWeeklyProgram({ ...base, training_days: 4, selected_modes: ['bodybuilding'], weak_points: [] })
+    expect(balanced.week.map((session) => session.split)).toContain('full_body')
+  })
+
+  it('normalizza un programma a minimo due settimane', () => {
+    const program = generateWeeklyProgram({ ...base, duration_weeks: 1 })
+    expect(program.config.duration_weeks).toBe(2)
+    expect(program.persisted).toBe(false)
+  })
+
+  it('la sessione singola non crea una split settimanale né richiede due settimane', () => {
+    const session = generateWeeklyProgram({ ...base, program_kind: 'single_session', duration_weeks: 1, selected_modes: ['crossfit_hybrid'] })
+    expect(session.week).toHaveLength(1)
+    expect(session.config.training_days).toBe(1)
+    expect(session.config.duration_weeks).toBe(1)
+    expect(session.persisted).toBe(false)
   })
 
   it('PPL assegna spalle e braccia a Push/Pull, mai a Legs', () => {

@@ -37,6 +37,17 @@ describe('generaHybrid — struttura Strength/Bodybuilding + Hybrid Metcon', () 
     expect(w.blocks.map((b) => b.kind)).toEqual(['warmup', 'main', 'metcon'])
   })
 
+  it('supporta metodiche AMRAP, EMOM, For Time e Intervals sugli esercizi bodybuilding', () => {
+    for (const format of ['amrap', 'emom', 'for_time', 'intervals'] as const) {
+      const workout = generaHybrid(catalogo, {
+        experience: 'intermediate', equipment: 'full_gym', duration_min: 60,
+        priority_muscles: [], excluded_exercises: [], seed: 1, format,
+      })
+      expect(metconBlock(workout).format).toBe(format)
+      expect(metconBlock(workout).exercises.some((exercise) => exercise.note === 'isolamento')).toBe(true)
+    }
+  })
+
   it('nel Metcon cardio e isolamento si alternano', () => {
     for (const durata of [30, 45, 60, 75, 90]) {
       const w = generaHybrid(catalogo, {
