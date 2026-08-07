@@ -93,20 +93,76 @@ function strengthSplits(count: number): Split[] {
   return ['lower', 'upper', 'full_body', 'lower', 'upper', 'full_body'].slice(0, count) as Split[]
 }
 
+function splitAccogliePriorita(system: SplitSystem, split: Split | null, muscle: Muscle): boolean {
+  if (!split) return false
+  if (split === 'full_body') return true
+  if (['quads', 'hamstrings', 'glutes', 'calves'].includes(muscle)) {
+    return ['legs', 'lower', 'bro_legs', 'front_body', 'back_body'].includes(split)
+  }
+  if (muscle === 'chest') return ['push', 'upper', 'bro_chest', 'front_body'].includes(split)
+  if (muscle === 'back') return ['pull', 'upper', 'bro_back', 'back_body'].includes(split)
+  if (muscle === 'core') return ['legs', 'lower', 'front_body', 'back_body'].includes(split)
+
+  if (system === 'ppl') {
+    if (muscle === 'lateral_delts' || muscle === 'front_delts') return split === 'push' || split === 'upper'
+    if (muscle === 'rear_delts') return split === 'pull' || split === 'upper'
+    if (muscle === 'biceps' || muscle === 'triceps') return split === 'push' || split === 'pull' || split === 'upper'
+  }
+  if (system === 'upper_lower') return split === 'upper'
+  if (system === 'front_back') {
+    if (muscle === 'lateral_delts' || muscle === 'front_delts') return split === 'front_body'
+    if (muscle === 'rear_delts') return split === 'back_body'
+    if (muscle === 'biceps' || muscle === 'triceps') return split === 'front_body' || split === 'back_body'
+  }
+  if (system === 'bro_split') {
+    if (muscle === 'lateral_delts' || muscle === 'front_delts') return split === 'bro_shoulders' || split === 'bro_chest'
+    if (muscle === 'rear_delts') return split === 'bro_shoulders' || split === 'bro_back'
+    if (muscle === 'biceps') return split === 'bro_arms' || split === 'bro_back'
+    if (muscle === 'triceps') return split === 'bro_arms' || split === 'bro_chest'
+  }
+  return false
+}
+
+function assegnaPrioritaSettimanali(
+  sessions: Omit<WeeklySession, 'id' | 'day'>[],
+  config: WeeklyProgramConfig
+): Omit<WeeklySession, 'id' | 'day'>[] {
+  return sessions.map((session) => {
+    let compatible = config.weak_points.filter((muscle) => splitAccogliePriorita(config.split_system, session.split, muscle))
+    if (session.split === 'upper') {
+      const shoulders = compatible.filter((muscle) => ['front_delts', 'lateral_delts', 'rear_delts'].includes(muscle))
+      if (shoulders.length > 1) {
+        const chosen = shoulders[session.variant === 'A' ? 0 : 1] ?? shoulders[0]
+        compatible = [chosen, ...compatible.filter((muscle) => !shoulders.includes(muscle))]
+      }
+    }
+    // Un Full Body non può assorbire tutte le specializzazioni: le ruota fra A/B.
+    const priority_muscles = session.split === 'full_body' && compatible.length > 2
+      ? compatible.filter((_, index) => index % 2 === (session.variant === 'A' ? 0 : 1)).slice(0, 2)
+      : compatible
+    return { ...session, priority_muscles }
+  })
+}
+
 function makeCandidates(config: WeeklyProgramConfig): Omit<WeeklySession, 'id' | 'day'>[] {
   const counts = distributeModes(config)
   const sessions: Omit<WeeklySession, 'id' | 'day'>[] = []
   for (const mode of config.selected_modes) {
     const count = counts[mode] ?? 0
     const splits = mode === 'bodybuilding' ? proposeWeeklyPlan(config.split_system, count) : mode === 'strength' ? strengthSplits(count) : Array<null>(count).fill(null)
-    splits.forEach((split) => sessions.push({
+    const occurrences = new Map<Split | null, number>()
+    splits.forEach((split) => {
+      const occurrence = occurrences.get(split) ?? 0
+      occurrences.set(split, occurrence + 1)
+      sessions.push({
       mode, split, label: split ? `${MODE_LABELS[mode]} — ${SPLIT_LABELS[split]}` : MODE_LABELS[mode],
       estimated_fatigue: mode === 'tabata' ? 2 : mode === 'bodybuilding' ? 2 : 3,
       muscle_load: split ? SPLIT_LOAD[split] : GENERIC_LOAD[mode as keyof typeof GENERIC_LOAD],
       recovery_profile: forecastProfile(mode, split, config.duration_min),
-    }))
+      priority_muscles: [], variant: occurrence % 2 === 0 ? 'A' : 'B',
+    })})
   }
-  return sessions
+  return assegnaPrioritaSettimanali(sessions, config)
 }
 
 function overlap(a: Muscle[], b: Muscle[]): number { return a.filter((muscle) => b.includes(muscle)).length }
@@ -193,7 +249,8 @@ export function updateWeeklySession(program: WeeklyProgram, id: string, patch: P
     return { ...session, ...patch, mode, split, label: split ? `${MODE_LABELS[mode]} — ${SPLIT_LABELS[split]}` : MODE_LABELS[mode], muscle_load: split ? SPLIT_LOAD[split] : GENERIC_LOAD[mode as keyof typeof GENERIC_LOAD], estimated_fatigue: mode === 'tabata' ? 2 : mode === 'bodybuilding' ? 2 : 3, recovery_profile: forecastProfile(mode, split, program.config.duration_min) } as WeeklySession
   })
   const config = { ...program.config, selected_modes: [...new Set(week.map((session) => session.mode))] }
-  return { ...program, config, week, warnings: validateWeeklyProgram(week, config) }
+  const prioritized = assegnaPrioritaSettimanali(week, config) as WeeklySession[]
+  return { ...program, config, week: prioritized, warnings: validateWeeklyProgram(prioritized, config) }
 }
 
 export function analyzeWorkoutRecovery(workout: GeneratedWorkout, catalog: Exercise[]): RecoveryProfile {

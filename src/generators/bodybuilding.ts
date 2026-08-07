@@ -10,7 +10,7 @@
  * AIOS_STATE.md sez. 8, decisione del 05/08 "motore struttura-prima"):
  *
  *   Attrezzatura/esclusioni/esperienza
- *     -> struttura della sessione (5-7 slot, decisi PRIMA di scegliere gli esercizi)
+ *     -> struttura della sessione (5-6 slot, decisi PRIMA di scegliere gli esercizi)
  *     -> richiami settimanali per i muscoli carenti (weakPoints.ts)
  *     -> selezione esercizi per slot (attrezzatura, fatica, esercizi preferiti)
  *     -> adattamento al tempo (si riducono serie/recuperi, non si tagliano slot)
@@ -58,6 +58,7 @@ export interface GenerationConfig {
 interface SlotDef {
   muscle: Muscle
   compound: boolean
+  order?: number
   /** Pattern preferiti per l'ordine tecnico: fallback agli altri se l'attrezzatura non li offre. */
   preferredPatterns?: string[]
   /** Una carenza selezionata è obbligatoria nella sessione, non un bonus casuale. */
@@ -192,7 +193,7 @@ const BASE_SLOTS: Record<Split, SlotDef[]> = {
 }
 
 /**
- * Slot per il 6° e 7° esercizio, usati SOLO quando non c'è un richiamo di un
+ * Slot per il 6° esercizio, usati SOLO quando non c'è una priorità assegnata
  * muscolo carente a reclamare quella posizione (sez. 3, 11): un richiamo ha
  * sempre la precedenza su un isolamento generico aggiuntivo.
  */
@@ -262,11 +263,10 @@ function serieMinime(compound: boolean): number {
 
 const RANK_EXP: Record<Experience, number> = { beginner: 1, intermediate: 2, advanced: 3 }
 
-/** Quanti esercizi principali punta ad avere la sessione, secondo il tempo (sez. 3: sempre 5-7). */
+/** Quanti esercizi principali punta ad avere la sessione: massimo sei. */
 function targetEsercizi(duration_min: number): number {
   if (duration_min < 45) return 5
-  if (duration_min < 70) return 6
-  return 7
+  return 6
 }
 
 /**
@@ -287,6 +287,7 @@ const SHOULDER_MUSCLES: Muscle[] = ['front_delts', 'lateral_delts', 'rear_delts'
 function ordinaSlot(split: Split, slots: SlotDef[]): SlotDef[] {
   const lowerBody = split === 'legs' || split === 'lower' || split === 'bro_legs'
   const rank = (slot: SlotDef): number => {
+    if (slot.order !== undefined) return slot.order
     if (lowerBody) {
       if (slot.compound && slot.muscle === 'quads') return 0
       if (slot.compound && slot.muscle === 'hamstrings') return 1
@@ -298,12 +299,29 @@ function ordinaSlot(split: Split, slots: SlotDef[]): SlotDef[] {
     }
     if (split === 'push') {
       if (slot.compound && slot.muscle === 'chest') return 0
+      if (slot.weakPoint && slot.muscle === 'lateral_delts') return 1
       if (slot.compound && slot.muscle === 'front_delts') return 1
       if (!slot.compound && slot.muscle === 'chest') return 2
       if (slot.muscle === 'lateral_delts') return 3
       if (slot.muscle === 'biceps') return 4
       if (slot.muscle === 'triceps') return 5
       return 6
+    }
+    if (split === 'pull' || split === 'bro_back' || split === 'back_body') {
+      if (slot.compound && (slot.muscle === 'back' || slot.muscle === 'hamstrings')) return 0
+      if (slot.weakPoint && slot.muscle === 'rear_delts') return 1
+      if (!slot.compound && slot.muscle === 'back') return 2
+      if (slot.muscle === 'rear_delts') return 3
+      if (slot.muscle === 'biceps') return 4
+      if (slot.muscle === 'triceps') return 5
+    }
+    if (split === 'upper' || split === 'front_body' || split === 'bro_chest') {
+      if (slot.compound) return 0
+      if (slot.weakPoint && SHOULDER_MUSCLES.includes(slot.muscle)) return 1
+      if (slot.muscle === 'chest' || slot.muscle === 'back' || slot.muscle === 'quads') return 2
+      if (SHOULDER_MUSCLES.includes(slot.muscle)) return 3
+      if (slot.muscle === 'biceps') return 4
+      if (slot.muscle === 'triceps') return 5
     }
     return slot.compound ? 0 : 1
   }
@@ -328,8 +346,8 @@ function requisitiCarenze(priority: Muscle[], slots: SlotDef[]): Muscle[] {
   return requirements
 }
 
-/** Mantiene almeno quattro slot identitari e riserva fino a tre richiami. */
-function applicaCarenzeObbligatorie(base: SlotDef[], priority: Muscle[]): { slots: SlotDef[]; requirements: Muscle[] } {
+/** Mantiene almeno tre slot identitari e riserva le priorità assegnate, senza superare sei esercizi. */
+function applicaPrioritaAssegnate(base: SlotDef[], priority: Muscle[]): { slots: SlotDef[]; requirements: Muscle[] } {
   const requirements = requisitiCarenze(priority, base).slice(0, 3)
   const slots = base.map((slot) => ({ ...slot }))
   const represented = new Set<Muscle>()
@@ -338,7 +356,7 @@ function applicaCarenzeObbligatorie(base: SlotDef[], priority: Muscle[]): { slot
     if (existing) { existing.weakPoint = true; represented.add(requirement) }
   }
   const missing = requirements.filter((muscle) => !represented.has(muscle))
-  while (slots.length + missing.length > 7 && slots.length > 4) {
+  while (slots.length + missing.length > 6 && slots.length > 3) {
     const removable = slots.map((slot, index) => ({ slot, index })).reverse().find(({ slot }) => !slot.weakPoint)
     if (!removable) break
     slots.splice(removable.index, 1)
@@ -365,13 +383,27 @@ export function generaBodybuilding(
   const allenamento = disponibili.filter((e) => !e.roles.includes('warmup'))
   const riscaldamentoPool = disponibili.filter((e) => e.roles.includes('warmup'))
 
-  // 4. Struttura: 5 slot fissi + fino a 2 aggiuntivi secondo il tempo (sez. 3, 11)
+  // 4. Struttura: 5 slot fissi + un sesto secondo tempo e priorità settimanali.
   const pool = SPLIT_MUSCLE_POOL[cfg.split]
-  const structured = applicaCarenzeObbligatorie(BASE_SLOTS[cfg.split], cfg.priority_muscles)
+  const priorities = cfg.priority_muscles ?? []
+  let base = BASE_SLOTS[cfg.split]
+  // Specializzazione Push del documento BB: dopo due press per il petto,
+  // laterali, un compound più stabile, quindi bicipiti e tricipiti.
+  if (cfg.split === 'push' && priorities.includes('lateral_delts') && priorities.includes('biceps') && priorities.includes('triceps')) {
+    base = [
+      { muscle: 'chest', compound: true, order: 0 },
+      { muscle: 'chest', compound: true, order: 1 },
+      { muscle: 'lateral_delts', compound: false, order: 2 },
+      { muscle: 'chest', compound: true, order: 3 },
+      { muscle: 'biceps', compound: false, order: 4 },
+      { muscle: 'triceps', compound: false, order: 5 },
+    ]
+  }
+  const structured = applicaPrioritaAssegnate(base, priorities)
   const baseSlot = structured.slots
-  const target = Math.min(7, Math.max(targetEsercizi(cfg.duration_min), baseSlot.length))
+  const target = Math.min(6, Math.max(targetEsercizi(cfg.duration_min), baseSlot.length))
 
-  // 6. Slot 6°-7°: prima i richiami, poi gli extra generici dello split
+  // 6. Sesto slot: prima le priorità assegnate dalla settimana, poi l'extra dello split.
   const extraSlot: SlotDef[] = []
   for (const s of EXTRA_SLOTS[cfg.split]) {
     if (baseSlot.length + extraSlot.length >= target) break
@@ -389,6 +421,7 @@ export function generaBodybuilding(
   for (let i = 0; i < slot.length; i++) {
     const s = slot[i]
     const isRichiamo = !!s.weakPoint
+    const isCrossSplitRecall = isRichiamo && !pool.includes(s.muscle)
     const musclesDaProvare = [s.muscle, ...(!isRichiamo ? pool.filter((m) => m !== s.muscle) : [])]
 
     let scelto: Exercise | undefined
@@ -447,10 +480,10 @@ export function generaBodybuilding(
       name: scelto.name,
       role: s.compound ? 'compound' : 'isolation',
       muscle: muscoloUsato,
-      sets: p.sets,
+      sets: isCrossSplitRecall ? Math.min(2, p.sets) : p.sets,
       reps: p.reps,
       rest_sec: p.rest,
-      note: isRichiamo ? 'carenza' : undefined,
+      note: isCrossSplitRecall ? 'richiamo carenza' : isRichiamo ? 'carenza' : undefined,
       instructions: scelto.instructions || undefined,
     }
 

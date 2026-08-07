@@ -90,7 +90,7 @@ export default function Create() {
       : session.mode === 'crossfit_hybrid' ? generaHybrid(usableCatalog, common)
       : session.mode === 'strength' ? generaForza(usableCatalog, { ...common, split, weekly_volume: weeklyState?.volume, last_trained_at: weeklyState?.last_trained_at })
       : session.mode === 'tabata' ? generaTabata(usableCatalog, { ...common, ...global.tabata })
-      : generaBodybuilding(usableCatalog, { ...common, split, goal: global.goal, weekly_volume: weeklyState?.volume, last_trained_at: weeklyState?.last_trained_at })
+      : generaBodybuilding(usableCatalog, { ...common, priority_muscles: session.priority_muscles ?? global.weak_points, split, goal: global.goal, weekly_volume: weeklyState?.volume, last_trained_at: weeklyState?.last_trained_at })
     workout.name = `${DAY_LABELS[session.day]} — ${workout.name}`
     workout.max_duration_min = Math.ceil(global.duration_min * 1.15)
     const config: WorkoutGenerationConfig = {

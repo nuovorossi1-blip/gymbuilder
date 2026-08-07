@@ -218,6 +218,10 @@ export interface WeeklySession {
   estimated_fatigue: 1 | 2 | 3
   muscle_load: Muscle[]
   recovery_profile: RecoveryProfile
+  /** Carenze assegnate a questa seduta dal programma, non tutte quelle globali. */
+  priority_muscles: Muscle[]
+  /** Alternanza minima per distribuire le priorità nelle ripetizioni dello stesso split. */
+  variant: 'A' | 'B'
 }
 
 export interface RecoveryProfile {

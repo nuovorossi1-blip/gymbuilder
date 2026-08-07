@@ -45,6 +45,42 @@ describe('Weekly Program Engine', () => {
     expect(hybrids).not.toEqual(['friday', 'saturday'])
   })
 
+  it('PPL assegna spalle e braccia a Push/Pull, mai a Legs', () => {
+    const program = generateWeeklyProgram({ ...base, training_days: 3, selected_modes: ['bodybuilding'], weak_points: ['lateral_delts', 'rear_delts', 'biceps', 'triceps'] })
+    const bySplit = new Map(program.week.map((session) => [session.split, session]))
+    expect(bySplit.get('push')?.priority_muscles).toEqual(['lateral_delts', 'biceps', 'triceps'])
+    expect(bySplit.get('pull')?.priority_muscles).toEqual(['rear_delts', 'biceps', 'triceps'])
+    expect(bySplit.get('legs')?.priority_muscles).toEqual([])
+  })
+
+  it('Upper/Lower ruota laterali e posteriori fra Upper A/B e lascia puliti i Lower', () => {
+    const program = generateWeeklyProgram({ ...base, training_days: 4, selected_modes: ['bodybuilding'], split_system: 'upper_lower', weak_points: ['lateral_delts', 'rear_delts', 'biceps', 'triceps'] })
+    const uppers = program.week.filter((session) => session.split === 'upper').sort((a, b) => a.variant.localeCompare(b.variant))
+    expect(uppers.map((session) => session.priority_muscles)).toEqual([
+      ['lateral_delts', 'biceps', 'triceps'],
+      ['rear_delts', 'biceps', 'triceps'],
+    ])
+    expect(program.week.filter((session) => session.split === 'lower').every((session) => session.priority_muscles.length === 0)).toBe(true)
+  })
+
+  it('Front/Back assegna laterali al Front, posteriori al Back e richiama le braccia in entrambi', () => {
+    const program = generateWeeklyProgram({ ...base, training_days: 4, selected_modes: ['bodybuilding'], split_system: 'front_back', weak_points: ['lateral_delts', 'rear_delts', 'biceps', 'triceps'] })
+    for (const session of program.week) {
+      if (session.split === 'front_body') expect(session.priority_muscles).toEqual(['lateral_delts', 'biceps', 'triceps'])
+      if (session.split === 'back_body') expect(session.priority_muscles).toEqual(['rear_delts', 'biceps', 'triceps'])
+    }
+  })
+
+  it('Bro Split usa giorni dedicati e richiami anatomici su Petto/Dorso, mai su Gambe', () => {
+    const program = generateWeeklyProgram({ ...base, training_days: 5, selected_modes: ['bodybuilding'], split_system: 'bro_split', weak_points: ['lateral_delts', 'rear_delts', 'biceps', 'triceps'] })
+    const bySplit = new Map(program.week.map((session) => [session.split, session.priority_muscles]))
+    expect(bySplit.get('bro_chest')).toEqual(['lateral_delts', 'triceps'])
+    expect(bySplit.get('bro_back')).toEqual(['rear_delts', 'biceps'])
+    expect(bySplit.get('bro_shoulders')).toEqual(['lateral_delts', 'rear_delts'])
+    expect(bySplit.get('bro_arms')).toEqual(['biceps', 'triceps'])
+    expect(bySplit.get('bro_legs')).toEqual([])
+  })
+
   it('Tabata resta complementare quando è combinato con altre discipline', () => {
     const program = generateWeeklyProgram({ ...base, training_days: 6, selected_modes: ['bodybuilding', 'crossfit_hybrid', 'tabata'] })
     expect(program.week.filter((session) => session.mode === 'tabata')).toHaveLength(1)

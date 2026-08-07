@@ -17,7 +17,7 @@ specifici costruiscono poi esercizi, ordine, serie, ripetizioni, recuperi e time
 
 Sono implementati autenticazione, profilo fisico, Weekly Program Engine, cinque
 generatori, anteprima, sostituzione esercizi, salvataggi, runner e stima calorie.
-La suite automatica contiene 156 test. Il piano completo sta in
+La suite automatica contiene 158 test. Il piano completo sta in
 [`ROADMAP.md`](./ROADMAP.md).
 
 ---

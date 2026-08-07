@@ -4,7 +4,7 @@
 > da qui. Va **aggiornato** a ogni sessione, non accodato all'infinito.
 > L'identità del progetto e il percorso di AI-OS stanno in `AIOS_PROJECT.json`.
 
-**Ultimo aggiornamento:** 2026-08-07 (ordine esercizi e avvisi timer) — Codex
+**Ultimo aggiornamento:** 2026-08-07 (priorità muscolari program-aware) — Codex
 
 Etichette: `[FACT]` verificato nel codice · `[RICOSTRUITO]` dedotto da indizi ·
 `[IGNOTO]` non ricavabile dal repository
@@ -100,7 +100,7 @@ presenti negli ambienti Preview e Production (valori mantenuti nascosti).
 - [FACT] Motore Bodybuilding (`src/generators/bodybuilding.ts`), **riscritto in
   questa sessione** — vedi sez. 7 per i motivi. Copre 13 split: Push/Pull/Legs,
   Upper/Lower, Full Body, Bro Split (Petto/Dorso/Spalle/Braccia/Gambe),
-  Front/Back. Architettura "struttura-prima": la sessione ha sempre 5-7 slot
+  Front/Back. Architettura "struttura-prima": la sessione ha sempre 5-6 slot
   decisi prima di scegliere gli esercizi, non il contrario
 - [FACT] Richiami settimanali sui muscoli carenti (`src/generators/weakPoints.ts`):
   legge gli ultimi 7 giorni di `completed_workouts`, stima il volume diretto e
@@ -257,6 +257,7 @@ Capacitor (fase 14): non iniziato.
 
 | Problema | Causa vera | Soluzione |
 |---|---|---|
+| Spalle e braccia carenti venivano forzate anche in sedute biomeccanicamente estranee come Legs | Il generatore riceveva l'intero elenco globale delle carenze per ogni giorno e cercava di soddisfarlo localmente, senza sapere quale sistema settimanale fosse stato scelto | Il Weekly Engine assegna a ogni sessione solo le priorità compatibili con PPL, Upper/Lower, Front/Back o Bro Split. I richiami fuori split scendono a due serie e la seduta non supera sei esercizi |
 | Legs poteva iniziare con Affondo bulgaro e il gluteo finiva dopo gli isolamenti | Il selettore ordinava i compound quasi solo per fatica sistemica e poi pescava fra i primi tre, senza distinguere pattern bilaterali stabili da affondi unilaterali; gli extra erano accodati senza un ordine esecutivo | Separata la scelta della variante dall'ordine esecutivo: squat/pressa prima degli affondi, catena posteriore seconda, glutei terzi, poi isolamenti e polpacci. Push riceve un ordinamento analogo fatigue-aware |
 | I bip finali erano poco percepibili e mancava la vibrazione | Il warning Web Audio durava 70 ms con gain basso e oscillatore sinusoidale; non esisteva uso della Vibration API | Beep 3–2–1 più netto con oscillatore square e gain maggiore, vibrazione configurabile per warning/transizioni/fine dove il browser la supporta |
 | Il salvataggio del Profilo restituiva HTTP 400 su `profiles?on_conflict=user_id` | La tabella conservava `id` come PK obbligatoria, mentre il client inviava soltanto `user_id`; inoltre il trigger di registrazione valorizzava soltanto la chiave legacy | Il client invia entrambe le chiavi, il trigger crea `id=user_id`, i record esistenti sono riallineati e `user_id` è NOT NULL. Rimosse le policy legacy duplicate basate su `id` |

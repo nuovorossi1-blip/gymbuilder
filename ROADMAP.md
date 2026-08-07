@@ -18,8 +18,8 @@
 - Vincoli movement-pattern per Push/Pull/Legs e replacement contestuale.
 - Profile contract `user_id`, RLS e persistenza fisica in migration idempotente.
 - Timer Engine a timestamp con eventi e audio Beep/Ding/Silenzioso.
-- 156 test, build Vite e asset CSS verificati.
-- Carenze spalle/bicipiti/tricipiti garantite in ogni sessione Bodybuilding, prima degli extra.
+- 158 test, build Vite e asset CSS verificati.
+- Carenze spalle/braccia distribuite dal Weekly Engine secondo PPL, Upper/Lower, Front/Back o Bro Split; lavoro principale e richiami non superano sei esercizi per seduta.
 - Ordine Bodybuilding fatigue-aware: Legs parte da squat/pressa, alterna catena anteriore/posteriore e chiude con isolamenti/polpacci; Push separa i press pesanti con il lavoro spalle.
 - Countdown percepibile con tre bip e vibrazione opzionale; Belt Squat aggiunto al catalogo remoto.
 
