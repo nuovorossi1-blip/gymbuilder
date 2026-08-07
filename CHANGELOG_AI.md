@@ -1,5 +1,10 @@
 # Changelog AI
 
+## 2026-08-07 — Apertura compound universale
+
+- Bodybuilding, Forza e Hybrid condividono ora un'invariante finale: richiami, carenze e isolamenti non possono precedere il primo esercizio compound multiarticolare.
+- L'ordine relativo degli esercizi successivi resta quello specifico della disciplina e dello split.
+
 ## 2026-08-07 — CrossFit completo, livelli e metodiche separate
 
 - Livelli pubblici ridotti a Principiante (include Intermedio) e Avanzato; il valore intermedio resta leggibile solo per retrocompatibilità.

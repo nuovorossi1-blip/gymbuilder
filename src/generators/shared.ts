@@ -35,6 +35,17 @@ export function rimuoviDuplicati(scelti: PrescribedExercise[]): void {
   }
 }
 
+/** Porta il primo multiarticolare davanti a richiami e isolamenti. */
+export function portaCompoundInApertura(scelti: PrescribedExercise[]): boolean {
+  if (scelti.length === 0) return false
+  if (scelti[0].role === 'compound') return true
+  const index = scelti.findIndex((exercise) => exercise.role === 'compound')
+  if (index < 0) return false
+  const [compound] = scelti.splice(index, 1)
+  scelti.unshift(compound)
+  return true
+}
+
 export function vuotoVolume(): Record<Muscle, number> {
   return {
     chest: 0, back: 0, front_delts: 0, lateral_delts: 0, rear_delts: 0,

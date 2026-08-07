@@ -25,7 +25,7 @@ import { MUSCLE_LABELS, SPLIT_LABELS } from '../types'
 import { isExerciseAvailable } from './equipment'
 import { decidiRichiami } from './weakPoints'
 import { PESO_DEFAULT_KG, stimaCalorieEsercizio } from './calories'
-import { minutiBlocco, minutiEsercizio, rimuoviDuplicati, rng, scegliRiscaldamento, vuotoVolume } from './shared'
+import { minutiBlocco, minutiEsercizio, portaCompoundInApertura, rimuoviDuplicati, rng, scegliRiscaldamento, vuotoVolume } from './shared'
 
 /** Split compatibili con la Forza (sez. 15/71): niente Bro Split o Front/Back, convenzioni da ipertrofia. */
 export const SPLIT_FORZA: Split[] = ['push', 'pull', 'legs', 'upper', 'lower', 'full_body']
@@ -277,6 +277,7 @@ export function generaForza(catalogo: Exercise[], cfg: StrengthConfig): Generate
   adattaAlTempo(scelti, budget)
 
   rimuoviDuplicati(scelti)
+  if (!portaCompoundInApertura(scelti)) warnings.push('Nessun esercizio multiarticolare disponibile con questa attrezzatura.')
   if (scelti.length < 3) {
     warnings.push(
       `Con questa attrezzatura escono solo ${scelti.length} alzate. ` +

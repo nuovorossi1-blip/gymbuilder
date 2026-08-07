@@ -10,6 +10,16 @@ function mainBlock(w: ReturnType<typeof generaForza>) {
 }
 
 describe('generaForza — struttura di base (poche alzate pesanti, non un Bodybuilding ridotto)', () => {
+  it('apre sempre con un fondamentale compound per ogni split', () => {
+    for (const split of SPLIT_FORZA) {
+      const w = generaForza(catalogo, {
+        split, experience: 'advanced', equipment: 'full_gym', duration_min: 60,
+        priority_muscles: ['biceps', 'triceps'], excluded_exercises: [], seed: 9,
+      })
+      expect(mainBlock(w).exercises[0]?.role).toBe('compound')
+    }
+  })
+
   it('usa cinque esercizi: tre fondamentali seguiti da due complementari', () => {
     const w = generaForza(catalogo, {
       split: 'full_body', experience: 'advanced', equipment: 'full_gym', duration_min: 75,

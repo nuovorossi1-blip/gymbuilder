@@ -16,6 +16,17 @@ function mainBlock(w: ReturnType<typeof generaBodybuilding>) {
 }
 
 describe('generaBodybuilding — struttura di base (sez. 3, 21 della specifica)', () => {
+  it('apre sempre con un compound multiarticolare, anche con carenze', () => {
+    for (const split of TUTTI_GLI_SPLIT) {
+      const w = generaBodybuilding(catalogo, {
+        split, goal: 'hypertrophy', experience: 'advanced', equipment: 'full_gym',
+        duration_min: 60, priority_muscles: ['lateral_delts', 'biceps', 'triceps'],
+        excluded_exercises: [], seed: 17,
+      })
+      expect(mainBlock(w).exercises[0]?.role).toBe('compound')
+    }
+  })
+
   for (const split of TUTTI_GLI_SPLIT) {
     it(`${split}: produce fra 5 e 6 esercizi principali con palestra completa, 60 minuti`, () => {
       const w = generaBodybuilding(catalogo, {

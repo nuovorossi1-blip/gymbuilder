@@ -27,7 +27,7 @@ import { RANK_EXP } from './crossfit'
 import { PESO_DEFAULT_KG, stimaCalorieEsercizio } from './calories'
 import {
   CATEGORIA_PATTERN, minutiBlocco, minutiEsercizio, poolMetcon, repsMetcon,
-  rimuoviDuplicati, rng, scegliCandidato, scegliRiscaldamento,
+  portaCompoundInApertura, rimuoviDuplicati, rng, scegliCandidato, scegliRiscaldamento,
 } from './shared'
 
 export interface HybridConfig {
@@ -156,6 +156,7 @@ export function generaHybrid(catalogo: Exercise[], cfg: HybridConfig): Generated
 
   rimuoviDuplicati(forza)
   rimuoviDuplicati(metcon)
+  if (!portaCompoundInApertura(forza)) warnings.push('Nessun esercizio multiarticolare disponibile per aprire la sessione.')
 
   if (forza.length === 0) {
     warnings.push('Nessuna alzata disponibile per la parte Forza con questa attrezzatura.')

@@ -29,6 +29,7 @@
 - PWA installabile con shell offline, notifica Service Worker, mini-timer globale e continuità del Runner durante errori di rete/session refresh.
 - Controlli Runner Indietro, Pausa/Riprendi e Stop; eliminazione confermata delle schede salvate.
 - CrossFit Standard con catalogo funzionale beginner/advanced ampliato, descrizione didattica e combinazioni distinte BB+Forza / CrossFit+Forza.
+- Invariante di apertura per BB, Forza e Hybrid: primo esercizio sempre compound multiarticolare.
 
 ## IN SVILUPPO
 
