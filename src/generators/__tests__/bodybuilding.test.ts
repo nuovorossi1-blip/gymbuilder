@@ -17,7 +17,7 @@ function mainBlock(w: ReturnType<typeof generaBodybuilding>) {
 
 describe('generaBodybuilding — struttura di base (sez. 3, 21 della specifica)', () => {
   for (const split of TUTTI_GLI_SPLIT) {
-    it(`${split}: produce fra 5 e 7 esercizi principali con palestra completa, 60 minuti`, () => {
+    it(`${split}: produce fra 5 e 6 esercizi principali con palestra completa, 60 minuti`, () => {
       const w = generaBodybuilding(catalogo, {
         split,
         goal: 'hypertrophy',
@@ -30,16 +30,16 @@ describe('generaBodybuilding — struttura di base (sez. 3, 21 della specifica)'
       })
       const n = mainBlock(w).exercises.length
       expect(n).toBeGreaterThanOrEqual(5)
-      expect(n).toBeLessThanOrEqual(7)
+      expect(n).toBeLessThanOrEqual(6)
     })
   }
 
-  it('75 minuti con palestra completa punta a 7 esercizi', () => {
+  it('75 minuti con palestra completa resta al massimo di 6 esercizi', () => {
     const w = generaBodybuilding(catalogo, {
       split: 'push', goal: 'hypertrophy', experience: 'advanced', equipment: 'full_gym',
       duration_min: 75, priority_muscles: [], excluded_exercises: [], seed: 1,
     })
-    expect(mainBlock(w).exercises.length).toBe(7)
+    expect(mainBlock(w).exercises.length).toBe(6)
   })
 
   it('30 minuti resta a 5 esercizi adattando serie e recuperi, non tagliando sotto il minimo', () => {
@@ -90,20 +90,17 @@ describe('generaBodybuilding — attrezzatura (sez. 21, 31)', () => {
   })
 })
 
-describe('generaBodybuilding — carenze obbligatorie in ogni sessione', () => {
-  it.each(['push', 'pull', 'legs'] as const)('%s contiene spalle, bicipiti e tricipiti selezionati come carenze', (split) => {
+describe('generaBodybuilding — priorità assegnate dalla settimana', () => {
+  it('Push specializzato segue petto, petto, laterali, compound stabile, bicipiti, tricipiti', () => {
     const w = generaBodybuilding(catalogo, {
-      split, goal: 'hypertrophy', experience: 'advanced', equipment: 'full_gym',
-      duration_min: 60, priority_muscles: ['lateral_delts', 'rear_delts', 'biceps', 'triceps'],
+      split: 'push', goal: 'hypertrophy', experience: 'advanced', equipment: 'full_gym',
+      duration_min: 60, priority_muscles: ['lateral_delts', 'biceps', 'triceps'],
       excluded_exercises: [], seed: 11,
     })
     const main = mainBlock(w).exercises
-    const muscles = main.map((exercise) => exercise.muscle)
-    expect(muscles.some((muscle) => muscle === 'lateral_delts' || muscle === 'rear_delts')).toBe(true)
-    expect(muscles).toContain('biceps')
-    expect(muscles).toContain('triceps')
-    expect(main.filter((exercise) => exercise.note === 'carenza').length).toBeGreaterThanOrEqual(3)
-    expect(main.length).toBeLessThanOrEqual(7)
+    expect(main.map((exercise) => exercise.muscle)).toEqual(['chest', 'chest', 'lateral_delts', 'chest', 'biceps', 'triceps'])
+    expect(main[4].sets).toBe(2)
+    expect(main[4].note).toBe('richiamo carenza')
   })
 
   it('Push 60 minuti usa due petto e riserva gli slot alle carenze prima delle croci extra', () => {
@@ -113,7 +110,7 @@ describe('generaBodybuilding — carenze obbligatorie in ogni sessione', () => {
     })
     const main = mainBlock(w).exercises
     expect(main).toHaveLength(6)
-    expect(main.filter((exercise) => exercise.muscle === 'chest')).toHaveLength(2)
+    expect(main.filter((exercise) => exercise.muscle === 'chest')).toHaveLength(3)
     expect(main.map((exercise) => exercise.muscle)).toEqual(expect.arrayContaining(['lateral_delts', 'biceps', 'triceps']))
   })
 })
@@ -128,7 +125,7 @@ describe('generaBodybuilding — scenario critico sez. 28 della correzione', () 
     const main = mainBlock(w)
     const byId = new Map(catalogo.map((exercise) => [exercise.id, exercise]))
     expect(main.exercises.length).toBeGreaterThanOrEqual(5)
-    expect(main.exercises.length).toBeLessThanOrEqual(7)
+    expect(main.exercises.length).toBeLessThanOrEqual(6)
     expect(main.exercises.map((exercise) => exercise.muscle)).toContain('biceps')
     expect(main.exercises.map((exercise) => exercise.muscle)).toContain('triceps')
     expect(main.exercises.every((exercise) => byId.get(exercise.exercise_id)?.movement_pattern !== 'squat')).toBe(true)
@@ -219,7 +216,7 @@ describe('generaBodybuilding — scenario critico sez. 28 della correzione', () 
 
     // Il numero di esercizi resta nei limiti, non esplode per inseguire ogni carenza.
     expect(principale.exercises.length).toBeGreaterThanOrEqual(5)
-    expect(principale.exercises.length).toBeLessThanOrEqual(7)
+    expect(principale.exercises.length).toBeLessThanOrEqual(6)
   })
 })
 

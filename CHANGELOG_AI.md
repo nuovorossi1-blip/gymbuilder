@@ -1,5 +1,16 @@
 # Changelog AI
 
+## 2026-08-07 — Priorità muscolari program-aware
+
+- Sostituita la vecchia regola “tutte le carenze in ogni sessione” con assegnazione settimanale coerente al sistema scelto.
+- PPL: laterali nel Push, posteriori nel Pull, braccia in entrambi come lavoro principale/richiamo; Legs resta gambe.
+- Upper/Lower: laterali e posteriori ruotano fra Upper A/B; Lower non riceve richiami upper.
+- Front/Back: laterali nel Front, posteriori nel Back, braccia distribuite in entrambi.
+- Bro Split: lavoro principale nei giorni Spalle/Braccia e richiami anatomici nei giorni Petto/Dorso; Legs resta gambe.
+- Ridotto il limite Bodybuilding a sei esercizi; i richiami fuori split usano due serie.
+- Push specializzato ordinato come petto, petto, laterali, compound moderato, bicipiti, tricipiti.
+- Verifica: 158 test, lint senza errori e build Vite verde.
+
 ## 2026-08-07 — Ordine esercizi, countdown e Belt Squat
 
 - Legs ordinato per fatica e tecnica: quad compound bilaterale, femorali compound, glutei, isolamento quad, isolamento femorali, polpacci.

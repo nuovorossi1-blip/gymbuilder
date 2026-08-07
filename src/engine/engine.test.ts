@@ -20,7 +20,7 @@ describe('Workout Engine master specification', () => {
     const workout = generaBodybuilding(catalog, {
       split: 'pull', goal: 'hypertrophy', experience: 'advanced', equipment: 'full_gym',
       available_equipment: undefined, duration_min: 60,
-      priority_muscles: ['lateral_delts', 'biceps', 'triceps'], excluded_exercises: [],
+      priority_muscles: ['rear_delts', 'biceps', 'triceps'], excluded_exercises: [],
       weekly_volume: { chest: 0, back: 0, front_delts: 0, lateral_delts: 0, rear_delts: 0, biceps: 0, triceps: 0, quads: 0, hamstrings: 0, glutes: 0, calves: 0, core: 0 },
       seed: 12,
     })
