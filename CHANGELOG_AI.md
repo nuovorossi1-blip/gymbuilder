@@ -1,5 +1,23 @@
 # Changelog AI
 
+## 2026-08-07 — Salvataggio profilo `id`/`user_id`
+
+- Corretto il `400` dell'upsert profilo: il client invia ora sia la PK legacy `id` sia il contratto corrente `user_id`.
+- Aggiornato `handle_new_user` perché valorizzi entrambe le chiavi per le nuove registrazioni.
+- Reso `profiles.user_id` obbligatorio dopo il riallineamento dei record esistenti.
+- Rimosse le tre policy RLS legacy basate su `id`; restano SELECT/INSERT/UPDATE proprietarie basate su `user_id`.
+- Migrazione remota applicata; 2/2 profili allineati, nessun `user_id` mancante.
+- Verifica locale: 153 test e build Vite verdi; advisor sicurezza senza nuove regressioni.
+
+## 2026-08-07 — Migrazioni Supabase remote allineate
+
+- Autenticata la CLI sul progetto `geqhxhgrameaugawmaej`, escludendo il token Codespaces obsoleto.
+- Importate nel repository le nove migrazioni storiche già presenti sul remoto senza sovrascrivere le cinque locali.
+- Applicate le migrazioni catalogo v2, attrezzatura avanzata, dati fisici, `generation_config` e contratto/RLS del profilo.
+- Verificato l'allineamento di tutte le 14 versioni locali e remote.
+- Verificate le nuove colonne, 87 esercizi completi e le policy SELECT/INSERT/UPDATE del profilo.
+- Advisor sicurezza senza regressioni; resta il WARN preesistente sulla protezione password compromesse disattivata.
+
 ## 2026-08-06 — Carenze obbligatorie in ogni sessione Bodybuilding
 
 - Trasformate le carenze da richiamo condizionale a requisito strutturale della seduta.

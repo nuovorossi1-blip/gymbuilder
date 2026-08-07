@@ -71,7 +71,7 @@ export function useSettings(userId: string | undefined) {
       if (!userId) return false
       const { error } = await supabase
         .from('profiles')
-        .upsert({ user_id: userId, display_name }, { onConflict: 'user_id' })
+        .upsert({ id: userId, user_id: userId, display_name }, { onConflict: 'user_id' })
       if (error) return false
       setState((s) => (s.profile ? { ...s, profile: { ...s.profile, display_name } } : s))
       return true
@@ -83,7 +83,9 @@ export function useSettings(userId: string | undefined) {
     if (!userId) return false
     const profilePatch = { ...patch }
     delete profilePatch.id
-    const { error } = await supabase.from('profiles').upsert({ user_id: userId, ...profilePatch }, { onConflict: 'user_id' })
+    const { error } = await supabase
+      .from('profiles')
+      .upsert({ id: userId, user_id: userId, ...profilePatch }, { onConflict: 'user_id' })
     if (error) return false
     setState((current) => current.profile ? { ...current, profile: { ...current.profile, ...patch } } : current)
     return true
