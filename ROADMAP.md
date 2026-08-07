@@ -31,6 +31,7 @@
 - CrossFit Standard con catalogo funzionale beginner/advanced ampliato, descrizione didattica e combinazioni distinte BB+Forza / CrossFit+Forza.
 - Invariante di apertura per BB, Forza e Hybrid: primo esercizio sempre compound multiarticolare.
 - Countdown audio 3–2–1 con bip brevi e segnale finale lungo selezionabile (biiip/diiing/riiing/vibrazione).
+- Priorità settimanale separata dalle metodiche: PPL sempre Bodybuilding, senza varianti fittizie PPL Conditioning/Mista.
 
 ## IN SVILUPPO
 
