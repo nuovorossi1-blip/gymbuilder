@@ -68,7 +68,7 @@ export function generaTabata(catalogo: Exercise[], cfg: TabataConfig): Generated
   const minutiRiscaldamento = cfg.duration_min >= 45 ? 9 : 6
   const budget = Math.max(4, cfg.duration_min - minutiRiscaldamento)
 
-  const metconPool = poolMetcon(allenamento, new Set())
+  const metconPool = poolMetcon(allenamento, new Set(), cfg.experience)
   const target = numeroMovimenti(budget)
   const circuito = costruisciCircuito(metconPool, target, cfg.priority_muscles, preferiti, random)
 

@@ -39,6 +39,7 @@
 - Selettore discipline a griglia con combinazione attiva sempre visibile e sostituzione intuitiva della seconda disciplina.
 - Configuratore semplificato: l’utente esprime soltanto struttura e preferenze; metodiche, intensità e obiettivo tecnico sono decisioni interne del motore.
 - Eccezione sessione singola: l’utente può scegliere esplicitamente la metodica da eseguire oggi; nei programmi resta automatica.
+- CrossFit settimanale con formati ruotati per giornata, warning aggregati e istruzioni operative complete; progressione Single/Double Under condivisa con Hybrid.
 
 ## IN SVILUPPO
 

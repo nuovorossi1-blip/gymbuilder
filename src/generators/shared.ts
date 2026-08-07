@@ -123,16 +123,24 @@ export const CATEGORIA_PATTERN: Record<string, CategoriaMetcon> = {
   bike: 'mono', run: 'mono', row: 'mono', carry: 'mono',
 }
 
-export function poolMetcon(allenamento: Exercise[], usati: Set<string>): Exercise[] {
+const ROPE_CARDIO_IDS = new Set(['jump_rope', 'double_under', 'triple_under'])
+
+export function categoriaMetcon(exercise: Exercise): CategoriaMetcon | undefined {
+  if (ROPE_CARDIO_IDS.has(exercise.id)) return 'mono'
+  return CATEGORIA_PATTERN[exercise.movement_pattern]
+}
+
+export function poolMetcon(allenamento: Exercise[], usati: Set<string>, experience?: Experience): Exercise[] {
   return allenamento.filter(
     (e) =>
       !usati.has(e.id) &&
       e.equipment !== 'barbell' &&
       e.equipment !== 'machine' &&
       e.equipment !== 'cable' &&
-      e.technical_complexity <= 2 &&
+      (e.technical_complexity <= 2 || ROPE_CARDIO_IDS.has(e.id)) &&
       (e.roles.includes('conditioning') || e.roles.includes('cardio')) &&
-      CATEGORIA_PATTERN[e.movement_pattern] !== undefined
+      categoriaMetcon(e) !== undefined &&
+      (experience === 'advanced' ? e.id !== 'jump_rope' : e.id !== 'double_under' && e.id !== 'triple_under')
   )
 }
 
@@ -189,7 +197,7 @@ export function costruisciCircuito(
 
   for (const categoria of ordineCategorie) {
     if (risultato.length >= numMovimenti) break
-    const bucket = pool.filter((e) => CATEGORIA_PATTERN[e.movement_pattern] === categoria)
+    const bucket = pool.filter((e) => categoriaMetcon(e) === categoria)
     const scelto = scegliCandidato(bucket, usati, priorita, preferiti, random)
     if (scelto) {
       usati.add(scelto.id)
@@ -201,7 +209,7 @@ export function costruisciCircuito(
     const scelto = scegliCandidato(restanti, usati, priorita, preferiti, random)
     if (!scelto) break
     usati.add(scelto.id)
-    const categoria = CATEGORIA_PATTERN[scelto.movement_pattern] ?? 'upper'
+    const categoria = categoriaMetcon(scelto) ?? 'upper'
     risultato.push({ exercise: scelto, categoria })
   }
   return risultato

@@ -26,7 +26,7 @@ import { isExerciseAvailable } from './equipment'
 import { RANK_EXP } from './crossfit'
 import { PESO_DEFAULT_KG, stimaCalorieEsercizio } from './calories'
 import {
-  CATEGORIA_PATTERN, minutiBlocco, minutiEsercizio, poolMetcon, repsMetcon,
+  categoriaMetcon, minutiBlocco, minutiEsercizio, poolMetcon, repsMetcon,
   portaCompoundInApertura, rimuoviDuplicati, rng, scegliCandidato, scegliRiscaldamento,
 } from './shared'
 
@@ -130,7 +130,7 @@ export function generaHybrid(catalogo: Exercise[], cfg: HybridConfig): Generated
   // Hybrid Metcon: cardio e isolamenti semplici si alternano. Gli isolamenti
   // devono avere tecnica semplice e fatica sistemica/presa bassa.
   const metcon: PrescribedExercise[] = []
-  const cardioPool = poolMetcon(allenamento, usati)
+  const cardioPool = poolMetcon(allenamento, usati, cfg.experience)
   const isolationPool = allenamento.filter(
     (e) => e.roles.includes('isolation') && e.technical_complexity <= 1 &&
       e.systemic_fatigue <= 1 && e.grip_fatigue <= 2
@@ -140,7 +140,7 @@ export function generaHybrid(catalogo: Exercise[], cfg: HybridConfig): Generated
     const cardio = scegliCandidato(cardioPool, usati, cfg.priority_muscles, preferiti, random)
     if (cardio) {
       usati.add(cardio.id)
-      const categoria = CATEGORIA_PATTERN[cardio.movement_pattern]
+      const categoria = categoriaMetcon(cardio) ?? 'mono'
       metcon.push({
         exercise_id: cardio.id, name: cardio.name, role: 'metcon',
         muscle: cardio.primary_muscles[0] ?? null, sets: 1,

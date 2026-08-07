@@ -102,9 +102,9 @@ export default function Create() {
     const forzaCrossFit = global.selected_modes.includes('strength') && global.selected_modes.includes('crossfit')
     const workout = session.mode === 'crossfit'
       ? forzaCrossFit
-        ? generaHybrid(dayCatalog, { ...common, format: global.crossfit_format === 'emom' ? 'emom' : global.crossfit_format === 'for_time' ? 'for_time' : 'amrap' })
-        : generaCrossFit(dayCatalog, { ...common, format: global.crossfit_format })
-      : session.mode === 'crossfit_hybrid' ? generaHybrid(dayCatalog, { ...common, priority_muscles: session.priority_muscles, method: global.program_kind === 'single_session' ? global.hybrid_method : session.priority_muscles.length > 0 ? 'specialization' : global.hybrid_method, format: global.program_kind === 'single_session' || session.variant === 'A' ? (global.hybrid_format ?? 'amrap') : 'emom' })
+        ? generaHybrid(dayCatalog, { ...common, format: session.metcon_format === 'emom' ? 'emom' : session.metcon_format === 'for_time' ? 'for_time' : 'amrap' })
+        : generaCrossFit(dayCatalog, { ...common, format: session.metcon_format ?? global.crossfit_format })
+      : session.mode === 'crossfit_hybrid' ? generaHybrid(dayCatalog, { ...common, priority_muscles: session.priority_muscles, method: global.program_kind === 'single_session' ? global.hybrid_method : session.priority_muscles.length > 0 ? 'specialization' : global.hybrid_method, format: (session.metcon_format === 'amrap' || session.metcon_format === 'emom' || session.metcon_format === 'for_time' || session.metcon_format === 'intervals') ? session.metcon_format : global.hybrid_format })
       : session.mode === 'strength' ? generaForza(dayCatalog, { ...common, split, method: global.strength_method, weekly_volume: weeklyState?.volume, last_trained_at: weeklyState?.last_trained_at })
       : session.mode === 'tabata' ? generaTabata(dayCatalog, { ...common, ...global.tabata })
       : generaBodybuilding(dayCatalog, { ...common, priority_muscles: session.priority_muscles ?? global.weak_points, split, goal: 'hypertrophy', weekly_volume: weeklyState?.volume, last_trained_at: weeklyState?.last_trained_at })

@@ -183,7 +183,7 @@ export function generaCrossFit(catalogo: Exercise[], cfg: CrossFitConfig): Gener
   }
 
   // --- Metcon: formato scelto, con 3-4 movimenti sicuri sotto fatica, uno per categoria. ---
-  const metconPool = poolMetcon(allenamento, usati)
+  const metconPool = poolMetcon(allenamento, usati, cfg.experience)
   const numMovimenti = t.metcon >= 15 ? 4 : 3
   const circuito = costruisciCircuito(metconPool, numMovimenti, cfg.priority_muscles, preferiti, random)
   const metconEsercizi = circuito.map((m) => prescriviMetcon(m.exercise, m.categoria, cfg.experience, intensity))

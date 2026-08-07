@@ -205,3 +205,11 @@
 - La sessione singola CrossFit permette i sette formati WOD; Hybrid permette focus e formato.
 - Le scelte della sessione singola non vengono sovrascritte dal motore, neppure in presenza di carenze.
 - Aggiunto test di regressione; 178 test verdi.
+## 2026-08-07 — Settimana CrossFit leggibile, istruzioni WOD e corda
+
+- Gli avvisi settimanali duplicati vengono aggregati; un programma solo CrossFit mostra un unico riepilogo sul recupero.
+- Ogni giornata CrossFit riceve un formato diverso scelto dal motore e visibile nel calendario.
+- Anteprima e Runner spiegano per ogni formato giri, ordine, pause, punteggio e condizione di termine.
+- Single Under e Double Under sono ora cardio monostrutturale in CrossFit, Hybrid, Conditioning e Tabata.
+- Principiante usa Single Under; Avanzato usa Double Under. Aggiornati nomi e cue nel catalogo Supabase remoto.
+- Aggiunti test per warning, istruzioni Metcon e progressione corda; 188 test verdi.
