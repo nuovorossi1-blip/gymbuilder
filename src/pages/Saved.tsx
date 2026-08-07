@@ -2,12 +2,12 @@ import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../features/auth/AuthProvider'
 import { useWorkout } from '../features/workout/WorkoutContext'
-import { cambiaPreferito, elencoSalvati, eliminaSalvato } from '../lib/api'
+import { cambiaPreferito, caricaCatalogo, elencoSalvati, eliminaSalvato } from '../lib/api'
 import { GOAL_LABELS, SPLIT_LABELS, type Goal, type Mode, type SavedWorkout, type Split } from '../types'
 
 export default function Saved() {
   const { user } = useAuth()
-  const { setWorkout, setGenerationConfig } = useWorkout()
+  const { catalog, setCatalog, setWorkout, setGenerationConfig } = useWorkout()
   const naviga = useNavigate()
   const [lista, setLista] = useState<SavedWorkout[] | null>(null)
   const [errore, setErrore] = useState<string | null>(null)
@@ -19,12 +19,30 @@ export default function Saved() {
 
   useEffect(carica, [carica])
 
+  useEffect(() => {
+    if (catalog.length === 0) void caricaCatalogo().then(setCatalog).catch(() => undefined)
+  }, [catalog.length, setCatalog])
+
   function apri(s: SavedWorkout) {
+    const byId = new Map(catalog.map((exercise) => [exercise.id, exercise]))
+    const blocks = s.blocks.map((block) => ({
+      ...block,
+      exercises: block.exercises.map((prescribed) => {
+        const canonicalId = prescribed.exercise_id === 'leg_extension_unilaterale' ? 'leg_extension' : prescribed.exercise_id
+        const current = byId.get(canonicalId)
+        return current ? {
+          ...prescribed,
+          exercise_id: current.id,
+          name: current.name,
+          instructions: current.instructions,
+        } : prescribed
+      }),
+    }))
     setGenerationConfig(s.generation_config ?? null)
     setWorkout({
       name: s.name, mode: s.mode as Mode, split: s.split as Split | null,
       goal: s.goal as Goal, experience: s.experience as never,
-      duration_min: s.duration_min, blocks: s.blocks, warnings: [],
+      duration_min: s.duration_min, blocks, warnings: [],
     })
     naviga('/allenamento')
   }
