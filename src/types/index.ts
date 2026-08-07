@@ -323,8 +323,8 @@ export interface CompletedWorkout {
 // --- Etichette in italiano, tenute fuori dai componenti (sez. 87) ---
 
 export const EXPERIENCE_LABELS: Record<Experience, string> = {
-  beginner: 'Principiante',
-  intermediate: 'Intermedio',
+  beginner: 'Principiante (include Intermedio)',
+  intermediate: 'Principiante (include Intermedio)',
   advanced: 'Avanzato',
 }
 

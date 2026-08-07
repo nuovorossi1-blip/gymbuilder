@@ -70,6 +70,20 @@ export async function notifyTimerEvent(type: TimerEventType, label: string): Pro
   }
 }
 
+export async function notifyTimerSnapshot(label: string, remainingSec: number): Promise<void> {
+  if (remainingSec <= 0 || typeof Notification === 'undefined' || Notification.permission !== 'granted') return
+  try {
+    const registration = await navigator.serviceWorker?.ready
+    if (!registration) return
+    await registration.showNotification(timerTitle(label, remainingSec), {
+      body: 'Timer attivo · tocca per tornare all’allenamento.',
+      tag: 'gymbuilder-active-timer',
+      data: { href: '/avvia' },
+      requireInteraction: true,
+    })
+  } catch { /* miglioramento progressivo */ }
+}
+
 export function resetBackgroundTimer(clearActive = false): void {
   if (typeof document !== 'undefined') document.title = DEFAULT_TITLE
   if (clearActive && typeof window !== 'undefined') {

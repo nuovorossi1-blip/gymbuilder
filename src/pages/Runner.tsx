@@ -6,7 +6,7 @@ import { registraCompletato } from '../lib/api'
 import { FORMATO_A_GIRI, FORMATO_A_INTERVALLI, MUSCLE_LABELS, type PrescribedExercise } from '../types'
 import { loadAudioSettings, saveAudioSettings, TimerAudio, type AudioTimerSettings, type TimerSound } from '../engine/audio'
 import type { TimerEventType, TimerPhase } from '../engine/timer'
-import { notifyTimerEvent, publishBackgroundTimer, requestTimerNotifications, resetBackgroundTimer } from '../engine/backgroundTimer'
+import { notifyTimerEvent, notifyTimerSnapshot, publishBackgroundTimer, requestTimerNotifications, resetBackgroundTimer } from '../engine/backgroundTimer'
 
 type Fase = { tipo: 'serie'; iEs: number; serie: number } | { tipo: 'recupero'; iEs: number; serie: number; sec: number }
 
@@ -226,7 +226,10 @@ export default function Runner() {
   }, [aIntervalli, countdown, fase.tipo, formato, inPausa, intervalRimanente, intervalSottofase, metconInPausa, metconRimanente, rimanente, sezione])
 
   useEffect(() => {
-    const syncVisibility = () => publishBackgroundTimer(backgroundState.current.label, backgroundState.current.remaining)
+    const syncVisibility = () => {
+      publishBackgroundTimer(backgroundState.current.label, backgroundState.current.remaining)
+      if (document.hidden) void notifyTimerSnapshot(backgroundState.current.label, backgroundState.current.remaining)
+    }
     document.addEventListener('visibilitychange', syncVisibility)
     return () => { document.removeEventListener('visibilitychange', syncVisibility); resetBackgroundTimer() }
   }, [])

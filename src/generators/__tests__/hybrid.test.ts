@@ -76,6 +76,18 @@ describe('generaHybrid — struttura Strength/Bodybuilding + Hybrid Metcon', () 
 })
 
 describe('generaHybrid — scelta esercizi', () => {
+  it('non apre mai con affondi o unilaterali quando esiste un compound bilaterale', () => {
+    for (let seed = 1; seed <= 30; seed++) {
+      const w = generaHybrid(catalogo, {
+        experience: 'advanced', equipment: 'full_gym', duration_min: 60,
+        priority_muscles: ['quads'], excluded_exercises: [], seed,
+      })
+      const first = perId.get(mainBlock(w).exercises[0].exercise_id)!
+      expect(first.movement_pattern).not.toBe('lunge')
+      expect(first.unilateral).not.toBe(true)
+    }
+  })
+
   it('le alzate sono sempre compound (hypertrophy o strength), mai movimenti conditioning', () => {
     const w = generaHybrid(catalogo, {
       experience: 'advanced', equipment: 'full_gym', duration_min: 60,

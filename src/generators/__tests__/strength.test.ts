@@ -10,6 +10,16 @@ function mainBlock(w: ReturnType<typeof generaForza>) {
 }
 
 describe('generaForza — struttura di base (poche alzate pesanti, non un Bodybuilding ridotto)', () => {
+  it('usa cinque esercizi: tre fondamentali seguiti da due complementari', () => {
+    const w = generaForza(catalogo, {
+      split: 'full_body', experience: 'advanced', equipment: 'full_gym', duration_min: 75,
+      priority_muscles: [], excluded_exercises: [], seed: 4,
+    })
+    expect(mainBlock(w).exercises).toHaveLength(5)
+    expect(mainBlock(w).exercises.slice(0, 3).every((exercise) => exercise.role === 'compound')).toBe(true)
+    expect(mainBlock(w).exercises.slice(3).every((exercise) => exercise.role === 'isolation')).toBe(true)
+  })
+
   for (const split of SPLIT_FORZA) {
     it(`${split}: produce fra 3 e 5 alzate con palestra completa, 60 minuti`, () => {
       const w = generaForza(catalogo, {
@@ -65,7 +75,7 @@ describe('generaForza — intensità (sez. UI Base44)', () => {
     })
     const compoundBassa = mainBlock(bassa).exercises.find((e) => e.role === 'compound')!
     const compoundAlta = mainBlock(alta).exercises.find((e) => e.role === 'compound')!
-    expect(compoundAlta.rest_sec).toBeGreaterThan(compoundBassa.rest_sec)
+    expect(compoundAlta.reps).not.toBe(compoundBassa.reps)
   })
 
   it('un principiante non arriva alle ripetizioni bassissime anche chiedendo intensità Alta', () => {

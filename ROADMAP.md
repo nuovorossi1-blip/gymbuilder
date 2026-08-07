@@ -28,6 +28,7 @@
 - Web background: titolo e notifiche del timer implementati. Dynamic Island/Live Activity resta una feature nativa ActivityKit da compilare in un contenitore iOS con Widget Extension e credenziali Apple.
 - PWA installabile con shell offline, notifica Service Worker, mini-timer globale e continuità del Runner durante errori di rete/session refresh.
 - Controlli Runner Indietro, Pausa/Riprendi e Stop; eliminazione confermata delle schede salvate.
+- CrossFit Standard con catalogo funzionale beginner/advanced ampliato, descrizione didattica e combinazioni distinte BB+Forza / CrossFit+Forza.
 
 ## IN SVILUPPO
 
