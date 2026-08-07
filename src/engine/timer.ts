@@ -1,6 +1,6 @@
 export type TimerPhase = 'countdown' | 'work' | 'rest' | 'round' | 'set' | 'emom' | 'amrap' | 'for_time' | 'tabata' | 'cap' | 'completed'
 export type TimerEventType =
-  | 'TIMER_STARTED' | 'COUNTDOWN_STARTED' | 'WORK_STARTED' | 'REST_STARTED'
+  | 'TIMER_STARTED' | 'COUNTDOWN_STARTED' | 'COUNTDOWN_COMPLETED' | 'WORK_STARTED' | 'REST_STARTED'
   | 'ROUND_STARTED' | 'SET_STARTED' | 'WARNING' | 'TIMER_COMPLETED' | 'TIME_CAP_REACHED'
 
 export interface TimerEvent { type: TimerEventType; at: number; phase: TimerPhase; round?: number; set?: number }

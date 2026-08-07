@@ -40,6 +40,11 @@ describe('Unified Timer Engine', () => {
     expect(vibrationForEvent('WARNING', DEFAULT_AUDIO_SETTINGS)).toBe(70)
     expect(vibrationForEvent('TIMER_COMPLETED', DEFAULT_AUDIO_SETTINGS)).toEqual([140, 80, 180])
   })
+  it('allo zero usa il segnale finale lungo e una vibrazione più riconoscibile', () => {
+    expect(soundForEvent('COUNTDOWN_COMPLETED', DEFAULT_AUDIO_SETTINGS)).toBe('ding')
+    expect(vibrationForEvent('COUNTDOWN_COMPLETED', DEFAULT_AUDIO_SETTINGS)).toEqual([250, 80, 350])
+    expect(soundForEvent('COUNTDOWN_COMPLETED', { ...DEFAULT_AUDIO_SETTINGS, endSound: 'ring' })).toBe('ring')
+  })
   it('pausa non crea drift', () => {
     expect(resumeClock({ startedAt: 0, durationSec: 10, pausedTotalMs: 0, pausedAt: 2_000 }, 7_000).pausedTotalMs).toBe(5_000)
   })
