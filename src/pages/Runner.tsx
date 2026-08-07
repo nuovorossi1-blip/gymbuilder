@@ -77,6 +77,7 @@ export default function Runner() {
   function updateAudio(patch: Partial<AudioTimerSettings>) {
     const next = { ...audioSettings, ...patch }
     setAudioSettings(next); saveAudioSettings(next); audio.current?.update(next)
+    if (next.enabled) void audio.current?.unlock()
   }
 
   async function startWithCountdown(action: () => void) {
@@ -646,7 +647,7 @@ export default function Runner() {
 
 function AudioControls({ settings, onChange }: { settings: AudioTimerSettings; onChange: (patch: Partial<AudioTimerSettings>) => void }) {
   const sounds: TimerSound[] = ['beep', 'ding', 'silent']
-  return <section className="mt-7 rounded-xl border border-edge bg-steel p-4"><div className="flex items-center justify-between"><span className="text-sm font-medium">Audio timer</span><button className={`chip ${settings.enabled ? 'chip-on' : ''}`} aria-pressed={settings.enabled} onClick={() => onChange({ enabled: !settings.enabled })}>{settings.enabled ? 'ON' : 'OFF'}</button></div>{settings.enabled ? <div className="mt-4 grid grid-cols-2 gap-3"><AudioSelect label="Suono inizio" value={settings.startSound} sounds={sounds} onChange={(startSound) => onChange({ startSound })} /><AudioSelect label="Suono fine" value={settings.endSound} sounds={sounds} onChange={(endSound) => onChange({ endSound })} /><label className="col-span-2 flex items-center gap-3 text-sm text-slate2"><input type="checkbox" checked={settings.countdown} onChange={(event) => onChange({ countdown: event.target.checked })} />Countdown 3–2–1</label></div> : null}</section>
+  return <section className="mt-7 rounded-xl border border-edge bg-steel p-4"><div className="flex items-center justify-between"><span className="text-sm font-medium">Avvisi timer</span><button className={`chip ${settings.enabled ? 'chip-on' : ''}`} aria-pressed={settings.enabled} onClick={() => onChange({ enabled: !settings.enabled })}>{settings.enabled ? 'Audio ON' : 'Audio OFF'}</button></div><label className="mt-4 flex items-center gap-3 text-sm text-slate2"><input type="checkbox" checked={settings.vibration} onChange={(event) => onChange({ vibration: event.target.checked })} />Vibrazione, se supportata dal telefono</label>{settings.enabled ? <div className="mt-4 grid grid-cols-2 gap-3"><AudioSelect label="Suono inizio" value={settings.startSound} sounds={sounds} onChange={(startSound) => onChange({ startSound })} /><AudioSelect label="Suono fine" value={settings.endSound} sounds={sounds} onChange={(endSound) => onChange({ endSound })} /><label className="col-span-2 flex items-center gap-3 text-sm text-slate2"><input type="checkbox" checked={settings.countdown} onChange={(event) => onChange({ countdown: event.target.checked })} />Tre bip: 3–2–1</label></div> : null}</section>
 }
 
 function AudioSelect({ label, value, sounds, onChange }: { label: string; value: TimerSound; sounds: TimerSound[]; onChange: (sound: TimerSound) => void }) {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { completionEvent, elapsedSeconds, remainingSeconds, resumeClock, transitionInterval } from './timer'
-import { DEFAULT_AUDIO_SETTINGS, soundForEvent } from './audio'
+import { DEFAULT_AUDIO_SETTINGS, soundForEvent, vibrationForEvent } from './audio'
 
 describe('Unified Timer Engine', () => {
   it('usa timestamp reali e recupera correttamente dopo perdita di focus', () => {
@@ -34,6 +34,11 @@ describe('Unified Timer Engine', () => {
   })
   it('Hybrid strength → metcon usa un segnale di avvio', () => {
     expect(soundForEvent('TIMER_STARTED', DEFAULT_AUDIO_SETTINGS)).toBe('beep')
+  })
+  it('gli ultimi tre secondi hanno beep e vibrazione distinti', () => {
+    expect(soundForEvent('WARNING', DEFAULT_AUDIO_SETTINGS)).toBe('beep')
+    expect(vibrationForEvent('WARNING', DEFAULT_AUDIO_SETTINGS)).toBe(70)
+    expect(vibrationForEvent('TIMER_COMPLETED', DEFAULT_AUDIO_SETTINGS)).toEqual([140, 80, 180])
   })
   it('pausa non crea drift', () => {
     expect(resumeClock({ startedAt: 0, durationSec: 10, pausedTotalMs: 0, pausedAt: 2_000 }, 7_000).pausedTotalMs).toBe(5_000)

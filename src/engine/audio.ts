@@ -1,9 +1,9 @@
 import type { TimerEvent, TimerEventType } from './timer'
 
 export type TimerSound = 'beep' | 'ding' | 'silent'
-export interface AudioTimerSettings { enabled: boolean; startSound: TimerSound; endSound: TimerSound; countdown: boolean }
+export interface AudioTimerSettings { enabled: boolean; startSound: TimerSound; endSound: TimerSound; countdown: boolean; vibration: boolean }
 
-export const DEFAULT_AUDIO_SETTINGS: AudioTimerSettings = { enabled: true, startSound: 'beep', endSound: 'ding', countdown: true }
+export const DEFAULT_AUDIO_SETTINGS: AudioTimerSettings = { enabled: true, startSound: 'beep', endSound: 'ding', countdown: true, vibration: true }
 const STORAGE_KEY = 'gymbuilder:timer-audio:v1'
 
 export function loadAudioSettings(): AudioTimerSettings {
@@ -23,6 +23,14 @@ export function soundForEvent(type: TimerEventType, settings: AudioTimerSettings
   return null
 }
 
+export function vibrationForEvent(type: TimerEventType, settings: AudioTimerSettings): number | number[] | null {
+  if (!settings.vibration) return null
+  if (type === 'WARNING') return 70
+  if (type === 'TIMER_COMPLETED' || type === 'TIME_CAP_REACHED') return [140, 80, 180]
+  if (type === 'REST_STARTED' || type === 'WORK_STARTED' || type === 'ROUND_STARTED' || type === 'SET_STARTED') return 45
+  return null
+}
+
 /** Web Audio viene sbloccato dal tap su Comincia; non altera il volume del dispositivo. */
 export class TimerAudio {
   private context: AudioContext | null = null
@@ -34,20 +42,22 @@ export class TimerAudio {
     if (this.context.state === 'suspended') await this.context.resume()
   }
   play(event: TimerEvent): void {
+    const vibration = vibrationForEvent(event.type, this.settings)
+    if (vibration && typeof navigator !== 'undefined' && 'vibrate' in navigator) navigator.vibrate(vibration)
     const sound = soundForEvent(event.type, this.settings)
     if (!sound || sound === 'silent' || !this.context || this.context.state !== 'running') return
     const now = this.context.currentTime
-    if (event.type === 'WARNING') this.tone(now, 660, 0.07, 0.11)
+    if (event.type === 'WARNING') this.tone(now, 760, 0.1, 0.28, 'square')
     else if (event.type === 'TIMER_COMPLETED') { this.tone(now, 880, 0.12, 0.18); this.tone(now + 0.18, 1040, 0.16, 0.18) }
     else if (event.type === 'TIME_CAP_REACHED') { this.tone(now, 330, 0.2, 0.22); this.tone(now + 0.26, 330, 0.2, 0.22) }
     else if (sound === 'ding') this.tone(now, 1040, 0.18, 0.22)
     else this.tone(now, 780, 0.12, 0.16)
   }
-  private tone(at: number, frequency: number, duration: number, gainValue: number) {
+  private tone(at: number, frequency: number, duration: number, gainValue: number, type: OscillatorType = 'sine') {
     if (!this.context) return
     const oscillator = this.context.createOscillator()
     const gain = this.context.createGain()
-    oscillator.type = 'sine'; oscillator.frequency.value = frequency
+    oscillator.type = type; oscillator.frequency.value = frequency
     gain.gain.setValueAtTime(gainValue, at); gain.gain.exponentialRampToValueAtTime(0.001, at + duration)
     oscillator.connect(gain); gain.connect(this.context.destination)
     oscillator.start(at); oscillator.stop(at + duration)

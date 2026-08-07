@@ -18,8 +18,10 @@
 - Vincoli movement-pattern per Push/Pull/Legs e replacement contestuale.
 - Profile contract `user_id`, RLS e persistenza fisica in migration idempotente.
 - Timer Engine a timestamp con eventi e audio Beep/Ding/Silenzioso.
-- 153 test, build Vite e asset CSS verificati.
+- 156 test, build Vite e asset CSS verificati.
 - Carenze spalle/bicipiti/tricipiti garantite in ogni sessione Bodybuilding, prima degli extra.
+- Ordine Bodybuilding fatigue-aware: Legs parte da squat/pressa, alterna catena anteriore/posteriore e chiude con isolamenti/polpacci; Push separa i press pesanti con il lavoro spalle.
+- Countdown percepibile con tre bip e vibrazione opzionale; Belt Squat aggiunto al catalogo remoto.
 
 ## IN SVILUPPO
 
@@ -29,6 +31,8 @@
 ## PROSSIMO
 
 - Adapter HealthKit e Health Connect in packaging mobile.
+- Packaging iOS con ActivityKit/WidgetKit: Live Activity sulla schermata di blocco e timer nella Dynamic Island.
+- Foreground service/notifica persistente Android per il timer quando l'app è in background.
 - Rigenerazione automatica multi-tentativo quando una configurazione non supera il validatore.
 
 ## FUTURO

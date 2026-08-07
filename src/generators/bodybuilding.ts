@@ -58,6 +58,8 @@ export interface GenerationConfig {
 interface SlotDef {
   muscle: Muscle
   compound: boolean
+  /** Pattern preferiti per l'ordine tecnico: fallback agli altri se l'attrezzatura non li offre. */
+  preferredPatterns?: string[]
   /** Una carenza selezionata è obbligatoria nella sessione, non un bonus casuale. */
   weakPoint?: boolean
 }
@@ -111,8 +113,8 @@ const BASE_SLOTS: Record<Split, SlotDef[]> = {
     { muscle: 'biceps', compound: false },
   ],
   legs: [
-    { muscle: 'quads', compound: true },
-    { muscle: 'hamstrings', compound: true },
+    { muscle: 'quads', compound: true, preferredPatterns: ['squat'] },
+    { muscle: 'hamstrings', compound: true, preferredPatterns: ['hinge'] },
     { muscle: 'quads', compound: false },
     { muscle: 'hamstrings', compound: false },
     { muscle: 'calves', compound: false },
@@ -125,8 +127,8 @@ const BASE_SLOTS: Record<Split, SlotDef[]> = {
     { muscle: 'triceps', compound: false },
   ],
   lower: [
-    { muscle: 'quads', compound: true },
-    { muscle: 'hamstrings', compound: true },
+    { muscle: 'quads', compound: true, preferredPatterns: ['squat'] },
+    { muscle: 'hamstrings', compound: true, preferredPatterns: ['hinge'] },
     { muscle: 'quads', compound: false },
     { muscle: 'glutes', compound: false },
     { muscle: 'calves', compound: false },
@@ -167,8 +169,8 @@ const BASE_SLOTS: Record<Split, SlotDef[]> = {
     { muscle: 'biceps', compound: false },
   ],
   bro_legs: [
-    { muscle: 'quads', compound: true },
-    { muscle: 'hamstrings', compound: true },
+    { muscle: 'quads', compound: true, preferredPatterns: ['squat'] },
+    { muscle: 'hamstrings', compound: true, preferredPatterns: ['hinge'] },
     { muscle: 'quads', compound: false },
     { muscle: 'hamstrings', compound: false },
     { muscle: 'glutes', compound: false },
@@ -278,6 +280,37 @@ const MAX_COMPOUND_PESANTI = 2
 const SHOULDER_MUSCLES: Muscle[] = ['front_delts', 'lateral_delts', 'rear_delts']
 
 /**
+ * Ordine di esecuzione, separato dalla scelta casuale della variante.
+ * I multiarticolari tecnici vengono eseguiti da freschi; negli accessori si
+ * alternano i distretti per non accumulare inutilmente fatica locale.
+ */
+function ordinaSlot(split: Split, slots: SlotDef[]): SlotDef[] {
+  const lowerBody = split === 'legs' || split === 'lower' || split === 'bro_legs'
+  const rank = (slot: SlotDef): number => {
+    if (lowerBody) {
+      if (slot.compound && slot.muscle === 'quads') return 0
+      if (slot.compound && slot.muscle === 'hamstrings') return 1
+      if (slot.muscle === 'glutes') return 2
+      if (!slot.compound && slot.muscle === 'quads') return 3
+      if (!slot.compound && slot.muscle === 'hamstrings') return 4
+      if (slot.muscle === 'calves') return 5
+      return 6
+    }
+    if (split === 'push') {
+      if (slot.compound && slot.muscle === 'chest') return 0
+      if (slot.compound && slot.muscle === 'front_delts') return 1
+      if (!slot.compound && slot.muscle === 'chest') return 2
+      if (slot.muscle === 'lateral_delts') return 3
+      if (slot.muscle === 'biceps') return 4
+      if (slot.muscle === 'triceps') return 5
+      return 6
+    }
+    return slot.compound ? 0 : 1
+  }
+  return slots.map((slot, index) => ({ slot, index })).sort((a, b) => rank(a.slot) - rank(b.slot) || a.index - b.index).map(({ slot }) => slot)
+}
+
+/**
  * Collassa le tre porzioni del deltoide in un solo richiamo "spalle" per
  * sessione. Se lo split ne copre già una selezionata usa quella naturale
  * (laterale in Push, posteriore in Pull); altrimenti sceglie la prima carenza
@@ -344,7 +377,7 @@ export function generaBodybuilding(
     if (baseSlot.length + extraSlot.length >= target) break
     extraSlot.push(s)
   }
-  const slot = [...baseSlot, ...extraSlot]
+  const slot = ordinaSlot(cfg.split, [...baseSlot, ...extraSlot])
 
   // 7. Selezione esercizi per slot
   const scelti: PrescribedExercise[] = []
@@ -393,8 +426,12 @@ export function generaBodybuilding(
       // muscolo/slot esiste un candidato preferito, si sceglie da quelli soli
       // (con un minimo di varietà se l'utente ne ha preferiti più di uno per
       // lo stesso muscolo); altrimenti si torna al pool normale.
-      const preferitiCandidati = candidati.filter((e) => preferiti.has(e.id))
-      const pool_ = preferitiCandidati.length > 0 ? preferitiCandidati : candidati
+      const patternCandidati = s.preferredPatterns?.length
+        ? candidati.filter((e) => s.preferredPatterns?.includes(e.movement_pattern))
+        : []
+      const poolPattern = patternCandidati.length > 0 ? patternCandidati : candidati
+      const preferitiCandidati = poolPattern.filter((e) => preferiti.has(e.id))
+      const pool_ = preferitiCandidati.length > 0 ? preferitiCandidati : poolPattern
       pool_.sort(faticaSort)
       const testa = pool_.slice(0, Math.min(3, pool_.length))
       scelto = testa[Math.floor(random() * testa.length)]
