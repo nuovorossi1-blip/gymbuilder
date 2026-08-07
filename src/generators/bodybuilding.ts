@@ -32,7 +32,7 @@ import type {
 import { SPLIT_LABELS } from '../types'
 import { isExerciseAvailable } from './equipment'
 import { PESO_DEFAULT_KG, stimaCalorieEsercizio } from './calories'
-import { minutiBlocco, minutiEsercizio, rimuoviDuplicati, rng, scegliRiscaldamento } from './shared'
+import { minutiBlocco, minutiEsercizio, portaCompoundInApertura, rimuoviDuplicati, rng, scegliRiscaldamento } from './shared'
 
 export interface GenerationConfig {
   split: Split
@@ -163,10 +163,10 @@ const BASE_SLOTS: Record<Split, SlotDef[]> = {
     { muscle: 'rear_delts', compound: false },
   ],
   bro_arms: [
+    { muscle: 'triceps', compound: true, preferredPatterns: ['horizontal_push', 'vertical_push'] },
     { muscle: 'biceps', compound: false },
     { muscle: 'triceps', compound: false },
     { muscle: 'biceps', compound: false },
-    { muscle: 'triceps', compound: false },
     { muscle: 'biceps', compound: false },
   ],
   bro_legs: [
@@ -503,6 +503,7 @@ export function generaBodybuilding(
 
   // 9. Validatore di sicurezza finale (sez. 22, 40): corregge, non si limita a segnalare.
   rimuoviDuplicati(scelti)
+  if (!portaCompoundInApertura(scelti)) warnings.push('Nessun esercizio multiarticolare disponibile con questa attrezzatura.')
   if (scelti.length < 5) {
     warnings.push(
       `Con questa attrezzatura escono solo ${scelti.length} esercizi. ` +
