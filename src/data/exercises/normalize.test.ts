@@ -18,6 +18,9 @@ describe('normalizeExercise', () => {
       expect(Array.isArray(exercise.required_equipment)).toBe(true)
       expect(typeof exercise.metcon_safe).toBe('boolean')
       expect(typeof exercise.warmup_relevant).toBe('boolean')
+      expect(['supported', 'guided', 'free']).toContain(exercise.stability_profile)
+      expect(exercise.axial_load).toBeGreaterThanOrEqual(0)
+      expect(typeof exercise.unilateral).toBe('boolean')
     }
   })
 
@@ -32,10 +35,15 @@ describe('normalizeExercise', () => {
       english_name: 'Hip Abduction Machine',
       substitutions: ['glute_bridge'],
       metcon_safe: true,
+      stability_profile: 'supported',
+      axial_load: 0,
+      unilateral: true,
     }
     const exercise = normalizeExercise(record)
     expect(exercise.english_name).toBe('Hip Abduction Machine')
     expect(exercise.substitutions).toEqual(['glute_bridge'])
     expect(exercise.metcon_safe).toBe(true)
+    expect(exercise.stability_profile).toBe('supported')
+    expect(exercise.unilateral).toBe(true)
   })
 })

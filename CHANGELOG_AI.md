@@ -1,5 +1,15 @@
 # Changelog AI
 
+## 2026-08-07 — Catalogo esercizi curato e metadati interni
+
+- Espanso il catalogo Supabase da 88 a 118 esercizi attivi con 30 varianti realmente distintive per traiettoria, supporto, presa, unilateralità o attrezzatura.
+- Mantenute separate varianti utili come T-Bar Row libera e rematore con manubri chest-supported; evitati alias che cambiano soltanto il nome.
+- Aggiunti `stability_profile`, `axial_load` e `unilateral` come metadati interni del motore, mai esposti nella scheda utente.
+- Corrette Leg Extension come `knee_extension`, le alzate polpacci come `calf_raise`, Chin-up e Glute Bridge come compound.
+- Il Replacement Engine considera ora anche stabilità, carico assiale e unilateralità, oltre a muscolo, pattern, tipologia, attrezzatura e fatica.
+- Rimossa una policy SELECT Supabase duplicata; resta una sola policy per gli esercizi attivi.
+- Verifica: 159 test, lint senza errori, build Vite verde, query remote e advisor Supabase eseguiti.
+
 ## 2026-08-07 — Priorità muscolari program-aware
 
 - Sostituita la vecchia regola “tutte le carenze in ogni sessione” con assegnazione settimanale coerente al sistema scelto.
