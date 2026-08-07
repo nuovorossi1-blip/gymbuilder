@@ -1,6 +1,16 @@
 import type { TimerEventType } from './timer'
 
 const DEFAULT_TITLE = 'GymBuilder'
+export const ACTIVE_TIMER_KEY = 'gymbuilder:active-timer:v1'
+export const ACTIVE_TIMER_EVENT = 'gymbuilder:active-timer'
+
+export interface ActiveTimerState {
+  label: string
+  deadline: number
+  remainingSec: number
+  paused: boolean
+  href: '/avvia'
+}
 
 export function timerTitle(label: string, remainingSec: number): string {
   const safe = Math.max(0, Math.round(remainingSec))
@@ -14,18 +24,58 @@ export async function requestTimerNotifications(): Promise<boolean> {
   return (await Notification.requestPermission()) === 'granted'
 }
 
-export function publishBackgroundTimer(label: string, remainingSec: number): void {
-  if (typeof document === 'undefined') return
-  document.title = document.hidden ? timerTitle(label, remainingSec) : DEFAULT_TITLE
+export function readActiveTimer(): ActiveTimerState | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const raw = localStorage.getItem(ACTIVE_TIMER_KEY)
+    return raw ? JSON.parse(raw) as ActiveTimerState : null
+  } catch {
+    return null
+  }
 }
 
-export function notifyTimerEvent(type: TimerEventType, label: string): void {
+export function publishBackgroundTimer(label: string, remainingSec: number, paused = false): void {
+  if (typeof document === 'undefined') return
+  document.title = document.hidden ? timerTitle(label, remainingSec) : DEFAULT_TITLE
+  const state: ActiveTimerState = {
+    label,
+    deadline: paused ? 0 : Date.now() + Math.max(0, remainingSec) * 1000,
+    remainingSec: Math.max(0, remainingSec),
+    paused,
+    href: '/avvia',
+  }
+  try {
+    if (remainingSec > 0) localStorage.setItem(ACTIVE_TIMER_KEY, JSON.stringify(state))
+    else localStorage.removeItem(ACTIVE_TIMER_KEY)
+    window.dispatchEvent(new CustomEvent(ACTIVE_TIMER_EVENT, { detail: remainingSec > 0 ? state : null }))
+  } catch {
+    /* Il timer principale continua anche se lo storage non è disponibile. */
+  }
+}
+
+export async function notifyTimerEvent(type: TimerEventType, label: string): Promise<void> {
   if (typeof document === 'undefined' || !document.hidden || typeof Notification === 'undefined' || Notification.permission !== 'granted') return
   if (type !== 'TIMER_COMPLETED' && type !== 'TIME_CAP_REACHED' && type !== 'REST_STARTED' && type !== 'WORK_STARTED') return
   const body = type === 'REST_STARTED' ? 'Inizia il recupero.' : type === 'WORK_STARTED' ? 'Riprendi il lavoro.' : type === 'TIME_CAP_REACHED' ? 'Tempo massimo raggiunto.' : 'Timer completato.'
-  new Notification(label, { body, tag: 'gymbuilder-active-timer' })
+  const options = { body, tag: 'gymbuilder-active-timer', data: { href: '/avvia' } }
+  try {
+    const registration = await navigator.serviceWorker?.ready
+    if (registration) {
+      await registration.showNotification(label, options)
+      return
+    }
+    new Notification(label, options)
+  } catch {
+    /* La notifica è un miglioramento progressivo: non blocca il timer. */
+  }
 }
 
-export function resetBackgroundTimer(): void {
+export function resetBackgroundTimer(clearActive = false): void {
   if (typeof document !== 'undefined') document.title = DEFAULT_TITLE
+  if (clearActive && typeof window !== 'undefined') {
+    try {
+      localStorage.removeItem(ACTIVE_TIMER_KEY)
+      window.dispatchEvent(new CustomEvent(ACTIVE_TIMER_EVENT, { detail: null }))
+    } catch { /* storage opzionale */ }
+  }
 }

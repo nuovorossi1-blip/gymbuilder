@@ -74,7 +74,7 @@ export default function Runner() {
 
   const emit = useCallback((type: TimerEventType, phase: TimerPhase, round?: number) => {
     audio.current?.play({ type, phase, round, at: Date.now() })
-    notifyTimerEvent(type, workout?.name ?? 'GymBuilder')
+    void notifyTimerEvent(type, workout?.name ?? 'GymBuilder')
   }, [workout?.name])
 
   function updateAudio(patch: Partial<AudioTimerSettings>) {
@@ -221,8 +221,9 @@ export default function Runner() {
     else if (sezione === 'metcon' && formato === 'amrap') { label = 'AMRAP'; remaining = metconRimanente }
     else if (sezione === 'metcon' && aIntervalli) { label = intervalSottofase === 'lavoro' ? 'Lavoro' : 'Recupero'; remaining = intervalRimanente }
     backgroundState.current = { label, remaining }
-    publishBackgroundTimer(label, remaining)
-  }, [aIntervalli, countdown, fase.tipo, formato, intervalRimanente, intervalSottofase, metconRimanente, rimanente, sezione])
+    const paused = (fase.tipo === 'recupero' && inPausa) || (sezione === 'metcon' && metconInPausa)
+    publishBackgroundTimer(label, remaining, paused)
+  }, [aIntervalli, countdown, fase.tipo, formato, inPausa, intervalRimanente, intervalSottofase, metconInPausa, metconRimanente, rimanente, sezione])
 
   useEffect(() => {
     const syncVisibility = () => publishBackgroundTimer(backgroundState.current.label, backgroundState.current.remaining)
@@ -244,6 +245,19 @@ export default function Runner() {
   }
 
   const es = esercizi[fase.iEs]
+
+  function interrompiAllenamento() {
+    if (!window.confirm('Interrompere questo allenamento? I progressi della sessione corrente verranno eliminati.')) return
+    resetBackgroundTimer(true)
+    setWorkout(null)
+    naviga('/')
+  }
+
+  function tornaIndietro() {
+    if (iniziato && !window.confirm('Tornare all’anteprima interromperà la sessione corrente. Continuare?')) return
+    resetBackgroundTimer(true)
+    naviga('/allenamento')
+  }
 
   function completaSerie() {
     if (fase.serie < es.sets) {
@@ -349,6 +363,10 @@ export default function Runner() {
   if (!iniziato) {
     return (
       <div className="px-5 pt-12 pb-8">
+        <div className="flex justify-between">
+          <button className="font-data text-[11px] uppercase tracking-[0.14em] text-slate2" onClick={tornaIndietro}>← Indietro</button>
+          <button className="font-data text-[11px] uppercase tracking-[0.14em] text-red-300" onClick={interrompiAllenamento}>Elimina sessione</button>
+        </div>
         <p className="eyebrow mb-3">Prima di cominciare</p>
         <h1 className="font-display font-extrabold uppercase leading-[0.9] tracking-tight text-[2.4rem]">
           Riscaldamento
@@ -463,6 +481,7 @@ export default function Runner() {
                 Termina
               </button>
             </div>
+            <button className="w-full py-2 font-data text-[11px] uppercase tracking-[0.14em] text-red-300" onClick={interrompiAllenamento}>Stop ed elimina sessione</button>
           </div>
         </div>
       )
@@ -517,6 +536,7 @@ export default function Runner() {
                 Termina
               </button>
             </div>
+            <button className="w-full py-2 font-data text-[11px] uppercase tracking-[0.14em] text-red-300" onClick={interrompiAllenamento}>Stop ed elimina sessione</button>
           </div>
         </div>
       )
@@ -549,6 +569,7 @@ export default function Runner() {
               {metconInPausa ? 'Riprendi' : 'Pausa'}
             </button>
             <button className="btn !py-4" onClick={() => setMetconFase('fatto')}>Termina</button>
+            <button className="w-full py-2 font-data text-[11px] uppercase tracking-[0.14em] text-red-300" onClick={interrompiAllenamento}>Stop ed elimina sessione</button>
           </div>
         </div>
       )
@@ -591,7 +612,11 @@ export default function Runner() {
     const prossimaSerie = fase.serie < es.sets ? fase.serie + 1 : 1
     return (
       <div className="px-5 pt-16 pb-8 min-h-dvh flex flex-col">
-        <p className="eyebrow text-center">Recupero</p>
+        <div className="flex items-center justify-between">
+          <button className="font-data text-[11px] uppercase tracking-[0.14em] text-slate2" onClick={tornaIndietro}>← Indietro</button>
+          <p className="eyebrow">Recupero</p>
+          <button className="font-data text-[11px] uppercase tracking-[0.14em] text-red-300" onClick={interrompiAllenamento}>Stop</button>
+        </div>
         <p className="mt-8 text-center font-data text-[5.5rem] leading-none tabular-nums text-amber2">
           {String(Math.floor(rimanente / 60))}:{String(rimanente % 60).padStart(2, '0')}
         </p>
@@ -621,10 +646,9 @@ export default function Runner() {
   return (
     <div className="px-5 pt-12 pb-8 min-h-dvh flex flex-col">
       <div className="flex items-baseline justify-between">
+        <button className="font-data text-[11px] uppercase tracking-[0.14em] text-slate2" onClick={tornaIndietro}>← Indietro</button>
         <p className="eyebrow">Esercizio {fase.iEs + 1} di {esercizi.length}</p>
-        <button className="font-data text-[11px] uppercase tracking-[0.14em] text-slate2" onClick={() => setFinito(true)}>
-          Termina
-        </button>
+        <button className="font-data text-[11px] uppercase tracking-[0.14em] text-red-300" onClick={interrompiAllenamento}>Stop</button>
       </div>
 
       {/* Barra di avanzamento */}
@@ -658,7 +682,13 @@ export default function Runner() {
       </div>
 
       <div className="mt-auto pt-10">
-        <button className="btn !py-5 text-lg" onClick={completaSerie}>
+        <button
+          className="mb-2.5 w-full rounded-xl border border-edge py-3.5 font-data text-[11px] uppercase tracking-[0.14em] text-slate2 active:bg-steel"
+          onClick={() => setInPausa((value) => !value)}
+        >
+          {inPausa ? 'Riprendi allenamento' : 'Pausa allenamento'}
+        </button>
+        <button className="btn !py-5 text-lg" onClick={completaSerie} disabled={inPausa}>
           Serie completata
         </button>
       </div>
