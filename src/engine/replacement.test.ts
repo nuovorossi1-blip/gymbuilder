@@ -62,4 +62,30 @@ describe('Exercise Feedback & Replacement Engine', () => {
     const replacement = findExerciseReplacement(current, catalog, { preset: 'full_gym', available: ['barbell', 'dumbbells', 'bench'] }, preferences, new Set(['chest_press']), { reason: 'unavailable', experience: 'advanced' })!
     expect(replacement.required_equipment).not.toContain('machines')
   })
+
+  it('non propone un esercizio già presente e conserva lo slot compound', () => {
+    const original = catalog.find((item) => item.id === 'rematore_bil')!
+    const supported = normalizeExercise({
+      ...original,
+      id: 'rematore_chest_supported_man',
+      name: 'Rematore con manubri chest-supported',
+      equipment: 'dumbbell',
+      required_equipment: ['dumbbells', 'bench'],
+      stability_profile: 'supported',
+      axial_load: 0,
+    })
+    const duplicate = { ...supported, id: 'gia_usato' }
+    const replacement = findExerciseReplacement(
+      prescribed(original.id),
+      [...catalog, supported, duplicate],
+      { ...equipment, available: [...equipment.available] },
+      preferences,
+      new Set([original.id, duplicate.id]),
+      { reason: 'dislike', experience: 'advanced', split: 'pull' },
+    )!
+    expect(replacement.id).not.toBe(duplicate.id)
+    expect(replacement.id).not.toBe(original.id)
+    expect(replacement.exercise_types).toContain('compound')
+    expect(replacement.movement_pattern).toBe('horizontal_pull')
+  })
 })

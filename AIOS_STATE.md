@@ -4,7 +4,7 @@
 > da qui. Va **aggiornato** a ogni sessione, non accodato all'infinito.
 > L'identità del progetto e il percorso di AI-OS stanno in `AIOS_PROJECT.json`.
 
-**Ultimo aggiornamento:** 2026-08-07 (priorità muscolari program-aware) — Codex
+**Ultimo aggiornamento:** 2026-08-07 (catalogo esercizi curato) — Codex
 
 Etichette: `[FACT]` verificato nel codice · `[RICOSTRUITO]` dedotto da indizi ·
 `[IGNOTO]` non ricavabile dal repository
@@ -40,8 +40,8 @@ Program Engine: genera 3-7 giorni, mostra e modifica la settimana, quindi passa
 un solo giorno al generatore specifico. Configurazione globale e settimana
 restano in `sessionStorage`. Il Weekly Engine usa recovery profile e scoring
 esaustivo dei candidati; il replacement integra sei motivazioni e memoria
-adattiva locale. Suite aggiornata a 137 test verdi.
-L'app ha autenticazione, profilo, un database di 87 esercizi in Supabase (con
+adattiva locale. Suite aggiornata a 159 test verdi.
+L'app ha autenticazione, profilo, un database di 118 esercizi in Supabase (con
 istruzioni testuali per ciascuno) e sei motori di generazione:
 
 - **Bodybuilding** (13 split, corretto in profondità in una sessione precedente)
@@ -94,9 +94,11 @@ presenti negli ambienti Preview e Production (valori mantenuti nascosti).
   nel pannello Auth — non è una regressione di questa sessione)
 - [FACT] Interfaccia mobile-first, dark, con focus da tastiera visibile e
   `prefers-reduced-motion` rispettato
-- [FACT] Database esercizi: 79 voci in Supabase con metadati completi (muscoli
+- [FACT] Database esercizi: 118 voci attive in Supabase con metadati completi (muscoli
   primari/secondari, attrezzo, movement pattern, ruoli, esperienza minima,
-  complessità tecnica, fatica sistemica/locale/di presa, domanda cardio)
+  complessità tecnica, fatica sistemica/locale/di presa, domanda cardio,
+  stabilità, carico assiale e unilateralità). Questi ultimi dati restano interni
+  al motore e guidano ordine e sostituzioni, senza comparire nella scheda.
 - [FACT] Motore Bodybuilding (`src/generators/bodybuilding.ts`), **riscritto in
   questa sessione** — vedi sez. 7 per i motivi. Copre 13 split: Push/Pull/Legs,
   Upper/Lower, Full Body, Bro Split (Petto/Dorso/Spalle/Braccia/Gambe),
@@ -123,7 +125,7 @@ presenti negli ambienti Preview e Production (valori mantenuti nascosti).
   default in Profilo: sposta ripetizioni e recupero dentro l'intervallo
   dell'obiettivo, non lo cambia. Un principiante non arriva alle ripetizioni
   più basse nemmeno chiedendo "Alta" (sez. 16 del master prompt)
-- [FACT] **Istruzioni testuali** per tutti i 79 esercizi (colonna
+- [FACT] **Istruzioni testuali** per tutti i 118 esercizi (colonna
   `instructions` in Supabase), mostrate in anteprima e nel runner
 - [FACT] **Stima calorie attive** (`src/generators/calories.ts`), formula MET
   standard, sempre etichettata come stima. Con peso utente non impostato usa

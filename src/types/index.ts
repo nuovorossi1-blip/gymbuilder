@@ -52,6 +52,7 @@ export type ExerciseCategory =
 
 export type ExerciseType = 'compound' | 'isolation' | 'conditioning' | 'mobility'
 export type WorkoutRole = 'warmup' | 'strength' | 'skill' | 'metcon' | 'recovery' | 'hypertrophy'
+export type StabilityProfile = 'supported' | 'guided' | 'free'
 
 export interface Exercise {
   id: string
@@ -71,6 +72,10 @@ export interface Exercise {
   local_fatigue: number
   grip_fatigue: number
   cardio_demand: number
+  /** Metadati interni del motore: non vengono mostrati nella scheda. */
+  stability_profile: StabilityProfile
+  axial_load: number
+  unilateral: boolean
   default_sets: number
   default_reps: string
   default_rest: number
@@ -89,11 +94,13 @@ export interface Exercise {
 export type ExerciseRecord = Omit<
   Exercise,
   'english_name' | 'category' | 'exercise_types' | 'workout_roles' |
-  'metcon_safe' | 'warmup_relevant' | 'description' | 'substitutions' | 'required_equipment'
+  'metcon_safe' | 'warmup_relevant' | 'description' | 'substitutions' | 'required_equipment' |
+  'stability_profile' | 'axial_load' | 'unilateral'
 > & Partial<Pick<
   Exercise,
   'english_name' | 'category' | 'exercise_types' | 'workout_roles' |
-  'metcon_safe' | 'warmup_relevant' | 'description' | 'substitutions' | 'required_equipment'
+  'metcon_safe' | 'warmup_relevant' | 'description' | 'substitutions' | 'required_equipment' |
+  'stability_profile' | 'axial_load' | 'unilateral'
 >>
 
 /** Un esercizio gia' prescritto: serie, ripetizioni e recupero decisi dal motore. */

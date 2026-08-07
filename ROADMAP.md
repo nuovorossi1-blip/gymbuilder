@@ -22,6 +22,7 @@
 - Carenze spalle/braccia distribuite dal Weekly Engine secondo PPL, Upper/Lower, Front/Back o Bro Split; lavoro principale e richiami non superano sei esercizi per seduta.
 - Ordine Bodybuilding fatigue-aware: Legs parte da squat/pressa, alterna catena anteriore/posteriore e chiude con isolamenti/polpacci; Push separa i press pesanti con il lavoro spalle.
 - Countdown percepibile con tre bip e vibrazione opzionale; Belt Squat aggiunto al catalogo remoto.
+- Catalogo curato portato a 118 esercizi: le varianti restano solo quando cambiano traiettoria, supporto, presa, unilateralità o attrezzatura; stabilità e carico assiale sono informazioni interne del motore.
 
 ## IN SVILUPPO
 

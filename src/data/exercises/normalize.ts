@@ -66,5 +66,15 @@ export function normalizeExercise(record: ExerciseRecord): Exercise {
     description: record.description?.trim() || record.instructions?.trim() || record.name,
     substitutions: record.substitutions ?? [],
     required_equipment: inferRequiredEquipment(record),
+    stability_profile: record.stability_profile ?? (
+      record.equipment === 'machine' ? 'guided' :
+      record.id.includes('supported') || record.id.includes('panca_scott') ? 'supported' : 'free'
+    ),
+    axial_load: record.axial_load ?? (
+      ['squat', 'hinge'].includes(record.movement_pattern) && record.equipment === 'barbell' ? 3 : 0
+    ),
+    unilateral: record.unilateral ?? (
+      record.id.includes('unilaterale') || record.id.includes('single_leg')
+    ),
   }
 }

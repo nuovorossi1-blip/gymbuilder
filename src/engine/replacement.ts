@@ -59,6 +59,9 @@ export function findExerciseReplacement(
     value += Math.abs(exercise.systemic_fatigue - original.systemic_fatigue) * 4
     value += Math.abs(exercise.local_fatigue - original.local_fatigue) * 3
     value += Math.abs(exercise.technical_complexity - original.technical_complexity) * 2
+    value += Math.abs(exercise.axial_load - original.axial_load) * 3
+    value += exercise.stability_profile === original.stability_profile ? -6 : 3
+    value += exercise.unilateral === original.unilateral ? -3 : 2
     if (reason === 'too_hard') value += exercise.technical_complexity >= original.technical_complexity ? 80 : -25
     if (reason === 'too_easy') value += exercise.technical_complexity <= original.technical_complexity ? 80 : -25
     if (reason === 'discomfort') value += samePattern ? 120 : 0
