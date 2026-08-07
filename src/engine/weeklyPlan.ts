@@ -1,5 +1,11 @@
 import { MODE_LABELS, SPLIT_LABELS, type Exercise, type GeneratedWorkout, type Goal, type Muscle, type PublicMode, type RecoveryProfile, type Split, type SplitSystem, type Weekday, type WeeklyProgram, type WeeklyProgramConfig, type WeeklyProgramWarning, type WeeklySession } from '../types'
 
+export function selectProgramMode(current: PublicMode[], selected: PublicMode): PublicMode[] {
+  if (current.includes(selected)) return current.filter((mode) => mode !== selected)
+  if (current.length < 2) return [...current, selected]
+  return [current[0], selected]
+}
+
 const ACTIVE_DAYS: Record<number, Weekday[]> = {
   3: ['monday', 'wednesday', 'friday'],
   4: ['monday', 'tuesday', 'thursday', 'saturday'],

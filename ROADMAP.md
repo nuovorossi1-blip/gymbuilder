@@ -36,6 +36,7 @@
 - Flussi separati: programma = struttura settimanale prima degli esercizi; sessione singola = scelta diretta della seduta e generazione immediata.
 - Programmi limitati a una o due discipline, senza combinazioni triple; sessioni singole limitate a una disciplina.
 - Metodiche dedicate per Bodybuilding, Forza, CrossFit e Hybrid; Forza + CrossFit su sei giorni alterna le discipline e adatta ogni WOD alla fatica della seduta precedente.
+- Selettore discipline a griglia con combinazione attiva sempre visibile e sostituzione intuitiva della seconda disciplina.
 
 ## IN SVILUPPO
 
