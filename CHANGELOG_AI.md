@@ -1,5 +1,15 @@
 # Changelog AI
 
+## 2026-08-07 — CrossFit completo, livelli e metodiche separate
+
+- Livelli pubblici ridotti a Principiante (include Intermedio) e Avanzato; il valore intermedio resta leggibile solo per retrocompatibilità.
+- Espanso il catalogo remoto da 118 a 142 esercizi con movimenti CrossFit cardio, ginnastica e sollevamento olimpico.
+- CrossFit Standard spiegato nell'interfaccia e mantenuto full body, funzionale e senza isolamento bodybuilding.
+- Hybrid non può più iniziare con affondi/unilaterali quando è disponibile un compound bilaterale.
+- Forza usa cinque esercizi strutturali: tre fondamentali e due complementari; Bodybuilding + Forza identifica le giornate Powerlifting.
+- CrossFit + Forza usa alzate iniziali e un Metcon Hybrid con condizione e complementari controllati.
+- Quando l'app passa in background viene pubblicata subito una notifica persistente con il tempo residuo e deep-link al Runner.
+
 ## 2026-08-07 — PWA, timer globale e continuità allenamento
 
 - GymBuilder è installabile come PWA e dispone di Service Worker con shell offline e apertura diretta del Runner dalle notifiche.

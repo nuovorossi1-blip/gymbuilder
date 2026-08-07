@@ -56,17 +56,17 @@ const BASE_SLOTS: Record<Split, SlotDef[]> = {
   push: [
     { muscle: 'chest', compound: true },
     { muscle: 'front_delts', compound: true },
-    { muscle: 'triceps', compound: false },
+    { muscle: 'triceps', compound: true },
   ],
   pull: [
     { muscle: 'back', compound: true },
     { muscle: 'back', compound: true },
-    { muscle: 'biceps', compound: false },
+    { muscle: 'biceps', compound: true },
   ],
   legs: [
     { muscle: 'quads', compound: true },
     { muscle: 'hamstrings', compound: true },
-    { muscle: 'calves', compound: false },
+    { muscle: 'calves', compound: true },
   ],
   upper: [
     { muscle: 'chest', compound: true },
@@ -76,7 +76,7 @@ const BASE_SLOTS: Record<Split, SlotDef[]> = {
   lower: [
     { muscle: 'quads', compound: true },
     { muscle: 'hamstrings', compound: true },
-    { muscle: 'glutes', compound: false },
+    { muscle: 'glutes', compound: true },
   ],
   full_body: [
     { muscle: 'quads', compound: true },
@@ -138,18 +138,15 @@ function prescrizioneForza(compound: boolean, exp: Experience, intensity: Intens
     high:   { reps: '3-5', rest: 240 },
   }[intensitaEffettiva]
 
-  const sets = { beginner: 3, intermediate: 4, advanced: 5 }[exp]
-  return { sets, reps: perIntensita.reps, rest: perIntensita.rest }
+  return { sets: 5, reps: perIntensita.reps, rest: perIntensita.rest }
 }
 
 function serieMinime(compound: boolean): number {
   return compound ? 3 : 2
 }
 
-/** Sempre 3 alzate base; il tempo decide se c'è spazio per 1 o 2 accessori (mai il contrario della Bodybuilding: qui meno è la norma). */
-function targetEsercizi(duration_min: number): number {
-  if (duration_min < 45) return 3
-  if (duration_min < 75) return 4
+/** Struttura richiesta: 3 fondamentali + 2 complementari. */
+function targetEsercizi(): number {
   return 5
 }
 
@@ -180,7 +177,7 @@ export function generaForza(catalogo: Exercise[], cfg: StrengthConfig): Generate
     baseSlot = ridistribuisci(baseSlot, prioritaInSplit)
   }
 
-  const target = targetEsercizi(cfg.duration_min)
+  const target = targetEsercizi()
 
   const volumeStimato = cfg.weekly_volume ?? vuotoVolume()
   const priortaRichiamabili = cfg.priority_muscles.filter((m) => RICHIAMO_POOL[cfg.split].includes(m))

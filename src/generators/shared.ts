@@ -109,7 +109,7 @@ export const CATEGORIA_PATTERN: Record<string, CategoriaMetcon> = {
   horizontal_push: 'upper', vertical_push: 'upper', horizontal_pull: 'upper', vertical_pull: 'upper',
   core: 'core',
   burpee: 'full',
-  bike: 'mono', run: 'mono', row: 'mono',
+  bike: 'mono', run: 'mono', row: 'mono', carry: 'mono',
 }
 
 export function poolMetcon(allenamento: Exercise[], usati: Set<string>): Exercise[] {

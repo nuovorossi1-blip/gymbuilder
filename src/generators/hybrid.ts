@@ -88,9 +88,18 @@ export function generaHybrid(catalogo: Exercise[], cfg: HybridConfig): Generated
   const numeroAlzate = cfg.duration_min < 45 ? 1 : 2
   for (let i = 0; i < numeroAlzate; i++) {
     const muscoloTarget = rotazione[i % rotazione.length]
-    const candidatiForza = forzaPool.filter((e) => e.primary_muscles.includes(muscoloTarget))
+    const candidatiForza = forzaPool
+      .filter((e) => e.primary_muscles.includes(muscoloTarget))
+      .sort((a, b) => {
+        // Unilaterali/affondi non aprono mai la seduta: prima squat, hinge,
+        // press e tirate bilaterali, poi gli esercizi più instabili.
+        const aLunge = a.movement_pattern === 'lunge' || a.unilateral ? 1 : 0
+        const bLunge = b.movement_pattern === 'lunge' || b.unilateral ? 1 : 0
+        return aLunge - bLunge || b.systemic_fatigue - a.systemic_fatigue || a.technical_complexity - b.technical_complexity
+      })
+    const bilaterali = candidatiForza.filter((e) => e.movement_pattern !== 'lunge' && !e.unilateral)
     const alzata = scegliCandidato(
-      candidatiForza.length > 0 ? candidatiForza : forzaPool,
+      (bilaterali.length > 0 ? bilaterali : candidatiForza.length > 0 ? candidatiForza : forzaPool).slice(0, 3),
       usati,
       cfg.priority_muscles,
       preferiti,

@@ -38,7 +38,7 @@ const STRENGTH_SPLITS: Split[] = ['push', 'pull', 'legs', 'upper', 'lower', 'ful
 const DEFAULT_CONFIG: WeeklyProgramConfig = {
   program_kind: 'program', duration_weeks: 4,
   training_days: 5, selected_modes: ['bodybuilding', 'crossfit_hybrid'], goal: 'hypertrophy',
-  split_system: 'ppl', experience: 'intermediate', duration_min: 60,
+  split_system: 'ppl', experience: 'beginner', duration_min: 60,
   equipment: { preset: 'full_gym', available: PRESET_EQUIPMENT.full_gym }, weak_points: [],
   preferences: { excluded_exercise_ids: [], preferred_exercise_ids: [], bodyweight_policy: 'always', elastic_policy: 'always' },
   intensity: 'medium', crossfit_format: 'amrap',
@@ -95,12 +95,18 @@ export default function Create() {
       seed: Date.now() % 100000,
     }
     const split = session.split ?? 'full_body'
+    const forzaCrossFit = global.selected_modes.includes('strength') && global.selected_modes.includes('crossfit')
     const workout = session.mode === 'crossfit'
-      ? generaCrossFit(usableCatalog, { ...common, format: global.crossfit_format })
+      ? forzaCrossFit
+        ? generaHybrid(usableCatalog, { ...common, format: global.crossfit_format === 'emom' ? 'emom' : global.crossfit_format === 'for_time' ? 'for_time' : 'amrap' })
+        : generaCrossFit(usableCatalog, { ...common, format: global.crossfit_format })
       : session.mode === 'crossfit_hybrid' ? generaHybrid(usableCatalog, { ...common, format: session.variant === 'A' ? 'amrap' : 'emom' })
       : session.mode === 'strength' ? generaForza(usableCatalog, { ...common, split, weekly_volume: weeklyState?.volume, last_trained_at: weeklyState?.last_trained_at })
       : session.mode === 'tabata' ? generaTabata(usableCatalog, { ...common, ...global.tabata })
       : generaBodybuilding(usableCatalog, { ...common, priority_muscles: session.priority_muscles ?? global.weak_points, split, goal: global.goal, weekly_volume: weeklyState?.volume, last_trained_at: weeklyState?.last_trained_at })
+    if (forzaCrossFit && session.mode === 'crossfit') workout.name = `Forza + CrossFit · ${workout.name}`
+    if (forzaCrossFit && session.mode === 'crossfit') workout.mode = 'crossfit'
+    if (global.selected_modes.includes('bodybuilding') && global.selected_modes.includes('strength') && session.mode === 'strength') workout.name = `Powerlifting · ${workout.name}`
     workout.name = `${DAY_LABELS[session.day]} — ${workout.name}`
     workout.max_duration_min = Math.ceil(global.duration_min * 1.15)
     const config: WorkoutGenerationConfig = {
@@ -149,7 +155,8 @@ function WeeklyBuilder({ catalog, error, initial, onCreate }: { catalog: Exercis
     {config.selected_modes.includes('bodybuilding') ? <Field title="Sistema Bodybuilding"><Grid>{(Object.keys(SPLIT_SYSTEM_LABELS) as SplitSystem[]).map((system) => <Choice key={system} active={config.split_system === system} onClick={() => patch('split_system', system)}>{SPLIT_SYSTEM_LABELS[system]}</Choice>)}</Grid></Field> : null}
     {config.selected_modes.includes('crossfit') ? <Field title="Formato CrossFit Standard"><div className="grid grid-cols-3 gap-2">{(['amrap', 'emom', 'for_time'] as const).map((format) => <Choice key={format} active={config.crossfit_format === format} onClick={() => patch('crossfit_format', format)}>{format === 'for_time' ? 'For Time' : format.toUpperCase()}</Choice>)}</div></Field> : null}
     {config.selected_modes.includes('tabata') ? <Field title="Protocollo Tabata"><NumberField label="Lavoro (sec)" value={config.tabata.work_sec} onChange={(work_sec) => patch('tabata', { ...config.tabata, work_sec })} /><NumberField label="Riposo (sec)" value={config.tabata.rest_sec} onChange={(rest_sec) => patch('tabata', { ...config.tabata, rest_sec })} /><NumberField label="Round" value={config.tabata.rounds} onChange={(rounds) => patch('tabata', { ...config.tabata, rounds })} /><Grid><Choice active={config.tabata.prescription === 'time'} onClick={() => patch('tabata', { ...config.tabata, prescription: 'time' })}>A tempo</Choice><Choice active={config.tabata.prescription === 'reps'} onClick={() => patch('tabata', { ...config.tabata, prescription: 'reps' })}>A ripetizioni</Choice></Grid></Field> : null}
-    <Field title="Livello"><div className="grid grid-cols-3 gap-2">{(Object.keys(EXPERIENCE_LABELS) as Experience[]).map((experience) => <Choice key={experience} active={config.experience === experience} onClick={() => patch('experience', experience)}>{EXPERIENCE_LABELS[experience]}</Choice>)}</div></Field>
+    <Field title="Livello"><div className="grid grid-cols-2 gap-2">{(['beginner', 'advanced'] as Experience[]).map((experience) => <Choice key={experience} active={config.experience === experience || (experience === 'beginner' && config.experience === 'intermediate')} onClick={() => patch('experience', experience)}>{EXPERIENCE_LABELS[experience]}</Choice>)}</div><p className="mt-2 text-xs text-slate2">Principiante include le progressioni intermedie; Avanzato include avanzato ed esperto.</p></Field>
+    {config.selected_modes.includes('crossfit') ? <section className="mt-6 rounded-xl border border-edge bg-steel p-4"><h3 className="font-display font-bold uppercase">Cos’è CrossFit Standard</h3><p className="mt-2 text-sm leading-relaxed text-slate2">Una seduta full body, costantemente variata, composta da movimenti funzionali: riscaldamento, tecnica o forza, WOD e recupero. Il WOD combina cardio, sollevamento e ginnastica; non usa esercizi di isolamento bodybuilding.</p><p className="mt-2 text-xs text-slate2">Hybrid è diverso: applica AMRAP, EMOM, For Time o Intervals a cardio e complementari bodybuilding a carico controllato.</p></section> : null}
     <Field title="Durata per sessione"><div className="grid grid-cols-5 gap-2">{DURATIONS.map((duration) => <Choice key={duration} active={config.duration_min === duration} onClick={() => patch('duration_min', duration)}>{duration}</Choice>)}</div></Field>
     <Field title="Intensità"><div className="grid grid-cols-3 gap-2">{(Object.keys(INTENSITY_LABELS) as Intensity[]).map((intensity) => <Choice key={intensity} active={config.intensity === intensity} onClick={() => patch('intensity', intensity)}>{INTENSITY_LABELS[intensity]}</Choice>)}</div></Field>
     <Field title="Attrezzatura globale"><Grid>{(Object.keys(EQUIPMENT_LABELS) as Equipment[]).filter((item) => ['full_gym', 'dumbbells', 'barbell', 'machines', 'home_gym'].includes(item)).map((equipment) => <Choice key={equipment} active={config.equipment.preset === equipment} onClick={() => patch('equipment', { preset: equipment, available: PRESET_EQUIPMENT[equipment] })}>{EQUIPMENT_LABELS[equipment]}</Choice>)}</Grid><button className="mt-3 text-xs uppercase tracking-wider text-amber2" onClick={() => setAdvanced((old) => !old)}>{advanced ? 'Chiudi inventario' : 'Configurazione avanzata'}</button>{advanced ? <div className="mt-3 grid grid-cols-2 gap-2">{(Object.keys(EQUIPMENT_ITEM_LABELS) as EquipmentItem[]).map((item) => <Choice key={item} active={config.equipment.available.includes(item)} onClick={() => patch('equipment', { ...config.equipment, available: config.equipment.available.includes(item) ? config.equipment.available.filter((value) => value !== item) : [...config.equipment.available, item] })}>{EQUIPMENT_ITEM_LABELS[item]}</Choice>)}</div> : null}</Field>
