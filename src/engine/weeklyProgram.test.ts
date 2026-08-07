@@ -11,6 +11,7 @@ const base: WeeklyProgramConfig = {
   weak_points: ['lateral_delts', 'biceps', 'triceps'],
   preferences: { excluded_exercise_ids: ['row_erg'], preferred_exercise_ids: [], bodyweight_policy: 'finisher_only', elastic_policy: 'never' },
   intensity: 'medium', crossfit_format: 'amrap',
+  single_session_split: 'push', hybrid_balance: 'bb_dominant',
   tabata: { work_sec: 20, rest_sec: 10, rounds: 8, prescription: 'time' },
 }
 
@@ -42,8 +43,16 @@ describe('Weekly Program Engine', () => {
     expect(program.week.filter((session) => session.mode === 'bodybuilding')).toHaveLength(3)
     expect(program.week.filter((session) => session.mode === 'crossfit_hybrid')).toHaveLength(2)
     expect(program.week.filter((session) => session.mode === 'bodybuilding').map((session) => session.split).sort()).toEqual(['legs', 'pull', 'push'])
-    const hybrids = program.week.filter((session) => session.mode === 'crossfit_hybrid').map((session) => session.day)
-    expect(hybrids).not.toEqual(['friday', 'saturday'])
+    expect(program.week.map((session) => [session.day, session.mode, session.split])).toEqual([
+      ['monday', 'bodybuilding', 'push'],
+      ['tuesday', 'bodybuilding', 'pull'],
+      ['wednesday', 'bodybuilding', 'legs'],
+      ['friday', 'crossfit_hybrid', null],
+      ['saturday', 'crossfit_hybrid', null],
+    ])
+    const hybrids = program.week.filter((session) => session.mode === 'crossfit_hybrid')
+    expect(hybrids[0].priority_muscles).toEqual(['lateral_delts', 'biceps', 'triceps'])
+    expect(hybrids[1].priority_muscles).toEqual([])
   })
 
   it('4 giorni PPL usa carenze per il quarto giorno e Total Body senza carenze', () => {
@@ -51,6 +60,23 @@ describe('Weekly Program Engine', () => {
     expect(specialized.week.map((session) => session.split)).toContain('upper')
     const balanced = generateWeeklyProgram({ ...base, training_days: 4, selected_modes: ['bodybuilding'], weak_points: [] })
     expect(balanced.week.map((session) => session.split)).toContain('full_body')
+  })
+
+  it('4 giorni BB Upper/Lower conserva Upper, Lower, riposo, Upper, Lower', () => {
+    const program = generateWeeklyProgram({ ...base, training_days: 4, selected_modes: ['bodybuilding'], split_system: 'upper_lower' })
+    expect(program.week.map((session) => [session.day, session.split])).toEqual([
+      ['monday', 'upper'], ['tuesday', 'lower'], ['thursday', 'upper'], ['saturday', 'lower'],
+    ])
+  })
+
+  it('4 giorni Front/Back + CrossFit alterna BB e CrossFit', () => {
+    const program = generateWeeklyProgram({ ...base, training_days: 4, selected_modes: ['bodybuilding', 'crossfit'], split_system: 'front_back' })
+    expect(program.week.map((session) => [session.day, session.mode, session.split])).toEqual([
+      ['monday', 'bodybuilding', 'front_body'],
+      ['tuesday', 'crossfit', null],
+      ['thursday', 'bodybuilding', 'back_body'],
+      ['saturday', 'crossfit', null],
+    ])
   })
 
   it('normalizza un programma a minimo due settimane', () => {
@@ -65,6 +91,12 @@ describe('Weekly Program Engine', () => {
     expect(session.config.training_days).toBe(1)
     expect(session.config.duration_weeks).toBe(1)
     expect(session.persisted).toBe(false)
+  })
+
+  it('la sessione singola BB usa direttamente lo split scelto senza creare giorni', () => {
+    const session = generateWeeklyProgram({ ...base, program_kind: 'single_session', selected_modes: ['bodybuilding'], single_session_split: 'bro_chest' })
+    expect(session.week).toHaveLength(1)
+    expect(session.week[0].split).toBe('bro_chest')
   })
 
   it('PPL assegna spalle e braccia a Push/Pull, mai a Legs', () => {

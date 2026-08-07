@@ -83,6 +83,17 @@ function distributeModes(config: WeeklyProgramConfig): Record<PublicMode, number
   const modes = [...new Set(config.selected_modes)]
   if (modes.length === 0) throw new Error('Seleziona almeno una modalità.')
   if (modes.length > config.training_days) throw new Error('I giorni devono essere almeno quanti le modalità selezionate.')
+  if (modes.length === 2 && modes.includes('bodybuilding') && modes.includes('crossfit_hybrid')) {
+    const balance = config.hybrid_balance ?? 'bb_dominant'
+    const bb = balance === 'hy_dominant'
+      ? Math.max(1, Math.floor(config.training_days * 0.4))
+      : Math.max(1, Math.ceil(config.training_days * (balance === 'bb_dominant' ? 0.6 : 0.5)))
+    return { bodybuilding: bb, crossfit_hybrid: config.training_days - bb } as Record<PublicMode, number>
+  }
+  if (modes.length === 2 && modes.includes('bodybuilding') && modes.includes('crossfit')) {
+    const bb = Math.ceil(config.training_days / 2)
+    return { bodybuilding: bb, crossfit: config.training_days - bb } as Record<PublicMode, number>
+  }
   const counts = Object.fromEntries(modes.map((mode) => [mode, 1])) as Partial<Record<PublicMode, number>>
   let remaining = config.training_days - modes.length
   while (remaining-- > 0) {
@@ -135,6 +146,12 @@ function assegnaPrioritaSettimanali(
   config: WeeklyProgramConfig
 ): Omit<WeeklySession, 'id' | 'day'>[] {
   return sessions.map((session) => {
+    if (session.mode === 'crossfit_hybrid') {
+      const upperPriority = config.weak_points.filter((muscle) => !['quads', 'hamstrings', 'glutes', 'calves', 'core'].includes(muscle))
+      return session.variant === 'A'
+        ? { ...session, label: upperPriority.length > 0 ? 'Hybrid — Specializzazione carenze' : 'Hybrid — Upper / Conditioning', priority_muscles: upperPriority.slice(0, 4) }
+        : { ...session, label: 'Hybrid — Functional / Full Body', priority_muscles: [] }
+    }
     let compatible = config.weak_points.filter((muscle) => splitAccogliePriorita(config.split_system, session.split, muscle))
     if (session.split === 'upper') {
       const shoulders = compatible.filter((muscle) => ['front_delts', 'lateral_delts', 'rear_delts'].includes(muscle))
@@ -246,7 +263,8 @@ export function generateWeeklyProgram(config: WeeklyProgramConfig): WeeklyProgra
     const mode = config.selected_modes[0]
     if (!mode) throw new Error('Seleziona una modalità.')
     const normalized = { ...config, training_days: 1, duration_weeks: 1, selected_modes: [mode] }
-    const split = mode === 'bodybuilding' || mode === 'strength' ? 'full_body' : null
+    const requested = config.single_session_split ?? 'full_body'
+    const split = mode === 'bodybuilding' ? requested : mode === 'strength' ? (STRENGTH_SPLITS.has(requested) ? requested : 'full_body') : null
     const session: WeeklySession = {
       id: 'single-session', day: 'monday', mode, split,
       label: split ? `${MODE_LABELS[mode]} — ${SPLIT_LABELS[split]}` : MODE_LABELS[mode],
@@ -260,7 +278,24 @@ export function generateWeeklyProgram(config: WeeklyProgramConfig): WeeklyProgra
   const days = Math.min(7, Math.max(3, Math.round(config.training_days)))
   const normalized = { ...config, training_days: days, duration_weeks: Math.min(52, Math.max(2, Math.round(config.duration_weeks))), selected_modes: [...new Set(config.selected_modes)] }
   const activeDays = ACTIVE_DAYS[days]
-  const ordered = orderForRecovery(makeCandidates(normalized), activeDays, normalized)
+  const isPplBbHybridBlock = normalized.training_days === 5 && normalized.split_system === 'ppl' &&
+    normalized.hybrid_balance !== 'hy_dominant' && normalized.selected_modes.length === 2 &&
+    normalized.selected_modes.includes('bodybuilding') && normalized.selected_modes.includes('crossfit_hybrid')
+  const isBbCrossFitFourDays = normalized.training_days === 4 && normalized.selected_modes.length === 2 &&
+    normalized.selected_modes.includes('bodybuilding') && normalized.selected_modes.includes('crossfit')
+  // Programmazione richiesta: Push/Pull/Legs, riposo, HY specializzazione,
+  // HY funzionale, riposo. Qui il blocco metodologico prevale sul sorter generico.
+  const candidates = makeCandidates(normalized)
+  const ordered = isPplBbHybridBlock
+    ? [...candidates.filter((session) => session.mode === 'bodybuilding'), ...candidates.filter((session) => session.mode === 'crossfit_hybrid')]
+    : isBbCrossFitFourDays
+      ? [
+          candidates.filter((session) => session.mode === 'bodybuilding')[0],
+          candidates.filter((session) => session.mode === 'crossfit')[0],
+          candidates.filter((session) => session.mode === 'bodybuilding')[1],
+          candidates.filter((session) => session.mode === 'crossfit')[1],
+        ].filter((session): session is Omit<WeeklySession, 'id' | 'day'> => !!session)
+    : orderForRecovery(candidates, activeDays, normalized)
   const week = ordered.map((session, index): WeeklySession => ({ ...session, id: `session-${index + 1}`, day: activeDays[index] }))
   return { id: `week-${Date.now()}`, persisted: false, config: normalized, week, warnings: validateWeeklyProgram(week, normalized) }
 }

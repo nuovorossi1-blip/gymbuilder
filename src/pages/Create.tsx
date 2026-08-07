@@ -39,6 +39,7 @@ const DEFAULT_CONFIG: WeeklyProgramConfig = {
   program_kind: 'program', duration_weeks: 4,
   training_days: 5, selected_modes: ['bodybuilding', 'crossfit_hybrid'], goal: 'hypertrophy',
   split_system: 'ppl', experience: 'beginner', duration_min: 60,
+  single_session_split: 'push', hybrid_balance: 'bb_dominant',
   equipment: { preset: 'full_gym', available: PRESET_EQUIPMENT.full_gym }, weak_points: [],
   preferences: { excluded_exercise_ids: [], preferred_exercise_ids: [], bodyweight_policy: 'always', elastic_policy: 'always' },
   intensity: 'medium', crossfit_format: 'amrap',
@@ -64,6 +65,11 @@ export default function Create() {
   async function createProgram(config: WeeklyProgramConfig) {
     try {
       const generated = generateWeeklyProgram(config)
+      if (config.program_kind === 'single_session') {
+        setWeeklyProgram(generated)
+        generateDay(generated.week[0], generated)
+        return
+      }
       const program = config.program_kind === 'program' && user ? await salvaProgramma(user.id, generated) : generated
       setWeeklyProgram(program); setError(null)
     }
@@ -75,9 +81,9 @@ export default function Create() {
     if (user && program.persisted) void aggiornaProgramma(user.id, program).catch((reason: Error) => setError(reason.message))
   }
 
-  function generateDay(session: WeeklySession) {
-    if (!weeklyProgram || catalog.length === 0) return
-    const global = weeklyProgram.config
+  function generateDay(session: WeeklySession, sourceProgram = weeklyProgram) {
+    if (!sourceProgram || catalog.length === 0) return
+    const global = sourceProgram.config
     const adaptiveExcluded = user ? adaptiveExcludedIds(user.id, catalog) : []
     const excluded = [...new Set([...global.preferences.excluded_exercise_ids, ...adaptiveExcluded])]
     const usableCatalog = filterExercisesByPreferences(catalog, {
@@ -100,7 +106,7 @@ export default function Create() {
       ? forzaCrossFit
         ? generaHybrid(usableCatalog, { ...common, format: global.crossfit_format === 'emom' ? 'emom' : global.crossfit_format === 'for_time' ? 'for_time' : 'amrap' })
         : generaCrossFit(usableCatalog, { ...common, format: global.crossfit_format })
-      : session.mode === 'crossfit_hybrid' ? generaHybrid(usableCatalog, { ...common, format: session.variant === 'A' ? 'amrap' : 'emom' })
+      : session.mode === 'crossfit_hybrid' ? generaHybrid(usableCatalog, { ...common, priority_muscles: session.priority_muscles, format: session.variant === 'A' ? 'amrap' : 'emom' })
       : session.mode === 'strength' ? generaForza(usableCatalog, { ...common, split, weekly_volume: weeklyState?.volume, last_trained_at: weeklyState?.last_trained_at })
       : session.mode === 'tabata' ? generaTabata(usableCatalog, { ...common, ...global.tabata })
       : generaBodybuilding(usableCatalog, { ...common, priority_muscles: session.priority_muscles ?? global.weak_points, split, goal: 'hypertrophy', weekly_volume: weeklyState?.volume, last_trained_at: weeklyState?.last_trained_at })
@@ -121,7 +127,7 @@ export default function Create() {
     const validation = validateWorkout(workout, config, catalog)
     if (!validation.valid) { setError(validation.errors.join(' ')); return }
     clearRejectedExercises()
-    updateProgram(applyWorkoutRecovery(weeklyProgram, session.id, workout, catalog))
+    updateProgram(applyWorkoutRecovery(sourceProgram, session.id, workout, catalog))
     setGenerationConfig(config); setWorkout(workout); setError(null); navigate('/allenamento')
   }
 
@@ -152,7 +158,9 @@ function WeeklyBuilder({ catalog, error, initial, onCreate }: { catalog: Exercis
     {config.program_kind === 'program' ? <><Field title="Numero giorni"><div className="grid grid-cols-5 gap-2">{[3, 4, 5, 6, 7].map((days) => <Choice key={days} active={config.training_days === days} onClick={() => patch('training_days', days)}>{days}</Choice>)}</div></Field><Field title="Durata programma"><div className="grid grid-cols-4 gap-2">{[2, 4, 6, 8].map((weeks) => <Choice key={weeks} active={config.duration_weeks === weeks} onClick={() => patch('duration_weeks', weeks)}>{weeks} sett.</Choice>)}</div><p className="mt-2 text-xs text-slate2">Minimo due settimane. Potrai mantenere gli stessi slot e alternare le varianti A/B.</p></Field></> : null}
     <Field title={config.program_kind === 'program' ? 'Discipline della settimana' : 'Tipo di sessione'}><div className="space-y-2">{PUBLIC_MODES.map((mode) => <Choice key={mode} active={config.selected_modes.includes(mode)} onClick={() => config.program_kind === 'single_session' ? patch('selected_modes', [mode]) : toggleMode(mode)}>{MODE_LABELS[mode]}</Choice>)}</div><p className="mt-2 text-xs text-slate2">{config.program_kind === 'program' ? `Scegline da 1 a ${config.training_days}. Ogni disciplina comparirà almeno una volta.` : 'Scegli una sola modalità per l’allenamento di oggi.'}</p></Field>
     <Field title="Priorità della settimana"><div className="space-y-2">{GOAL_OPTIONS.map((goal) => <button type="button" key={goal.value} aria-pressed={config.goal === goal.value} onClick={() => patch('goal', goal.value)} className={`slab w-full text-left ${config.goal === goal.value ? '!border-chalk' : ''}`}><span className="block font-display font-bold uppercase">{goal.label}</span><span className="mt-1 block text-xs text-slate2">{goal.description}</span></button>)}</div><p className="mt-2 text-xs text-slate2">Questa scelta distribuisce le discipline nella settimana: non trasforma una PPL in “PPL Conditioning” o “PPL Mista”. La PPL resta Bodybuilding.</p></Field>
-    {config.selected_modes.includes('bodybuilding') ? <Field title="Sistema Bodybuilding"><Grid>{(Object.keys(SPLIT_SYSTEM_LABELS) as SplitSystem[]).map((system) => <Choice key={system} active={config.split_system === system} onClick={() => patch('split_system', system)}>{SPLIT_SYSTEM_LABELS[system]}</Choice>)}</Grid></Field> : null}
+    {config.program_kind === 'program' && config.selected_modes.includes('bodybuilding') ? <Field title="Sistema Bodybuilding"><Grid>{(Object.keys(SPLIT_SYSTEM_LABELS) as SplitSystem[]).map((system) => <Choice key={system} active={config.split_system === system} onClick={() => patch('split_system', system)}>{SPLIT_SYSTEM_LABELS[system]}</Choice>)}</Grid><p className="mt-2 text-xs text-slate2">Definisce prima la struttura settimanale; gli esercizi si generano soltanto dopo aver salvato la split.</p></Field> : null}
+    {config.program_kind === 'single_session' && (config.selected_modes.includes('bodybuilding') || config.selected_modes.includes('strength')) ? <Field title="Seduta di oggi"><div className="grid grid-cols-2 gap-2">{(config.selected_modes.includes('strength') ? STRENGTH_SPLITS : EDITABLE_SPLITS).map((split) => <Choice key={split} active={config.single_session_split === split} onClick={() => patch('single_session_split', split)}>{SPLIT_LABELS[split]}</Choice>)}</div><p className="mt-2 text-xs text-slate2">Scegli direttamente Push, Pull, Legs, Upper, Lower, Front, Back o il giorno Bro Split: non viene creato un calendario.</p></Field> : null}
+    {config.program_kind === 'program' && config.selected_modes.length === 2 && config.selected_modes.includes('bodybuilding') && config.selected_modes.includes('crossfit_hybrid') ? <Field title="Distribuzione BB + Hybrid"><div className="space-y-2"><Choice active={config.hybrid_balance === 'bb_dominant'} onClick={() => patch('hybrid_balance', 'bb_dominant')}>BB dominante</Choice><Choice active={config.hybrid_balance === 'balanced'} onClick={() => patch('hybrid_balance', 'balanced')}>BB + HY equilibrato</Choice><Choice active={config.hybrid_balance === 'hy_dominant'} onClick={() => patch('hybrid_balance', 'hy_dominant')}>HY più frequente</Choice></div></Field> : null}
     {config.selected_modes.includes('crossfit') ? <Field title="Formato CrossFit Standard"><div className="grid grid-cols-3 gap-2">{(['amrap', 'emom', 'for_time'] as const).map((format) => <Choice key={format} active={config.crossfit_format === format} onClick={() => patch('crossfit_format', format)}>{format === 'for_time' ? 'For Time' : format.toUpperCase()}</Choice>)}</div></Field> : null}
     {config.selected_modes.includes('tabata') ? <Field title="Protocollo Tabata"><NumberField label="Lavoro (sec)" value={config.tabata.work_sec} onChange={(work_sec) => patch('tabata', { ...config.tabata, work_sec })} /><NumberField label="Riposo (sec)" value={config.tabata.rest_sec} onChange={(rest_sec) => patch('tabata', { ...config.tabata, rest_sec })} /><NumberField label="Round" value={config.tabata.rounds} onChange={(rounds) => patch('tabata', { ...config.tabata, rounds })} /><Grid><Choice active={config.tabata.prescription === 'time'} onClick={() => patch('tabata', { ...config.tabata, prescription: 'time' })}>A tempo</Choice><Choice active={config.tabata.prescription === 'reps'} onClick={() => patch('tabata', { ...config.tabata, prescription: 'reps' })}>A ripetizioni</Choice></Grid></Field> : null}
     <Field title="Livello"><div className="grid grid-cols-2 gap-2">{(['beginner', 'advanced'] as Experience[]).map((experience) => <Choice key={experience} active={config.experience === experience || (experience === 'beginner' && config.experience === 'intermediate')} onClick={() => patch('experience', experience)}>{EXPERIENCE_LABELS[experience]}</Choice>)}</div><p className="mt-2 text-xs text-slate2">Principiante include le progressioni intermedie; Avanzato include avanzato ed esperto.</p></Field>

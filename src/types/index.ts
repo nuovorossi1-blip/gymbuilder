@@ -211,6 +211,10 @@ export interface WeeklyProgramConfig {
   selected_modes: PublicMode[]
   goal: Goal
   split_system: SplitSystem
+  /** Scelta diretta usata solo dalla sessione singola BB/Forza. */
+  single_session_split?: Split
+  /** Rapporto fra giornate BB e HY nei programmi che usano entrambe. */
+  hybrid_balance?: 'bb_dominant' | 'balanced' | 'hy_dominant'
   experience: Experience
   duration_min: number
   equipment: EquipmentInventory
