@@ -38,6 +38,7 @@
 - Metodiche dedicate per Bodybuilding, Forza, CrossFit e Hybrid; Forza + CrossFit su sei giorni alterna le discipline e adatta ogni WOD alla fatica della seduta precedente.
 - Selettore discipline a griglia con combinazione attiva sempre visibile e sostituzione intuitiva della seconda disciplina.
 - Configuratore semplificato: l’utente esprime soltanto struttura e preferenze; metodiche, intensità e obiettivo tecnico sono decisioni interne del motore.
+- Eccezione sessione singola: l’utente può scegliere esplicitamente la metodica da eseguire oggi; nei programmi resta automatica.
 
 ## IN SVILUPPO
 

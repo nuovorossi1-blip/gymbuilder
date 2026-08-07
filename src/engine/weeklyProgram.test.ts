@@ -43,6 +43,15 @@ describe('Programmazione automatica', () => {
     expect(beginnerBb.goal).toBe('hypertrophy')
     expect(beginnerBb.intensity).toBe('medium')
   })
+
+  it('mantiene la metodologia scelta nella sessione singola', () => {
+    const single = applyAutomaticProgramming({
+      ...base, program_kind: 'single_session', training_days: 1,
+      selected_modes: ['strength'], strength_method: '3x5', crossfit_format: 'chipper',
+    })
+    expect(single.strength_method).toBe('3x5')
+    expect(single.crossfit_format).toBe('chipper')
+  })
 })
 
 describe('Weekly Program Engine', () => {
