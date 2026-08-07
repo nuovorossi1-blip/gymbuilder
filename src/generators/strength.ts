@@ -44,6 +44,7 @@ export interface StrengthConfig {
   intensity?: Intensity
   weight_kg?: number | null
   seed?: number
+  method?: '5x5' | '3x5' | 'max_strength' | 'strength_accessories'
 }
 
 interface SlotDef {
@@ -125,12 +126,18 @@ const RICHIAMO_POOL: Record<Split, Muscle[]> = {
 const RANK_EXP: Record<Experience, number> = { beginner: 1, intermediate: 2, advanced: 3 }
 
 /** Ripetizioni e recupero da intensità (sez. UI Base44): l'obiettivo è sempre la forza, cambia solo dove nell'intervallo. */
-function prescrizioneForza(compound: boolean, exp: Experience, intensity: Intensity) {
+function prescrizioneForza(compound: boolean, exp: Experience, intensity: Intensity, method: NonNullable<StrengthConfig['method']>) {
   // I principianti restano su un intervallo moderato anche con intensità "Alta":
   // tecnica prima del carico massimale (sez. 16 del master prompt).
   const intensitaEffettiva = exp === 'beginner' && intensity === 'high' ? 'medium' : intensity
 
-  if (!compound) return { sets: 3, reps: '8-12', rest: 90 }
+  if (!compound) return method === 'strength_accessories'
+    ? { sets: 3, reps: '8-12', rest: 90 }
+    : { sets: 2, reps: '8-12', rest: 90 }
+
+  if (method === '5x5') return { sets: 5, reps: '5', rest: exp === 'beginner' ? 150 : 180 }
+  if (method === '3x5') return { sets: 3, reps: '5', rest: exp === 'beginner' ? 150 : 180 }
+  if (method === 'max_strength') return { sets: exp === 'advanced' ? 5 : 4, reps: exp === 'advanced' ? '2-4' : '4-5', rest: exp === 'advanced' ? 240 : 195 }
 
   const perIntensita = {
     low:    { reps: '6-8', rest: 150 },
@@ -158,6 +165,7 @@ export function generaForza(catalogo: Exercise[], cfg: StrengthConfig): Generate
   const random = rng(cfg.seed ?? 1)
   const preferiti = new Set(cfg.preferred_exercises ?? [])
   const intensity = cfg.intensity ?? 'medium'
+  const method = cfg.method ?? '5x5'
 
   const disponibili = catalogo.filter(
     (e) =>
@@ -252,7 +260,7 @@ export function generaForza(catalogo: Exercise[], cfg: StrengthConfig): Generate
 
     if (!scelto) continue
 
-    const p = prescrizioneForza(s.compound, cfg.experience, intensity)
+    const p = prescrizioneForza(s.compound, cfg.experience, intensity, method)
     const voce: PrescribedExercise = {
       exercise_id: scelto.id,
       name: scelto.name,
@@ -305,7 +313,7 @@ export function generaForza(catalogo: Exercise[], cfg: StrengthConfig): Generate
   ]
 
   return {
-    name: `Forza — ${SPLIT_LABELS[cfg.split]}`,
+    name: `Forza ${method === '5x5' ? '5×5' : method === '3x5' ? '3×5' : method === 'max_strength' ? 'massimale' : '+ complementari'} — ${SPLIT_LABELS[cfg.split]}`,
     mode: 'strength',
     split: cfg.split,
     goal: 'strength',

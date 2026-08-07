@@ -19,12 +19,9 @@ const cases: [string, number, PublicMode[]][] = [
   ['A: 3 giorni BB + Hybrid', 3, ['bodybuilding', 'crossfit_hybrid']],
   ['B: 5 giorni BB + Hybrid', 5, ['bodybuilding', 'crossfit_hybrid']],
   ['C: 5 giorni BB + CrossFit Standard', 5, ['bodybuilding', 'crossfit']],
-  ['D: 5 giorni BB + Forza + Hybrid', 5, ['bodybuilding', 'strength', 'crossfit_hybrid']],
-  ['E: 6 giorni BB + Hybrid + Tabata', 6, ['bodybuilding', 'crossfit_hybrid', 'tabata']],
   ['F: 4 giorni Forza + Hybrid', 4, ['strength', 'crossfit_hybrid']],
   ['G: 5 giorni BB + Tabata', 5, ['bodybuilding', 'tabata']],
   ['H: 5 giorni CrossFit Standard + Hybrid', 5, ['crossfit', 'crossfit_hybrid']],
-  ['I: 6 giorni BB + CrossFit Standard + Hybrid + Tabata', 6, ['bodybuilding', 'crossfit', 'crossfit_hybrid', 'tabata']],
 ]
 
 describe('Weekly Program Engine', () => {
@@ -77,6 +74,19 @@ describe('Weekly Program Engine', () => {
       ['thursday', 'bodybuilding', 'back_body'],
       ['saturday', 'crossfit', null],
     ])
+  })
+
+  it('6 giorni Forza + CrossFit alterna 3+3, riposa giovedì e adatta la fatica', () => {
+    const program = generateWeeklyProgram({ ...base, training_days: 6, selected_modes: ['strength', 'crossfit'], strength_method: '5x5' })
+    expect(program.week.map((session) => [session.day, session.mode])).toEqual([
+      ['monday', 'strength'], ['tuesday', 'crossfit'], ['wednesday', 'strength'],
+      ['friday', 'crossfit'], ['saturday', 'strength'], ['sunday', 'crossfit'],
+    ])
+    const crossfit = program.week.filter((session) => session.mode === 'crossfit')
+    expect(crossfit.map((session) => session.label)).toEqual([
+      'CrossFit — Upper / Gymnastics', 'CrossFit — Mixed adattato', 'CrossFit — Endurance / Tecnica',
+    ])
+    expect(crossfit.every((session) => (session.fatigue_avoid_muscles?.length ?? 0) > 0)).toBe(true)
   })
 
   it('normalizza un programma a minimo due settimane', () => {
@@ -136,7 +146,7 @@ describe('Weekly Program Engine', () => {
   })
 
   it('Tabata resta complementare quando è combinato con altre discipline', () => {
-    const program = generateWeeklyProgram({ ...base, training_days: 6, selected_modes: ['bodybuilding', 'crossfit_hybrid', 'tabata'] })
+    const program = generateWeeklyProgram({ ...base, training_days: 6, selected_modes: ['bodybuilding', 'tabata'] })
     expect(program.week.filter((session) => session.mode === 'tabata')).toHaveLength(1)
   })
 
@@ -150,5 +160,9 @@ describe('Weekly Program Engine', () => {
 
   it('rifiuta più discipline dei giorni disponibili', () => {
     expect(() => generateWeeklyProgram({ ...base, training_days: 3, selected_modes: ['bodybuilding', 'strength', 'crossfit', 'crossfit_hybrid'] })).toThrow()
+  })
+
+  it('rifiuta sempre una combinazione di tre discipline', () => {
+    expect(() => generateWeeklyProgram({ ...base, training_days: 6, selected_modes: ['bodybuilding', 'strength', 'crossfit'] })).toThrow('al massimo due')
   })
 })
