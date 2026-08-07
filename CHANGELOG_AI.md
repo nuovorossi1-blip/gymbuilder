@@ -191,3 +191,10 @@
 - Se sono già attive due discipline, sceglierne una nuova sostituisce la seconda: BB + Hybrid può diventare direttamente BB + CrossFit.
 - I pannelli specifici Hybrid, CrossFit e Forza compaiono soltanto quando la disciplina corrispondente è realmente attiva.
 - Aggiunto test di regressione della selezione; 176 test verdi.
+## 2026-08-07 — Configuratore basato su preferenze, metodiche automatiche
+
+- Rimossi dalla UI Priorità settimanale, Intensità e selettori delle metodiche Forza, CrossFit e Hybrid.
+- L’utente sceglie soltanto struttura del programma e preferenze comprensibili: discipline, split BB, livello, durata, attrezzatura, carenze e policy.
+- Il motore deduce obiettivo interno, intensità, metodo Forza e formato CrossFit/Hybrid dalla configurazione e dalla fatica.
+- La pagina è stata trasformata in schede grafiche separate con un riepilogo della programmazione automatica.
+- Aggiunti test sulla deduzione automatica; 177 test verdi.

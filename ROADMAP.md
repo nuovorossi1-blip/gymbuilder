@@ -37,6 +37,7 @@
 - Programmi limitati a una o due discipline, senza combinazioni triple; sessioni singole limitate a una disciplina.
 - Metodiche dedicate per Bodybuilding, Forza, CrossFit e Hybrid; Forza + CrossFit su sei giorni alterna le discipline e adatta ogni WOD alla fatica della seduta precedente.
 - Selettore discipline a griglia con combinazione attiva sempre visibile e sostituzione intuitiva della seconda disciplina.
+- Configuratore semplificato: l’utente esprime soltanto struttura e preferenze; metodiche, intensità e obiettivo tecnico sono decisioni interne del motore.
 
 ## IN SVILUPPO
 
