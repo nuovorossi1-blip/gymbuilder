@@ -198,3 +198,10 @@
 - Il motore deduce obiettivo interno, intensità, metodo Forza e formato CrossFit/Hybrid dalla configurazione e dalla fatica.
 - La pagina è stata trasformata in schede grafiche separate con un riepilogo della programmazione automatica.
 - Aggiunti test sulla deduzione automatica; 177 test verdi.
+## 2026-08-07 — Metodologia manuale soltanto nella sessione singola
+
+- Il programma settimanale continua a scegliere automaticamente tutte le metodiche.
+- La sessione singola Forza permette 5×5, 3×5, forza massimale o forza con complementari.
+- La sessione singola CrossFit permette i sette formati WOD; Hybrid permette focus e formato.
+- Le scelte della sessione singola non vengono sovrascritte dal motore, neppure in presenza di carenze.
+- Aggiunto test di regressione; 178 test verdi.
