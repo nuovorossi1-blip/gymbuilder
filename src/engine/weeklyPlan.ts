@@ -6,6 +6,35 @@ export function selectProgramMode(current: PublicMode[], selected: PublicMode): 
   return [current[0], selected]
 }
 
+export function applyAutomaticProgramming(config: WeeklyProgramConfig): WeeklyProgramConfig {
+  const modes = config.selected_modes
+  const has = (mode: PublicMode) => modes.includes(mode)
+  const mixed = modes.length === 2
+  const goal: Goal = mixed
+    ? has('bodybuilding') && has('strength') ? 'strength' : 'mixed'
+    : has('bodybuilding') ? 'hypertrophy'
+    : has('strength') ? 'strength'
+    : 'conditioning'
+  const intensity = config.experience === 'advanced' && config.duration_min <= 60 ? 'high' : 'medium'
+  const strength_method = has('strength')
+    ? has('crossfit') || has('crossfit_hybrid') ? 'strength_accessories'
+    : has('bodybuilding') ? 'max_strength'
+    : config.experience === 'advanced' ? '3x5' : '5x5'
+    : config.strength_method
+  const crossfit_format = config.experience === 'advanced'
+    ? config.duration_min >= 75 ? 'rounds' : 'for_time'
+    : config.duration_min <= 45 ? 'emom' : 'amrap'
+  const hybrid_method = config.weak_points.length > 0 ? 'specialization'
+    : config.duration_min >= 75 ? 'full_body_functional'
+    : config.hybrid_balance === 'hy_dominant' ? 'upper_conditioning'
+    : 'full_body_functional'
+  const hybrid_format = config.experience === 'advanced'
+    ? config.duration_min <= 45 ? 'intervals' : 'for_time'
+    : config.duration_min <= 45 ? 'emom' : 'amrap'
+
+  return { ...config, goal, intensity, strength_method, crossfit_format, hybrid_method, hybrid_format }
+}
+
 const ACTIVE_DAYS: Record<number, Weekday[]> = {
   3: ['monday', 'wednesday', 'friday'],
   4: ['monday', 'tuesday', 'thursday', 'saturday'],

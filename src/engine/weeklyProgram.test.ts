@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { PRESET_EQUIPMENT } from '../generators/equipment'
 import type { PublicMode, WeeklyProgramConfig } from '../types'
-import { generateWeeklyProgram, selectProgramMode, updateWeeklySession } from './weeklyPlan'
+import { applyAutomaticProgramming, generateWeeklyProgram, selectProgramMode, updateWeeklySession } from './weeklyPlan'
 
 const base: WeeklyProgramConfig = {
   program_kind: 'program', duration_weeks: 4,
@@ -29,6 +29,19 @@ describe('Selezione discipline', () => {
     expect(selectProgramMode(['bodybuilding', 'crossfit_hybrid'], 'crossfit')).toEqual(['bodybuilding', 'crossfit'])
     expect(selectProgramMode(['bodybuilding'], 'strength')).toEqual(['bodybuilding', 'strength'])
     expect(selectProgramMode(['bodybuilding', 'strength'], 'strength')).toEqual(['bodybuilding'])
+  })
+})
+
+describe('Programmazione automatica', () => {
+  it('sceglie metodo e intensità senza richiederli all’utente', () => {
+    const strengthCrossFit = applyAutomaticProgramming({ ...base, selected_modes: ['strength', 'crossfit'], duration_min: 60 })
+    expect(strengthCrossFit.goal).toBe('mixed')
+    expect(strengthCrossFit.strength_method).toBe('strength_accessories')
+    expect(strengthCrossFit.crossfit_format).toBe('for_time')
+
+    const beginnerBb = applyAutomaticProgramming({ ...base, experience: 'beginner', selected_modes: ['bodybuilding'] })
+    expect(beginnerBb.goal).toBe('hypertrophy')
+    expect(beginnerBb.intensity).toBe('medium')
   })
 })
 
