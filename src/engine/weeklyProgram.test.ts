@@ -125,6 +125,14 @@ describe('Weekly Program Engine', () => {
     expect(program.persisted).toBe(false)
   })
 
+  it('riassume una settimana solo CrossFit senza avvisi duplicati per ogni coppia', () => {
+    const program = generateWeeklyProgram({ ...base, training_days: 5, selected_modes: ['crossfit'] })
+    expect(program.warnings).toHaveLength(1)
+    expect(program.warnings[0].message).toContain('CrossFit ad alta frequenza')
+    expect(new Set(program.week.map((session) => session.metcon_format)).size).toBe(5)
+    expect(program.week.every((session) => session.label.includes('—'))).toBe(true)
+  })
+
   it('la sessione singola non crea una split settimanale né richiede due settimane', () => {
     const session = generateWeeklyProgram({ ...base, program_kind: 'single_session', duration_weeks: 1, selected_modes: ['crossfit_hybrid'] })
     expect(session.week).toHaveLength(1)

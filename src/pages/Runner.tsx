@@ -4,6 +4,7 @@ import { useAuth } from '../features/auth/AuthProvider'
 import { useWorkout } from '../features/workout/WorkoutContext'
 import { registraCompletato } from '../lib/api'
 import { FORMATO_A_GIRI, FORMATO_A_INTERVALLI, MUSCLE_LABELS, type PrescribedExercise } from '../types'
+import { metconInstruction, metconSubtitle } from '../engine/metconInstructions'
 import { loadAudioSettings, saveAudioSettings, TimerAudio, type AudioTimerSettings, type TimerSound } from '../engine/audio'
 import type { TimerEventType, TimerPhase } from '../engine/timer'
 import { notifyTimerEvent, notifyTimerSnapshot, publishBackgroundTimer, requestTimerNotifications, resetBackgroundTimer } from '../engine/backgroundTimer'
@@ -400,15 +401,7 @@ export default function Runner() {
           <h1 className="font-display font-extrabold uppercase leading-[0.9] tracking-tight text-[2.2rem]">
             {metconBlock?.title}
           </h1>
-          <p className="mt-2 font-data text-[13px] text-slate2">
-            {formato === 'amrap' && `${metconBlock?.time_cap_min} minuti · quanti giri fai`}
-            {formato === 'for_time' && `cap ${metconBlock?.time_cap_min} minuti · il più veloce possibile`}
-            {formato === 'rounds' && `${metconBlock?.rounds} giri, riposa il necessario fra un giro e l'altro`}
-            {formato === 'circuit' && `${metconBlock?.rounds} giri, recupero fisso fra un esercizio e l'altro`}
-            {formato === 'emom' && `${metconBlock?.rounds} minuti, un compito ogni minuto`}
-            {formato === 'intervals' && `${metconBlock?.interval_sec}″ lavoro / recupero, a ripetere`}
-            {formato === 'tabata' && `${metconBlock?.interval_sec ?? 20}″ lavoro / ${metconEsercizi[0]?.rest_sec ?? 10}″ riposo × ${metconBlock?.rounds ?? 8}, un movimento alla volta`}
-          </p>
+          {metconBlock ? <><p className="mt-2 font-data text-[13px] text-slate2">{metconSubtitle(metconBlock)}</p><p className="mt-3 text-sm leading-relaxed text-slate2">{metconInstruction(metconBlock)}</p></> : null}
           <ul className="mt-7 space-y-2.5">
             {metconEsercizi.map((e, i) => (
               <li key={i} className="slab !py-3.5">

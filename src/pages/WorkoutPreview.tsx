@@ -1,11 +1,12 @@
 import { useState } from 'react'
+import { metconInstruction, metconSubtitle } from '../engine/metconInstructions'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../features/auth/AuthProvider'
 import { useWorkout } from '../features/workout/WorkoutContext'
 import { salvaAllenamento } from '../lib/api'
 import { findExerciseReplacement } from '../engine/replacement'
 import { recordExerciseFeedback } from '../engine/feedback'
-import { EXPERIENCE_LABELS, GOAL_LABELS, MODE_LABELS, MUSCLE_LABELS, SPLIT_LABELS, type ExerciseFeedbackReason, type WorkoutBlock } from '../types'
+import { EXPERIENCE_LABELS, GOAL_LABELS, MODE_LABELS, MUSCLE_LABELS, SPLIT_LABELS, type ExerciseFeedbackReason } from '../types'
 
 export default function WorkoutPreview() {
   const { user } = useAuth()
@@ -172,7 +173,7 @@ export default function WorkoutPreview() {
         <section className="mt-8">
           <div className="flex items-baseline justify-between">
             <h2 className="field-label !mb-0">{metcon.title}</h2>
-            <span className="font-data text-[11px] text-slate2">{sottotitoloMetcon(metcon)}</span>
+            <span className="font-data text-[11px] text-slate2">{metconSubtitle(metcon)}</span>
           </div>
           <ol className="mt-3 space-y-2.5">
             {metcon.exercises.map((e, i) => (
@@ -193,7 +194,7 @@ export default function WorkoutPreview() {
               </li>
             ))}
           </ol>
-          <p className="mt-2 text-[12px] text-slate2">{descrizioneMetcon(metcon)}</p>
+          <p className="mt-2 text-[12px] leading-relaxed text-slate2">{metconInstruction(metcon)}</p>
         </section>
       )}
 
@@ -246,30 +247,4 @@ export function formattaRec(sec: number): string {
   const m = Math.floor(sec / 60)
   const s = sec % 60
   return s === 0 ? `${m} min` : `${m}:${String(s).padStart(2, '0')}`
-}
-
-function sottotitoloMetcon(m: WorkoutBlock): string {
-  switch (m.format) {
-    case 'amrap': return `${m.time_cap_min} min · quanti giri fai`
-    case 'for_time': return `cap ${m.time_cap_min} min · il tempo è il punteggio`
-    case 'rounds': return `${m.rounds} giri`
-    case 'circuit': return `${m.rounds} giri`
-    case 'emom': return `${m.rounds} min`
-    case 'intervals': return `${m.interval_sec}″ lavoro`
-    case 'tabata': return `${m.rounds}×20″/10″`
-    default: return ''
-  }
-}
-
-function descrizioneMetcon(m: WorkoutBlock): string {
-  switch (m.format) {
-    case 'amrap': return 'Ripeti il giro finché non finisce il tempo: quanti giri completi è il tuo punteggio.'
-    case 'for_time': return 'Fai tutto il volume prescritto il più velocemente possibile, entro il tempo massimo.'
-    case 'rounds': return 'Completa tutti i giri, riposando il necessario fra uno e l\'altro: il tempo totale è il tuo punteggio.'
-    case 'circuit': return 'Un esercizio dopo l\'altro con recupero fisso, ripetuto per i giri indicati.'
-    case 'emom': return 'Un compito ogni minuto, sul minuto: quello che avanza del minuto è il tuo riposo.'
-    case 'intervals': return 'Lavoro e riposo si alternano a intervalli fissi, a ripetere per tutti i round.'
-    case 'tabata': return 'Un movimento alla volta: 8 round di 20″ lavoro e 10″ riposo, poi il prossimo.'
-    default: return ''
-  }
 }

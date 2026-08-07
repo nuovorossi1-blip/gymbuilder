@@ -1,4 +1,6 @@
-import { MODE_LABELS, SPLIT_LABELS, type Exercise, type GeneratedWorkout, type Goal, type Muscle, type PublicMode, type RecoveryProfile, type Split, type SplitSystem, type Weekday, type WeeklyProgram, type WeeklyProgramConfig, type WeeklyProgramWarning, type WeeklySession } from '../types'
+import { METCON_FORMAT_LABELS, MODE_LABELS, SPLIT_LABELS, type Exercise, type GeneratedWorkout, type Goal, type MetconFormat, type Muscle, type PublicMode, type RecoveryProfile, type Split, type SplitSystem, type Weekday, type WeeklyProgram, type WeeklyProgramConfig, type WeeklyProgramWarning, type WeeklySession } from '../types'
+
+type ScheduledMetconFormat = Exclude<MetconFormat, 'circuit' | 'tabata'>
 
 export function selectProgramMode(current: PublicMode[], selected: PublicMode): PublicMode[] {
   if (current.includes(selected)) return current.filter((mode) => mode !== selected)
@@ -214,8 +216,18 @@ function makeCandidates(config: WeeklyProgramConfig): Omit<WeeklySession, 'id' |
     splits.forEach((split) => {
       const occurrence = occurrences.get(split) ?? 0
       occurrences.set(split, occurrence + 1)
+      const crossFitFormats: ScheduledMetconFormat[] = config.experience === 'advanced'
+        ? ['for_time', 'emom', 'chipper', 'rounds', 'ladder', 'amrap', 'intervals']
+        : ['amrap', 'emom', 'rounds', 'intervals', 'chipper']
+      const hybridFormats: ScheduledMetconFormat[] = ['amrap', 'emom', 'for_time', 'intervals']
+      const metconFormat = mode === 'crossfit' ? crossFitFormats[occurrence % crossFitFormats.length]
+        : mode === 'crossfit_hybrid' ? hybridFormats[occurrence % hybridFormats.length]
+        : undefined
+      const label = split ? `${MODE_LABELS[mode]} — ${SPLIT_LABELS[split]}`
+        : metconFormat ? `${MODE_LABELS[mode]} — ${METCON_FORMAT_LABELS[metconFormat]}`
+        : MODE_LABELS[mode]
       sessions.push({
-      mode, split, label: split ? `${MODE_LABELS[mode]} — ${SPLIT_LABELS[split]}` : MODE_LABELS[mode],
+      mode, split, label, metcon_format: metconFormat,
       estimated_fatigue: mode === 'tabata' ? 2 : mode === 'bodybuilding' ? 2 : 3,
       muscle_load: split ? SPLIT_LOAD[split] : GENERIC_LOAD[mode as keyof typeof GENERIC_LOAD],
       recovery_profile: forecastProfile(mode, split, config.duration_min),
@@ -279,19 +291,27 @@ export function validateWeeklyProgram(week: WeeklySession[], config: WeeklyProgr
     days.add(session.day)
   }
   const chronological = [...week].sort((a, b) => DAY_INDEX[a.day] - DAY_INDEX[b.day])
+  const crossFitOnly = config.selected_modes.length === 1 && config.selected_modes[0] === 'crossfit'
   for (let index = 1; index < chronological.length; index++) {
     const previous = chronological[index - 1]
     const current = chronological[index]
     if (DAY_INDEX[current.day] - DAY_INDEX[previous.day] !== 1) continue
-    if (previous.estimated_fatigue === 3 && current.estimated_fatigue === 3) warnings.push({ code: 'consecutive_high_fatigue', message: `${previous.label} e ${current.label} sono due sessioni molto tassanti consecutive. Valuta di spostarne una.`, day_ids: [previous.id, current.id] })
+    if (!crossFitOnly && previous.estimated_fatigue === 3 && current.estimated_fatigue === 3) warnings.push({ code: 'consecutive_high_fatigue', message: `${previous.label} e ${current.label} sono due sessioni molto tassanti consecutive. Valuta di spostarne una.`, day_ids: [previous.id, current.id] })
     const shared = overlap(previous.muscle_load, current.muscle_load)
-    if (shared >= 4) warnings.push({ code: 'muscle_overlap', message: `Sovrapposizione elevata tra ${previous.label} e ${current.label}. Puoi mantenerla o modificare uno dei due giorni.`, day_ids: [previous.id, current.id] })
+    if (!crossFitOnly && shared >= 4) warnings.push({ code: 'muscle_overlap', message: `Sovrapposizione elevata tra ${previous.label} e ${current.label}. Puoi mantenerla o modificare uno dei due giorni.`, day_ids: [previous.id, current.id] })
   }
+  if (crossFitOnly && week.length >= 4) warnings.push({ code: 'limited_recovery', message: 'Programma CrossFit ad alta frequenza: il motore alternerà forza, tecnica, intensità e durata dei WOD per gestire il recupero.', day_ids: week.map((item) => item.id) })
   if (config.training_days >= 6 && config.selected_modes.filter((mode) => mode !== 'tabata').length >= 3) warnings.push({ code: 'limited_recovery', message: 'Settimana ad alta densità: monitora recupero, sonno e qualità tecnica.', day_ids: week.map((item) => item.id) })
   const cardioModes = config.selected_modes.some((mode) => mode === 'crossfit' || mode === 'crossfit_hybrid' || mode === 'tabata')
   const conditioningGear: string[] = ['kettlebells', 'dumbbells', 'row_erg', 'ski_erg', 'assault_bike', 'treadmill', 'jump_rope']
   if (cardioModes && config.preferences.bodyweight_policy === 'never' && !config.equipment.available.some((item) => conditioningGear.includes(item))) warnings.push({ code: 'mode_density', message: 'Le modalità metaboliche hanno poche alternative: abilita almeno un attrezzo cardio, manubri o kettlebell.', day_ids: week.filter((item) => item.mode === 'crossfit' || item.mode === 'crossfit_hybrid' || item.mode === 'tabata').map((item) => item.id) })
-  return warnings
+  const merged = new Map<WeeklyProgramWarning['code'], WeeklyProgramWarning>()
+  for (const warning of warnings) {
+    const existing = merged.get(warning.code)
+    if (existing) existing.day_ids = [...new Set([...existing.day_ids, ...warning.day_ids])]
+    else merged.set(warning.code, { ...warning })
+  }
+  return [...merged.values()]
 }
 
 export function generateWeeklyProgram(config: WeeklyProgramConfig): WeeklyProgram {
@@ -308,6 +328,7 @@ export function generateWeeklyProgram(config: WeeklyProgramConfig): WeeklyProgra
       muscle_load: split ? SPLIT_LOAD[split] : GENERIC_LOAD[mode as keyof typeof GENERIC_LOAD],
       recovery_profile: forecastProfile(mode, split, config.duration_min),
       priority_muscles: config.weak_points.slice(0, 2), variant: 'A',
+      metcon_format: mode === 'crossfit' ? config.crossfit_format : mode === 'crossfit_hybrid' ? config.hybrid_format : undefined,
     }
     return { id: `single-${Date.now()}`, persisted: false, config: normalized, week: [session], warnings: [] }
   }

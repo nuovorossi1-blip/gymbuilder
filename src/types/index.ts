@@ -241,6 +241,8 @@ export interface WeeklySession {
   priority_muscles: Muscle[]
   /** Muscoli da non ricaricare con esercizi medio-pesanti il giorno successivo. */
   fatigue_avoid_muscles?: Muscle[]
+  /** Formato operativo assegnato dal motore alla singola giornata metabolica. */
+  metcon_format?: Exclude<MetconFormat, 'circuit' | 'tabata'>
   /** Alternanza minima per distribuire le priorità nelle ripetizioni dello stesso split. */
   variant: 'A' | 'B'
 }
