@@ -1,5 +1,15 @@
 # Changelog AI
 
+## 2026-08-07 — Programma prima, esercizi dopo
+
+- I programmi costruiscono e salvano prima calendario, discipline e split; gli esercizi vengono generati soltanto aprendo una giornata confermata.
+- PPL BB + Hybrid su cinque giorni segue Push, Pull, Legs, riposo, HY specializzazione, HY funzionale, riposo.
+- La prima HY riceve le carenze upper assegnate; la seconda resta Functional/Full Body senza volume diretto aggiuntivo sulle carenze.
+- Aggiunta la distribuzione BB dominante / equilibrata / HY più frequente.
+- Una sessione singola seleziona direttamente Push/Pull/Legs/Upper/Lower/Front/Back/Bro e apre subito l'anteprima, senza creare un calendario fittizio.
+- Bro Petto singolo usa cinque esercizi: due compound e tre isolamenti esclusivamente per il petto.
+- Front/Back + CrossFit su quattro giorni alterna Front, CrossFit, riposo, Back, CrossFit.
+
 ## 2026-08-07 — Nomi e istruzioni catalogo curate
 
 - Tutti i 141 esercizi attivi hanno ora un nome italiano naturale quando traducibile e un cue esecutivo breve e specifico; termini tecnici consolidati restano in inglese.

@@ -144,7 +144,7 @@ const BASE_SLOTS: Record<Split, SlotDef[]> = {
   bro_chest: [
     { muscle: 'chest', compound: true },
     { muscle: 'chest', compound: true },
-    { muscle: 'chest', compound: true },
+    { muscle: 'chest', compound: false },
     { muscle: 'chest', compound: false },
     { muscle: 'chest', compound: false },
   ],
@@ -401,7 +401,9 @@ export function generaBodybuilding(
   }
   const structured = applicaPrioritaAssegnate(base, priorities)
   const baseSlot = structured.slots
-  const target = Math.min(6, Math.max(targetEsercizi(cfg.duration_min), baseSlot.length))
+  const target = cfg.split === 'bro_chest'
+    ? 5
+    : Math.min(6, Math.max(targetEsercizi(cfg.duration_min), baseSlot.length))
 
   // 6. Sesto slot: prima le priorità assegnate dalla settimana, poi l'extra dello split.
   const extraSlot: SlotDef[] = []
@@ -422,7 +424,9 @@ export function generaBodybuilding(
     const s = slot[i]
     const isRichiamo = !!s.weakPoint
     const isCrossSplitRecall = isRichiamo && !pool.includes(s.muscle)
-    const musclesDaProvare = [s.muscle, ...(!isRichiamo ? pool.filter((m) => m !== s.muscle) : [])]
+    const musclesDaProvare = cfg.split === 'bro_chest'
+      ? ['chest' as Muscle]
+      : [s.muscle, ...(!isRichiamo ? pool.filter((m) => m !== s.muscle) : [])]
 
     let scelto: Exercise | undefined
     let muscoloUsato: Muscle = s.muscle

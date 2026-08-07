@@ -3,7 +3,14 @@ import { generaBodybuilding } from '../bodybuilding'
 import type { Exercise, Split } from '../../types'
 import catalogoReale from './fixtures/exercises.json'
 
-const catalogo = catalogoReale as unknown as Exercise[]
+const catalogoBase = catalogoReale as unknown as Exercise[]
+const isolamentoPettoBase = catalogoBase.find((exercise) => exercise.id === 'croci_cavi')!
+// Il remoto curato contiene anche Pec Deck e croci con manubri; la fixture
+// storica ne aveva soltanto due e non poteva rappresentare Bro Petto 2+3.
+const catalogo = [
+  ...catalogoBase,
+  { ...isolamentoPettoBase, id: 'pec_deck_test', name: 'Pec deck test', equipment: 'machine' as const },
+]
 
 const TUTTI_GLI_SPLIT: Split[] = [
   'push', 'pull', 'legs', 'upper', 'lower', 'full_body',
@@ -51,6 +58,17 @@ describe('generaBodybuilding — struttura di base (sez. 3, 21 della specifica)'
       duration_min: 75, priority_muscles: [], excluded_exercises: [], seed: 1,
     })
     expect(mainBlock(w).exercises.length).toBe(6)
+  })
+
+  it('sessione Bro Petto usa 2 compound e 3 isolamenti tutti per il petto', () => {
+    const w = generaBodybuilding(catalogo, {
+      split: 'bro_chest', goal: 'hypertrophy', experience: 'advanced', equipment: 'full_gym',
+      duration_min: 60, priority_muscles: [], excluded_exercises: [], seed: 21,
+    })
+    const exercises = mainBlock(w).exercises
+    expect(exercises).toHaveLength(5)
+    expect(exercises.slice(0, 2).every((exercise) => exercise.role === 'compound' && exercise.muscle === 'chest')).toBe(true)
+    expect(exercises.slice(2).every((exercise) => exercise.role === 'isolation' && exercise.muscle === 'chest')).toBe(true)
   })
 
   it('30 minuti resta a 5 esercizi adattando serie e recuperi, non tagliando sotto il minimo', () => {
