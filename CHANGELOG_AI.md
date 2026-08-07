@@ -1,5 +1,11 @@
 # Changelog AI
 
+## 2026-08-07 — PPL separata dall'obiettivo settimanale
+
+- La priorità globale serve soltanto allo scheduling delle discipline e non cambia più ripetizioni/recuperi della giornata Bodybuilding.
+- PPL resta sempre una split Bodybuilding orientata all'ipertrofia; Forza, CrossFit e Hybrid mantengono generatori separati.
+- Rimossa l'ambiguità concettuale “PPL Conditioning” / “PPL Mista” dal testo del configuratore.
+
 ## 2026-08-07 — Segnale finale countdown distinto
 
 - I secondi 3–2–1 producono tre bip brevi; allo zero viene emesso un evento separato con biiip lungo, diiing lungo o riiing secondo la preferenza.
