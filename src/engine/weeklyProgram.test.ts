@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { PRESET_EQUIPMENT } from '../generators/equipment'
 import type { PublicMode, WeeklyProgramConfig } from '../types'
-import { generateWeeklyProgram, updateWeeklySession } from './weeklyPlan'
+import { generateWeeklyProgram, selectProgramMode, updateWeeklySession } from './weeklyPlan'
 
 const base: WeeklyProgramConfig = {
   program_kind: 'program', duration_weeks: 4,
@@ -23,6 +23,14 @@ const cases: [string, number, PublicMode[]][] = [
   ['G: 5 giorni BB + Tabata', 5, ['bodybuilding', 'tabata']],
   ['H: 5 giorni CrossFit Standard + Hybrid', 5, ['crossfit', 'crossfit_hybrid']],
 ]
+
+describe('Selezione discipline', () => {
+  it('sostituisce la seconda disciplina quando se ne seleziona una terza', () => {
+    expect(selectProgramMode(['bodybuilding', 'crossfit_hybrid'], 'crossfit')).toEqual(['bodybuilding', 'crossfit'])
+    expect(selectProgramMode(['bodybuilding'], 'strength')).toEqual(['bodybuilding', 'strength'])
+    expect(selectProgramMode(['bodybuilding', 'strength'], 'strength')).toEqual(['bodybuilding'])
+  })
+})
 
 describe('Weekly Program Engine', () => {
   it.each(cases)('%s genera tutti i giorni e include ogni disciplina', (_label, days, modes) => {

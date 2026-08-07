@@ -184,3 +184,10 @@
 - Forza + CrossFit su sei giorni alterna tre sedute per disciplina con riposo il giovedì.
 - Ogni CrossFit successivo evita i distretti più affaticati dalla seduta Forza precedente.
 - Aggiunti test di regressione per combinazioni triple, prescrizioni Forza e calendario adattivo; 175 test verdi.
+## 2026-08-07 — Selettore discipline leggibile e sostituzione automatica
+
+- Il configuratore parte con una sola disciplina, Bodybuilding, invece di preselezionare BB + Hybrid.
+- Le discipline sono disposte in una griglia con riepilogo esplicito della combinazione attiva e contatore 1/2 o 2/2.
+- Se sono già attive due discipline, sceglierne una nuova sostituisce la seconda: BB + Hybrid può diventare direttamente BB + CrossFit.
+- I pannelli specifici Hybrid, CrossFit e Forza compaiono soltanto quando la disciplina corrispondente è realmente attiva.
+- Aggiunto test di regressione della selezione; 176 test verdi.
