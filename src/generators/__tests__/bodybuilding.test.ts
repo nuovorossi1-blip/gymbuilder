@@ -151,7 +151,35 @@ describe('generaBodybuilding — scenario critico sez. 28 della correzione', () 
       priority_muscles: [], excluded_exercises: [], seed: 5,
     })
     const main = mainBlock(w).exercises
-    expect(main.slice(0, 5).map((exercise) => exercise.muscle)).toEqual(['quads', 'hamstrings', 'quads', 'hamstrings', 'calves'])
+    expect(main.map((exercise) => exercise.muscle)).toEqual(['quads', 'hamstrings', 'glutes', 'quads', 'hamstrings', 'calves'])
+    expect(main.map((exercise) => exercise.role)).toEqual(['compound', 'compound', 'isolation', 'isolation', 'isolation', 'isolation'])
+  })
+
+  it('Legs inizia sempre con uno squat/pressa stabile, mai con un affondo unilaterale', () => {
+    const perId = new Map(catalogo.map((exercise) => [exercise.id, exercise]))
+    for (let seed = 1; seed <= 30; seed++) {
+      const w = generaBodybuilding(catalogo, {
+        split: 'legs', goal: 'hypertrophy', experience: 'advanced', equipment: 'full_gym', duration_min: 60,
+        priority_muscles: [], excluded_exercises: [], seed,
+      })
+      const first = mainBlock(w).exercises[0]
+      expect(first.role).toBe('compound')
+      expect(first.muscle).toBe('quads')
+      expect(perId.get(first.exercise_id)?.movement_pattern).toBe('squat')
+      expect(first.exercise_id).not.toBe('bulgarian_split')
+    }
+  })
+
+  it('Push alterna la fatica: due press petto, press spalle, poi accessori', () => {
+    const w = generaBodybuilding(catalogo, {
+      split: 'push', goal: 'hypertrophy', experience: 'advanced', equipment: 'full_gym', duration_min: 75,
+      priority_muscles: ['biceps'], excluded_exercises: [], seed: 12,
+    })
+    const main = mainBlock(w).exercises
+    expect(main.slice(0, 3).map((exercise) => [exercise.muscle, exercise.role])).toEqual([
+      ['chest', 'compound'], ['chest', 'compound'], ['front_delts', 'compound'],
+    ])
+    expect(main.findIndex((exercise) => exercise.muscle === 'biceps')).toBeLessThan(main.findIndex((exercise) => exercise.muscle === 'triceps'))
   })
 
   it('Pull avanzato con carenze braccia/deltoidi e preferiti resta un Pull coerente, non un accorpamento di tutti i muscoli carenti', () => {

@@ -4,7 +4,7 @@
 > da qui. Va **aggiornato** a ogni sessione, non accodato all'infinito.
 > L'identità del progetto e il percorso di AI-OS stanno in `AIOS_PROJECT.json`.
 
-**Ultimo aggiornamento:** 2026-08-07 (migrazioni Supabase remote) — Codex
+**Ultimo aggiornamento:** 2026-08-07 (ordine esercizi e avvisi timer) — Codex
 
 Etichette: `[FACT]` verificato nel codice · `[RICOSTRUITO]` dedotto da indizi ·
 `[IGNOTO]` non ricavabile dal repository
@@ -257,6 +257,8 @@ Capacitor (fase 14): non iniziato.
 
 | Problema | Causa vera | Soluzione |
 |---|---|---|
+| Legs poteva iniziare con Affondo bulgaro e il gluteo finiva dopo gli isolamenti | Il selettore ordinava i compound quasi solo per fatica sistemica e poi pescava fra i primi tre, senza distinguere pattern bilaterali stabili da affondi unilaterali; gli extra erano accodati senza un ordine esecutivo | Separata la scelta della variante dall'ordine esecutivo: squat/pressa prima degli affondi, catena posteriore seconda, glutei terzi, poi isolamenti e polpacci. Push riceve un ordinamento analogo fatigue-aware |
+| I bip finali erano poco percepibili e mancava la vibrazione | Il warning Web Audio durava 70 ms con gain basso e oscillatore sinusoidale; non esisteva uso della Vibration API | Beep 3–2–1 più netto con oscillatore square e gain maggiore, vibrazione configurabile per warning/transizioni/fine dove il browser la supporta |
 | Il salvataggio del Profilo restituiva HTTP 400 su `profiles?on_conflict=user_id` | La tabella conservava `id` come PK obbligatoria, mentre il client inviava soltanto `user_id`; inoltre il trigger di registrazione valorizzava soltanto la chiave legacy | Il client invia entrambe le chiavi, il trigger crea `id=user_id`, i record esistenti sono riallineati e `user_id` è NOT NULL. Rimosse le policy legacy duplicate basate su `id` |
 | Le cinque migrazioni locali avanzate non erano applicabili al Supabase remoto | Un `SUPABASE_ACCESS_TOKEN` obsoleto del Codespace prevaleva sulle credenziali CLI; inoltre nove migrazioni già applicate al remoto mancavano dalla cartella locale | Escluso il token obsoleto, autenticata la CLI via browser, importate in sicurezza le nove migrazioni storiche e applicate le cinque pendenti. Verificati storico 14/14, colonne, 87 esercizi completi, policy profilo e advisor sicurezza |
 | L'advisor Supabase segnalava `handle_new_user` come funzione `SECURITY DEFINER` richiamabile via API da chiunque | Le funzioni nello schema `public` sono esposte come endpoint RPC anche quando servono solo a un trigger | `revoke execute` su `anon`, `authenticated` e `public` per entrambe le funzioni di trigger. Migrazione `blinda_funzione_trigger` |

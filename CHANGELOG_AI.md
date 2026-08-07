@@ -1,5 +1,15 @@
 # Changelog AI
 
+## 2026-08-07 — Ordine esercizi, countdown e Belt Squat
+
+- Legs ordinato per fatica e tecnica: quad compound bilaterale, femorali compound, glutei, isolamento quad, isolamento femorali, polpacci.
+- Gli squat/pressa hanno priorità sugli affondi unilaterali nel primo slot; Affondo bulgaro non può più aprire una Legs con palestra completa.
+- Push esegue i due press petto prima del press spalle e alterna gli accessori per ridurre la fatica locale consecutiva.
+- Countdown finale reso più udibile con tre beep distinti a 3–2–1 e vibrazione opzionale dove supportata.
+- Aggiunto Belt Squat al catalogo locale e Supabase remoto come compound quad-dominant.
+- Dynamic Island specificata in roadmap come Live Activity nativa ActivityKit/WidgetKit, non simulata nella web app.
+- Verifica: 156 test, lint senza errori, build Vite verde e advisor Supabase senza regressioni.
+
 ## 2026-08-07 — Salvataggio profilo `id`/`user_id`
 
 - Corretto il `400` dell'upsert profilo: il client invia ora sia la PK legacy `id` sia il contratto corrente `user_id`.
