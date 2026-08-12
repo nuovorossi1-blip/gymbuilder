@@ -52,9 +52,11 @@ function vuoto(): Record<Muscle, number> {
 export function analizzaSettimana(
   completati: CompletedWorkout[],
   catalogo: Exercise[],
-  giorni = 7
+  giorni = 7,
+  referenceDate: number | Date = Date.now()
 ): WeeklyTrainingState {
-  const soglia = Date.now() - giorni * 24 * 60 * 60 * 1000
+  const refTime = typeof referenceDate === 'number' ? referenceDate : referenceDate.getTime()
+  const soglia = refTime - giorni * 24 * 60 * 60 * 1000
   const perId = new Map(catalogo.map((e) => [e.id, e]))
   const volume = vuoto()
   const last_trained_at: Partial<Record<Muscle, string>> = {}
@@ -82,9 +84,10 @@ export function analizzaSettimana(
 export function volumeSettimanale(
   completati: CompletedWorkout[],
   catalogo: Exercise[],
-  giorni = 7
+  giorni = 7,
+  referenceDate: number | Date = Date.now()
 ): Record<Muscle, number> {
-  return analizzaSettimana(completati, catalogo, giorni).volume
+  return analizzaSettimana(completati, catalogo, giorni, referenceDate).volume
 }
 
 /**

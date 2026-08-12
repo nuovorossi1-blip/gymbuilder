@@ -6,6 +6,6 @@
 - [ ] Aggiungere adapter nativi per `HealthDataProvider`; non promettere compatibilità universale.
 - [ ] Persistenza server-side dell'intero `WeeklyProgram` per sincronizzare la settimana fra dispositivi; oggi è sessionStorage.
 - [ ] Sincronizzare la memoria adattiva degli esercizi su Supabase; oggi è localStorage per utente/browser.
-- [ ] Risolvere i tre warning lint legacy Fast Refresh separando provider/helper esportati.
+- [x] Risolvere i tre warning lint legacy Fast Refresh separando provider/helper esportati ed esplicitando allowExportNames per custom hook in eslint.config.js.
 - [ ] Valutare i quattro advisory npm senza usare aggiornamenti forzati incompatibili.
 - [ ] Provare audio/countdown su Safari iOS e Chrome Android reali, incluse lock screen e modalità risparmio energetico.

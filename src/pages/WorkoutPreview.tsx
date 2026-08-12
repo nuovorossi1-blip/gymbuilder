@@ -242,7 +242,7 @@ function FeedbackPanel({ exerciseName, onCancel, onSubmit }: { exerciseName: str
   return <div className="fixed inset-0 z-40 grid items-end bg-black/70 p-4 sm:items-center"><section role="dialog" aria-modal="true" aria-labelledby="feedback-title" className="mx-auto w-full max-w-md rounded-2xl border border-edge bg-ink p-5"><p className="eyebrow">{exerciseName}</p><h2 id="feedback-title" className="mt-2 font-display text-xl font-bold uppercase">Perché vuoi sostituirlo?</h2><div className="mt-4 space-y-2">{FEEDBACK_REASONS.map((item) => <label key={item.value} className="flex items-center gap-3 rounded-xl border border-edge p-3 text-sm"><input type="radio" name="feedback-reason" checked={reason === item.value} onChange={() => setReason(item.value)} />{item.label}</label>)}</div><label className="mt-4 flex items-start gap-3 text-sm text-slate2"><input className="mt-1" type="checkbox" checked={permanent} onChange={(event) => setPermanent(event.target.checked)} /><span>Non mostrarlo più nelle prossime generazioni.</span></label>{reason === 'discomfort' ? <p className="mt-3 text-xs text-amber2">Non è una diagnosi: se il dolore persiste, interrompi l’esercizio e valuta un professionista qualificato.</p> : null}<div className="mt-5 grid grid-cols-2 gap-2"><button className="rounded-xl border border-edge py-3 text-sm" onClick={onCancel}>Annulla</button><button className="rounded-xl bg-chalk py-3 text-sm font-semibold text-ink" onClick={() => onSubmit(reason, permanent)}>Sostituisci</button></div></section></div>
 }
 
-export function formattaRec(sec: number): string {
+function formattaRec(sec: number): string {
   if (sec < 60) return `${sec}s`
   const m = Math.floor(sec / 60)
   const s = sec % 60

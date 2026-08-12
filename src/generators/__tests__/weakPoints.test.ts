@@ -34,7 +34,9 @@ describe('Weak Point Weekly Programming', () => {
   it('somma volume diretto e metà del volume indiretto', () => {
     const stato = analizzaSettimana(
       [completato('panca_piana', 4, '2026-08-05T12:00:00.000Z')],
-      catalogo
+      catalogo,
+      7,
+      now
     )
     expect(stato.volume.chest).toBe(4)
     expect(stato.volume.triceps).toBe(2)
@@ -45,7 +47,7 @@ describe('Weak Point Weekly Programming', () => {
     const stato = analizzaSettimana([
       completato('burpee', 2, '2026-08-05T12:00:00.000Z', 'metcon'),
       completato('panca_piana', 4, '2026-07-01T12:00:00.000Z'),
-    ], catalogo)
+    ], catalogo, 7, now)
     expect(stato.volume.chest).toBe(2)
     expect(stato.last_trained_at.chest).toBe('2026-08-05T12:00:00.000Z')
   })
