@@ -566,130 +566,134 @@ function WizardBuilder({
             </Field>
           )}
 
-          <Field title="Durata Sessione (minuti)">
-            <div className="grid grid-cols-5 gap-2">
-              {DURATIONS.map((duration) => (
-                <Choice
-                  key={duration}
-                  active={config.duration_min === duration}
-                  onClick={() => patch('duration_min', duration)}
-                >
-                  {duration}m
-                </Choice>
-              ))}
-            </div>
-          </Field>
-
-          <Field title="Attrezzatura Disponibile">
-            <Grid>
-              {(Object.keys(EQUIPMENT_LABELS) as Equipment[])
-                .filter((item) => ['full_gym', 'dumbbells', 'barbell', 'machines', 'home_gym'].includes(item))
-                .map((equipment) => (
-                  <Choice
-                    key={equipment}
-                    active={config.equipment.preset === equipment}
-                    onClick={() =>
-                      patch('equipment', { preset: equipment, available: PRESET_EQUIPMENT[equipment] })
-                    }
-                  >
-                    {EQUIPMENT_LABELS[equipment]}
-                  </Choice>
-                ))}
-            </Grid>
-            <button
-              className="mt-3 text-xs uppercase tracking-wider text-cyan-400"
-              onClick={() => setAdvanced((old) => !old)}
-            >
-              {advanced ? 'Chiudi inventario' : '⚙️ Configurazione avanzata attrezzi'}
-            </button>
-            {advanced && (
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                {(Object.keys(EQUIPMENT_ITEM_LABELS) as EquipmentItem[]).map((item) => (
-                  <Choice
-                    key={item}
-                    active={config.equipment.available.includes(item)}
-                    onClick={() =>
-                      patch('equipment', {
-                        ...config.equipment,
-                        available: config.equipment.available.includes(item)
-                          ? config.equipment.available.filter((value) => value !== item)
-                          : [...config.equipment.available, item],
-                      })
-                    }
-                  >
-                    {EQUIPMENT_ITEM_LABELS[item]}
-                  </Choice>
-                ))}
-              </div>
-            )}
-          </Field>
-
-          <Field title="Muscoli Carenti (Priorità)">
-            <div className="flex flex-wrap gap-2">
-              {(Object.keys(MUSCLE_LABELS) as Muscle[]).map((muscle) => (
-                <Choice
-                  key={muscle}
-                  active={config.weak_points.includes(muscle)}
-                  onClick={() => toggleMuscle(muscle)}
-                >
-                  {MUSCLE_LABELS[muscle]}
-                </Choice>
-              ))}
-            </div>
-          </Field>
-
-          <Field title="Preferenze Esercizi">
-            <Policy
-              title="Corpo libero"
-              value={config.preferences.bodyweight_policy}
-              onChange={(value) => setPolicy('bodyweight_policy', value)}
-            />
-            <Policy
-              title="Elastici"
-              value={config.preferences.elastic_policy}
-              onChange={(value) => setPolicy('elastic_policy', value)}
-            />
-            <button
-              className="mt-4 text-xs uppercase tracking-wider text-cyan-400"
-              onClick={() => setExercisePreferences((old) => !old)}
-            >
-              {exercisePreferences ? 'Chiudi preferiti' : '⭐ Preferiti / Esclusi'}
-            </button>
-            {exercisePreferences && (
-              <div className="mt-3 max-h-80 space-y-2 overflow-y-auto">
-                {catalog
-                  .filter((exercise) => !exercise.roles.includes('warmup'))
-                  .map((exercise) => (
-                    <div
-                      key={exercise.id}
-                      className="grid grid-cols-[1fr_auto_auto] items-center gap-2 border-b border-edge py-2 text-sm text-white"
+          {!config.selected_modes.includes('tabata') && (
+            <>
+              <Field title="Durata Sessione (minuti)">
+                <div className="grid grid-cols-5 gap-2">
+                  {DURATIONS.map((duration) => (
+                    <Choice
+                      key={duration}
+                      active={config.duration_min === duration}
+                      onClick={() => patch('duration_min', duration)}
                     >
-                      <span>{exercise.name}</span>
-                      <button
-                        className={
-                          config.preferences.preferred_exercise_ids.includes(exercise.id)
-                            ? 'text-cyan-400 font-bold'
-                            : 'text-slate-400'
-                        }
-                        onClick={() => toggleExercise('preferred_exercise_ids', exercise.id)}
-                      >
-                        Preferito
-                      </button>
-                      <button
-                        className={
-                          config.preferences.excluded_exercise_ids.includes(exercise.id)
-                            ? 'text-red-400 font-bold'
-                            : 'text-slate-400'
-                        }
-                        onClick={() => toggleExercise('excluded_exercise_ids', exercise.id)}
-                      >
-                        Escludi
-                      </button>
-                    </div>
+                      {duration}m
+                    </Choice>
                   ))}
-              </div>
-            )}
-          </Field>
+                </div>
+              </Field>
+
+              <Field title="Attrezzatura Disponibile">
+                <Grid>
+                  {(Object.keys(EQUIPMENT_LABELS) as Equipment[])
+                    .filter((item) => ['full_gym', 'dumbbells', 'barbell', 'machines', 'home_gym'].includes(item))
+                    .map((equipment) => (
+                      <Choice
+                        key={equipment}
+                        active={config.equipment.preset === equipment}
+                        onClick={() =>
+                          patch('equipment', { preset: equipment, available: PRESET_EQUIPMENT[equipment] })
+                        }
+                      >
+                        {EQUIPMENT_LABELS[equipment]}
+                      </Choice>
+                    ))}
+                </Grid>
+                <button
+                  className="mt-3 text-xs uppercase tracking-wider text-cyan-400"
+                  onClick={() => setAdvanced((old) => !old)}
+                >
+                  {advanced ? 'Chiudi inventario' : '⚙️ Configurazione avanzata attrezzi'}
+                </button>
+                {advanced && (
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    {(Object.keys(EQUIPMENT_ITEM_LABELS) as EquipmentItem[]).map((item) => (
+                      <Choice
+                        key={item}
+                        active={config.equipment.available.includes(item)}
+                        onClick={() =>
+                          patch('equipment', {
+                            ...config.equipment,
+                            available: config.equipment.available.includes(item)
+                              ? config.equipment.available.filter((value) => value !== item)
+                              : [...config.equipment.available, item],
+                          })
+                        }
+                      >
+                        {EQUIPMENT_ITEM_LABELS[item]}
+                      </Choice>
+                    ))}
+                  </div>
+                )}
+              </Field>
+
+              <Field title="Muscoli Carenti (Priorità)">
+                <div className="flex flex-wrap gap-2">
+                  {(Object.keys(MUSCLE_LABELS) as Muscle[]).map((muscle) => (
+                    <Choice
+                      key={muscle}
+                      active={config.weak_points.includes(muscle)}
+                      onClick={() => toggleMuscle(muscle)}
+                    >
+                      {MUSCLE_LABELS[muscle]}
+                    </Choice>
+                  ))}
+                </div>
+              </Field>
+
+              <Field title="Preferenze Esercizi">
+                <Policy
+                  title="Corpo libero"
+                  value={config.preferences.bodyweight_policy}
+                  onChange={(value) => setPolicy('bodyweight_policy', value)}
+                />
+                <Policy
+                  title="Elastici"
+                  value={config.preferences.elastic_policy}
+                  onChange={(value) => setPolicy('elastic_policy', value)}
+                />
+                <button
+                  className="mt-4 text-xs uppercase tracking-wider text-cyan-400"
+                  onClick={() => setExercisePreferences((old) => !old)}
+                >
+                  {exercisePreferences ? 'Chiudi preferiti' : '⭐ Preferiti / Esclusi'}
+                </button>
+                {exercisePreferences && (
+                  <div className="mt-3 max-h-80 space-y-2 overflow-y-auto">
+                    {catalog
+                      .filter((exercise) => !exercise.roles.includes('warmup'))
+                      .map((exercise) => (
+                        <div
+                          key={exercise.id}
+                          className="grid grid-cols-[1fr_auto_auto] items-center gap-2 border-b border-edge py-2 text-sm text-white"
+                        >
+                          <span>{exercise.name}</span>
+                          <button
+                            className={
+                              config.preferences.preferred_exercise_ids.includes(exercise.id)
+                                ? 'text-cyan-400 font-bold'
+                                : 'text-slate-400'
+                            }
+                            onClick={() => toggleExercise('preferred_exercise_ids', exercise.id)}
+                          >
+                            Preferito
+                          </button>
+                          <button
+                            className={
+                              config.preferences.excluded_exercise_ids.includes(exercise.id)
+                                ? 'text-red-400 font-bold'
+                                : 'text-slate-400'
+                            }
+                            onClick={() => toggleExercise('excluded_exercise_ids', exercise.id)}
+                          >
+                            Escludi
+                          </button>
+                        </div>
+                      ))}
+                  </div>
+                )}
+              </Field>
+            </>
+          )}
 
           {error && <p role="alert" className="text-red-400 text-sm">{error}</p>}
 
@@ -703,9 +707,11 @@ function WizardBuilder({
             <button
               disabled={!valid}
               onClick={() => void onCreate(config)}
-              className="w-2/3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 py-4 font-display font-bold uppercase text-white shadow-lg glow-emerald transition-transform active:scale-[0.98] disabled:opacity-40"
+              className="w-2/3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 py-4 font-display font-bold uppercase text-white shadow-lg glow-amber transition-transform active:scale-[0.98] disabled:opacity-40"
             >
-              {catalog.length
+              {config.selected_modes.includes('tabata')
+                ? '▶ INIZIA TABATA'
+                : catalog.length
                 ? config.program_kind === 'program'
                   ? '🚀 Genera Programma'
                   : '🚀 Genera Sessione'
