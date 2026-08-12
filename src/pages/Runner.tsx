@@ -730,7 +730,67 @@ export default function Runner() {
 
 function AudioControls({ settings, onChange }: { settings: AudioTimerSettings; onChange: (patch: Partial<AudioTimerSettings>) => void }) {
   const sounds: TimerSound[] = ['beep', 'ding', 'ring', 'silent']
-  return <section className="mt-7 rounded-xl border border-edge bg-steel p-4"><div className="flex items-center justify-between"><span className="text-sm font-medium">Avvisi timer</span><button className={`chip ${settings.enabled ? 'chip-on' : ''}`} aria-pressed={settings.enabled} onClick={() => onChange({ enabled: !settings.enabled })}>{settings.enabled ? 'Audio ON' : 'Audio OFF'}</button></div><label className="mt-4 flex items-center gap-3 text-sm text-slate2"><input type="checkbox" checked={settings.vibration} onChange={(event) => onChange({ vibration: event.target.checked })} />Vibrazione, se supportata dal telefono</label>{settings.enabled ? <div className="mt-4 grid grid-cols-2 gap-3"><AudioSelect label="Suono inizio" value={settings.startSound} sounds={sounds} onChange={(startSound) => onChange({ startSound })} /><AudioSelect label="Suono fine" value={settings.endSound} sounds={sounds} onChange={(endSound) => onChange({ endSound })} /><label className="col-span-2 flex items-center gap-3 text-sm text-slate2"><input type="checkbox" checked={settings.countdown} onChange={(event) => onChange({ countdown: event.target.checked })} />Tre bip: 3–2–1</label></div> : null}</section>
+  const [notifPermission, setNotifPermission] = useState<NotificationPermission>(() =>
+    typeof Notification !== 'undefined' ? Notification.permission : 'denied'
+  )
+
+  async function handleRequestPermission() {
+    const granted = await requestTimerNotifications()
+    setNotifPermission(granted ? 'granted' : typeof Notification !== 'undefined' ? Notification.permission : 'denied')
+  }
+
+  return (
+    <section className="mt-7 rounded-xl border border-edge bg-steel p-4 space-y-4">
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-medium">Avvisi timer</span>
+        <button className={`chip ${settings.enabled ? 'chip-on' : ''}`} aria-pressed={settings.enabled} onClick={() => onChange({ enabled: !settings.enabled })}>
+          {settings.enabled ? 'Audio ON' : 'Audio OFF'}
+        </button>
+      </div>
+
+      {/* Controllo Permessi Notifiche e Dynamic Island */}
+      <div className="rounded-lg border border-edge/60 bg-zinc-900/60 p-3 text-xs">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-slate2">Notifiche Background & Dynamic Island</span>
+          {notifPermission === 'granted' ? (
+            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-400">
+              ✓ Attive
+            </span>
+          ) : notifPermission === 'default' ? (
+            <button
+              onClick={() => void handleRequestPermission()}
+              className="rounded-lg bg-amber-500/20 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-amber-400 border border-amber-500/30 active:scale-95"
+            >
+              Abilita Permessi
+            </button>
+          ) : (
+            <span className="text-[11px] text-red-400">Bloccate nel browser</span>
+          )}
+        </div>
+        {notifPermission !== 'granted' && (
+          <p className="mt-1.5 text-[11px] leading-relaxed text-slate2/80">
+            Consenti i permessi per vedere il conto alla rovescia sulla Dynamic Island e ricevere l'avviso quando passi ad altre app.
+          </p>
+        )}
+      </div>
+
+      <label className="flex items-center gap-3 text-sm text-slate2">
+        <input type="checkbox" checked={settings.vibration} onChange={(event) => onChange({ vibration: event.target.checked })} />
+        Vibrazione, se supportata dal telefono
+      </label>
+
+      {settings.enabled ? (
+        <div className="grid grid-cols-2 gap-3 pt-1">
+          <AudioSelect label="Suono inizio" value={settings.startSound} sounds={sounds} onChange={(startSound) => onChange({ startSound })} />
+          <AudioSelect label="Suono fine" value={settings.endSound} sounds={sounds} onChange={(endSound) => onChange({ endSound })} />
+          <label className="col-span-2 flex items-center gap-3 text-sm text-slate2">
+            <input type="checkbox" checked={settings.countdown} onChange={(event) => onChange({ countdown: event.target.checked })} />
+            Tre bip: 3–2–1
+          </label>
+        </div>
+      ) : null}
+    </section>
+  )
 }
 
 function AudioSelect({ label, value, sounds, onChange }: { label: string; value: TimerSound; sounds: TimerSound[]; onChange: (sound: TimerSound) => void }) {
