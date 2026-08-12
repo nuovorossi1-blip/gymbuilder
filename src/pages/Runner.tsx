@@ -56,6 +56,31 @@ export default function Runner() {
   const [valutazione, setValutazione] = useState<string | null>(null)
   const [note, setNote] = useState('')
   const [salvataggio, setSalvataggio] = useState<'fermo' | 'salvo' | 'errore'>('fermo')
+  const [showExitModal, setShowExitModal] = useState<boolean>(false)
+
+  // Previene lo standby dello schermo durante l'allenamento (Screen Wake Lock API)
+  useEffect(() => {
+    let wakeLock: WakeLockSentinel | null = null
+    const requestWakeLock = async () => {
+      try {
+        if ('wakeLock' in navigator) {
+          wakeLock = await navigator.wakeLock.request('screen')
+        }
+      } catch {
+        /* opzionale */
+      }
+    }
+    void requestWakeLock()
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') void requestWakeLock()
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility)
+      void wakeLock?.release()
+    }
+  }, [])
   const inizio = useRef<number>(Date.now())
   const [audioSettings, setAudioSettings] = useState<AudioTimerSettings>(() => loadAudioSettings())
   const audio = useRef<TimerAudio | null>(null)
@@ -286,17 +311,23 @@ export default function Runner() {
   const es = esercizi[fase.iEs]
 
   function interrompiAllenamento() {
-    if (!window.confirm('Interrompere questo allenamento? I progressi della sessione corrente verranno eliminati.')) return
-    try { localStorage.removeItem('gymbuilder:runner_progress:v1') } catch { /* opzionale */ }
-    resetBackgroundTimer(true)
-    setWorkout(null)
-    naviga('/')
+    setShowExitModal(true)
   }
 
   function tornaIndietro() {
-    if (iniziato && !window.confirm('Tornare all’anteprima interromperà la sessione corrente. Continuare?')) return
+    if (iniziato) {
+      setShowExitModal(true)
+    } else {
+      naviga('/')
+    }
+  }
+
+  function confermaUscita() {
+    try { localStorage.removeItem('gymbuilder:runner_progress:v1') } catch { /* opzionale */ }
     resetBackgroundTimer(true)
-    naviga('/allenamento')
+    setWorkout(null)
+    setShowExitModal(false)
+    naviga('/')
   }
 
   function completaSerie() {
@@ -344,6 +375,40 @@ export default function Runner() {
     } catch {
       setSalvataggio('errore')
     }
+  }
+
+  // Auto-start il conto alla rovescia 3-2-1 per la modalità Tabata
+  useEffect(() => {
+    if (isTabata && countdown === null && metconFase === 'anteprima') {
+      setIniziato(true)
+      setSezione('metcon')
+      void startWithCountdown(() => {
+        setIntervalIndice(0)
+        setIntervalSottofase('lavoro')
+        const duration = metconBlock?.interval_sec ?? 20
+        setIntervalRimanente(duration)
+        intervalDeadline.current = Date.now() + duration * 1000
+        emit('ROUND_STARTED', 'tabata', 1)
+        setMetconFase('via')
+      })
+    }
+  }, [isTabata, countdown, metconFase, metconBlock?.interval_sec, emit])
+
+  // Overlay a schermo intero per il conto alla rovescia 3 - 2 - 1 VIA!
+  if (countdown !== null) {
+    return (
+      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-zinc-950/95 backdrop-blur-xl animate-fade-in text-center px-4">
+        <span className="eyebrow text-amber-400 font-bold tracking-widest text-sm uppercase mb-4">
+          🔥 PREPARATI ALL'ALLENAMENTO
+        </span>
+        <div key={countdown} className="font-data text-[9rem] leading-none font-black text-amber-300 animate-pulse drop-shadow-[0_0_35px_rgba(245,158,11,0.5)]">
+          {countdown === 0 ? 'VIA!' : countdown}
+        </div>
+        <p className="mt-6 font-display text-xl font-extrabold uppercase tracking-wider text-slate-200">
+          {isTabata ? `TABATA TIMER · GIRO 1 DI ${intervalliTotali}` : 'PRONTI ALL\'AVVIO'}
+        </p>
+      </div>
+    )
   }
 
   // — Riepilogo finale —
@@ -400,7 +465,7 @@ export default function Runner() {
   }
 
   // — Riscaldamento —
-  if (!iniziato) {
+  if (!iniziato && riscaldamento && riscaldamento.exercises.length > 0) {
     return (
       <div className="px-5 pt-12 pb-8">
         <div className="flex justify-between">
@@ -583,19 +648,57 @@ export default function Runner() {
       const progressoPercent = Math.min(100, Math.max(0, ((durataTotaleFase - intervalRimanente) / durataTotaleFase) * 100))
 
       return (
-        <div className="px-5 pt-12 pb-8 min-h-dvh flex flex-col justify-between items-center text-center">
-          {/* Header bar: Round Info */}
+        <div className="px-5 pt-10 pb-8 min-h-dvh flex flex-col justify-between items-center text-center relative">
+          {showExitModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-fade-in text-center">
+              <div className="w-full max-w-sm rounded-2xl bg-zinc-900 border border-red-500/50 p-6 text-center space-y-4 shadow-2xl">
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-500/20 text-2xl text-red-400 border border-red-500/40">
+                  ⚠️
+                </div>
+                <div>
+                  <h2 className="font-display text-xl font-bold uppercase text-white">
+                    Sei sicuro di uscire?
+                  </h2>
+                  <p className="mt-2 text-xs leading-relaxed text-slate-300">
+                    L'uscita interromperà l'allenamento in corso. Confermi di voler tornare alla Home?
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-3 pt-2">
+                  <button
+                    onClick={() => setShowExitModal(false)}
+                    className="rounded-xl border border-zinc-700 bg-zinc-800 py-3 text-xs font-bold uppercase tracking-wider text-slate-300 hover:text-white"
+                  >
+                    Annulla
+                  </button>
+                  <button
+                    onClick={confermaUscita}
+                    className="rounded-xl bg-red-600 py-3 text-xs font-bold uppercase tracking-wider text-white shadow-lg active:bg-red-700"
+                  >
+                    Conferma Uscita
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Top Bar Navigation */}
           <div className="w-full flex items-center justify-between">
-            <button className="font-data text-[11px] uppercase tracking-[0.14em] text-slate-400" onClick={tornaIndietro}>← Indietro</button>
-            <span className="eyebrow text-amber-400 font-bold tracking-wider">GIRO {intervalIndice + 1} DI {intervalliTotali}</span>
-            <button className="font-data text-[11px] uppercase tracking-[0.14em] text-red-400 font-bold" onClick={interrompiAllenamento}>Elimina</button>
+            <button className="font-data text-[11px] uppercase tracking-[0.14em] text-slate-400 hover:text-white" onClick={tornaIndietro}>← Indietro</button>
+            <button className="font-data text-[11px] uppercase tracking-[0.14em] text-red-400 font-bold hover:text-red-300" onClick={interrompiAllenamento}>Elimina</button>
+          </div>
+
+          {/* HUGE Prominent Round Counter Banner */}
+          <div className="my-3 w-full max-w-xs rounded-2xl border border-amber-500/50 bg-amber-500/15 py-3 shadow-xl text-center">
+            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-amber-400">NUMERO DI GIRI</p>
+            <p className="font-display text-4xl sm:text-5xl font-extrabold tracking-tight text-white mt-0.5">
+              GIRO {intervalIndice + 1} <span className="text-2xl text-amber-300 font-bold">/ {intervalliTotali}</span>
+            </p>
           </div>
 
           {/* Ring Indicator Center */}
           <div className="relative my-auto flex h-72 w-72 items-center justify-center">
             {/* SVG Circular Ring Gauge */}
             <svg className="absolute inset-0 h-full w-full -rotate-90 transform" viewBox="0 0 240 240">
-              {/* Background Track Circle */}
               <circle
                 cx="120"
                 cy="120"
@@ -604,7 +707,6 @@ export default function Runner() {
                 strokeWidth="14"
                 fill="transparent"
               />
-              {/* Progress Arc Circle */}
               <circle
                 cx="120"
                 cy="120"
@@ -633,9 +735,6 @@ export default function Runner() {
               }`}>
                 {inLavoro ? '🔥 LAVORO INTENSO' : '⏸️ RECUPERO ATTIVO'}
               </span>
-              {esCorrente && esCorrente.name !== 'Tabata Work Phase' && (
-                <p className="mt-2 text-xs font-medium text-slate-300">{esCorrente.name}</p>
-              )}
             </div>
           </div>
 

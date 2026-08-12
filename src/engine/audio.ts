@@ -48,17 +48,43 @@ export class TimerAudio {
     const sound = soundForEvent(event.type, this.settings)
     if (!sound || sound === 'silent' || !this.context || this.context.state !== 'running') return
     const now = this.context.currentTime
-    if (event.type === 'WARNING') this.tone(now, 760, 0.1, 0.28, 'square')
-    else if (event.type === 'COUNTDOWN_COMPLETED') this.longSignal(now, sound)
-    else if (event.type === 'TIMER_COMPLETED') this.longSignal(now, sound)
-    else if (event.type === 'TIME_CAP_REACHED') { this.tone(now, 330, 0.2, 0.22); this.tone(now + 0.26, 330, 0.2, 0.22) }
-    else if (sound === 'ding') this.tone(now, 1040, 0.18, 0.22)
-    else this.tone(now, 780, 0.12, 0.16)
+    if (event.type === 'WARNING') {
+      this.tone(now, 760, 0.1, 0.28, 'square')
+    } else if (sound === 'ring' || event.phase === 'tabata' || event.type === 'ROUND_STARTED' || event.type === 'REST_STARTED') {
+      this.playBoxingRingGong(now)
+    } else if (event.type === 'COUNTDOWN_COMPLETED' || event.type === 'TIMER_COMPLETED') {
+      this.longSignal(now, sound)
+    } else if (event.type === 'TIME_CAP_REACHED') {
+      this.tone(now, 330, 0.2, 0.22); this.tone(now + 0.26, 330, 0.2, 0.22)
+    } else if (sound === 'ding') {
+      this.tone(now, 1040, 0.18, 0.22)
+    } else {
+      this.tone(now, 780, 0.12, 0.16)
+    }
   }
+
+  private playBoxingRingGong(at: number) {
+    if (!this.context) return
+    const freqs = [587.33, 1174.66, 1760]
+    const gains = [0.45, 0.35, 0.2]
+    freqs.forEach((freq, idx) => {
+      if (!this.context) return
+      const osc = this.context.createOscillator()
+      const g = this.context.createGain()
+      osc.type = idx === 0 ? 'sine' : 'triangle'
+      osc.frequency.value = freq
+      g.gain.setValueAtTime(gains[idx], at)
+      g.gain.exponentialRampToValueAtTime(0.0001, at + 1.2)
+      osc.connect(g)
+      g.connect(this.context.destination)
+      osc.start(at)
+      osc.stop(at + 1.2)
+    })
+  }
+
   private longSignal(at: number, sound: Exclude<TimerSound, 'silent'>) {
     if (sound === 'ring') {
-      this.tone(at, 880, 0.22, 0.2)
-      this.tone(at + 0.24, 1175, 0.55, 0.2)
+      this.playBoxingRingGong(at)
     } else if (sound === 'ding') {
       this.tone(at, 1040, 0.8, 0.24)
     } else {
