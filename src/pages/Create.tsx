@@ -143,7 +143,14 @@ export default function Create() {
     if (!validation.valid) { setError(validation.errors.join(' ')); return }
     clearRejectedExercises()
     updateProgram(applyWorkoutRecovery(sourceProgram, session.id, workout, catalog))
-    setGenerationConfig(config); setWorkout(workout); setError(null); navigate('/allenamento')
+    setGenerationConfig(config)
+    setWorkout(workout)
+    setError(null)
+    if (session.mode === 'tabata') {
+      navigate('/avvia')
+    } else {
+      navigate('/allenamento')
+    }
   }
 
   return (
