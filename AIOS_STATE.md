@@ -4,7 +4,7 @@
 > da qui. Va **aggiornato** a ogni sessione, non accodato all'infinito.
 > L'identità del progetto e il percorso di AI-OS stanno in `AIOS_PROJECT.json`.
 
-**Ultimo aggiornamento:** 2026-08-07 (programmi multi-settimana e Hybrid) — Codex
+**Ultimo aggiornamento:** 2026-08-12 (resume runner affidabile e toolchain cross-platform) - Codex
 
 Etichette: `[FACT]` verificato nel codice · `[RICOSTRUITO]` dedotto da indizi ·
 `[IGNOTO]` non ricavabile dal repository
@@ -555,5 +555,6 @@ prese singolarmente non sarebbero verificabili.
 | 2026-08-07 | Codex | Reintrodotta la scelta metodologica esclusivamente nella sessione singola: Forza 5×5/3×5/massimale/complementari, sette formati CrossFit e focus/formato Hybrid. Il motore preserva la scelta manuale; i programmi restano automatici. 178 test verdi. |
 | 2026-08-07 | Codex | Corretti test CrossFit: warning ripetuti aggregati, formati diversi assegnati alle giornate e istruzioni operative per tutti i WOD. Corda riclassificata monostrutturale: Single Under principiante e Double Under avanzato anche in Hybrid; catalogo remoto aggiornato. 188 test verdi. |
 | 2026-08-12 | Antigravity | Completa la riprogettazione UI/UX Dark Glassmorphic (Fasi 1-5): Dashboard Home "Oggi", Navbar inferiore a 4 tab neon, Wizard "Crea" a 3 step con gesti swipe, Modal gratificante di salvataggio e Libreria Salvati con azioni 1-tap. 192 test verdi, 0 errori ESLint, build OK, pubblicato su Vercel. |
+| 2026-08-12 | Codex | Corretto il resume del Runner durante background/riapertura: la sessione attiva salva e ripristina stato completo, countdown, deadline reali e avanzamento Tabata/Metcon senza ripartire da capo al ritorno su `/avvia`. Rimossa inoltre la devDependency Linux-only `@rolldown/binding-linux-x64-gnu`, che bloccava `npm install` su Windows. Verifica completata: 193 test verdi e build produzione riuscita. |
 
 

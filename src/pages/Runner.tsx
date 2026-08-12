@@ -10,6 +10,33 @@ import type { TimerEventType, TimerPhase } from '../engine/timer'
 import { notifyTimerEvent, notifyTimerSnapshot, publishBackgroundTimer, requestTimerNotifications, resetBackgroundTimer } from '../engine/backgroundTimer'
 
 type Fase = { tipo: 'serie'; iEs: number; serie: number } | { tipo: 'recupero'; iEs: number; serie: number; sec: number }
+type RunnerProgress = {
+  workoutName: string
+  iniziato: boolean
+  sezione: 'principale' | 'metcon'
+  fase: Fase
+  rimanente: number
+  inPausa: boolean
+  metconFase: 'anteprima' | 'via' | 'fatto'
+  metconRimanente: number
+  metconGiri: number
+  metconInPausa: boolean
+  metconTrascorsi: number
+  intervalIndice: number
+  intervalSottofase: 'lavoro' | 'riposo'
+  intervalRimanente: number
+  countdown: number | null
+  inizio: number
+  countdownDeadline: number
+  restDeadline: number
+  metconDeadline: number
+  intervalDeadline: number
+  metconStartedAt: number
+  restPausedAt: number
+  metconPausedAt: number
+}
+
+const RUNNER_PROGRESS_KEY = 'gymbuilder:runner_progress:v1'
 
 const VALUTAZIONI = [
   { v: 'facile', l: 'Facile' },
@@ -57,6 +84,7 @@ export default function Runner() {
   const [note, setNote] = useState('')
   const [salvataggio, setSalvataggio] = useState<'fermo' | 'salvo' | 'errore'>('fermo')
   const [showExitModal, setShowExitModal] = useState<boolean>(false)
+  const [runnerHydrated, setRunnerHydrated] = useState(false)
 
   // Previene lo standby dello schermo durante l'allenamento (Screen Wake Lock API)
   useEffect(() => {
@@ -101,37 +129,98 @@ export default function Runner() {
   // Ripristino dello stato esatto di avanzamento se l'utente torna sulla pagina
   useEffect(() => {
     try {
-      const raw = localStorage.getItem('gymbuilder:runner_progress:v1')
-      if (!raw || !workout) return
-      const progress = JSON.parse(raw)
+      const raw = localStorage.getItem(RUNNER_PROGRESS_KEY)
+      if (!raw || !workout) {
+        setRunnerHydrated(true)
+        return
+      }
+      const progress = JSON.parse(raw) as RunnerProgress
       if (progress.workoutName === workout.name && progress.iniziato) {
+        const now = Date.now()
         setIniziato(true)
-        setFase(progress.fase)
         setSezione(progress.sezione)
-        if (progress.restDeadline && progress.restDeadline > Date.now()) {
-          restDeadline.current = progress.restDeadline
-          const rem = Math.max(0, Math.ceil((progress.restDeadline - Date.now()) / 1000))
-          setRimanente(rem)
+        setFase(progress.fase)
+        setInPausa(progress.inPausa)
+        setMetconFase(progress.metconFase)
+        setMetconGiri(progress.metconGiri)
+        setMetconInPausa(progress.metconInPausa)
+        setIntervalIndice(progress.intervalIndice)
+        setIntervalSottofase(progress.intervalSottofase)
+        inizio.current = progress.inizio || now
+        countdownDeadline.current = progress.countdownDeadline || 0
+        restDeadline.current = progress.restDeadline || 0
+        metconDeadline.current = progress.metconDeadline || 0
+        intervalDeadline.current = progress.intervalDeadline || 0
+        metconStartedAt.current = progress.metconStartedAt || now
+        restPausedAt.current = progress.restPausedAt || 0
+        metconPausedAt.current = progress.metconPausedAt || 0
+
+        if (progress.countdownDeadline > now) {
+          setCountdown(Math.max(0, Math.ceil((progress.countdownDeadline - now) / 1000)))
+        } else {
+          setCountdown(null)
         }
+
+        if (progress.restDeadline > now) {
+          setRimanente(Math.max(0, Math.ceil((progress.restDeadline - now) / 1000)))
+        } else {
+          setRimanente(progress.rimanente ?? 0)
+        }
+
+        if (progress.metconDeadline > now) {
+          setMetconRimanente(Math.max(0, Math.ceil((progress.metconDeadline - now) / 1000)))
+        } else {
+          setMetconRimanente(progress.metconRimanente ?? 0)
+        }
+
+        if (progress.intervalDeadline > now) {
+          setIntervalRimanente(Math.max(0, Math.ceil((progress.intervalDeadline - now) / 1000)))
+        } else {
+          setIntervalRimanente(progress.intervalRimanente ?? 0)
+        }
+
+        setMetconTrascorsi(Math.max(progress.metconTrascorsi ?? 0, Math.floor((now - metconStartedAt.current) / 1000)))
       }
     } catch { /* storage opzionale */ }
+    setRunnerHydrated(true)
   }, [workout])
 
   // Salvataggio costante dello stato di avanzamento per evitare la schermata "Nessun allenamento"
   useEffect(() => {
     if (!workout || !iniziato || finito) {
-      if (finito) localStorage.removeItem('gymbuilder:runner_progress:v1')
+      if (finito) localStorage.removeItem(RUNNER_PROGRESS_KEY)
       return
     }
-    const progress = {
+    const progress: RunnerProgress = {
       workoutName: workout.name,
       iniziato,
-      fase,
       sezione,
+      fase,
+      rimanente,
+      inPausa,
+      metconFase,
+      metconRimanente,
+      metconGiri,
+      metconInPausa,
+      metconTrascorsi,
+      intervalIndice,
+      intervalSottofase,
+      intervalRimanente,
+      countdown,
+      inizio: inizio.current,
+      countdownDeadline: countdownDeadline.current,
       restDeadline: restDeadline.current,
+      metconDeadline: metconDeadline.current,
+      intervalDeadline: intervalDeadline.current,
+      metconStartedAt: metconStartedAt.current,
+      restPausedAt: restPausedAt.current,
+      metconPausedAt: metconPausedAt.current,
     }
-    try { localStorage.setItem('gymbuilder:runner_progress:v1', JSON.stringify(progress)) } catch { /* opzionale */ }
-  }, [workout, iniziato, fase, sezione, finito])
+    try { localStorage.setItem(RUNNER_PROGRESS_KEY, JSON.stringify(progress)) } catch { /* opzionale */ }
+  }, [
+    workout, iniziato, finito, sezione, fase, rimanente, inPausa, metconFase, metconRimanente,
+    metconGiri, metconInPausa, metconTrascorsi, intervalIndice, intervalSottofase, intervalRimanente, countdown,
+  ])
 
   const emit = useCallback((type: TimerEventType, phase: TimerPhase, round?: number) => {
     audio.current?.play({ type, phase, round, at: Date.now() })
@@ -298,6 +387,7 @@ export default function Runner() {
   // Auto-start il conto alla rovescia 3-2-1 per la modalità Tabata
   // DEVE essere prima di ogni early return per rispettare le regole degli Hooks React.
   useEffect(() => {
+    if (!runnerHydrated) return
     if (isTabata && countdown === null && metconFase === 'anteprima') {
       setIniziato(true)
       setSezione('metcon')
@@ -311,7 +401,7 @@ export default function Runner() {
         setMetconFase('via')
       })
     }
-  }, [isTabata, countdown, metconFase, metconBlock?.interval_sec, emit])
+  }, [runnerHydrated, isTabata, countdown, metconFase, metconBlock?.interval_sec, emit])
 
   if (!workout || (esercizi.length === 0 && metconEsercizi.length === 0)) {
     return (
@@ -354,7 +444,7 @@ export default function Runner() {
   }
 
   function confermaUscita() {
-    try { localStorage.removeItem('gymbuilder:runner_progress:v1') } catch { /* opzionale */ }
+    try { localStorage.removeItem(RUNNER_PROGRESS_KEY) } catch { /* opzionale */ }
     resetBackgroundTimer(true)
     setWorkout(null)
     setShowExitModal(false)

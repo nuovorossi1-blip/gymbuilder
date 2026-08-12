@@ -1,5 +1,14 @@
 # Changelog AI
 
+## 2026-08-12 — Resume runner affidabile e toolchain cross-platform
+
+- Corretto il resume del Runner quando l'app web va in background o viene riaperta durante un allenamento già iniziato.
+- `src/pages/Runner.tsx` salva ora l'intero stato vivo della sessione in `localStorage`: sezione corrente, fase serie/recupero, countdown, deadline reali, round/intervallo Tabata, cronometro Metcon e stato pausa.
+- Il ripristino usa i timestamp salvati per ricalcolare il tempo residuo reale invece di riavviare il Tabata da `giro 1`.
+- L'auto-start del Tabata viene eseguito solo dopo l'idratazione del Runner, evitando il reset involontario della sessione al rientro.
+- Rimossa da `package.json` la devDependency Linux-only `@rolldown/binding-linux-x64-gnu`, che bloccava `npm install` su Windows pur non essendo richiesta da Vite.
+- Verifica locale completata dopo il fix toolchain: `npm test` verde con 193 test passati e `npm run build` riuscito.
+
 ## 2026-08-07 — Programma prima, esercizi dopo
 
 - I programmi costruiscono e salvano prima calendario, discipline e split; gli esercizi vengono generati soltanto aprendo una giornata confermata.
