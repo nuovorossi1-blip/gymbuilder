@@ -1,4 +1,4 @@
-import { METCON_FORMAT_LABELS, MODE_LABELS, SPLIT_LABELS, type Exercise, type GeneratedWorkout, type Goal, type MetconFormat, type Muscle, type PublicMode, type RecoveryProfile, type Split, type SplitSystem, type Weekday, type WeeklyProgram, type WeeklyProgramConfig, type WeeklyProgramWarning, type WeeklySession } from '../types'
+import { METCON_FORMAT_LABELS, MODE_LABELS, MUSCLE_LABELS, SPLIT_LABELS, type Exercise, type GeneratedWorkout, type Goal, type MetconFormat, type Muscle, type PublicMode, type RecoveryProfile, type Split, type SplitSystem, type Weekday, type WeeklyProgram, type WeeklyProgramConfig, type WeeklyProgramWarning, type WeeklySession } from '../types'
 
 type ScheduledMetconFormat = Exclude<MetconFormat, 'circuit' | 'tabata'>
 
@@ -319,15 +319,26 @@ export function generateWeeklyProgram(config: WeeklyProgramConfig): WeeklyProgra
     const mode = config.selected_modes[0]
     if (!mode) throw new Error('Seleziona una modalità.')
     const normalized = { ...config, training_days: 1, duration_weeks: 1, selected_modes: [mode] }
+    const customMuscles = config.single_session_target_muscles && config.single_session_target_muscles.length > 0
+      ? config.single_session_target_muscles
+      : null
     const requested = config.single_session_split ?? 'full_body'
     const split = mode === 'bodybuilding' ? requested : mode === 'strength' ? (STRENGTH_SPLITS.has(requested) ? requested : 'full_body') : null
+    
+    const label = customMuscles
+      ? `${MODE_LABELS[mode]} · ${customMuscles.map((m) => MUSCLE_LABELS[m]).join(' + ')}`
+      : split ? `${MODE_LABELS[mode]} — ${SPLIT_LABELS[split]}` : MODE_LABELS[mode]
+
+    const priority_muscles = customMuscles ?? config.weak_points.slice(0, 2)
+    const muscle_load = customMuscles ?? (split ? SPLIT_LOAD[split] : GENERIC_LOAD[mode as keyof typeof GENERIC_LOAD])
+
     const session: WeeklySession = {
       id: 'single-session', day: 'monday', mode, split,
-      label: split ? `${MODE_LABELS[mode]} — ${SPLIT_LABELS[split]}` : MODE_LABELS[mode],
+      label,
       estimated_fatigue: mode === 'bodybuilding' ? 2 : 3,
-      muscle_load: split ? SPLIT_LOAD[split] : GENERIC_LOAD[mode as keyof typeof GENERIC_LOAD],
+      muscle_load,
       recovery_profile: forecastProfile(mode, split, config.duration_min),
-      priority_muscles: config.weak_points.slice(0, 2), variant: 'A',
+      priority_muscles, variant: 'A',
       metcon_format: mode === 'crossfit' ? config.crossfit_format : mode === 'crossfit_hybrid' ? config.hybrid_format : undefined,
     }
     return { id: `single-${Date.now()}`, persisted: false, config: normalized, week: [session], warnings: [] }

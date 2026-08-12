@@ -184,6 +184,7 @@ function WizardBuilder({
   const [slideDirection, setSlideDirection] = useState<'left' | 'right'>('left')
   const [advanced, setAdvanced] = useState(false)
   const [exercisePreferences, setExercisePreferences] = useState(false)
+  const [singleSessionMode, setSingleSessionMode] = useState<'custom_muscles' | 'preset_split'>('custom_muscles')
 
   const valid =
     config.selected_modes.length > 0 &&
@@ -371,19 +372,78 @@ function WizardBuilder({
           )}
 
           {config.program_kind === 'single_session' &&
-            (config.selected_modes.includes('bodybuilding') || config.selected_modes.includes('strength')) && (
-              <Field title="Seduta di oggi">
-                <div className="grid grid-cols-2 gap-2">
-                  {(config.selected_modes.includes('strength') ? STRENGTH_SPLITS : EDITABLE_SPLITS).map((split) => (
-                    <Choice
-                      key={split}
-                      active={config.single_session_split === split}
-                      onClick={() => patch('single_session_split', split)}
-                    >
-                      {SPLIT_LABELS[split]}
-                    </Choice>
-                  ))}
+            (config.selected_modes.includes('bodybuilding') || config.selected_modes.includes('strength') || config.selected_modes.includes('crossfit_hybrid')) && (
+              <Field title="Composizione Seduta di Oggi">
+                <div className="grid grid-cols-2 gap-2 mb-3">
+                  <Choice
+                    active={singleSessionMode === 'custom_muscles'}
+                    onClick={() => {
+                      setSingleSessionMode('custom_muscles')
+                      if (!config.single_session_target_muscles || config.single_session_target_muscles.length === 0) {
+                        patch('single_session_target_muscles', ['front_delts', 'lateral_delts', 'biceps', 'triceps'])
+                      }
+                    }}
+                  >
+                    🎯 Gruppi a Scelta
+                  </Choice>
+                  <Choice
+                    active={singleSessionMode === 'preset_split'}
+                    onClick={() => {
+                      setSingleSessionMode('preset_split')
+                      patch('single_session_target_muscles', [])
+                    }}
+                  >
+                    📋 Split Preimpostato
+                  </Choice>
                 </div>
+
+                {singleSessionMode === 'custom_muscles' ? (
+                  <div className="space-y-3">
+                    <p className="text-xs text-slate-300">
+                      Scegli i gruppi muscolari che vuoi allenare oggi (es. Spalle + Braccia + Gambe):
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {(Object.keys(MUSCLE_LABELS) as Muscle[]).map((muscle) => {
+                        const active = (config.single_session_target_muscles ?? []).includes(muscle)
+                        return (
+                          <Choice
+                            key={muscle}
+                            active={active}
+                            onClick={() => {
+                              const current = config.single_session_target_muscles ?? []
+                              const next = current.includes(muscle)
+                                ? current.filter((m) => m !== muscle)
+                                : [...current, muscle]
+                              patch('single_session_target_muscles', next)
+                            }}
+                          >
+                            {MUSCLE_LABELS[muscle]}
+                          </Choice>
+                        )
+                      })}
+                    </div>
+                    {(config.single_session_target_muscles ?? []).length > 0 && (
+                      <div className="rounded-xl border border-cyan-500/40 bg-cyan-500/10 p-3">
+                        <p className="eyebrow text-cyan-300">Target Sessione Oggi</p>
+                        <p className="mt-1 font-display font-bold text-white text-sm">
+                          {(config.single_session_target_muscles ?? []).map((m) => MUSCLE_LABELS[m]).join(' + ')}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-2">
+                    {(config.selected_modes.includes('strength') ? STRENGTH_SPLITS : EDITABLE_SPLITS).map((split) => (
+                      <Choice
+                        key={split}
+                        active={config.single_session_split === split}
+                        onClick={() => patch('single_session_split', split)}
+                      >
+                        {SPLIT_LABELS[split]}
+                      </Choice>
+                    ))}
+                  </div>
+                )}
               </Field>
             )}
 

@@ -147,6 +147,19 @@ describe('Weekly Program Engine', () => {
     expect(session.week[0].split).toBe('bro_chest')
   })
 
+  it('la sessione singola accetta una selezione personalizzata di piu gruppi muscolari', () => {
+    const session = generateWeeklyProgram({
+      ...base,
+      program_kind: 'single_session',
+      selected_modes: ['bodybuilding'],
+      single_session_target_muscles: ['front_delts', 'lateral_delts', 'biceps', 'triceps', 'quads'],
+    })
+    expect(session.week).toHaveLength(1)
+    expect(session.week[0].priority_muscles).toEqual(['front_delts', 'lateral_delts', 'biceps', 'triceps', 'quads'])
+    expect(session.week[0].label).toContain('Deltoidi')
+    expect(session.week[0].label).toContain('Bicipiti')
+  })
+
   it('PPL assegna spalle e braccia a Push/Pull, mai a Legs', () => {
     const program = generateWeeklyProgram({ ...base, training_days: 3, selected_modes: ['bodybuilding'], weak_points: ['lateral_delts', 'rear_delts', 'biceps', 'triceps'] })
     const bySplit = new Map(program.week.map((session) => [session.split, session]))

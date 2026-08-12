@@ -213,6 +213,8 @@ export interface WeeklyProgramConfig {
   split_system: SplitSystem
   /** Scelta diretta usata solo dalla sessione singola BB/Forza. */
   single_session_split?: Split
+  /** Gruppi muscolari target scelti dall'utente per la sessione singola di oggi. */
+  single_session_target_muscles?: Muscle[]
   /** Rapporto fra giornate BB e HY nei programmi che usano entrambe. */
   hybrid_balance?: 'bb_dominant' | 'balanced' | 'hy_dominant'
   strength_method?: '5x5' | '3x5' | 'max_strength' | 'strength_accessories'

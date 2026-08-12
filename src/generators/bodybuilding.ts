@@ -348,7 +348,8 @@ function requisitiCarenze(priority: Muscle[], slots: SlotDef[]): Muscle[] {
 
 /** Mantiene almeno tre slot identitari e riserva le priorità assegnate, senza superare sei esercizi. */
 function applicaPrioritaAssegnate(base: SlotDef[], priority: Muscle[]): { slots: SlotDef[]; requirements: Muscle[] } {
-  const requirements = requisitiCarenze(priority, base).slice(0, 3)
+  const maxReq = priority.length > 3 ? Math.min(6, priority.length) : 3
+  const requirements = requisitiCarenze(priority, base).slice(0, maxReq)
   const slots = base.map((slot) => ({ ...slot }))
   const represented = new Set<Muscle>()
   for (const requirement of requirements) {
