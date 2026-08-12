@@ -17,13 +17,15 @@ export function calculateSwipeGesture(
   end: Point,
   options: Pick<SwipeOptions, 'minDistance' | 'maxVerticalDistance'> = {}
 ): 'left' | 'right' | null {
-  const minDistance = options.minDistance ?? 50
-  const maxVerticalDistance = options.maxVerticalDistance ?? 80
+  const minDistance = options.minDistance ?? 75
+  const maxVerticalDistance = options.maxVerticalDistance ?? 45
 
   const deltaX = end.x - start.x
   const deltaY = end.y - start.y
 
-  if (Math.abs(deltaY) > maxVerticalDistance) {
+  // Se la componente verticale supera la tolleranza o se la traiettoria non è prevalentemente orizzontale
+  // (rapporto |deltaX| / |deltaY| < 2.0), ignoriamo lo swipe per evitare falsi positivi durante lo scroll verticale.
+  if (Math.abs(deltaY) > maxVerticalDistance || Math.abs(deltaX) < Math.abs(deltaY) * 2.0) {
     return null
   }
 

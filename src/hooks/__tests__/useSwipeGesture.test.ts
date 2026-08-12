@@ -25,4 +25,10 @@ describe('calculateSwipeGesture', () => {
     const end = { x: 100, y: 300 } // Delta Y = 200px (> 80px)
     expect(calculateSwipeGesture(start, end, { maxVerticalDistance: 80 })).toBeNull()
   })
+
+  it('ritorna null per movimenti diagonali dove domina lo scroll verticale', () => {
+    const start = { x: 200, y: 100 }
+    const end = { x: 120, y: 160 } // Delta X = -80px, Delta Y = 60px (rapporto 1.33 < 2.0)
+    expect(calculateSwipeGesture(start, end)).toBeNull()
+  })
 })
