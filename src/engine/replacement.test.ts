@@ -114,4 +114,18 @@ describe('Exercise Feedback & Replacement Engine', () => {
     expect(replacement.exercise_types).toContain('isolation')
     expect(replacement.systemic_fatigue).toBeLessThanOrEqual(1)
   })
+
+  it('gestisce sostituzioni multiple sequenziali sullo stesso slot senza bloccarsi', () => {
+    const original = prescribed('panca_piana')
+    const rep1 = findExerciseReplacement(original, catalog, { ...equipment, available: [...equipment.available] }, preferences, new Set([original.exercise_id]), { reason: 'dislike', rejectedIds: new Set([original.exercise_id]), split: 'push' })
+    expect(rep1).toBeDefined()
+
+    const prescribed1 = prescribed(rep1!.id)
+    const rejected1 = new Set([original.exercise_id, rep1!.id])
+    const rep2 = findExerciseReplacement(prescribed1, catalog, { ...equipment, available: [...equipment.available] }, preferences, new Set([rep1!.id]), { reason: 'dislike', rejectedIds: rejected1, split: 'push' })
+    expect(rep2).toBeDefined()
+    expect(rep2!.id).not.toBe(original.exercise_id)
+    expect(rep2!.id).not.toBe(rep1!.id)
+  })
 })
+

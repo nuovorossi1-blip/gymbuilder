@@ -51,7 +51,11 @@ export default function WorkoutPreview() {
       bodyweightPolicy: generationConfig.preferences.bodyweight_policy,
       elasticPolicy: generationConfig.preferences.elastic_policy,
     }, used, { reason, rejectedIds: new Set([...rejectedExerciseIds, original.id]), adaptivePreferences: adaptive, experience: generationConfig.experience, preferredIds: new Set(generationConfig.preferences.preferred_exercise_ids), split: generationConfig.current_day })
-    if (!replacement) { setMessaggio('Nessuna alternativa compatibile disponibile.'); return }
+    if (!replacement) {
+      setFeedbackTarget(null)
+      setMessaggio('Nessuna alternativa compatibile disponibile.')
+      return
+    }
     const blocks = workout.blocks.map((block, index) => index !== blockIndex ? block : {
       ...block, exercises: block.exercises.map((exercise, itemIndex) => itemIndex !== exerciseIndex ? exercise : {
         ...exercise, exercise_id: replacement.id, name: replacement.name,

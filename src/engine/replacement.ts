@@ -41,24 +41,47 @@ export function findExerciseReplacements(
   const metabolic = current.role === 'metcon'
   const bodybuildingMetcon = metabolic && (current.note === 'isolamento' || current.note === 'bodybuilding leggero')
 
-  const candidates = catalog.filter((exercise) => {
-    if (exercise.id === original.id || usedIds.has(exercise.id) || options.rejectedIds?.has(exercise.id)) return false
-    const splitPatterns = options.split ? SPLIT_PATTERNS[options.split] : undefined
-    if (splitPatterns && current.note !== 'carenza' && !splitPatterns.has(exercise.movement_pattern)) return false
-    if (!isExerciseAvailable(exercise, equipment.preset, equipment.available) || !isExerciseAllowed(exercise, preferences, placement)) return false
-    if (options.experience && EXPERIENCE_RANK[exercise.min_experience] > EXPERIENCE_RANK[options.experience]) return false
-    if (options.adaptivePreferences?.[exercise.id]?.permanently_excluded) return false
-    if (bodybuildingMetcon) {
-      return exercise.exercise_types.includes('isolation') && exercise.technical_complexity <= 1 &&
-        exercise.systemic_fatigue <= 1 && exercise.grip_fatigue <= 2 &&
-        exercise.primary_muscles.some((muscle) => original.primary_muscles.includes(muscle))
-    }
-    if (metabolic) return exercise.exercise_types.includes('conditioning') && exercise.metcon_safe
-    const sameMuscle = exercise.primary_muscles.some((muscle) => original.primary_muscles.includes(muscle))
-    if (!sameMuscle) return false
-    if (reason === 'discomfort') return true
-    return exercise.exercise_types.includes(expectedType)
-  })
+  const filterCandidates = (ignoreRejected = false, ignoreSplit = false): Exercise[] => {
+    return catalog.filter((exercise) => {
+      if (exercise.id === original.id || usedIds.has(exercise.id)) return false
+      if (!ignoreRejected && options.rejectedIds?.has(exercise.id)) return false
+
+      const splitPatterns = options.split ? SPLIT_PATTERNS[options.split] : undefined
+      if (!ignoreSplit && splitPatterns && current.note !== 'carenza' && !splitPatterns.has(exercise.movement_pattern)) return false
+
+      if (!isExerciseAvailable(exercise, equipment.preset, equipment.available) || !isExerciseAllowed(exercise, preferences, placement)) return false
+      if (options.experience && EXPERIENCE_RANK[exercise.min_experience] > EXPERIENCE_RANK[options.experience]) return false
+      if (options.adaptivePreferences?.[exercise.id]?.permanently_excluded) return false
+
+      if (bodybuildingMetcon) {
+        return (
+          exercise.exercise_types.includes('isolation') &&
+          exercise.technical_complexity <= 1 &&
+          exercise.systemic_fatigue <= 1 &&
+          exercise.grip_fatigue <= 2 &&
+          exercise.primary_muscles.some((muscle) => original.primary_muscles.includes(muscle))
+        )
+      }
+      if (metabolic) return exercise.exercise_types.includes('conditioning') && exercise.metcon_safe
+      const sameMuscle = exercise.primary_muscles.some((muscle) => original.primary_muscles.includes(muscle))
+      if (!sameMuscle) return false
+      if (reason === 'discomfort') return true
+      return exercise.exercise_types.includes(expectedType)
+    })
+  }
+
+  // Pass 1: Strict matching with all rejected IDs & split rules respected
+  let candidates = filterCandidates(false, false)
+
+  // Pass 2: Fallback — ignore temporary rejected IDs if options are exhausted
+  if (candidates.length === 0) {
+    candidates = filterCandidates(true, false)
+  }
+
+  // Pass 3: Fallback — relax split rules keeping same target muscle
+  if (candidates.length === 0) {
+    candidates = filterCandidates(true, true)
+  }
 
   const score = (exercise: Exercise): number => {
     let value = 0
@@ -84,6 +107,7 @@ export function findExerciseReplacements(
     if (adaptive) value += adaptive.dislike_score * 8 + adaptive.discomfort * 40 + adaptive.unavailable * 40
     return value
   }
+
   return candidates
     .map((exercise) => ({ exercise, score: score(exercise) }))
     .sort((a, b) => a.score - b.score || a.exercise.name.localeCompare(b.exercise.name))
