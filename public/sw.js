@@ -22,6 +22,30 @@ self.addEventListener('fetch', (event) => {
   }).catch(() => caches.match(event.request).then((cached) => cached || caches.match('/'))))
 })
 
+self.addEventListener('message', (event) => {
+  if (!event.data) return
+  if (event.data.type === 'SHOW_BACKGROUND_TIMER') {
+    const { label, remainingSec, endTime } = event.data
+    const targetTime = endTime || (Date.now() + (remainingSec || 0) * 1000)
+    self.registration.showNotification(`⏱️ GymBuilder · ${label}`, {
+      body: 'Timer attivo in background. Tocca per aprire l’allenamento.',
+      icon: '/gymbuilder-icon.svg',
+      badge: '/gymbuilder-icon.svg',
+      tag: 'gymbuilder-active-timer',
+      renotify: false,
+      silent: true,
+      showChronometer: true,
+      chronometerDirection: 'down',
+      timestamp: targetTime,
+      data: { href: '/avvia' }
+    })
+  } else if (event.data.type === 'CLEAR_BACKGROUND_TIMER') {
+    self.registration.getNotifications({ tag: 'gymbuilder-active-timer' }).then((notifications) => {
+      notifications.forEach((n) => n.close())
+    })
+  }
+})
+
 self.addEventListener('notificationclick', (event) => {
   event.notification.close()
   const href = event.notification.data?.href || '/avvia'

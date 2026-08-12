@@ -106,17 +106,36 @@ export async function notifyTimerSnapshot(label: string, remainingSec: number): 
   try {
     const registration = await navigator.serviceWorker?.ready
     if (!registration) return
+    const endTime = Date.now() + remainingSec * 1000
+
+    if (navigator.serviceWorker.controller) {
+      navigator.serviceWorker.controller.postMessage({
+        type: 'SHOW_BACKGROUND_TIMER',
+        label,
+        remainingSec,
+        endTime,
+      })
+      return
+    }
+
     await registration.showNotification(timerTitle(label, remainingSec), {
       body: 'Timer attivo · tocca per tornare all’allenamento.',
       tag: 'gymbuilder-active-timer',
+      icon: '/gymbuilder-icon.svg',
+      showChronometer: true,
+      chronometerDirection: 'down',
+      timestamp: endTime,
       data: { href: '/avvia' },
       requireInteraction: true,
-    })
+    } as NotificationOptions & { showChronometer?: boolean; chronometerDirection?: string })
   } catch { /* miglioramento progressivo */ }
 }
 
 export function resetBackgroundTimer(clearActive = false): void {
   if (typeof document !== 'undefined') document.title = DEFAULT_TITLE
+  if (typeof navigator !== 'undefined' && navigator.serviceWorker?.controller) {
+    navigator.serviceWorker.controller.postMessage({ type: 'CLEAR_BACKGROUND_TIMER' })
+  }
   if (clearActive && typeof window !== 'undefined') {
     try {
       localStorage.removeItem(ACTIVE_TIMER_KEY)
