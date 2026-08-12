@@ -92,6 +92,19 @@ export function generaTabata(catalogo: Exercise[], cfg: TabataConfig): Generated
   }))
   rimuoviDuplicati(exercises)
 
+  if (exercises.length === 0) {
+    exercises.push({
+      exercise_id: 'tabata_generic_timer',
+      name: 'Tabata Work Phase',
+      role: 'metcon',
+      muscle: null,
+      sets: rounds,
+      reps: 'max',
+      rest_sec: restSec,
+      instructions: `${workSec}s di lavoro intenso e ${restSec}s di recupero per ${rounds} giri.`,
+    })
+  }
+
   const minutiTabata = (exercises.length * rounds * (workSec + restSec)) / 60
   if (cfg.duration_min - (minutiRiscaldamento + minutiTabata) > 10) {
     warnings.push(
@@ -116,7 +129,7 @@ export function generaTabata(catalogo: Exercise[], cfg: TabataConfig): Generated
     },
     {
       kind: 'metcon',
-      title: `Tabata × ${exercises.length}`,
+      title: `Tabata Timer · ${rounds} Giri (${workSec}s / ${restSec}s)`,
       format: 'tabata',
       rounds,
       interval_sec: workSec,

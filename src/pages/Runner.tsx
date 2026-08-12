@@ -588,9 +588,13 @@ export default function Runner() {
           </p>
 
           <div className="slab mt-10 text-center">
-            <p className="eyebrow mb-2">{inLavoro ? 'Adesso' : 'Poi tocca a'}</p>
-            <p className="text-[18px] font-medium">{esCorrente?.name}</p>
-            <p className="mt-1 font-data text-[13px] text-slate2">{esCorrente?.reps}</p>
+            <p className="eyebrow mb-2">{inLavoro ? 'Fase Attiva' : 'Pausa'}</p>
+            <p className="text-[20px] font-bold text-white">
+              {inLavoro ? '🔥 LAVORO INTENSO' : '⏸️ RECUPERO ATTIVO'}
+            </p>
+            {esCorrente && esCorrente.name !== 'Tabata Work Phase' && (
+              <p className="mt-1 font-data text-[13px] text-slate2">{esCorrente.name}</p>
+            )}
           </div>
 
           <div className="mt-auto space-y-2.5 pt-10">
