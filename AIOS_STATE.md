@@ -554,5 +554,6 @@ prese singolarmente non sarebbero verificabili.
 | 2026-08-07 | Codex | Semplificato il configuratore alle sole scelte comprensibili dell’utente. Priorità, intensità e metodiche non sono più controlli pubblici: il motore le deduce da discipline, livello, durata, split, carenze e recupero. UI riorganizzata in schede; 177 test verdi. |
 | 2026-08-07 | Codex | Reintrodotta la scelta metodologica esclusivamente nella sessione singola: Forza 5×5/3×5/massimale/complementari, sette formati CrossFit e focus/formato Hybrid. Il motore preserva la scelta manuale; i programmi restano automatici. 178 test verdi. |
 | 2026-08-07 | Codex | Corretti test CrossFit: warning ripetuti aggregati, formati diversi assegnati alle giornate e istruzioni operative per tutti i WOD. Corda riclassificata monostrutturale: Single Under principiante e Double Under avanzato anche in Hybrid; catalogo remoto aggiornato. 188 test verdi. |
-| 2026-08-12 | Antigravity | Completa Fase 1 UI/UX: integrata infrastruttura swipe gesture touch (`useSwipeGesture`, `calculateSwipeGesture`, `SwipeContainer`) e keyframes CSS animazioni slide. 192 test verdi, build Vite OK, ESLint 0 avvisi, commit `bb332eb` pubblicato su `main`. |
+| 2026-08-12 | Antigravity | Completa la riprogettazione UI/UX Dark Glassmorphic (Fasi 1-5): Dashboard Home "Oggi", Navbar inferiore a 4 tab neon, Wizard "Crea" a 3 step con gesti swipe, Modal gratificante di salvataggio e Libreria Salvati con azioni 1-tap. 192 test verdi, 0 errori ESLint, build OK, pubblicato su Vercel. |
+
 
