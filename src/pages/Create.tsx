@@ -68,10 +68,15 @@ export default function Create() {
   async function createProgram(config: WeeklyProgramConfig) {
     try {
       const effectiveWeakPoints = resolveEffectiveWeakPoints(config.weak_points, profile)
-      const configWithProfile = { ...config, weak_points: effectiveWeakPoints }
+      const isTabata = config.selected_modes.includes('tabata')
+      const configWithProfile = {
+        ...config,
+        weak_points: effectiveWeakPoints,
+        program_kind: isTabata ? ('single_session' as const) : config.program_kind,
+      }
       const automaticConfig = applyAutomaticProgramming(configWithProfile)
       const generated = generateWeeklyProgram(automaticConfig)
-      if (automaticConfig.program_kind === 'single_session') {
+      if (automaticConfig.program_kind === 'single_session' || isTabata) {
         setWeeklyProgram(generated)
         generateDay(generated.week[0], generated)
         return
@@ -713,7 +718,12 @@ function WizardBuilder({
             </button>
             <button
               disabled={!valid}
-              onClick={() => void onCreate(config)}
+              onClick={() => {
+                const finalConfig = config.selected_modes.includes('tabata')
+                  ? { ...config, program_kind: 'single_session' as const }
+                  : config
+                void onCreate(finalConfig)
+              }}
               className="w-2/3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 py-4 font-display font-bold uppercase text-white shadow-lg glow-amber transition-transform active:scale-[0.98] disabled:opacity-40"
             >
               {config.selected_modes.includes('tabata')
