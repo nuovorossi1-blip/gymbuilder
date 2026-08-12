@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './features/auth/AuthProvider'
 import { WorkoutProvider, useWorkout } from './features/workout/WorkoutContext'
 import LoginPage from './features/auth/LoginPage'
 import BottomNav from './components/BottomNav'
+import HomeDashboard from './pages/HomeDashboard'
 import Create from './pages/Create'
 import WorkoutPreview from './pages/WorkoutPreview'
 import Runner from './pages/Runner'
@@ -35,7 +36,8 @@ function Guscio() {
     <div className={`mx-auto min-h-dvh max-w-lg ${conNav ? 'pb-24' : ''}`}>
       <ActiveTimerBanner />
       <Routes>
-        <Route path="/" element={<Create />} />
+        <Route path="/" element={<HomeDashboard />} />
+        <Route path="/crea" element={<Create />} />
         <Route path="/allenamento" element={<WorkoutPreview />} />
         <Route path="/avvia" element={<Runner />} />
         <Route path="/salvati" element={<Saved />} />

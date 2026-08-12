@@ -1,33 +1,42 @@
 import { NavLink } from 'react-router-dom'
 
 const VOCI = [
-  { to: '/', label: 'Genera' },
-  { to: '/salvati', label: 'Salvati' },
-  { to: '/profilo', label: 'Profilo' },
+  { to: '/', label: 'Oggi', icon: '🏠' },
+  { to: '/crea', label: 'Crea', icon: '🪄' },
+  { to: '/salvati', label: 'Salvati', icon: '📁' },
+  { to: '/profilo', label: 'Profilo', icon: '👤' },
 ]
 
 export default function BottomNav() {
   return (
     <nav
-      className="fixed bottom-0 inset-x-0 z-20 border-t border-edge bg-ink/95 backdrop-blur pb-[env(safe-area-inset-bottom)]"
+      className="fixed bottom-0 inset-x-0 z-30 border-t border-white/10 bg-slate-950/80 backdrop-blur-xl pb-[env(safe-area-inset-bottom)]"
       aria-label="Navigazione principale"
     >
-      <ul className="mx-auto flex max-w-lg">
+      <ul className="mx-auto flex max-w-lg items-center justify-around">
         {VOCI.map((v) => (
           <li key={v.to} className="flex-1">
             <NavLink
               to={v.to}
               end={v.to === '/'}
               className={({ isActive }) =>
-                `flex flex-col items-center gap-1.5 py-3 font-data text-[10px] uppercase tracking-[0.14em] transition-colors ${
-                  isActive ? 'text-chalk' : 'text-slate2'
+                `relative flex flex-col items-center gap-1 py-2.5 transition-all ${
+                  isActive ? 'text-cyan-400 font-bold scale-105' : 'text-slate-400 hover:text-slate-200'
                 }`
               }
             >
               {({ isActive }) => (
                 <>
-                  <span aria-hidden className={`h-[3px] w-6 rounded-full transition-colors ${isActive ? 'bg-amber2' : 'bg-transparent'}`} />
-                  {v.label}
+                  {isActive && (
+                    <span
+                      aria-hidden
+                      className="absolute top-0 h-0.5 w-8 rounded-full bg-cyan-400 glow-cyan"
+                    />
+                  )}
+                  <span className="text-lg">{v.icon}</span>
+                  <span className="font-data text-[10px] uppercase tracking-wider">
+                    {v.label}
+                  </span>
                 </>
               )}
             </NavLink>
