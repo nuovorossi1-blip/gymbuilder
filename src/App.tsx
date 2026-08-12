@@ -10,7 +10,7 @@ import Runner from './pages/Runner'
 import Saved from './pages/Saved'
 import History from './pages/History'
 import ProfilePage from './pages/ProfilePage'
-import ActiveTimerBanner from './components/ActiveTimerBanner'
+import { ActiveTimerBanner } from './components/ActiveTimerBanner'
 
 function Guscio() {
   const { user, loading } = useAuth()

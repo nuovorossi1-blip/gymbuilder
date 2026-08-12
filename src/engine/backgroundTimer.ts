@@ -54,17 +54,33 @@ export function publishBackgroundTimer(label: string, remainingSec: number, paus
 }
 
 export async function notifyTimerEvent(type: TimerEventType, label: string): Promise<void> {
+  if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+    if (type === 'TIMER_COMPLETED' || type === 'SET_STARTED' || type === 'WORK_STARTED') {
+      navigator.vibrate([300, 100, 300, 100, 500])
+    }
+  }
+
   if (typeof document === 'undefined' || !document.hidden || typeof Notification === 'undefined' || Notification.permission !== 'granted') return
-  if (type !== 'TIMER_COMPLETED' && type !== 'TIME_CAP_REACHED' && type !== 'REST_STARTED' && type !== 'WORK_STARTED') return
-  const body = type === 'REST_STARTED' ? 'Inizia il recupero.' : type === 'WORK_STARTED' ? 'Riprendi il lavoro.' : type === 'TIME_CAP_REACHED' ? 'Tempo massimo raggiunto.' : 'Timer completato.'
-  const options = { body, tag: 'gymbuilder-active-timer', data: { href: '/avvia' } }
+  if (type !== 'TIMER_COMPLETED' && type !== 'TIME_CAP_REACHED' && type !== 'REST_STARTED' && type !== 'WORK_STARTED' && type !== 'SET_STARTED') return
+
+  const title = type === 'SET_STARTED' || type === 'WORK_STARTED' || type === 'TIMER_COMPLETED'
+    ? '⏱️ RECUPERO TERMINATO!'
+    : label
+  const body = type === 'REST_STARTED' ? 'Inizia il recupero.' : type === 'WORK_STARTED' || type === 'SET_STARTED' ? 'Tempo trascorso! Tocca per iniziare la serie.' : type === 'TIME_CAP_REACHED' ? 'Tempo massimo raggiunto.' : 'Timer completato.'
+
+  const options = {
+    body,
+    tag: 'gymbuilder-active-timer',
+    vibrate: [300, 100, 300, 100, 500],
+    data: { href: '/avvia' },
+  }
   try {
     const registration = await navigator.serviceWorker?.ready
     if (registration) {
-      await registration.showNotification(label, options)
+      await registration.showNotification(title, options)
       return
     }
-    new Notification(label, options)
+    new Notification(title, options)
   } catch {
     /* La notifica è un miglioramento progressivo: non blocca il timer. */
   }
