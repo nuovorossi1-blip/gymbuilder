@@ -577,35 +577,90 @@ export default function Runner() {
     if (metconFase === 'via' && aIntervalli) {
       const esCorrente = esercizioIntervallo(intervalIndice)
       const inLavoro = intervalSottofase === 'lavoro'
-      return (
-        <div className="px-5 pt-16 pb-8 min-h-dvh flex flex-col">
-          <p className="eyebrow text-center">Round {intervalIndice + 1} di {intervalliTotali}</p>
-          <p className={`mt-6 text-center font-data text-[5rem] leading-none tabular-nums ${inLavoro ? 'text-amber2' : 'text-slate2'}`}>
-            {String(Math.floor(intervalRimanente / 60))}:{String(intervalRimanente % 60).padStart(2, '0')}
-          </p>
-          <p className="mt-2 text-center font-data text-[11px] uppercase tracking-[0.14em] text-slate2">
-            {inLavoro ? 'Lavoro' : 'Riposo'}
-          </p>
+      const workSec = metconBlock?.interval_sec || 20
+      const restSec = esCorrente?.rest_sec || 10
+      const durataTotaleFase = Math.max(1, inLavoro ? workSec : restSec)
+      const progressoPercent = Math.min(100, Math.max(0, ((durataTotaleFase - intervalRimanente) / durataTotaleFase) * 100))
 
-          <div className="slab mt-10 text-center">
-            <p className="eyebrow mb-2">{inLavoro ? 'Fase Attiva' : 'Pausa'}</p>
-            <p className="text-[20px] font-bold text-white">
-              {inLavoro ? '🔥 LAVORO INTENSO' : '⏸️ RECUPERO ATTIVO'}
-            </p>
-            {esCorrente && esCorrente.name !== 'Tabata Work Phase' && (
-              <p className="mt-1 font-data text-[13px] text-slate2">{esCorrente.name}</p>
-            )}
+      return (
+        <div className="px-5 pt-12 pb-8 min-h-dvh flex flex-col justify-between items-center text-center">
+          {/* Header bar: Round Info */}
+          <div className="w-full flex items-center justify-between">
+            <button className="font-data text-[11px] uppercase tracking-[0.14em] text-slate-400" onClick={tornaIndietro}>← Indietro</button>
+            <span className="eyebrow text-amber-400 font-bold tracking-wider">GIRO {intervalIndice + 1} DI {intervalliTotali}</span>
+            <button className="font-data text-[11px] uppercase tracking-[0.14em] text-red-400 font-bold" onClick={interrompiAllenamento}>Elimina</button>
           </div>
 
-          <div className="mt-auto space-y-2.5 pt-10">
+          {/* Ring Indicator Center */}
+          <div className="relative my-auto flex h-72 w-72 items-center justify-center">
+            {/* SVG Circular Ring Gauge */}
+            <svg className="absolute inset-0 h-full w-full -rotate-90 transform" viewBox="0 0 240 240">
+              {/* Background Track Circle */}
+              <circle
+                cx="120"
+                cy="120"
+                r="102"
+                className="stroke-zinc-800/80"
+                strokeWidth="14"
+                fill="transparent"
+              />
+              {/* Progress Arc Circle */}
+              <circle
+                cx="120"
+                cy="120"
+                r="102"
+                className={`transition-all duration-300 ease-linear ${
+                  inLavoro ? 'stroke-amber-400' : 'stroke-cyan-400'
+                }`}
+                strokeWidth="14"
+                strokeDasharray={2 * Math.PI * 102}
+                strokeDashoffset={(2 * Math.PI * 102) * (1 - progressoPercent / 100)}
+                strokeLinecap="round"
+                fill="transparent"
+              />
+            </svg>
+
+            {/* Center Content */}
+            <div className="z-10 flex flex-col items-center">
+              <span className="text-[11px] font-bold uppercase tracking-widest text-slate-400">
+                {inLavoro ? `Lavoro (${workSec}s)` : `Pausa (${restSec}s)`}
+              </span>
+              <p className={`mt-1 font-data text-6xl font-black tracking-tight tabular-nums ${inLavoro ? 'text-amber-300' : 'text-cyan-300'}`}>
+                {String(Math.floor(intervalRimanente / 60))}:{String(intervalRimanente % 60).padStart(2, '0')}
+              </p>
+              <span className={`mt-3 inline-flex items-center gap-1.5 rounded-full px-3.5 py-1 text-xs font-bold uppercase tracking-wider ${
+                inLavoro ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40' : 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
+              }`}>
+                {inLavoro ? '🔥 LAVORO INTENSO' : '⏸️ RECUPERO ATTIVO'}
+              </span>
+              {esCorrente && esCorrente.name !== 'Tabata Work Phase' && (
+                <p className="mt-2 text-xs font-medium text-slate-300">{esCorrente.name}</p>
+              )}
+            </div>
+          </div>
+
+          {/* Control Buttons */}
+          <div className="w-full space-y-2.5 pt-2">
             <button
-              className="w-full rounded-xl border border-edge py-3.5 font-data text-[11px] uppercase tracking-[0.14em] text-slate2 active:bg-steel"
+              className="w-full rounded-xl border border-edge py-3.5 font-data text-[12px] uppercase tracking-[0.14em] text-white active:bg-steel bg-steel/80 shadow-md"
               onClick={toggleMetconPause}
             >
-              {metconInPausa ? 'Riprendi' : 'Pausa'}
+              {metconInPausa ? '▶ Riprendi Timer' : '⏸️ Pausa Timer'}
             </button>
-            <button className="btn !py-4" onClick={() => setMetconFase('fatto')}>Termina</button>
-            <button className="w-full py-2 font-data text-[11px] uppercase tracking-[0.14em] text-red-300" onClick={interrompiAllenamento}>Stop ed elimina sessione</button>
+            <div className="grid grid-cols-2 gap-2.5">
+              <button
+                className="rounded-xl border border-emerald-500/40 bg-emerald-500/20 py-3.5 font-data text-[11px] font-bold uppercase tracking-[0.14em] text-emerald-300 active:bg-emerald-500/30 shadow-md"
+                onClick={() => setMetconFase('fatto')}
+              >
+                ✓ Termina e Salva
+              </button>
+              <button
+                className="rounded-xl border border-red-500/40 bg-red-500/10 py-3.5 font-data text-[11px] font-bold uppercase tracking-[0.14em] text-red-300 active:bg-red-500/20 shadow-md"
+                onClick={interrompiAllenamento}
+              >
+                🗑️ Elimina Sessione
+              </button>
+            </div>
           </div>
         </div>
       )
