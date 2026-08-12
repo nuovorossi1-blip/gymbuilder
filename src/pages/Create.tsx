@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { filterExercisesByPreferences } from '../engine/preferences'
 import { adaptiveExcludedIds } from '../engine/feedback'
 import { applyAutomaticProgramming, applyWorkoutRecovery, generateWeeklyProgram, selectProgramMode, updateWeeklySession } from '../engine/weeklyPlan'
+import { adaptPrescriptionForProfile, resolveEffectiveWeakPoints } from '../engine/biomechanics'
 import { validateWorkout } from '../engine/validator'
 import { useAuth } from '../features/auth/AuthProvider'
 import { useSettings } from '../features/profile/useSettings'
@@ -66,7 +67,9 @@ export default function Create() {
 
   async function createProgram(config: WeeklyProgramConfig) {
     try {
-      const automaticConfig = applyAutomaticProgramming(config)
+      const effectiveWeakPoints = resolveEffectiveWeakPoints(config.weak_points, profile)
+      const configWithProfile = { ...config, weak_points: effectiveWeakPoints }
+      const automaticConfig = applyAutomaticProgramming(configWithProfile)
       const generated = generateWeeklyProgram(automaticConfig)
       if (automaticConfig.program_kind === 'single_session') {
         setWeeklyProgram(generated)
@@ -121,6 +124,12 @@ export default function Create() {
     if (global.selected_modes.includes('bodybuilding') && global.selected_modes.includes('strength') && session.mode === 'strength') workout.name = `Powerlifting · ${workout.name}`
     workout.name = `${DAY_LABELS[session.day]} — ${workout.name}`
     workout.max_duration_min = Math.ceil(global.duration_min * 1.15)
+    if (profile) {
+      workout.blocks = workout.blocks.map((block) => ({
+        ...block,
+        exercises: block.exercises.map((prescribed) => adaptPrescriptionForProfile(prescribed, profile)),
+      }))
+    }
     const config: WorkoutGenerationConfig = {
       mode: session.mode, goal: global.goal, split_system: global.split_system,
       training_days: global.training_days, current_day: session.split,
