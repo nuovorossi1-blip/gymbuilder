@@ -212,11 +212,11 @@ export default function WorkoutPreview() {
         </button>
         <div className="grid grid-cols-2 gap-2.5">
           <button
-            className="rounded-xl border border-edge bg-steel py-3.5 font-data text-[11px] uppercase tracking-[0.14em] text-chalk active:bg-edge disabled:opacity-40"
+            className="rounded-xl border border-cyan-500/40 bg-cyan-500/20 py-3.5 font-display text-[12px] font-bold uppercase tracking-[0.14em] text-cyan-300 active:bg-cyan-500/30 disabled:opacity-40"
             onClick={salva}
             disabled={stato === 'salvo' || stato === 'salvato'}
           >
-            {stato === 'salvato' ? 'Salvato' : 'Salva'}
+            {stato === 'salvato' ? '✓ Salvato' : '💾 Salva in Libreria'}
           </button>
           <button
             className="rounded-xl border border-edge bg-steel py-3.5 font-data text-[11px] uppercase tracking-[0.14em] text-chalk active:bg-edge"
@@ -226,6 +226,39 @@ export default function WorkoutPreview() {
           </button>
         </div>
       </div>
+
+      {/* Modal Gratificante di Salvataggio */}
+      {stato === 'salvato' && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4 animate-modal-in">
+          <div className="w-full max-w-sm rounded-2xl glass-card border border-emerald-500/50 p-6 text-center space-y-4 shadow-2xl glow-emerald">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500/20 text-3xl border border-emerald-500/40">
+              🎉
+            </div>
+            <div>
+              <h2 className="font-display text-xl font-bold uppercase text-white">
+                Allenamento Salvato!
+              </h2>
+              <p className="mt-1 text-xs text-slate-300">
+                “{workout.name}” è stato aggiunto con successo alla tua libreria.
+              </p>
+            </div>
+            <div className="space-y-2 pt-2">
+              <button
+                onClick={() => naviga('/salvati')}
+                className="w-full rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 py-3.5 font-display text-sm font-bold uppercase text-white shadow-lg glow-emerald"
+              >
+                📂 Vai alla Libreria Salvati
+              </button>
+              <button
+                onClick={() => naviga('/')}
+                className="w-full rounded-xl glass-card py-3 font-display text-xs font-bold uppercase text-slate-300 hover:text-white"
+              >
+                🏠 Torna alla Home
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

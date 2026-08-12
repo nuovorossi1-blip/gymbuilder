@@ -4,6 +4,7 @@ import { useAuth } from '../features/auth/AuthProvider'
 import { useWorkout } from '../features/workout/WorkoutContext'
 import { cambiaPreferito, caricaCatalogo, elencoSalvati, eliminaSalvato } from '../lib/api'
 import { GOAL_LABELS, SPLIT_LABELS, type Goal, type Mode, type SavedWorkout, type Split } from '../types'
+import { SwipeContainer } from '../components/SwipeContainer'
 
 export default function Saved() {
   const { user } = useAuth()
@@ -23,7 +24,7 @@ export default function Saved() {
     if (catalog.length === 0) void caricaCatalogo().then(setCatalog).catch(() => undefined)
   }, [catalog.length, setCatalog])
 
-  function apri(s: SavedWorkout) {
+  function apri(s: SavedWorkout, startImmediate = false) {
     const byId = new Map(catalog.map((exercise) => [exercise.id, exercise]))
     const blocks = s.blocks.map((block) => ({
       ...block,
@@ -44,7 +45,7 @@ export default function Saved() {
       goal: s.goal as Goal, experience: s.experience as never,
       duration_min: s.duration_min, blocks, warnings: [],
     })
-    naviga('/allenamento')
+    naviga(startImmediate ? '/avvia' : '/allenamento')
   }
 
   async function elimina(s: SavedWorkout) {
@@ -58,51 +59,107 @@ export default function Saved() {
   }
 
   return (
-    <div className="px-5 pt-12 pb-4">
-      <h1 className="font-display font-extrabold uppercase text-[2.4rem] leading-none tracking-tight">Salvati</h1>
+    <SwipeContainer
+      onSwipeLeft={() => naviga('/profilo')}
+      onSwipeRight={() => naviga('/')}
+      className="px-4 pt-6 pb-28 space-y-6"
+    >
+      <header className="flex items-center justify-between">
+        <div>
+          <span className="eyebrow text-cyan-400">Libreria Personale</span>
+          <h1 className="font-display text-2xl font-black uppercase text-white">
+            Allenamenti Salvati
+          </h1>
+        </div>
+        <button
+          onClick={() => naviga('/crea')}
+          className="rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 px-3.5 py-2 font-display text-xs font-bold uppercase text-white shadow-md glow-cyan"
+        >
+          + Nuova Scheda
+        </button>
+      </header>
 
-      {errore && <p className="mt-6 text-sm text-amber2" role="alert">{errore}</p>}
-      {lista === null && !errore && <div className="mt-8 h-24 animate-pulse rounded-xl bg-steel" aria-hidden />}
+      {errore && (
+        <p className="rounded-xl border border-red-500/40 bg-red-500/10 p-3 text-xs text-red-300" role="alert">
+          {errore}
+        </p>
+      )}
 
-      {lista?.length === 0 && (
-        <div className="slab mt-8">
-          <p className="text-[15px] text-slate2 leading-relaxed">
-            Qui finiscono gli allenamenti che salvi. Generane uno e premi Salva.
-          </p>
+      {lista === null && !errore && (
+        <div className="space-y-3">
+          <div className="h-28 animate-pulse rounded-2xl glass-card" aria-hidden />
+          <div className="h-28 animate-pulse rounded-2xl glass-card" aria-hidden />
         </div>
       )}
 
-      <ul className="mt-7 space-y-2.5">
+      {lista?.length === 0 && (
+        <div className="rounded-2xl glass-card p-6 text-center space-y-3 border border-dashed border-edge">
+          <div className="text-3xl">📂</div>
+          <h2 className="font-display text-lg font-bold text-white uppercase">
+            Nessuna scheda salvata
+          </h2>
+          <p className="text-xs text-slate-400">
+            Qui ritrovi tutti gli allenamenti che decidi di conservare. Generane uno e premi “Salva in Libreria”.
+          </p>
+          <button
+            onClick={() => naviga('/crea')}
+            className="inline-block rounded-xl bg-cyan-500/20 border border-cyan-500/40 px-4 py-2 text-xs font-bold text-cyan-300 uppercase tracking-wider"
+          >
+            Genera la tua prima scheda
+          </button>
+        </div>
+      )}
+
+      <ul className="space-y-3">
         {lista?.map((s) => (
-          <li key={s.id} className="slab">
-            <button className="block w-full text-left" onClick={() => apri(s)}>
-              <div className="flex items-baseline justify-between gap-3">
-                <span className="font-display font-bold uppercase tracking-wide text-[16px]">
-                  {SPLIT_LABELS[s.split as Split] ?? s.name}
-                </span>
-                <span className="font-data text-[12px] text-slate2 whitespace-nowrap">{s.duration_min} min</span>
+          <li key={s.id} className="rounded-2xl glass-card border border-edge p-4 space-y-3">
+            <div className="flex items-start justify-between">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="font-display font-bold text-base text-white">
+                    {SPLIT_LABELS[s.split as Split] ?? s.name}
+                  </span>
+                  {s.favorite && (
+                    <span className="text-amber-400 text-sm">★</span>
+                  )}
+                </div>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  {GOAL_LABELS[s.goal as Goal]} · {s.duration_min} min · {new Date(s.created_at).toLocaleDateString('it-IT')}
+                </p>
               </div>
-              <p className="mt-1 font-data text-[11px] uppercase tracking-[0.12em] text-slate2">
-                {GOAL_LABELS[s.goal as Goal]} · {new Date(s.created_at).toLocaleDateString('it-IT')}
-              </p>
-            </button>
-            <div className="mt-3 flex gap-2 border-t border-edge pt-3">
               <button
-                className="font-data text-[11px] uppercase tracking-[0.12em] text-slate2"
+                className="text-slate-400 hover:text-amber-400 transition-colors text-lg"
                 onClick={async () => { await cambiaPreferito(s.id, !s.favorite); carica() }}
+                aria-label="Preferito"
               >
-                {s.favorite ? '★ preferito' : '☆ preferito'}
+                {s.favorite ? '★' : '☆'}
+              </button>
+            </div>
+
+            {/* 1-Tap Action Row */}
+            <div className="grid grid-cols-3 gap-2 border-t border-edge/60 pt-3">
+              <button
+                onClick={() => apri(s, true)}
+                className="rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 py-2.5 font-display text-xs font-bold uppercase text-white shadow-md glow-emerald active:scale-[0.98]"
+              >
+                ▶ Inizia
               </button>
               <button
-                className="ml-auto rounded-lg border border-red-400/30 px-3 py-1.5 font-data text-[11px] uppercase tracking-[0.12em] text-red-300"
-                onClick={() => void elimina(s)}
+                onClick={() => apri(s, false)}
+                className="rounded-xl glass-card py-2.5 font-display text-xs font-bold uppercase text-slate-300 hover:text-white"
               >
-                Elimina scheda
+                👁️ Dettagli
+              </button>
+              <button
+                onClick={() => void elimina(s)}
+                className="rounded-xl border border-red-500/30 bg-red-500/10 py-2.5 font-display text-xs font-bold uppercase text-red-300 hover:bg-red-500/20"
+              >
+                🗑️ Elimina
               </button>
             </div>
           </li>
         ))}
       </ul>
-    </div>
+    </SwipeContainer>
   )
 }
