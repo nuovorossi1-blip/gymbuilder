@@ -3,19 +3,19 @@
  * (Sesso, Età, Altezza, Peso).
  *
  * Principi biomeccanici integrati:
- * 1. Sesso:
- *    - Donna: maggiore tolleranza alla fatica ad alte rep, recupero inter-set più rapido.
- *      Bias muscolare consigliato (se l'utente non seleziona carenze): Glutei, Femorali, Deltoidi laterali.
- *    - Uomo: Bias V-Taper (Petto, Dorso, Spalle).
- *    - IMPORANTE: Se l'utente seleziona delle carenze manuali, queste HANNO SEMPRE LA PRIORITÀ ASSOLUTA!
+ * 1. Sesso e Tempi di Recupero:
+ *    - Uomo: Maggiore reclutamento neuro-muscolare e massa muscolare assoluta.
+ *      Recuperi più lunghi sui fondamentali (90-120s ipertrofia, 180-240s forza)
+ *      per ripristino completo ATP/PCr e tensione meccanica massimale.
+ *    - Donna: Maggiore tolleranza al lattato, densità capillare e recupero metabolico più rapido.
+ *      Recuperi più brevi (45-60s isolamenti, 75-90s fondamentali) con rep range metabolici (10-15).
  * 2. Età:
- *    - Master (35-49) & Senior (50+): aumento del riscaldamento articolare (+1-3 min),
- *      maggiore tempo di recupero sui multiarticolari pesanti (+15-20%) e riduzione del sovraccarico assiale.
+ *    - Master (35-49) & Senior (50+): riscaldamento articolare esteso (+1-3 min),
+ *      maggiori tempi di recupero per la salute cardiovascolare e CNS, riduzione carico assiale.
  * 3. Altezza / Leve articolari (≥ 185 cm):
- *    - Bracci di leva più lunghi su Squat/Stacco -> predilige profili guidati/supportati (es. Leg Press, Trap Bar,
- *      Bulgarian Split Squat, Rematore supportato) per proteggere il rachide lombare.
+ *    - Bracci di leva più lunghi su Squat/Stacco -> predilige profili guidati/supportati per proteggere il rachide.
  * 4. Peso / BMI:
- *    - Adatta il calcolo delle calorie attive (formula Keytel/MET) ed il peso nei movimenti a corpo libero.
+ *    - Adatta la stima calorica attiva (formula Keytel/MET) ed il peso nei movimenti a corpo libero.
  */
 
 import type { Muscle, PrescribedExercise } from '../types'
@@ -30,10 +30,12 @@ export interface BiomechanicalProfile {
 export interface BiomechanicalAdjustments {
   /** Carenze consigliate per profilo se l'utente non ne sceglie di proprie. */
   recommendedWeakPoints: Muscle[]
-  /** Modificatore serie/ripetizioni per isolamenti: 'metabolic_high' (10-15 reps) per donne o 'standard' (8-12) */
+  /** Modificatore serie/ripetizioni per isolamenti: 'metabolic_high' (10-15 reps) per donne o 'standard' (8-12) per uomini */
   repRangeBias: 'standard' | 'metabolic_high'
-  /** Moltiplicatore per i tempi di recupero (secondi) */
-  restMultiplier: number
+  /** Moltiplicatore per i tempi di recupero sui multiarticolari pesanti */
+  compoundRestMultiplier: number
+  /** Moltiplicatore per i tempi di recupero sugli isolamenti */
+  isolationRestMultiplier: number
   /** Minuti extra di riscaldamento per protezione articolare */
   warmupExtraMin: number
   /** Predilige esercizi con profilo di stabilità guidato/supportato per ridurre il carico assiale */
@@ -47,7 +49,8 @@ export function computeBiomechanicalAdjustments(profile?: BiomechanicalProfile |
     return {
       recommendedWeakPoints: [],
       repRangeBias: 'standard',
-      restMultiplier: 1.0,
+      compoundRestMultiplier: 1.0,
+      isolationRestMultiplier: 1.0,
       warmupExtraMin: 0,
       preferSupported: false,
       capAxialLoad: false,
@@ -59,16 +62,25 @@ export function computeBiomechanicalAdjustments(profile?: BiomechanicalProfile |
   const isMaster = typeof profile.age === 'number' && profile.age >= 35 && profile.age < 50
   const isTall = typeof profile.height_cm === 'number' && profile.height_cm >= 185
 
-  // Carenze di default Fisiologiche se l'utente NON ne ha specificate di sue:
+  // Carenze fisiologiche di default se l'utente NON ne specifica:
   // - Donna: Glutei, Femorali, Deltoidi laterali
-  // - Uomo: Petto, Dorso, Spalle
+  // - Uomo: Petto, Dorso, Deltoidi laterali
   const recommendedWeakPoints: Muscle[] = isFemale
     ? ['glutes', 'hamstrings', 'lateral_delts']
     : ['chest', 'back', 'lateral_delts']
 
-  let restMultiplier = 1.0
-  if (isFemale) restMultiplier *= 0.9
-  if (isSenior) restMultiplier *= 1.18
+  // Tempi di recupero differenziati Uomo vs Donna:
+  // Uomo: 1.0x sui fondamentali (recupero completo ATP/PCr per tensione meccanica elevata)
+  // Donna: 0.85x sui fondamentali e 0.80x sugli isolamenti (recupero metabolico più veloce)
+  let compoundRestMultiplier = isFemale ? 0.85 : 1.0
+  let isolationRestMultiplier = isFemale ? 0.80 : 1.0
+
+  if (isSenior) {
+    compoundRestMultiplier *= 1.20
+    isolationRestMultiplier *= 1.15
+  } else if (isMaster) {
+    compoundRestMultiplier *= 1.10
+  }
 
   const warmupExtraMin = isSenior ? 3 : isMaster ? 1 : 0
   const preferSupported = isSenior || isTall
@@ -77,7 +89,8 @@ export function computeBiomechanicalAdjustments(profile?: BiomechanicalProfile |
   return {
     recommendedWeakPoints,
     repRangeBias: isFemale ? 'metabolic_high' : 'standard',
-    restMultiplier,
+    compoundRestMultiplier,
+    isolationRestMultiplier,
     warmupExtraMin,
     preferSupported,
     capAxialLoad,
@@ -98,7 +111,7 @@ export function resolveEffectiveWeakPoints(userWeakPoints: Muscle[], profile?: B
 }
 
 /**
- * Adatta la prescrizione di una serie di esercizi in base al profilo biomeccanico.
+ * Adatta la prescrizione di un esercizio in base al profilo fisiologico/biomeccanico dell'utente.
  */
 export function adaptPrescriptionForProfile(
   prescribed: PrescribedExercise,
@@ -109,9 +122,9 @@ export function adaptPrescriptionForProfile(
 
   let rest_sec = prescribed.rest_sec
   if (prescribed.role === 'compound') {
-    rest_sec = Math.round(rest_sec * adj.restMultiplier)
-  } else if (prescribed.role === 'isolation' && adj.repRangeBias === 'metabolic_high') {
-    rest_sec = Math.max(30, Math.round(rest_sec * 0.9))
+    rest_sec = Math.max(60, Math.round(rest_sec * adj.compoundRestMultiplier))
+  } else if (prescribed.role === 'isolation') {
+    rest_sec = Math.max(30, Math.round(rest_sec * adj.isolationRestMultiplier))
   }
 
   let reps = prescribed.reps
