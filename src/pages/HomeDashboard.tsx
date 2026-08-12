@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../features/auth/AuthProvider'
 import { useWorkout } from '../features/workout/WorkoutContext'
-import { elencoSalvati } from '../lib/api'
-import type { Goal, Mode, SavedWorkout, Split } from '../types'
+import { elencoSalvati, elencoStorico } from '../lib/api'
+import type { CompletedWorkout, Goal, Mode, SavedWorkout, Split } from '../types'
 import { SwipeContainer } from '../components/SwipeContainer'
 
 export default function HomeDashboard() {
@@ -11,6 +11,7 @@ export default function HomeDashboard() {
   const { user } = useAuth()
   const { workout, setWorkout, catalog } = useWorkout()
   const [savedList, setSavedList] = useState<SavedWorkout[]>([])
+  const [lastCompleted, setLastCompleted] = useState<CompletedWorkout | null>(null)
   const [loadingSaved, setLoadingSaved] = useState(false)
 
   useEffect(() => {
@@ -18,14 +19,15 @@ export default function HomeDashboard() {
     let active = true
     setLoadingSaved(true)
 
-    elencoSalvati(user.id)
-      .then((data) => {
-        if (active && data) {
-          setSavedList(data.slice(0, 3))
+    Promise.all([
+      elencoSalvati(user.id).catch(() => []),
+      elencoStorico(user.id).catch(() => []),
+    ])
+      .then(([saved, history]) => {
+        if (active) {
+          if (saved) setSavedList(saved.slice(0, 3))
+          if (history && history.length > 0) setLastCompleted(history[0])
         }
-      })
-      .catch((err) => {
-        console.error('Errore caricamento salvati:', err)
       })
       .finally(() => {
         if (active) setLoadingSaved(false)
@@ -38,9 +40,6 @@ export default function HomeDashboard() {
 
   const handleStartWorkout = () => {
     if (workout) {
-      navigate('/avvia')
-    } else if (savedList.length > 0) {
-      openSavedWorkout(savedList[0])
       navigate('/avvia')
     } else {
       navigate('/crea')
@@ -108,34 +107,84 @@ export default function HomeDashboard() {
       <div className="relative overflow-hidden rounded-2xl glass-card border border-cyan-500/30 p-5 shadow-2xl">
         <div className="absolute top-0 right-0 -mr-6 -mt-6 h-28 w-28 rounded-full bg-cyan-500/10 blur-2xl pointer-events-none" />
 
-        <div className="flex items-center justify-between mb-3">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-cyan-500/20 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-cyan-300">
-            <span className="h-2 w-2 rounded-full bg-cyan-400 animate-pulse" />
-            {workout ? 'In Corso' : 'Allenamento del Giorno'}
-          </span>
-          <span className="font-data text-xs text-slate-400">
-            {new Date().toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric', month: 'short' })}
-          </span>
-        </div>
+        {workout ? (
+          <>
+            <div className="flex items-center justify-between mb-3">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-cyan-500/20 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-cyan-300">
+                <span className="h-2 w-2 rounded-full bg-cyan-400 animate-pulse" />
+                Sessione in Corso
+              </span>
+              <span className="font-data text-xs text-slate-400">
+                {new Date().toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric', month: 'short' })}
+              </span>
+            </div>
 
-        <h2 className="font-display text-xl font-bold text-white mb-1">
-          {workout?.name || (savedList[0]?.name ?? 'Push Bodybuilding & Hybrid')}
-        </h2>
+            <h2 className="font-display text-xl font-bold text-white mb-1">
+              {workout.name}
+            </h2>
 
-        <p className="text-xs text-slate-300 mb-5">
-          {workout
-            ? `${workout.duration_min} min · ${workout.blocks.length} blocchi`
-            : savedList[0]
-            ? `${savedList[0].duration_min} min · Scheda salvata`
-            : '45 min · Petto, Spalle, Tricipiti · Ordine Biomeccanico'}
-        </p>
+            <p className="text-xs text-slate-300 mb-5">
+              {workout.duration_min} min · {workout.blocks.length} blocchi pronti
+            </p>
 
-        <button
-          onClick={handleStartWorkout}
-          className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 py-3.5 px-4 font-display text-sm font-bold uppercase tracking-wider text-white shadow-lg glow-cyan transition-transform active:scale-[0.98]"
-        >
-          <span>▶ INIZIA ALLENAMENTO</span>
-        </button>
+            <button
+              onClick={handleStartWorkout}
+              className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 py-3.5 px-4 font-display text-sm font-bold uppercase tracking-wider text-white shadow-lg glow-cyan transition-transform active:scale-[0.98]"
+            >
+              <span>▶ CONTINUA ALLENAMENTO</span>
+            </button>
+          </>
+        ) : lastCompleted ? (
+          <>
+            <div className="flex items-center justify-between mb-3">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/20 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-emerald-300">
+                <span className="h-2 w-2 rounded-full bg-emerald-400" />
+                Ultimo Allenamento Completato
+              </span>
+              <span className="font-data text-xs text-slate-400">
+                {new Date(lastCompleted.completed_at).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })}
+              </span>
+            </div>
+
+            <h2 className="font-display text-xl font-bold text-white mb-1">
+              {lastCompleted.name}
+            </h2>
+
+            <p className="text-xs text-slate-300 mb-5">
+              Durata: {Math.round(lastCompleted.duration_sec / 60)} min {lastCompleted.rating ? `· Valutazione: ${lastCompleted.rating}` : ''}
+            </p>
+
+            <button
+              onClick={handleStartWorkout}
+              className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 py-3.5 px-4 font-display text-sm font-bold uppercase tracking-wider text-white shadow-lg glow-cyan transition-transform active:scale-[0.98]"
+            >
+              <span>⚡ CREA NUOVO ALLENAMENTO</span>
+            </button>
+          </>
+        ) : (
+          <>
+            <div className="flex items-center justify-between mb-3">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-500/20 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-slate-300">
+                🏋️ Nessun Allenamento
+              </span>
+            </div>
+
+            <h2 className="font-display text-xl font-bold text-white mb-1">
+              Nessun Allenamento Recente
+            </h2>
+
+            <p className="text-xs text-slate-300 mb-5">
+              Non hai ancora completato nessun allenamento. Genera la tua prima scheda per iniziare!
+            </p>
+
+            <button
+              onClick={handleStartWorkout}
+              className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 py-3.5 px-4 font-display text-sm font-bold uppercase tracking-wider text-white shadow-lg glow-cyan transition-transform active:scale-[0.98]"
+            >
+              <span>⚡ CREA IL TUO PRIMO ALLENAMENTO</span>
+            </button>
+          </>
+        )}
       </div>
 
       {/* 2 Main Selection Action Cards */}
