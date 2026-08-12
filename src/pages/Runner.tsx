@@ -295,6 +295,24 @@ export default function Runner() {
     return () => { document.removeEventListener('visibilitychange', syncVisibility); resetBackgroundTimer() }
   }, [])
 
+  // Auto-start il conto alla rovescia 3-2-1 per la modalità Tabata
+  // DEVE essere prima di ogni early return per rispettare le regole degli Hooks React.
+  useEffect(() => {
+    if (isTabata && countdown === null && metconFase === 'anteprima') {
+      setIniziato(true)
+      setSezione('metcon')
+      void startWithCountdown(() => {
+        setIntervalIndice(0)
+        setIntervalSottofase('lavoro')
+        const duration = metconBlock?.interval_sec ?? 20
+        setIntervalRimanente(duration)
+        intervalDeadline.current = Date.now() + duration * 1000
+        emit('ROUND_STARTED', 'tabata', 1)
+        setMetconFase('via')
+      })
+    }
+  }, [isTabata, countdown, metconFase, metconBlock?.interval_sec, emit])
+
   if (!workout || (esercizi.length === 0 && metconEsercizi.length === 0)) {
     return (
       <div className="px-5 pt-12">
@@ -304,8 +322,21 @@ export default function Runner() {
     )
   }
 
+  // Overlay a schermo intero per il conto alla rovescia 3 - 2 - 1 VIA!
   if (countdown !== null) {
-    return <div className="grid min-h-dvh place-items-center px-5 text-center" aria-live="assertive"><div><p className="eyebrow">Preparati</p><p className="mt-5 font-data text-[8rem] leading-none text-amber2">{countdown || 'VIA'}</p><p className="mt-5 font-display text-xl font-bold uppercase">Inizia ora</p></div></div>
+    return (
+      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-zinc-950/95 backdrop-blur-xl animate-fade-in text-center px-4">
+        <span className="eyebrow text-amber-400 font-bold tracking-widest text-sm uppercase mb-4">
+          🔥 PREPARATI ALL'ALLENAMENTO
+        </span>
+        <div key={countdown} className="font-data text-[9rem] leading-none font-black text-amber-300 animate-pulse drop-shadow-[0_0_35px_rgba(245,158,11,0.5)]">
+          {countdown === 0 ? 'VIA!' : countdown}
+        </div>
+        <p className="mt-6 font-display text-xl font-extrabold uppercase tracking-wider text-slate-200">
+          {isTabata ? `TABATA TIMER · GIRO 1 DI ${intervalliTotali}` : 'PRONTI ALL\'AVVIO'}
+        </p>
+      </div>
+    )
   }
 
   const es = esercizi[fase.iEs]
@@ -377,39 +408,7 @@ export default function Runner() {
     }
   }
 
-  // Auto-start il conto alla rovescia 3-2-1 per la modalità Tabata
-  useEffect(() => {
-    if (isTabata && countdown === null && metconFase === 'anteprima') {
-      setIniziato(true)
-      setSezione('metcon')
-      void startWithCountdown(() => {
-        setIntervalIndice(0)
-        setIntervalSottofase('lavoro')
-        const duration = metconBlock?.interval_sec ?? 20
-        setIntervalRimanente(duration)
-        intervalDeadline.current = Date.now() + duration * 1000
-        emit('ROUND_STARTED', 'tabata', 1)
-        setMetconFase('via')
-      })
-    }
-  }, [isTabata, countdown, metconFase, metconBlock?.interval_sec, emit])
 
-  // Overlay a schermo intero per il conto alla rovescia 3 - 2 - 1 VIA!
-  if (countdown !== null) {
-    return (
-      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-zinc-950/95 backdrop-blur-xl animate-fade-in text-center px-4">
-        <span className="eyebrow text-amber-400 font-bold tracking-widest text-sm uppercase mb-4">
-          🔥 PREPARATI ALL'ALLENAMENTO
-        </span>
-        <div key={countdown} className="font-data text-[9rem] leading-none font-black text-amber-300 animate-pulse drop-shadow-[0_0_35px_rgba(245,158,11,0.5)]">
-          {countdown === 0 ? 'VIA!' : countdown}
-        </div>
-        <p className="mt-6 font-display text-xl font-extrabold uppercase tracking-wider text-slate-200">
-          {isTabata ? `TABATA TIMER · GIRO 1 DI ${intervalliTotali}` : 'PRONTI ALL\'AVVIO'}
-        </p>
-      </div>
-    )
-  }
 
   // — Riepilogo finale —
   if (finito) {
