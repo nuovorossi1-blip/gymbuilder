@@ -34,9 +34,24 @@ export function readActiveTimer(): ActiveTimerState | null {
   }
 }
 
+function updateMediaSession(label: string, remainingSec: number): void {
+  if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return
+  try {
+    const title = remainingSec > 0 ? `⏱️ ${timerTitle(label, remainingSec)}` : '💪 Allenamento GymBuilder'
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title,
+      artist: 'GymBuilder · Timer Recupero',
+      album: 'Sessione di Allenamento',
+    })
+  } catch {
+    /* MediaSession non supportato o fallito */
+  }
+}
+
 export function publishBackgroundTimer(label: string, remainingSec: number, paused = false): void {
   if (typeof document === 'undefined') return
   document.title = document.hidden ? timerTitle(label, remainingSec) : DEFAULT_TITLE
+  updateMediaSession(label, remainingSec)
   const state: ActiveTimerState = {
     label,
     deadline: paused ? 0 : Date.now() + Math.max(0, remainingSec) * 1000,

@@ -73,6 +73,41 @@ export default function Runner() {
 
   if (!audio.current) audio.current = new TimerAudio(audioSettings)
 
+  // Ripristino dello stato esatto di avanzamento se l'utente torna sulla pagina
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('gymbuilder:runner_progress:v1')
+      if (!raw || !workout) return
+      const progress = JSON.parse(raw)
+      if (progress.workoutName === workout.name && progress.iniziato) {
+        setIniziato(true)
+        setFase(progress.fase)
+        setSezione(progress.sezione)
+        if (progress.restDeadline && progress.restDeadline > Date.now()) {
+          restDeadline.current = progress.restDeadline
+          const rem = Math.max(0, Math.ceil((progress.restDeadline - Date.now()) / 1000))
+          setRimanente(rem)
+        }
+      }
+    } catch { /* storage opzionale */ }
+  }, [workout])
+
+  // Salvataggio costante dello stato di avanzamento per evitare la schermata "Nessun allenamento"
+  useEffect(() => {
+    if (!workout || !iniziato || finito) {
+      if (finito) localStorage.removeItem('gymbuilder:runner_progress:v1')
+      return
+    }
+    const progress = {
+      workoutName: workout.name,
+      iniziato,
+      fase,
+      sezione,
+      restDeadline: restDeadline.current,
+    }
+    try { localStorage.setItem('gymbuilder:runner_progress:v1', JSON.stringify(progress)) } catch { /* opzionale */ }
+  }, [workout, iniziato, fase, sezione, finito])
+
   const emit = useCallback((type: TimerEventType, phase: TimerPhase, round?: number) => {
     audio.current?.play({ type, phase, round, at: Date.now() })
     void notifyTimerEvent(type, workout?.name ?? 'GymBuilder')
@@ -252,6 +287,7 @@ export default function Runner() {
 
   function interrompiAllenamento() {
     if (!window.confirm('Interrompere questo allenamento? I progressi della sessione corrente verranno eliminati.')) return
+    try { localStorage.removeItem('gymbuilder:runner_progress:v1') } catch { /* opzionale */ }
     resetBackgroundTimer(true)
     setWorkout(null)
     naviga('/')
