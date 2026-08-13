@@ -195,6 +195,9 @@ export interface EquipmentInventory {
 export interface WorkoutGenerationConfig {
   program_kind?: 'program' | 'single_session'
   duration_weeks?: number
+  generator_source?: 'engine' | 'llm'
+  llm_provider?: 'deepseek'
+  llm_prompt?: string
   mode: PublicMode
   goal: Goal
   split_system?: SplitSystem
@@ -257,6 +260,8 @@ export interface WeeklySession {
   metcon_format?: Exclude<MetconFormat, 'circuit' | 'tabata'>
   /** Alternanza minima per distribuire le priorità nelle ripetizioni dello stesso split. */
   variant: 'A' | 'B'
+  /** Workout già compilato da un LLM: se presente la UI lo apre senza rigenerarlo. */
+  generated_workout?: GeneratedWorkout
 }
 
 export interface RecoveryProfile {

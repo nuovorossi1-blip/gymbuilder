@@ -150,16 +150,13 @@ export function poolMetcon(
   warmupPool: Exercise[] = []
 ): Exercise[] {
   const basePool = allenamento.filter((e) => isMetconCandidate(e, usati, experience))
-  const hasMono = basePool.some((e) => categoriaMetcon(e) === 'mono')
-  const fallbackMono = !hasMono
-    ? warmupPool.filter((e) =>
-        !usati.has(e.id) &&
-        e.roles.includes('cardio') &&
-        categoriaMetcon(e) === 'mono' &&
-        (experience === 'advanced' ? e.id !== 'wu_salto_corda' : true)
-      )
-    : []
-  return [...basePool, ...fallbackMono.filter((candidate) => !basePool.some((exercise) => exercise.id === candidate.id))]
+  const warmupMono = warmupPool.filter((e) =>
+    !usati.has(e.id) &&
+    e.roles.includes('cardio') &&
+    categoriaMetcon(e) === 'mono' &&
+    (experience === 'advanced' ? e.id !== 'wu_salto_corda' : true)
+  )
+  return [...basePool, ...warmupMono.filter((candidate) => !basePool.some((exercise) => exercise.id === candidate.id))]
 }
 
 /** Ripetizioni per un movimento da Metcon: numeriche per la maggior parte delle categorie, a tempo per il monostrutturale. */
@@ -209,7 +206,10 @@ export function costruisciCircuito(
   preferiti: Set<string>,
   random: () => number
 ): MovimentoScelto[] {
-  const ordineCategorie: CategoriaMetcon[] = ['mono', 'lower', 'upper', 'core', 'full']
+  const monoFirst = random() >= 0.5
+  const ordineCategorie: CategoriaMetcon[] = monoFirst
+    ? ['mono', 'lower', 'upper', 'core', 'full']
+    : ['lower', 'upper', 'mono', 'core', 'full']
   const usati = new Set<string>()
   const risultato: MovimentoScelto[] = []
 

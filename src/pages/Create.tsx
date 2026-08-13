@@ -17,7 +17,7 @@ import { generaForza } from '../generators/strength'
 import { generaTabata } from '../generators/tabata'
 import type { WeeklyTrainingState } from '../generators/weakPoints'
 import { aggiornaProgramma, caricaCatalogo, salvaProgramma, situazioneSettimanaleUtente } from '../lib/api'
-import { suggestWorkoutConfigWithDeepSeek } from '../lib/deepseek'
+import { generateWorkoutsWithDeepSeek } from '../lib/deepseek'
 import {
   DURATIONS, EQUIPMENT_ITEM_LABELS, EQUIPMENT_LABELS, EXERCISE_POLICY_LABELS,
   MODE_LABELS, MUSCLE_LABELS, PUBLIC_MODES, SPLIT_LABELS,
@@ -105,8 +105,81 @@ export default function Create() {
     if (user && program.persisted) void aggiornaProgramma(user.id, program).catch((reason: Error) => setError(reason.message))
   }
 
+  function buildGenerationConfig(sourceProgram: WeeklyProgram, session: WeeklySession, excluded: string[], llmPrompt?: string): WorkoutGenerationConfig {
+    const global = sourceProgram.config
+    return {
+      program_kind: global.program_kind,
+      duration_weeks: global.duration_weeks,
+      generator_source: session.generated_workout ? 'llm' : 'engine',
+      llm_provider: session.generated_workout ? 'deepseek' : undefined,
+      llm_prompt: session.generated_workout ? llmPrompt : undefined,
+      mode: session.mode,
+      goal: global.goal,
+      split_system: global.split_system,
+      training_days: global.training_days,
+      current_day: session.split,
+      experience: global.experience,
+      duration_min: global.duration_min,
+      equipment: global.equipment,
+      weak_points: global.weak_points,
+      preferences: { ...global.preferences, excluded_exercise_ids: excluded },
+      intensity: global.intensity,
+      workout_format: session.mode === 'crossfit' ? global.crossfit_format : undefined,
+      tabata: session.mode === 'tabata' ? global.tabata : undefined,
+    }
+  }
+
+  function finalizeWorkout(
+    session: WeeklySession,
+    sourceProgram: WeeklyProgram,
+    workoutBase: ReturnType<typeof generaBodybuilding> | ReturnType<typeof generaCrossFit>,
+    llmPrompt?: string
+  ) {
+    const global = sourceProgram.config
+    const adaptiveExcluded = user ? adaptiveExcludedIds(user.id, catalog) : []
+    const excluded = [...new Set([...global.preferences.excluded_exercise_ids, ...adaptiveExcluded])]
+    const workout = {
+      ...workoutBase,
+      blocks: workoutBase.blocks.map((block) => ({
+        ...block,
+        exercises: block.exercises.map((exercise) => ({ ...exercise })),
+      })),
+      warnings: [...workoutBase.warnings],
+    }
+    const forzaCrossFit = global.selected_modes.includes('strength') && global.selected_modes.includes('crossfit')
+    if (forzaCrossFit && session.mode === 'crossfit') workout.name = `Forza + CrossFit · ${workout.name}`
+    if (forzaCrossFit && session.mode === 'crossfit') workout.mode = 'crossfit'
+    if (global.selected_modes.includes('bodybuilding') && global.selected_modes.includes('strength') && session.mode === 'strength') workout.name = `Powerlifting · ${workout.name}`
+    if (!workout.name.startsWith(DAY_LABELS[session.day])) workout.name = `${DAY_LABELS[session.day]} — ${workout.name}`
+    workout.max_duration_min = Math.ceil(global.duration_min * 1.15)
+    if (profile) {
+      workout.blocks = workout.blocks.map((block) => ({
+        ...block,
+        exercises: block.exercises.map((prescribed) => adaptPrescriptionForProfile(prescribed, profile)),
+      }))
+    }
+    const generationConfig = buildGenerationConfig(sourceProgram, session, excluded, llmPrompt)
+    const validation = validateWorkout(workout, generationConfig, catalog)
+    if (!validation.valid) { setError(validation.errors.join(' ')); return }
+    clearRejectedExercises()
+    updateProgram(applyWorkoutRecovery(sourceProgram, session.id, workout, catalog))
+    setGenerationConfig(generationConfig)
+    setWorkout(workout)
+    setError(null)
+    if (session.mode === 'tabata') {
+      startWorkoutSession(workout, generationConfig)
+      navigate('/avvia')
+    } else {
+      navigate('/allenamento')
+    }
+  }
+
   function generateDay(session: WeeklySession, sourceProgram = weeklyProgram) {
     if (!sourceProgram || catalog.length === 0) return
+    if (session.generated_workout) {
+      finalizeWorkout(session, sourceProgram, session.generated_workout)
+      return
+    }
     const global = sourceProgram.config
     const adaptiveExcluded = user ? adaptiveExcludedIds(user.id, catalog) : []
     const excluded = [...new Set([...global.preferences.excluded_exercise_ids, ...adaptiveExcluded])]
@@ -119,12 +192,15 @@ export default function Create() {
       ? usableCatalog.filter((exercise) => exercise.systemic_fatigue <= 1 || !exercise.primary_muscles.some((muscle) => session.fatigue_avoid_muscles?.includes(muscle)))
       : usableCatalog
     const common = {
-      experience: global.experience, equipment: global.equipment.preset,
-      available_equipment: global.equipment.available, duration_min: global.duration_min,
+      experience: global.experience,
+      equipment: global.equipment.preset,
+      available_equipment: global.equipment.available,
+      duration_min: global.duration_min,
       priority_muscles: global.weak_points,
       excluded_exercises: excluded,
       preferred_exercises: global.preferences.preferred_exercise_ids,
-      intensity: global.intensity, weight_kg: profile?.weight_kg ?? null,
+      intensity: global.intensity,
+      weight_kg: profile?.weight_kg ?? null,
       seed: Date.now() % 100000,
     }
     const split = session.split ?? 'full_body'
@@ -133,44 +209,66 @@ export default function Create() {
       ? forzaCrossFit
         ? generaHybrid(dayCatalog, { ...common, format: session.metcon_format === 'emom' ? 'emom' : session.metcon_format === 'for_time' ? 'for_time' : 'amrap' })
         : generaCrossFit(dayCatalog, { ...common, format: session.metcon_format ?? global.crossfit_format })
-      : session.mode === 'crossfit_hybrid' ? generaHybrid(dayCatalog, { ...common, priority_muscles: session.priority_muscles, method: global.program_kind === 'single_session' ? global.hybrid_method : session.priority_muscles.length > 0 ? 'specialization' : global.hybrid_method, format: (session.metcon_format === 'amrap' || session.metcon_format === 'emom' || session.metcon_format === 'for_time' || session.metcon_format === 'intervals') ? session.metcon_format : global.hybrid_format })
-      : session.mode === 'strength' ? generaForza(dayCatalog, { ...common, split, method: global.strength_method, weekly_volume: weeklyState?.volume, last_trained_at: weeklyState?.last_trained_at })
-      : session.mode === 'tabata' ? generaTabata(dayCatalog, { ...common, ...global.tabata })
-      : generaBodybuilding(dayCatalog, { ...common, priority_muscles: session.priority_muscles ?? global.weak_points, target_muscles: session.custom_target_muscles, split, goal: 'hypertrophy', weekly_volume: weeklyState?.volume, last_trained_at: weeklyState?.last_trained_at })
-    if (forzaCrossFit && session.mode === 'crossfit') workout.name = `Forza + CrossFit · ${workout.name}`
-    if (forzaCrossFit && session.mode === 'crossfit') workout.mode = 'crossfit'
-    if (global.selected_modes.includes('bodybuilding') && global.selected_modes.includes('strength') && session.mode === 'strength') workout.name = `Powerlifting · ${workout.name}`
-    workout.name = `${DAY_LABELS[session.day]} — ${workout.name}`
-    workout.max_duration_min = Math.ceil(global.duration_min * 1.15)
-    if (profile) {
-      workout.blocks = workout.blocks.map((block) => ({
-        ...block,
-        exercises: block.exercises.map((prescribed) => adaptPrescriptionForProfile(prescribed, profile)),
-      }))
-    }
-    const config: WorkoutGenerationConfig = {
-      mode: session.mode, goal: global.goal, split_system: global.split_system,
-      training_days: global.training_days, current_day: session.split,
-      experience: global.experience, duration_min: global.duration_min,
-      equipment: global.equipment, weak_points: global.weak_points,
-      preferences: { ...global.preferences, excluded_exercise_ids: excluded }, intensity: global.intensity,
-      workout_format: session.mode === 'crossfit' ? global.crossfit_format : undefined,
-      tabata: session.mode === 'tabata' ? global.tabata : undefined,
-    }
-    const validation = validateWorkout(workout, config, catalog)
-    if (!validation.valid) { setError(validation.errors.join(' ')); return }
-    clearRejectedExercises()
-    updateProgram(applyWorkoutRecovery(sourceProgram, session.id, workout, catalog))
-    setGenerationConfig(config)
-    setWorkout(workout)
-    setError(null)
-    if (session.mode === 'tabata') {
-      startWorkoutSession(workout, config)
-      navigate('/avvia')
-    } else {
-      navigate('/allenamento')
+      : session.mode === 'crossfit_hybrid'
+        ? generaHybrid(dayCatalog, { ...common, priority_muscles: session.priority_muscles, method: global.program_kind === 'single_session' ? global.hybrid_method : session.priority_muscles.length > 0 ? 'specialization' : global.hybrid_method, format: (session.metcon_format === 'amrap' || session.metcon_format === 'emom' || session.metcon_format === 'for_time' || session.metcon_format === 'intervals') ? session.metcon_format : global.hybrid_format })
+        : session.mode === 'strength'
+          ? generaForza(dayCatalog, { ...common, split, method: global.strength_method, weekly_volume: weeklyState?.volume, last_trained_at: weeklyState?.last_trained_at })
+          : session.mode === 'tabata'
+            ? generaTabata(dayCatalog, { ...common, ...global.tabata })
+            : generaBodybuilding(dayCatalog, { ...common, priority_muscles: session.priority_muscles ?? global.weak_points, target_muscles: session.custom_target_muscles, split, goal: 'hypertrophy', weekly_volume: weeklyState?.volume, last_trained_at: weeklyState?.last_trained_at })
+    finalizeWorkout(session, sourceProgram, workout)
+  }
+
+
+  async function createProgramWithAi(config: WeeklyProgramConfig, prompt: string) {
+    try {
+      const effectiveWeakPoints = resolveEffectiveWeakPoints(config.weak_points, profile)
+      const normalizedConfig = applyAutomaticProgramming({
+        ...config,
+        weak_points: effectiveWeakPoints,
+        program_kind: config.selected_modes.includes('tabata') ? ('single_session' as const) : config.program_kind,
+      })
+      const skeletonProgram = generateWeeklyProgram(normalizedConfig)
+      const adaptiveExcluded = user ? adaptiveExcludedIds(user.id, catalog) : []
+      const excluded = [...new Set([...normalizedConfig.preferences.excluded_exercise_ids, ...adaptiveExcluded])]
+      const usableCatalog = filterExercisesByPreferences(catalog, {
+        excludedExerciseIds: excluded,
+        bodyweightPolicy: normalizedConfig.preferences.bodyweight_policy,
+        elasticPolicy: normalizedConfig.preferences.elastic_policy,
+      }, 'normal')
+      const aiSettings = loadLocalAiSettings()
+      const aiResult = await generateWorkoutsWithDeepSeek(aiSettings, {
+        config: normalizedConfig,
+        prompt: prompt.trim() || 'Genera un allenamento completo rispettando tutte le impostazioni selezionate.',
+        program: skeletonProgram,
+        catalog: usableCatalog,
+      })
+      const aiSessions = new Map(aiResult.sessions.map((item) => [item.session_id, item.workout]))
+      const hydratedProgram: WeeklyProgram = {
+        ...skeletonProgram,
+        week: skeletonProgram.week.map((session) => ({
+          ...session,
+          generated_workout: aiSessions.get(session.id),
+        })),
+      }
+      if (hydratedProgram.week.some((session) => !session.generated_workout)) {
+        throw new Error('DeepSeek non ha compilato tutte le sessioni richieste.')
+      }
+      setBuilderInitial(hydratedProgram.config)
+      if (hydratedProgram.config.program_kind === 'single_session') {
+        setWeeklyProgram(hydratedProgram)
+        finalizeWorkout(hydratedProgram.week[0], hydratedProgram, hydratedProgram.week[0].generated_workout!, prompt)
+        return
+      }
+      const program = user ? await salvaProgramma(user.id, hydratedProgram) : hydratedProgram
+      setWeeklyProgram(program)
+      setError(null)
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Non siamo riusciti a generare con DeepSeek.')
+      throw reason
     }
   }
+
 
   return (
     <main className="px-4 pb-28 pt-6">
@@ -201,6 +299,7 @@ export default function Create() {
           initial={builderInitial}
           initialStep={builderStep}
           onCreate={createProgram}
+          onCreateWithAi={createProgramWithAi}
         />
       )}
     </main>
@@ -213,12 +312,14 @@ function WizardBuilder({
   initial,
   initialStep,
   onCreate,
+  onCreateWithAi,
 }: {
   catalog: Exercise[]
   error: string | null
   initial: WeeklyProgramConfig
   initialStep: 1 | 2
   onCreate: (config: WeeklyProgramConfig) => void | Promise<void>
+  onCreateWithAi: (config: WeeklyProgramConfig, prompt: string) => void | Promise<void>
 }) {
   const [step, setStep] = useState<1 | 2>(initialStep)
   const [config, setConfig] = useState(initial)
@@ -284,12 +385,10 @@ function WizardBuilder({
     setAiState('loading')
     setAiError(null)
     try {
-      const aiSettings = loadLocalAiSettings()
-      const patch = await suggestWorkoutConfigWithDeepSeek(aiSettings, {
+      await onCreateWithAi(
         config,
-        prompt: aiPrompt.trim() || 'Ottimizza la configurazione GymBuilder rispettando il contesto scelto.',
-      })
-      await onCreate({ ...config, ...patch })
+        aiPrompt.trim() || 'Genera un allenamento completo rispettando tutte le impostazioni selezionate.'
+      )
       setAiState('idle')
     } catch (reason) {
       setAiState('error')
@@ -397,7 +496,7 @@ function WizardBuilder({
               onClick={() => { void generateWithAi() }}
               className="w-full rounded-xl border border-cyan-500/40 bg-cyan-500/15 py-4 font-display font-bold uppercase text-cyan-200 shadow-md transition-transform active:scale-[0.98] disabled:opacity-40"
             >
-              {aiState === 'loading' ? 'DeepSeek sta ottimizzando...' : 'Genera con DeepSeek'}
+              {aiState === 'loading' ? 'DeepSeek sta generando...' : 'Genera con DeepSeek'}
             </button>
           )}
         </SwipeContainer>
@@ -743,7 +842,7 @@ function WizardBuilder({
 
               <Field title="Assistente AI (DeepSeek)">
                 <p className="text-xs text-slate-300">
-                  Scrivi un focus libero. DeepSeek suggerisce la configurazione e poi GymBuilder genera il workout finale con il motore interno.
+                  Scrivi un focus libero. Se scegli DeepSeek, l'LLM riceve tutti i parametri impostati e restituisce direttamente il workout o il programma compilato.
                 </p>
                 <textarea
                   className="input min-h-28"

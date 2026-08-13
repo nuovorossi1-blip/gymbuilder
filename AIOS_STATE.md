@@ -4,7 +4,7 @@
 > da qui. Va **aggiornato** a ogni sessione, non accodato all'infinito.
 > L'identità del progetto e il percorso di AI-OS stanno in `AIOS_PROJECT.json`.
 
-**Ultimo aggiornamento:** 2026-08-13 (custom target BB, livelli esperienza distinti, DeepSeek locale) - Codex
+**Ultimo aggiornamento:** 2026-08-13 (CrossFit meno ripetitivo, DeepSeek generativo reale) - Codex
 
 Etichette: `[FACT]` verificato nel codice · `[RICOSTRUITO]` dedotto da indizi ·
 `[IGNOTO]` non ricavabile dal repository

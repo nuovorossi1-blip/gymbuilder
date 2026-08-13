@@ -115,6 +115,22 @@ function scegliForzaSkillConFocus(
   return scegliCandidato(base, usati, priorita, preferiti, random)
 }
 
+function scegliPoolApertura(
+  strengthPool: Exercise[],
+  lowerPool: Exercise[],
+  upperPool: Exercise[],
+  priorita: Muscle[],
+  random: () => number
+): Exercise[] {
+  if (priorita.length > 0) {
+    const focus = strengthPool.filter((exercise) => exerciseTargetsPriority(exercise, priorita))
+    if (focus.length > 0) return focus
+  }
+  const families = [lowerPool, upperPool, strengthPool].filter((pool) => pool.length > 0)
+  if (families.length === 0) return strengthPool
+  return families[Math.floor(random() * families.length)] ?? strengthPool
+}
+
 function prescriviForzaSkill(e: Exercise, exp: Experience, intensity: Intensity, deload = false): PrescribedExercise {
   const p = deload ? alleggerisciPrescrizione(prescrizioneCF(exp, intensity)) : prescrizioneCF(exp, intensity)
   return {
@@ -195,12 +211,7 @@ export function generaCrossFit(catalogo: Exercise[], cfg: CrossFitConfig): Gener
   const upperPool = strengthPool.filter((e) => PATTERN_UPPER.includes(e.movement_pattern))
 
   const strengthEsercizi: PrescribedExercise[] = []
-  const focusStrengthPool = strengthPool.filter((exercise) => exerciseTargetsPriority(exercise, cfg.priority_muscles))
-  const lift1Pool = focusStrengthPool.length > 0
-    ? focusStrengthPool
-    : lowerPool.length > 0
-      ? lowerPool
-      : strengthPool
+  const lift1Pool = scegliPoolApertura(strengthPool, lowerPool, upperPool, cfg.priority_muscles, random)
   const lift1 = scegliForzaSkillConFocus(lift1Pool, usati, cfg.priority_muscles, preferiti, random)
   if (lift1) {
     usati.add(lift1.id)
@@ -210,14 +221,13 @@ export function generaCrossFit(catalogo: Exercise[], cfg: CrossFitConfig): Gener
   }
 
   if (t.strength >= 12) {
-    const upperFocusPool = upperPool.filter((exercise) => exerciseTargetsPriority(exercise, cfg.priority_muscles))
-    const lift2Pool = upperFocusPool.length > 0
-      ? upperFocusPool
-      : focusStrengthPool.filter((exercise) => exercise.id !== lift1?.id).length > 0
-        ? focusStrengthPool.filter((exercise) => exercise.id !== lift1?.id)
-        : upperPool.length > 0
-          ? upperPool
-          : strengthPool
+    const preferredSecondaryPools = lift1 && PATTERN_LOWER.includes(lift1.movement_pattern)
+      ? [upperPool, strengthPool]
+      : lift1 && PATTERN_UPPER.includes(lift1.movement_pattern)
+        ? [lowerPool, strengthPool]
+        : [upperPool, lowerPool, strengthPool]
+    const lift2Pool = preferredSecondaryPools.find((pool) => pool.some((exercise) => exercise.id !== lift1?.id))
+      ?? strengthPool
     const lift2 = scegliForzaSkillConFocus(lift2Pool, usati, cfg.priority_muscles, preferiti, random)
     if (lift2) {
       usati.add(lift2.id)

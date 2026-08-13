@@ -1,5 +1,15 @@
 # Changelog AI
 
+## 2026-08-13 - CrossFit meno ripetitivo e DeepSeek generativo reale
+
+- `CrossFit Standard` non resta piu bloccato sugli stessi 2-3 pattern: la parte Strength/Skill varia meglio fra lower e upper quando non ci sono priorita esplicite.
+- Il pool Metcon condiviso non usa piu il cardio del warm-up solo come emergenza estrema: le alternative mono come cyclette e tapis roulant entrano anche nella normale variabilita del WOD quando compatibili.
+- L'ordine del circuito Metcon non e piu sempre fisso `mono -> lower -> upper -> core -> full`, cosi i WOD non risultano sempre identici a parita di filtri.
+- `DeepSeek` non si limita piu a proporre una patch della configurazione: se scelto, riceve tutti i parametri impostati, compila direttamente workout o programma settimanale e li restituisce all'app.
+- Le sessioni generate dall'LLM vengono salvate come `generated_workout` dentro il programma e riaperte senza rigenerazione deterministica, mantenendo anche il tracciamento `generator_source`, provider e prompt nel `WorkoutGenerationConfig`.
+- Il percorso standard senza LLM resta invariato e continua a usare il motore deterministico interno.
+- Verifica completata: `npm test` verde con 202 test passati e `npm run build` verde.
+
 ## 2026-08-13 - Fallback Metcon quando mancano rower o kettlebell
 
 - Rafforzato il pool `Metcon` condiviso: se manca il monostrutturale principale nel catalogo disponibile, `CrossFit`, `Hybrid` e `Conditioning` possono usare un fallback cardio valido dal warm-up pool come cyclette o tapis roulant.

@@ -1,9 +1,32 @@
 import type { LocalAiSettings } from '../features/profile/aiSettings'
-import type { Experience, Goal, Intensity, Muscle, PublicMode, SplitSystem, WeeklyProgramConfig } from '../types'
+import type {
+  Experience, Exercise, GeneratedWorkout, Goal, Intensity, MetconFormat, Muscle,
+  PrescribedExercise, PublicMode, Split, SplitSystem, WeeklyProgram, WeeklyProgramConfig,
+} from '../types'
 
 interface DeepSeekPlannerInput {
   config: WeeklyProgramConfig
   prompt: string
+}
+
+interface DeepSeekWorkoutGenerationInput {
+  config: WeeklyProgramConfig
+  prompt: string
+  program: WeeklyProgram
+  catalog: Exercise[]
+}
+
+interface CatalogExerciseSnapshot {
+  id: string
+  name: string
+  primary_muscles: Muscle[]
+  secondary_muscles: Muscle[]
+  equipment: Exercise['equipment']
+  movement_pattern: string
+  min_experience: Experience
+  roles: string[]
+  required_equipment: Exercise['required_equipment']
+  metcon_safe: boolean
 }
 
 type PlannerPatch = Partial<Pick<
@@ -14,12 +37,24 @@ type PlannerPatch = Partial<Pick<
   'strength_method' | 'intensity'
 >>
 
+interface DeepSeekSessionWorkout {
+  session_id: string
+  workout: GeneratedWorkout
+}
+
+interface DeepSeekWorkoutGenerationResult {
+  sessions: DeepSeekSessionWorkout[]
+}
+
 const VALID_EXPERIENCE = new Set<Experience>(['beginner', 'intermediate', 'advanced'])
 const VALID_GOAL = new Set<Goal>(['hypertrophy', 'strength', 'conditioning', 'mixed'])
 const VALID_INTENSITY = new Set<Intensity>(['low', 'medium', 'high'])
 const VALID_SPLIT_SYSTEM = new Set<SplitSystem>(['ppl', 'upper_lower', 'bro_split', 'front_back'])
 const VALID_MODES = new Set<PublicMode>(['bodybuilding', 'crossfit', 'crossfit_hybrid', 'strength', 'tabata'])
 const VALID_MUSCLES = new Set<Muscle>(['chest', 'back', 'front_delts', 'lateral_delts', 'rear_delts', 'biceps', 'triceps', 'quads', 'hamstrings', 'glutes', 'calves', 'core'])
+const VALID_METCON = new Set<MetconFormat>(['amrap', 'emom', 'for_time', 'rounds', 'circuit', 'chipper', 'ladder', 'intervals', 'tabata'])
+const VALID_BLOCK_KIND = new Set(['warmup', 'main', 'metcon'])
+const VALID_ROLE = new Set(['compound', 'isolation', 'warmup', 'metcon'])
 
 function extractJsonObject(text: string): string {
   const first = text.indexOf('{')
@@ -52,6 +87,124 @@ function sanitizePatch(raw: unknown, base: WeeklyProgramConfig): PlannerPatch {
   if (typeof patch.strength_method === 'string') next.strength_method = patch.strength_method as WeeklyProgramConfig['strength_method']
 
   return next
+}
+
+function toCatalogSnapshot(catalog: Exercise[]): CatalogExerciseSnapshot[] {
+  return catalog.map((exercise) => ({
+    id: exercise.id,
+    name: exercise.name,
+    primary_muscles: exercise.primary_muscles,
+    secondary_muscles: exercise.secondary_muscles,
+    equipment: exercise.equipment,
+    movement_pattern: exercise.movement_pattern,
+    min_experience: exercise.min_experience,
+    roles: exercise.roles,
+    required_equipment: exercise.required_equipment,
+    metcon_safe: exercise.metcon_safe,
+  }))
+}
+
+function asString(value: unknown, fallback: string): string {
+  return typeof value === 'string' && value.trim() ? value.trim() : fallback
+}
+
+function asOptionalString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined
+}
+
+function asPositiveInt(value: unknown, fallback: number): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return fallback
+  return Math.max(0, Math.round(value))
+}
+
+function sanitizeExerciseRole(value: unknown, fallback: PrescribedExercise['role']): PrescribedExercise['role'] {
+  return typeof value === 'string' && VALID_ROLE.has(value) ? value as PrescribedExercise['role'] : fallback
+}
+
+function sanitizeMuscleList(value: unknown): Muscle[] {
+  if (!Array.isArray(value)) return []
+  return value.filter((item): item is Muscle => typeof item === 'string' && VALID_MUSCLES.has(item as Muscle))
+}
+
+function sanitizeMetconFormat(value: unknown): MetconFormat | undefined {
+  return typeof value === 'string' && VALID_METCON.has(value as MetconFormat) ? value as MetconFormat : undefined
+}
+
+function sanitizeBlockExercises(
+  raw: unknown,
+  catalogById: Map<string, Exercise>,
+  fallbackRole: PrescribedExercise['role']
+): PrescribedExercise[] {
+  if (!Array.isArray(raw)) return []
+  const sanitized: PrescribedExercise[] = []
+
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue
+    const candidate = item as Record<string, unknown>
+    const exerciseId = asString(candidate.exercise_id, '')
+    const catalogExercise = catalogById.get(exerciseId)
+    if (!catalogExercise) continue
+    sanitized.push({
+      exercise_id: catalogExercise.id,
+      name: catalogExercise.name,
+      role: sanitizeExerciseRole(candidate.role, fallbackRole),
+      muscle: sanitizeMuscleList(candidate.muscle ? [candidate.muscle] : [catalogExercise.primary_muscles[0]])[0] ?? catalogExercise.primary_muscles[0] ?? null,
+      sets: Math.max(1, asPositiveInt(candidate.sets, fallbackRole === 'metcon' ? 1 : 3)),
+      reps: asString(candidate.reps, fallbackRole === 'metcon' ? '10' : catalogExercise.default_reps),
+      rest_sec: asPositiveInt(candidate.rest_sec, fallbackRole === 'metcon' ? 0 : catalogExercise.default_rest),
+      note: asOptionalString(candidate.note),
+      instructions: catalogExercise.instructions || undefined,
+    })
+  }
+
+  return sanitized
+}
+
+function sanitizeWorkout(
+  raw: unknown,
+  sessionMode: PublicMode,
+  sessionSplit: Split | null,
+  durationMin: number,
+  catalogById: Map<string, Exercise>
+): GeneratedWorkout {
+  const candidate = raw && typeof raw === 'object' ? raw as Record<string, unknown> : {}
+  const rawBlocks = Array.isArray(candidate.blocks) ? candidate.blocks : []
+  const blocks: GeneratedWorkout['blocks'] = rawBlocks
+    .map((block) => {
+      if (!block || typeof block !== 'object') return null
+      const rawBlock = block as Record<string, unknown>
+      const kind = typeof rawBlock.kind === 'string' && VALID_BLOCK_KIND.has(rawBlock.kind)
+        ? rawBlock.kind as 'warmup' | 'main' | 'metcon'
+        : null
+      if (!kind) return null
+      const fallbackRole: PrescribedExercise['role'] = kind === 'warmup' ? 'warmup' : kind === 'metcon' ? 'metcon' : 'compound'
+      const exercises = sanitizeBlockExercises(rawBlock.exercises, catalogById, fallbackRole)
+      return {
+        kind,
+        title: asString(rawBlock.title, kind === 'main' ? 'Allenamento' : kind === 'metcon' ? 'Metcon' : 'Riscaldamento'),
+        duration_min: kind === 'warmup' ? asPositiveInt(rawBlock.duration_min, 8) : undefined,
+        exercises,
+        format: kind === 'metcon' ? sanitizeMetconFormat(rawBlock.format) : undefined,
+        time_cap_min: kind === 'metcon' && typeof rawBlock.time_cap_min === 'number' ? asPositiveInt(rawBlock.time_cap_min, durationMin) : undefined,
+        rounds: kind === 'metcon' && typeof rawBlock.rounds === 'number' ? asPositiveInt(rawBlock.rounds, 1) : undefined,
+        interval_sec: kind === 'metcon' && typeof rawBlock.interval_sec === 'number' ? asPositiveInt(rawBlock.interval_sec, 0) : undefined,
+      }
+    })
+    .filter((block): block is NonNullable<typeof block> => !!block)
+    .filter((block) => block.exercises.length > 0)
+
+  return {
+    name: asString(candidate.name, sessionMode === 'crossfit' ? 'CrossFit Standard' : sessionMode === 'crossfit_hybrid' ? 'CrossFit Hybrid' : 'Allenamento AI'),
+    mode: sessionMode,
+    split: sessionSplit,
+    goal: typeof candidate.goal === 'string' && VALID_GOAL.has(candidate.goal as Goal) ? candidate.goal as Goal : sessionMode === 'crossfit' ? 'conditioning' : 'hypertrophy',
+    experience: typeof candidate.experience === 'string' && VALID_EXPERIENCE.has(candidate.experience as Experience) ? candidate.experience as Experience : 'intermediate',
+    duration_min: asPositiveInt(candidate.duration_min, durationMin),
+    max_duration_min: typeof candidate.max_duration_min === 'number' ? asPositiveInt(candidate.max_duration_min, Math.ceil(durationMin * 1.15)) : Math.ceil(durationMin * 1.15),
+    blocks,
+    warnings: Array.isArray(candidate.warnings) ? candidate.warnings.filter((item): item is string => typeof item === 'string') : [],
+    est_kcal: typeof candidate.est_kcal === 'number' && Number.isFinite(candidate.est_kcal) ? Math.round(candidate.est_kcal) : undefined,
+  }
 }
 
 export async function suggestWorkoutConfigWithDeepSeek(
@@ -99,4 +252,122 @@ export async function suggestWorkoutConfigWithDeepSeek(
   if (!content) throw new Error('DeepSeek non ha restituito contenuto utile.')
   const parsed = JSON.parse(extractJsonObject(content))
   return sanitizePatch(parsed, input.config)
+}
+
+export async function generateWorkoutsWithDeepSeek(
+  settings: LocalAiSettings,
+  input: DeepSeekWorkoutGenerationInput
+): Promise<DeepSeekWorkoutGenerationResult> {
+  const apiKey = settings.deepseek_api_key.trim()
+  if (!apiKey) throw new Error('Inserisci prima la chiave API DeepSeek nel profilo.')
+
+  const response = await fetch('https://api.deepseek.com/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: settings.deepseek_model,
+      temperature: 0.2,
+      messages: [
+        {
+          role: 'system',
+          content:
+            'Sei il generatore workout di GymBuilder. Devi restituire solo JSON valido. Non spiegare nulla. Devi compilare una sessione concreta per ogni session_id passato. Usa solo exercise_id presenti nel catalogo fornito. Rispetta attrezzatura, esperienza, esclusioni e preferenze. Regole forti: Bodybuilding/Hybrid almeno 5-6 esercizi totali; CrossFit Standard almeno 5-6 movimenti totali distribuiti fra warmup, forza/skill e metcon, con 2 punti cardine iniziali e poi lavoro metabolico; l ordine va dal piu complesso al piu semplice; i muscoli carenti vanno enfatizzati all inizio; niente esercizi fuori contesto o non presenti nel catalogo.',
+        },
+        {
+          role: 'user',
+          content: JSON.stringify({
+            richiesta_utente: input.prompt,
+            configurazione: input.config,
+            sessioni_da_compilare: input.program.week.map((session) => ({
+              session_id: session.id,
+              day: session.day,
+              mode: session.mode,
+              split: session.split,
+              label: session.label,
+              priority_muscles: session.priority_muscles,
+              custom_target_muscles: session.custom_target_muscles ?? [],
+              metcon_format: session.metcon_format,
+              duration_min: input.config.duration_min,
+            })),
+            catalogo_utilizzabile: toCatalogSnapshot(input.catalog),
+            formato_output: {
+              sessions: [
+                {
+                  session_id: 'session-id',
+                  workout: {
+                    name: 'string',
+                    mode: 'bodybuilding|crossfit|crossfit_hybrid|strength|tabata',
+                    split: 'split|null',
+                    goal: 'hypertrophy|strength|conditioning|mixed',
+                    experience: 'beginner|intermediate|advanced',
+                    duration_min: 60,
+                    max_duration_min: 69,
+                    warnings: ['string'],
+                    blocks: [
+                      {
+                        kind: 'warmup|main|metcon',
+                        title: 'string',
+                        duration_min: 8,
+                        format: 'amrap|emom|for_time|rounds|circuit|chipper|ladder|intervals|tabata',
+                        time_cap_min: 15,
+                        rounds: 4,
+                        interval_sec: 60,
+                        exercises: [
+                          {
+                            exercise_id: 'catalog-id',
+                            role: 'compound|isolation|warmup|metcon',
+                            sets: 4,
+                            reps: '8-10',
+                            rest_sec: 90,
+                            note: 'string'
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+          }),
+        },
+      ],
+    }),
+  })
+
+  if (!response.ok) {
+    throw new Error(`DeepSeek ha risposto con errore ${response.status}.`)
+  }
+
+  const payload = await response.json() as {
+    choices?: Array<{ message?: { content?: string } }>
+  }
+  const content = payload.choices?.[0]?.message?.content
+  if (!content) throw new Error('DeepSeek non ha restituito contenuto utile.')
+
+  const parsed = JSON.parse(extractJsonObject(content)) as {
+    sessions?: Array<{ session_id?: string; workout?: unknown }>
+  }
+
+  const catalogById = new Map(input.catalog.map((exercise) => [exercise.id, exercise]))
+  const sessionById = new Map(input.program.week.map((session) => [session.id, session]))
+  const sessions = (parsed.sessions ?? [])
+    .map((item) => {
+      const sessionId = asString(item.session_id, '')
+      const session = sessionById.get(sessionId)
+      if (!session) return null
+      return {
+        session_id: sessionId,
+        workout: sanitizeWorkout(item.workout, session.mode, session.split, input.config.duration_min, catalogById),
+      }
+    })
+    .filter((item): item is DeepSeekSessionWorkout => !!item && item.workout.blocks.length > 0)
+
+  if (sessions.length === 0) {
+    throw new Error('DeepSeek non ha generato workout validi per le sessioni richieste.')
+  }
+
+  return { sessions }
 }
