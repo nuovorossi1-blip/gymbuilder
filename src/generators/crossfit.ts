@@ -82,8 +82,41 @@ function prescrizioneCF(exp: Experience, intensity: Intensity) {
   return { sets, reps: perIntensita.reps, rest: perIntensita.rest }
 }
 
-function prescriviForzaSkill(e: Exercise, exp: Experience, intensity: Intensity): PrescribedExercise {
-  const p = prescrizioneCF(exp, intensity)
+function alleggerisciPrescrizione(base: ReturnType<typeof prescrizioneCF>): ReturnType<typeof prescrizioneCF> {
+  const reps = base.reps === '3-5'
+    ? '5-6'
+    : base.reps === '5-6'
+      ? '6-8'
+      : '8-10'
+  return {
+    sets: Math.max(2, base.sets - 1),
+    reps,
+    rest: Math.max(75, base.rest - 30),
+  }
+}
+
+function exerciseTargetsPriority(exercise: Exercise, priorities: Muscle[]): boolean {
+  return exercise.primary_muscles.some((muscle) => priorities.includes(muscle))
+}
+
+function scegliForzaSkillConFocus(
+  pool: Exercise[],
+  usati: Set<string>,
+  priorita: Muscle[],
+  preferiti: Set<string>,
+  random: () => number
+): Exercise | undefined {
+  const candidati = pool.filter((exercise) => !usati.has(exercise.id))
+  if (candidati.length === 0) return undefined
+  const focalizzati = candidati
+    .filter((exercise) => exerciseTargetsPriority(exercise, priorita))
+    .sort((a, b) => a.systemic_fatigue - b.systemic_fatigue || a.technical_complexity - b.technical_complexity)
+  const base = focalizzati.length > 0 ? focalizzati : candidati
+  return scegliCandidato(base, usati, priorita, preferiti, random)
+}
+
+function prescriviForzaSkill(e: Exercise, exp: Experience, intensity: Intensity, deload = false): PrescribedExercise {
+  const p = deload ? alleggerisciPrescrizione(prescrizioneCF(exp, intensity)) : prescrizioneCF(exp, intensity)
   return {
     exercise_id: e.id,
     name: e.name,
@@ -92,6 +125,7 @@ function prescriviForzaSkill(e: Exercise, exp: Experience, intensity: Intensity)
     sets: p.sets,
     reps: p.reps,
     rest_sec: p.rest,
+    note: deload ? 'focus carenza: carico ridotto' : undefined,
     instructions: e.instructions || undefined,
   }
 }
@@ -161,17 +195,35 @@ export function generaCrossFit(catalogo: Exercise[], cfg: CrossFitConfig): Gener
   const upperPool = strengthPool.filter((e) => PATTERN_UPPER.includes(e.movement_pattern))
 
   const strengthEsercizi: PrescribedExercise[] = []
-  const lift1 = scegliCandidato(lowerPool.length > 0 ? lowerPool : strengthPool, usati, cfg.priority_muscles, preferiti, random)
+  const focusStrengthPool = strengthPool.filter((exercise) => exerciseTargetsPriority(exercise, cfg.priority_muscles))
+  const lift1Pool = focusStrengthPool.length > 0
+    ? focusStrengthPool
+    : lowerPool.length > 0
+      ? lowerPool
+      : strengthPool
+  const lift1 = scegliForzaSkillConFocus(lift1Pool, usati, cfg.priority_muscles, preferiti, random)
   if (lift1) {
     usati.add(lift1.id)
-    strengthEsercizi.push(prescriviForzaSkill(lift1, cfg.experience, intensity))
+    strengthEsercizi.push(
+      prescriviForzaSkill(lift1, cfg.experience, intensity, exerciseTargetsPriority(lift1, cfg.priority_muscles))
+    )
   }
 
   if (t.strength >= 12) {
-    const lift2 = scegliCandidato(upperPool.length > 0 ? upperPool : strengthPool, usati, cfg.priority_muscles, preferiti, random)
+    const upperFocusPool = upperPool.filter((exercise) => exerciseTargetsPriority(exercise, cfg.priority_muscles))
+    const lift2Pool = upperFocusPool.length > 0
+      ? upperFocusPool
+      : focusStrengthPool.filter((exercise) => exercise.id !== lift1?.id).length > 0
+        ? focusStrengthPool.filter((exercise) => exercise.id !== lift1?.id)
+        : upperPool.length > 0
+          ? upperPool
+          : strengthPool
+    const lift2 = scegliForzaSkillConFocus(lift2Pool, usati, cfg.priority_muscles, preferiti, random)
     if (lift2) {
       usati.add(lift2.id)
-      strengthEsercizi.push(prescriviForzaSkill(lift2, cfg.experience, intensity))
+      strengthEsercizi.push(
+        prescriviForzaSkill(lift2, cfg.experience, intensity, exerciseTargetsPriority(lift2, cfg.priority_muscles))
+      )
     }
   }
 

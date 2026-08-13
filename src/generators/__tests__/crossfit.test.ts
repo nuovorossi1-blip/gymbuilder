@@ -94,6 +94,16 @@ describe('generaCrossFit — struttura (Forza/Skill + Metcon AMRAP)', () => {
     expect(w.duration_min).toBeLessThan(60)
     expect(w.warnings.some((x) => x.includes('durata tipica di una classe'))).toBe(true)
   })
+
+  it('se una carenza entra nella parte Forza/Skill la richiama con carico ridotto, non come forza pura', () => {
+    const w = generaCrossFit(catalogo, {
+      experience: 'advanced', equipment: 'full_gym', duration_min: 60,
+      priority_muscles: ['front_delts'], excluded_exercises: [], seed: 14, intensity: 'medium',
+    })
+    expect(mainBlock(w).exercises[0].muscle).toBe('front_delts')
+    expect(mainBlock(w).exercises[0].note).toBe('focus carenza: carico ridotto')
+    expect(mainBlock(w).exercises[0].reps).toBe('6-8')
+  })
 })
 
 describe('generaCrossFit — Forza/Skill (riusa il tag "strength" del catalogo)', () => {

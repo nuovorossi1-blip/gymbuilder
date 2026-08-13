@@ -73,6 +73,16 @@ describe('generaHybrid — struttura Strength/Bodybuilding + Hybrid Metcon', () 
     const count = (w: ReturnType<typeof generaHybrid>) => mainBlock(w).exercises.length + metconBlock(w).exercises.length
     expect(count(lunga)).toBeGreaterThan(count(corta))
   })
+
+  it('se un compound Hybrid colpisce una carenza usa una prescrizione piu prudente', () => {
+    const w = generaHybrid(catalogo, {
+      experience: 'advanced', equipment: 'full_gym', duration_min: 60,
+      priority_muscles: ['back'], excluded_exercises: [], seed: 5, intensity: 'medium',
+    })
+    expect(mainBlock(w).exercises[0].muscle).toBe('back')
+    expect(mainBlock(w).exercises[0].note).toBe('focus carenza: carico ridotto')
+    expect(mainBlock(w).exercises[0].reps).toBe('10-15')
+  })
 })
 
 describe('generaHybrid — scelta esercizi', () => {

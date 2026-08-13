@@ -56,10 +56,15 @@ export default function Create() {
 
   const initialKind = searchParams.get('program_kind') === 'single_session' ? 'single_session' : 'program'
   const freshEntry = searchParams.get('fresh') === '1'
-  const [initialConfig] = useState<WeeklyProgramConfig>({
-    ...DEFAULT_CONFIG,
-    program_kind: initialKind,
-  })
+  const [builderInitial, setBuilderInitial] = useState<WeeklyProgramConfig>(() =>
+    weeklyProgram && !freshEntry
+      ? weeklyProgram.config
+      : {
+          ...DEFAULT_CONFIG,
+          program_kind: initialKind,
+        }
+  )
+  const [builderStep, setBuilderStep] = useState<1 | 2>(1)
 
   useEffect(() => {
     if (freshEntry && weeklyProgram) setWeeklyProgram(null)
@@ -83,6 +88,7 @@ export default function Create() {
       }
       const automaticConfig = applyAutomaticProgramming(configWithProfile)
       const generated = generateWeeklyProgram(automaticConfig)
+      setBuilderInitial(generated.config)
       if (automaticConfig.program_kind === 'single_session' || isTabata) {
         setWeeklyProgram(generated)
         generateDay(generated.week[0], generated)
@@ -174,13 +180,26 @@ export default function Create() {
           error={error}
           onUpdate={updateProgram}
           onGenerate={generateDay}
-          onReset={() => setWeeklyProgram(null)}
+          onReset={() => {
+            setBuilderInitial({
+              ...DEFAULT_CONFIG,
+              program_kind: initialKind,
+            })
+            setBuilderStep(1)
+            setWeeklyProgram(null)
+          }}
+          onEditConfig={() => {
+            setBuilderInitial(weeklyProgram.config)
+            setBuilderStep(2)
+            setWeeklyProgram(null)
+          }}
         />
       ) : (
         <WizardBuilder
           catalog={catalog}
           error={error}
-          initial={initialConfig}
+          initial={builderInitial}
+          initialStep={builderStep}
           onCreate={createProgram}
         />
       )}
@@ -192,14 +211,16 @@ function WizardBuilder({
   catalog,
   error,
   initial,
+  initialStep,
   onCreate,
 }: {
   catalog: Exercise[]
   error: string | null
   initial: WeeklyProgramConfig
+  initialStep: 1 | 2
   onCreate: (config: WeeklyProgramConfig) => void | Promise<void>
 }) {
-  const [step, setStep] = useState<1 | 2>(1)
+  const [step, setStep] = useState<1 | 2>(initialStep)
   const [config, setConfig] = useState(initial)
   const [slideDirection, setSlideDirection] = useState<'left' | 'right'>('left')
   const [advanced, setAdvanced] = useState(false)
@@ -208,6 +229,18 @@ function WizardBuilder({
   const [aiPrompt, setAiPrompt] = useState('')
   const [aiState, setAiState] = useState<'idle' | 'loading' | 'error'>('idle')
   const [aiError, setAiError] = useState<string | null>(null)
+
+  useEffect(() => {
+    setConfig(initial)
+    setStep(initialStep)
+    setSlideDirection('left')
+    setAdvanced(false)
+    setExercisePreferences(false)
+    setAiPrompt('')
+    setAiState('idle')
+    setAiError(null)
+    setSingleSessionMode(initial.single_session_target_muscles?.length ? 'custom_muscles' : 'preset_split')
+  }, [initial, initialStep])
 
   const valid =
     config.selected_modes.length > 0 &&
@@ -821,12 +854,14 @@ function WeekView({
   onUpdate,
   onGenerate,
   onReset,
+  onEditConfig,
 }: {
   program: WeeklyProgram
   error: string | null
   onUpdate: (program: WeeklyProgram) => void
   onGenerate: (session: WeeklySession) => void
   onReset: () => void
+  onEditConfig: () => void
 }) {
   const [editing, setEditing] = useState<string | null>(null)
   const [dayIndex, setDayIndex] = useState(0)
@@ -847,7 +882,7 @@ function WeekView({
 
   return (
     <div className="space-y-6">
-      <header className="flex items-center justify-between">
+      <header className="flex items-center justify-between gap-3">
         <div>
           <span className="eyebrow text-cyan-400">
             {program.config.program_kind === 'program' ? 'Programma Settimanale' : 'Sessione Singola'}
@@ -856,12 +891,20 @@ function WeekView({
             La Tua Settimana
           </h1>
         </div>
-        <button
-          onClick={onReset}
-          className="rounded-lg bg-steel px-3 py-1.5 text-xs text-slate-300 hover:text-white"
-        >
-          + Nuova
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={onEditConfig}
+            className="rounded-lg border border-cyan-500/40 bg-cyan-500/15 px-3 py-1.5 text-xs text-cyan-300 hover:text-white"
+          >
+            Modifica parametri
+          </button>
+          <button
+            onClick={onReset}
+            className="rounded-lg bg-steel px-3 py-1.5 text-xs text-slate-300 hover:text-white"
+          >
+            + Nuova
+          </button>
+        </div>
       </header>
 
       {program.warnings.map((warning) => (

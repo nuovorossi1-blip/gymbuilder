@@ -48,8 +48,15 @@ export interface HybridConfig {
 /** Rotazione di default su tutto il corpo: gambe, spinta, tirata, gambe posteriori, core. */
 const ROTAZIONE_BASE: Muscle[] = ['quads', 'chest', 'back', 'hamstrings', 'core']
 
+function muscleHybridAnchor(muscle: Muscle): Muscle {
+  if (muscle === 'front_delts' || muscle === 'lateral_delts' || muscle === 'triceps') return 'chest'
+  if (muscle === 'rear_delts' || muscle === 'biceps') return 'back'
+  if (muscle === 'glutes') return 'hamstrings'
+  return muscle
+}
+
 function ordineRotazione(priorita: Muscle[]): Muscle[] {
-  const prioritaInRotazione = priorita.filter((m) => ROTAZIONE_BASE.includes(m))
+  const prioritaInRotazione = [...new Set(priorita.map(muscleHybridAnchor))].filter((m) => ROTAZIONE_BASE.includes(m))
   const resto = ROTAZIONE_BASE.filter((m) => !prioritaInRotazione.includes(m))
   return [...prioritaInRotazione, ...resto]
 }
@@ -59,6 +66,18 @@ function prescrizioneForza(exp: Experience, intensity: Intensity) {
   const rest = { low: 60, medium: 75, high: 90 }[intensitaEffettiva]
   const sets = { beginner: 2, intermediate: 3, advanced: 3 }[exp]
   return { sets, reps: '8-12', rest }
+}
+
+function alleggerisciForzaHybrid(base: ReturnType<typeof prescrizioneForza>): ReturnType<typeof prescrizioneForza> {
+  return {
+    sets: Math.max(2, base.sets - 1),
+    reps: '10-15',
+    rest: Math.max(45, base.rest - 15),
+  }
+}
+
+function exerciseTargetsPriority(exercise: Exercise, priorities: Muscle[]): boolean {
+  return exercise.primary_muscles.some((muscle) => priorities.includes(muscle))
 }
 
 export function generaHybrid(catalogo: Exercise[], cfg: HybridConfig): GeneratedWorkout {
@@ -103,9 +122,11 @@ export function generaHybrid(catalogo: Exercise[], cfg: HybridConfig): Generated
         const bLunge = b.movement_pattern === 'lunge' || b.unilateral ? 1 : 0
         return aLunge - bLunge || b.systemic_fatigue - a.systemic_fatigue || a.technical_complexity - b.technical_complexity
       })
-    const bilaterali = candidatiForza.filter((e) => e.movement_pattern !== 'lunge' && !e.unilateral)
+    const focalizzati = candidatiForza.filter((e) => exerciseTargetsPriority(e, cfg.priority_muscles))
+    const baseForza = focalizzati.length > 0 ? focalizzati : candidatiForza
+    const bilaterali = baseForza.filter((e) => e.movement_pattern !== 'lunge' && !e.unilateral)
     const alzata = scegliCandidato(
-      (bilaterali.length > 0 ? bilaterali : candidatiForza.length > 0 ? candidatiForza : forzaPool).slice(0, 3),
+      (bilaterali.length > 0 ? bilaterali : baseForza.length > 0 ? baseForza : forzaPool).slice(0, 3),
       usati,
       cfg.priority_muscles,
       preferiti,
@@ -113,7 +134,10 @@ export function generaHybrid(catalogo: Exercise[], cfg: HybridConfig): Generated
     )
     if (alzata) {
       usati.add(alzata.id)
-      const p = prescrizioneForza(cfg.experience, intensity)
+      const focusCarenza = exerciseTargetsPriority(alzata, cfg.priority_muscles)
+      const p = focusCarenza
+        ? alleggerisciForzaHybrid(prescrizioneForza(cfg.experience, intensity))
+        : prescrizioneForza(cfg.experience, intensity)
       forza.push({
         exercise_id: alzata.id,
         name: alzata.name,
@@ -122,6 +146,7 @@ export function generaHybrid(catalogo: Exercise[], cfg: HybridConfig): Generated
         sets: p.sets,
         reps: p.reps,
         rest_sec: p.rest,
+        note: focusCarenza ? 'focus carenza: carico ridotto' : undefined,
         instructions: alzata.instructions || undefined,
       })
     }

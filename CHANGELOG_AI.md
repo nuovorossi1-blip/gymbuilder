@@ -1,5 +1,14 @@
 # Changelog AI
 
+## 2026-08-13 - Modifica parametri e muscoli carenti forti anche in CrossFit e Hybrid
+
+- La schermata di riepilogo ora espone `Modifica parametri`: il wizard si riapre con la configurazione gia compilata, compresi attrezzi, policy corpo libero/elastici, muscoli carenti e preferenze esercizi.
+- Le sessioni singole custom Bodybuilding sono state rese piu rigide sui target: niente fallback su muscoli non richiesti e distribuzione piu esplicita dei muscoli carenti.
+- In `CrossFit Standard` i muscoli carenti non sono piu un bias debole: se esiste un movimento `Forza/Skill` coerente con la carenza viene favorito davvero, ma con prescrizione prudente (`focus carenza: carico ridotto`) invece che da forza pura.
+- In `Hybrid` le carenze influenzano meglio anche la parte compound oltre agli isolamenti del Metcon, con ancoraggi piu coerenti per spalle, bicipiti e tricipiti.
+- Aggiunti test di regressione per modifica parametri, custom Bodybuilding e prescrizione prudente su carenze in CrossFit/Hybrid.
+- Verifica completata: `npm test` verde con 198 test passati e `npm run build` verde.
+
 ## 2026-08-13 - Resume coerente, custom BB pulito e CrossFit piu denso
 
 - `Crea` puo forzare un ingresso pulito con `?fresh=1`: da dashboard non riapre piu in automatico una vecchia settimana quando l'utente vuole una nuova sessione singola o una nuova pianificazione.
