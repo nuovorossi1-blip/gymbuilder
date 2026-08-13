@@ -280,7 +280,7 @@ const MAX_COMPOUND_PESANTI = 2
 
 const SHOULDER_MUSCLES: Muscle[] = ['front_delts', 'lateral_delts', 'rear_delts']
 const LOWER_MUSCLES = new Set<Muscle>(['quads', 'hamstrings', 'glutes', 'calves'])
-const COMPOUND_CAPABLE_MUSCLES = new Set<Muscle>(['chest', 'back', 'front_delts', 'quads', 'hamstrings', 'glutes', 'triceps'])
+const COMPOUND_CAPABLE_MUSCLES = new Set<Muscle>(['chest', 'back', 'front_delts', 'quads', 'hamstrings', 'glutes'])
 
 /**
  * Ordine di esecuzione, separato dalla scelta casuale della variante.
@@ -370,34 +370,36 @@ function applicaPrioritaAssegnate(base: SlotDef[], priority: Muscle[]): { slots:
 }
 
 function buildCustomTargetSlots(targets: Muscle[], priority: Muscle[], durationMin: number): SlotDef[] {
-  const orderedTargets = [...new Set(targets)]
-  const weighted: Muscle[] = []
-  for (const muscle of orderedTargets) {
-    weighted.push(muscle)
-    if (priority.includes(muscle)) weighted.push(muscle)
-  }
-  if (weighted.length === 0) return []
-
   const desiredSlots = durationMin < 45 ? 5 : 6
-  const slots: SlotDef[] = []
+  const orderedTargets = [...new Set(targets)].sort((a, b) => {
+    const aPriority = priority.includes(a) ? 0 : 1
+    const bPriority = priority.includes(b) ? 0 : 1
+    const aCompound = COMPOUND_CAPABLE_MUSCLES.has(a) ? 0 : 1
+    const bCompound = COMPOUND_CAPABLE_MUSCLES.has(b) ? 0 : 1
+    return aPriority - bPriority || aCompound - bCompound
+  })
+  if (orderedTargets.length === 0) return []
+
+  const slots: SlotDef[] = orderedTargets.map((muscle, index) => ({
+    muscle,
+    compound: index === 0 && COMPOUND_CAPABLE_MUSCLES.has(muscle),
+    weakPoint: priority.includes(muscle),
+    order: priority.includes(muscle) ? index : index + 10,
+  }))
   let compoundUsed = false
 
-  for (const muscle of weighted) {
-    const shouldUseCompound: boolean = !compoundUsed && COMPOUND_CAPABLE_MUSCLES.has(muscle)
-    slots.push({ muscle, compound: shouldUseCompound, weakPoint: priority.includes(muscle) })
-    compoundUsed = compoundUsed || shouldUseCompound
-    if (slots.length >= desiredSlots) break
-  }
+  for (const slot of slots) compoundUsed = compoundUsed || slot.compound
 
   let index = 0
   while (slots.length < desiredSlots) {
-    const muscle = weighted[index % weighted.length]
+    const muscle = orderedTargets[index % orderedTargets.length]
     const alreadyDirect = slots.filter((slot) => slot.muscle === muscle).length
     const lowerBias: boolean = priority.includes(muscle) || LOWER_MUSCLES.has(muscle)
     slots.push({
       muscle,
       compound: !compoundUsed && COMPOUND_CAPABLE_MUSCLES.has(muscle) && alreadyDirect === 0,
-      weakPoint: priority.includes(muscle) || lowerBias && alreadyDirect === 0,
+      weakPoint: priority.includes(muscle) || (lowerBias && alreadyDirect === 0),
+      order: priority.includes(muscle) ? index : index + 10,
     })
     compoundUsed = compoundUsed || slots[slots.length - 1].compound
     index++
@@ -558,7 +560,8 @@ export function generaBodybuilding(
 
   // 9. Validatore di sicurezza finale (sez. 22, 40): corregge, non si limita a segnalare.
   rimuoviDuplicati(scelti)
-  if (!portaCompoundInApertura(scelti)) warnings.push('Nessun esercizio multiarticolare disponibile con questa attrezzatura.')
+  const preserveWeakPointLead = customTargets.length > 0 && scelti[0]?.note === 'carenza'
+  if (!preserveWeakPointLead && !portaCompoundInApertura(scelti)) warnings.push('Nessun esercizio multiarticolare disponibile con questa attrezzatura.')
   if (scelti.length < 5) {
     warnings.push(
       `Con questa attrezzatura escono solo ${scelti.length} esercizi. ` +

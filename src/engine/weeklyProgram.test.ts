@@ -155,7 +155,7 @@ describe('Weekly Program Engine', () => {
       single_session_target_muscles: ['front_delts', 'lateral_delts', 'biceps', 'triceps', 'quads'],
     })
     expect(session.week).toHaveLength(1)
-    expect(session.week[0].priority_muscles).toEqual(['front_delts', 'lateral_delts', 'biceps', 'triceps', 'quads'])
+    expect(session.week[0].priority_muscles).toEqual(['lateral_delts', 'biceps', 'triceps'])
     expect(session.week[0].custom_target_muscles).toEqual(['front_delts', 'lateral_delts', 'biceps', 'triceps', 'quads'])
     expect(session.week[0].label).toContain('Deltoidi')
     expect(session.week[0].label).toContain('Bicipiti')

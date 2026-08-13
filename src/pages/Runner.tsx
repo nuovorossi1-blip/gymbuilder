@@ -81,10 +81,10 @@ export default function Runner() {
   const [intervalSottofase, setIntervalSottofase] = useState<'lavoro' | 'riposo'>('lavoro')
   const [intervalRimanente, setIntervalRimanente] = useState(0)
   const [finito, setFinito] = useState(false)
+  const [showExitModal, setShowExitModal] = useState(false)
   const [valutazione, setValutazione] = useState<string | null>(null)
   const [note, setNote] = useState('')
   const [salvataggio, setSalvataggio] = useState<'fermo' | 'salvo' | 'errore'>('fermo')
-  const [showExitModal, setShowExitModal] = useState<boolean>(false)
   const [runnerHydrated, setRunnerHydrated] = useState(false)
 
   // Previene lo standby dello schermo durante l'allenamento (Screen Wake Lock API)
@@ -449,12 +449,14 @@ export default function Runner() {
   const es = esercizi[fase.iEs]
 
   function interrompiAllenamento() {
-    setShowExitModal(true)
+    if (typeof window !== 'undefined' && !window.confirm('Vuoi davvero interrompere ed eliminare la sessione in corso?')) return
+    confermaUscita()
   }
 
   function tornaIndietro() {
     if (iniziato) {
-      setShowExitModal(true)
+      if (typeof window !== 'undefined' && !window.confirm('Vuoi davvero uscire dall\'allenamento in corso?')) return
+      confermaUscita()
     } else {
       naviga('/')
     }
@@ -465,7 +467,6 @@ export default function Runner() {
     resetBackgroundTimer(true)
     clearActiveSession()
     setWorkout(null)
-    setShowExitModal(false)
     naviga('/')
   }
 

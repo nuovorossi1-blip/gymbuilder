@@ -45,7 +45,7 @@ export default function HomeDashboard() {
     } else if (workout) {
       navigate('/avvia')
     } else {
-      navigate('/crea')
+      navigate('/crea?fresh=1')
     }
   }
 
@@ -197,7 +197,7 @@ export default function HomeDashboard() {
         <div className="grid grid-cols-1 gap-3">
           {/* Card 1: Settimana */}
           <button
-            onClick={() => navigate('/crea?program_kind=weekly_program')}
+            onClick={() => navigate('/crea?program_kind=weekly_program&fresh=1')}
             className="group relative flex items-center justify-between rounded-xl glass-card p-4 border border-edge text-left transition-all hover:border-cyan-500/40 active:scale-[0.99]"
           >
             <div className="flex items-center gap-3">
@@ -220,7 +220,7 @@ export default function HomeDashboard() {
 
           {/* Card 2: Sessione Singola */}
           <button
-            onClick={() => navigate('/crea?program_kind=single_session')}
+            onClick={() => navigate('/crea?program_kind=single_session&fresh=1')}
             className="group relative flex items-center justify-between rounded-xl glass-card p-4 border border-edge text-left transition-all hover:border-cyan-500/40 active:scale-[0.99]"
           >
             <div className="flex items-center gap-3">

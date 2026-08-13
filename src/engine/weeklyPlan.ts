@@ -329,7 +329,9 @@ export function generateWeeklyProgram(config: WeeklyProgramConfig): WeeklyProgra
       ? `${MODE_LABELS[mode]} · ${customMuscles.map((m) => MUSCLE_LABELS[m]).join(' + ')}`
       : split ? `${MODE_LABELS[mode]} — ${SPLIT_LABELS[split]}` : MODE_LABELS[mode]
 
-    const priority_muscles = customMuscles ?? config.weak_points.slice(0, 2)
+    const priority_muscles = customMuscles
+      ? customMuscles.filter((muscle) => config.weak_points.includes(muscle))
+      : config.weak_points.slice(0, 2)
     const muscle_load = customMuscles ?? (split ? SPLIT_LOAD[split] : GENERIC_LOAD[mode as keyof typeof GENERIC_LOAD])
 
     const session: WeeklySession = {

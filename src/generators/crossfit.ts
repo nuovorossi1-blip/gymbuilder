@@ -167,7 +167,7 @@ export function generaCrossFit(catalogo: Exercise[], cfg: CrossFitConfig): Gener
     strengthEsercizi.push(prescriviForzaSkill(lift1, cfg.experience, intensity))
   }
 
-  if (t.strength >= 15) {
+  if (t.strength >= 12) {
     const lift2 = scegliCandidato(upperPool.length > 0 ? upperPool : strengthPool, usati, cfg.priority_muscles, preferiti, random)
     if (lift2) {
       usati.add(lift2.id)
@@ -182,9 +182,9 @@ export function generaCrossFit(catalogo: Exercise[], cfg: CrossFitConfig): Gener
     warnings.push('Nessun esercizio disponibile per la parte Forza/Skill con questa attrezzatura.')
   }
 
-  // --- Metcon: formato scelto, con 3-4 movimenti sicuri sotto fatica, uno per categoria. ---
+  // --- Metcon: formato scelto, con 4-5 movimenti sicuri sotto fatica, uno per categoria. ---
   const metconPool = poolMetcon(allenamento, usati, cfg.experience)
-  const numMovimenti = t.metcon >= 15 ? 4 : 3
+  const numMovimenti = t.metcon >= 18 ? 5 : 4
   const circuito = costruisciCircuito(metconPool, numMovimenti, cfg.priority_muscles, preferiti, random)
   const metconEsercizi = circuito.map((m) => prescriviMetcon(m.exercise, m.categoria, cfg.experience, intensity))
 
@@ -192,7 +192,7 @@ export function generaCrossFit(catalogo: Exercise[], cfg: CrossFitConfig): Gener
 
   if (metconEsercizi.length === 0) {
     warnings.push('Nessun movimento disponibile per il Metcon con queste impostazioni.')
-  } else if (metconEsercizi.length < 3) {
+  } else if (metconEsercizi.length < 4) {
     warnings.push(
       `Con questa attrezzatura il Metcon ha solo ${metconEsercizi.length} movimenti. Aggiungendo attrezzi nel profilo diventa più vario.`
     )

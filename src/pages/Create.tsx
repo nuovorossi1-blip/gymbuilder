@@ -55,10 +55,15 @@ export default function Create() {
   const [error, setError] = useState<string | null>(null)
 
   const initialKind = searchParams.get('program_kind') === 'single_session' ? 'single_session' : 'program'
+  const freshEntry = searchParams.get('fresh') === '1'
   const [initialConfig] = useState<WeeklyProgramConfig>({
     ...DEFAULT_CONFIG,
     program_kind: initialKind,
   })
+
+  useEffect(() => {
+    if (freshEntry && weeklyProgram) setWeeklyProgram(null)
+  }, [freshEntry, weeklyProgram, setWeeklyProgram])
 
   useEffect(() => {
     caricaCatalogo().then((items) => {

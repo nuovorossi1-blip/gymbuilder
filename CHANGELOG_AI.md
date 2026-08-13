@@ -1,5 +1,14 @@
 # Changelog AI
 
+## 2026-08-13 - Resume coerente, custom BB pulito e CrossFit piu denso
+
+- `Crea` puo forzare un ingresso pulito con `?fresh=1`: da dashboard non riapre piu in automatico una vecchia settimana quando l'utente vuole una nuova sessione singola o una nuova pianificazione.
+- La sessione singola Bodybuilding con gruppi personalizzati tratta come priorita solo i muscoli selezionati che sono anche carenze, evitando di consumare slot e di perdere gruppi richiesti come bicipiti e tricipiti.
+- Il builder custom Bodybuilding mantiene 5-6 esercizi, preserva l'apertura sui muscoli carenti e impedisce l'inserimento di compound petto se il petto non e stato selezionato.
+- Il Runner ora usa una conferma d'uscita immediata per `Indietro` e `Stop/Elimina`, cosi i pulsanti tornano a funzionare anche a sessione gia iniziata.
+- Il CrossFit Standard e stato reso piu ricco: seconda alzata gia da budget forza medio e Metcon portato a 4-5 movimenti quando l'attrezzatura lo consente, sempre nel rispetto dei filtri equipment.
+- Verifica completata: `npm test` verde con 195 test passati e `npm run build` verde.
+
 ## 2026-08-13 - Target custom BB, livelli esperienza reali e DeepSeek locale
 
 - Ripristinate tre fasce esperienza distinte nell'interfaccia: `Principiante`, `Intermedio`, `Avanzato`.

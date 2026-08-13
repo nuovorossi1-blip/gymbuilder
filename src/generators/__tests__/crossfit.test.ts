@@ -74,15 +74,15 @@ describe('generaCrossFit — struttura (Forza/Skill + Metcon AMRAP)', () => {
     expect(emom.rounds).toBeGreaterThan(0)
   })
 
-  it('con palestra completa il Metcon ha fra 3 e 4 movimenti', () => {
+  it('con palestra completa il Metcon ha fra 4 e 5 movimenti', () => {
     for (const durata of [30, 45, 60, 75, 90]) {
       const w = generaCrossFit(catalogo, {
         experience: 'intermediate', equipment: 'full_gym', duration_min: durata,
         priority_muscles: [], excluded_exercises: [], seed: 7,
       })
       const n = metconBlock(w).exercises.length
-      expect(n).toBeGreaterThanOrEqual(3)
-      expect(n).toBeLessThanOrEqual(4)
+      expect(n).toBeGreaterThanOrEqual(4)
+      expect(n).toBeLessThanOrEqual(5)
     }
   })
 

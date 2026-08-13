@@ -270,6 +270,25 @@ describe('generaBodybuilding — scenario critico sez. 28 della correzione', () 
       return !original?.primary_muscles.includes('chest')
     })).toBe(true)
   })
+
+  it('sessione custom con tre gruppi mantiene 6 esercizi e non perde i bicipiti', () => {
+    const w = generaBodybuilding(catalogo, {
+      split: 'full_body',
+      goal: 'hypertrophy',
+      experience: 'intermediate',
+      equipment: 'full_gym',
+      duration_min: 60,
+      target_muscles: ['front_delts', 'triceps', 'biceps'],
+      priority_muscles: ['triceps'],
+      excluded_exercises: [],
+      seed: 25,
+    })
+
+    const main = mainBlock(w).exercises
+    expect(main).toHaveLength(6)
+    expect(main.map((exercise) => exercise.muscle)).toEqual(expect.arrayContaining(['front_delts', 'triceps', 'biceps']))
+    expect(main[0].muscle).toBe('triceps')
+  })
 })
 
 describe('generaBodybuilding — esercizi preferiti (sez. 10, 33)', () => {
