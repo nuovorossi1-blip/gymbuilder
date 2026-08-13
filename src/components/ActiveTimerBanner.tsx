@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { ACTIVE_TIMER_EVENT, readActiveTimer, type ActiveTimerState } from '../engine/backgroundTimer'
+import { useWorkout } from '../features/workout/WorkoutContext'
 
 export function ActiveTimerBanner() {
   const [timerState, setTimerState] = useState<ActiveTimerState | null>(() => readActiveTimer())
   const [remaining, setRemaining] = useState<number>(0)
   const location = useLocation()
   const navigate = useNavigate()
+  const { resumeActiveSession } = useWorkout()
 
   useEffect(() => {
     const handleTimerChange = (event: Event) => {
@@ -42,7 +44,7 @@ export function ActiveTimerBanner() {
 
   return (
     <div
-      onClick={() => navigate('/avvia')}
+      onClick={() => { resumeActiveSession(); navigate('/avvia') }}
       className="fixed top-2 left-3 right-3 z-50 flex items-center justify-between gap-3 rounded-2xl border border-amber-500/40 bg-zinc-950/90 px-4 py-3 shadow-2xl backdrop-blur-xl transition-all active:scale-[0.98] cursor-pointer animate-in fade-in slide-in-from-top-2"
     >
       <div className="flex items-center gap-3">

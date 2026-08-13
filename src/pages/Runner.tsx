@@ -11,6 +11,7 @@ import { notifyTimerEvent, notifyTimerSnapshot, publishBackgroundTimer, requestT
 
 type Fase = { tipo: 'serie'; iEs: number; serie: number } | { tipo: 'recupero'; iEs: number; serie: number; sec: number }
 type RunnerProgress = {
+  sessionId?: string
   workoutName: string
   iniziato: boolean
   sezione: 'principale' | 'metcon'
@@ -47,7 +48,7 @@ const VALUTAZIONI = [
 
 export default function Runner() {
   const { user } = useAuth()
-  const { workout, setWorkout } = useWorkout()
+  const { workout, activeSession, resumeActiveSession, clearActiveSession, setWorkout } = useWorkout()
   const naviga = useNavigate()
 
   const esercizi = workout?.blocks.find((b) => b.kind === 'main')?.exercises ?? []
@@ -126,6 +127,10 @@ export default function Runner() {
 
   if (!audio.current) audio.current = new TimerAudio(audioSettings)
 
+  useEffect(() => {
+    if (activeSession && (!workout || workout.name !== activeSession.workout.name)) resumeActiveSession()
+  }, [activeSession, workout, resumeActiveSession])
+
   // Ripristino dello stato esatto di avanzamento se l'utente torna sulla pagina
   useEffect(() => {
     try {
@@ -135,7 +140,8 @@ export default function Runner() {
         return
       }
       const progress = JSON.parse(raw) as RunnerProgress
-      if (progress.workoutName === workout.name && progress.iniziato) {
+      const sameSession = progress.sessionId ? progress.sessionId === activeSession?.id : progress.workoutName === workout.name
+      if (sameSession && progress.iniziato) {
         const now = Date.now()
         setIniziato(true)
         setSezione(progress.sezione)
@@ -192,6 +198,7 @@ export default function Runner() {
       return
     }
     const progress: RunnerProgress = {
+      sessionId: activeSession?.id,
       workoutName: workout.name,
       iniziato,
       sezione,
@@ -218,6 +225,7 @@ export default function Runner() {
     }
     try { localStorage.setItem(RUNNER_PROGRESS_KEY, JSON.stringify(progress)) } catch { /* opzionale */ }
   }, [
+    activeSession?.id,
     workout, iniziato, finito, sezione, fase, rimanente, inPausa, metconFase, metconRimanente,
     metconGiri, metconInPausa, metconTrascorsi, intervalIndice, intervalSottofase, intervalRimanente, countdown,
   ])
@@ -403,6 +411,15 @@ export default function Runner() {
     }
   }, [runnerHydrated, isTabata, countdown, metconFase, metconBlock?.interval_sec, emit])
 
+  if (!workout && activeSession) {
+    return (
+      <div className="px-5 pt-12">
+        <h1 className="font-display font-extrabold uppercase text-3xl tracking-tight">Ripristino allenamento</h1>
+        <p className="mt-3 text-slate2 text-[15px]">Sto riaprendo la sessione attiva.</p>
+      </div>
+    )
+  }
+
   if (!workout || (esercizi.length === 0 && metconEsercizi.length === 0)) {
     return (
       <div className="px-5 pt-12">
@@ -446,6 +463,7 @@ export default function Runner() {
   function confermaUscita() {
     try { localStorage.removeItem(RUNNER_PROGRESS_KEY) } catch { /* opzionale */ }
     resetBackgroundTimer(true)
+    clearActiveSession()
     setWorkout(null)
     setShowExitModal(false)
     naviga('/')
@@ -491,6 +509,7 @@ export default function Runner() {
         valutazione,
         note.trim() || null
       )
+      clearActiveSession()
       setWorkout(null)
       naviga('/')
     } catch {

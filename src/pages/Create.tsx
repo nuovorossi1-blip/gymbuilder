@@ -6,6 +6,7 @@ import { applyAutomaticProgramming, applyWorkoutRecovery, generateWeeklyProgram,
 import { adaptPrescriptionForProfile, resolveEffectiveWeakPoints } from '../engine/biomechanics'
 import { validateWorkout } from '../engine/validator'
 import { useAuth } from '../features/auth/AuthProvider'
+import { loadLocalAiSettings } from '../features/profile/aiSettings'
 import { useSettings } from '../features/profile/useSettings'
 import { useWorkout } from '../features/workout/WorkoutContext'
 import { generaBodybuilding } from '../generators/bodybuilding'
@@ -16,6 +17,7 @@ import { generaForza } from '../generators/strength'
 import { generaTabata } from '../generators/tabata'
 import type { WeeklyTrainingState } from '../generators/weakPoints'
 import { aggiornaProgramma, caricaCatalogo, salvaProgramma, situazioneSettimanaleUtente } from '../lib/api'
+import { suggestWorkoutConfigWithDeepSeek } from '../lib/deepseek'
 import {
   DURATIONS, EQUIPMENT_ITEM_LABELS, EQUIPMENT_LABELS, EXERCISE_POLICY_LABELS,
   MODE_LABELS, MUSCLE_LABELS, PUBLIC_MODES, SPLIT_LABELS,
@@ -46,7 +48,7 @@ export default function Create() {
   const [searchParams] = useSearchParams()
   const { user } = useAuth()
   const { profile } = useSettings(user?.id)
-  const { weeklyProgram, setWeeklyProgram, setWorkout, setGenerationConfig, setCatalog, clearRejectedExercises } = useWorkout()
+  const { weeklyProgram, setWeeklyProgram, setWorkout, setGenerationConfig, setCatalog, startWorkoutSession, clearRejectedExercises } = useWorkout()
   const navigate = useNavigate()
   const [catalog, setLocalCatalog] = useState<Exercise[]>([])
   const [weeklyState, setWeeklyState] = useState<WeeklyTrainingState>()
@@ -123,7 +125,7 @@ export default function Create() {
       : session.mode === 'crossfit_hybrid' ? generaHybrid(dayCatalog, { ...common, priority_muscles: session.priority_muscles, method: global.program_kind === 'single_session' ? global.hybrid_method : session.priority_muscles.length > 0 ? 'specialization' : global.hybrid_method, format: (session.metcon_format === 'amrap' || session.metcon_format === 'emom' || session.metcon_format === 'for_time' || session.metcon_format === 'intervals') ? session.metcon_format : global.hybrid_format })
       : session.mode === 'strength' ? generaForza(dayCatalog, { ...common, split, method: global.strength_method, weekly_volume: weeklyState?.volume, last_trained_at: weeklyState?.last_trained_at })
       : session.mode === 'tabata' ? generaTabata(dayCatalog, { ...common, ...global.tabata })
-      : generaBodybuilding(dayCatalog, { ...common, priority_muscles: session.priority_muscles ?? global.weak_points, split, goal: 'hypertrophy', weekly_volume: weeklyState?.volume, last_trained_at: weeklyState?.last_trained_at })
+      : generaBodybuilding(dayCatalog, { ...common, priority_muscles: session.priority_muscles ?? global.weak_points, target_muscles: session.custom_target_muscles, split, goal: 'hypertrophy', weekly_volume: weeklyState?.volume, last_trained_at: weeklyState?.last_trained_at })
     if (forzaCrossFit && session.mode === 'crossfit') workout.name = `Forza + CrossFit · ${workout.name}`
     if (forzaCrossFit && session.mode === 'crossfit') workout.mode = 'crossfit'
     if (global.selected_modes.includes('bodybuilding') && global.selected_modes.includes('strength') && session.mode === 'strength') workout.name = `Powerlifting · ${workout.name}`
@@ -152,6 +154,7 @@ export default function Create() {
     setWorkout(workout)
     setError(null)
     if (session.mode === 'tabata') {
+      startWorkoutSession(workout, config)
       navigate('/avvia')
     } else {
       navigate('/allenamento')
@@ -197,6 +200,9 @@ function WizardBuilder({
   const [advanced, setAdvanced] = useState(false)
   const [exercisePreferences, setExercisePreferences] = useState(false)
   const [singleSessionMode, setSingleSessionMode] = useState<'custom_muscles' | 'preset_split'>('custom_muscles')
+  const [aiPrompt, setAiPrompt] = useState('')
+  const [aiState, setAiState] = useState<'idle' | 'loading' | 'error'>('idle')
+  const [aiError, setAiError] = useState<string | null>(null)
 
   const valid =
     config.selected_modes.length > 0 &&
@@ -234,6 +240,23 @@ function WizardBuilder({
   const goBack = () => {
     setSlideDirection('right')
     setStep(1)
+  }
+
+  async function generateWithAi() {
+    setAiState('loading')
+    setAiError(null)
+    try {
+      const aiSettings = loadLocalAiSettings()
+      const patch = await suggestWorkoutConfigWithDeepSeek(aiSettings, {
+        config,
+        prompt: aiPrompt.trim() || 'Ottimizza la configurazione GymBuilder rispettando il contesto scelto.',
+      })
+      await onCreate({ ...config, ...patch })
+      setAiState('idle')
+    } catch (reason) {
+      setAiState('error')
+      setAiError(reason instanceof Error ? reason.message : 'Non siamo riusciti a generare con DeepSeek.')
+    }
   }
 
   return (
@@ -330,6 +353,15 @@ function WizardBuilder({
               <span>PROSEGUI ALLO STEP 2 (Swipe 👈)</span>
             </button>
           </div>
+          {!config.selected_modes.includes('tabata') && (
+            <button
+              disabled={!valid || !loadLocalAiSettings().deepseek_api_key.trim() || aiState === 'loading'}
+              onClick={() => { void generateWithAi() }}
+              className="w-full rounded-xl border border-cyan-500/40 bg-cyan-500/15 py-4 font-display font-bold uppercase text-cyan-200 shadow-md transition-transform active:scale-[0.98] disabled:opacity-40"
+            >
+              {aiState === 'loading' ? 'DeepSeek sta ottimizzando...' : 'Genera con DeepSeek'}
+            </button>
+          )}
         </SwipeContainer>
       )}
 
@@ -381,6 +413,25 @@ function WizardBuilder({
                 </Field>
               )}
             </>
+          )}
+
+          {!config.selected_modes.includes('tabata') && (
+            <Field title="Livello di Esperienza">
+              <Grid>
+                {([
+                  ['beginner', 'Intermedio · include Principiante'],
+                  ['advanced', 'Avanzato · include Esperto'],
+                ] as const).map(([experience, label]) => (
+                  <Choice
+                    key={experience}
+                    active={config.experience === experience}
+                    onClick={() => patch('experience', experience)}
+                  >
+                    {label}
+                  </Choice>
+                ))}
+              </Grid>
+            </Field>
           )}
 
           {config.program_kind === 'single_session' &&
@@ -650,6 +701,24 @@ function WizardBuilder({
                     </Choice>
                   ))}
                 </div>
+              </Field>
+
+              <Field title="Assistente AI (DeepSeek)">
+                <p className="text-xs text-slate-300">
+                  Scrivi un focus libero. DeepSeek suggerisce la configurazione e poi GymBuilder genera il workout finale con il motore interno.
+                </p>
+                <textarea
+                  className="input min-h-28"
+                  value={aiPrompt}
+                  onChange={(event) => setAiPrompt(event.target.value)}
+                  placeholder="Esempio: rapido upper con priorita' deltoidi e tricipiti, poco volume sul petto, massimo focus su un gruppo carente."
+                />
+                {!loadLocalAiSettings().deepseek_api_key.trim() && (
+                  <p className="text-xs text-amber-300">
+                    Aggiungi prima la chiave API DeepSeek nella pagina Profilo.
+                  </p>
+                )}
+                {aiError && <p className="text-xs text-red-400">{aiError}</p>}
               </Field>
 
               <Field title="Preferenze Esercizi">

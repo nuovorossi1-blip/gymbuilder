@@ -149,6 +149,14 @@ export interface GeneratedWorkout {
   est_kcal?: number
 }
 
+export interface ActiveWorkoutSession {
+  id: string
+  started_at: number
+  updated_at: number
+  workout: GeneratedWorkout
+  generation_config: WorkoutGenerationConfig | null
+}
+
 /** Dati stabili dell'utente. Non contiene preferenze della singola generazione. */
 export interface UserProfile {
   id: string
@@ -241,6 +249,8 @@ export interface WeeklySession {
   recovery_profile: RecoveryProfile
   /** Carenze assegnate a questa seduta dal programma, non tutte quelle globali. */
   priority_muscles: Muscle[]
+  /** Target espliciti scelti dall'utente per una seduta singola guidata per gruppi muscolari. */
+  custom_target_muscles?: Muscle[]
   /** Muscoli da non ricaricare con esercizi medio-pesanti il giorno successivo. */
   fatigue_avoid_muscles?: Muscle[]
   /** Formato operativo assegnato dal motore alla singola giornata metabolica. */
@@ -336,8 +346,8 @@ export interface CompletedWorkout {
 // --- Etichette in italiano, tenute fuori dai componenti (sez. 87) ---
 
 export const EXPERIENCE_LABELS: Record<Experience, string> = {
-  beginner: 'Principiante (include Intermedio)',
-  intermediate: 'Principiante (include Intermedio)',
+  beginner: 'Intermedio',
+  intermediate: 'Intermedio',
   advanced: 'Avanzato',
 }
 

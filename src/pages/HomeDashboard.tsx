@@ -9,7 +9,7 @@ import { SwipeContainer } from '../components/SwipeContainer'
 export default function HomeDashboard() {
   const navigate = useNavigate()
   const { user } = useAuth()
-  const { workout, setWorkout, catalog } = useWorkout()
+  const { workout, activeSession, resumeActiveSession, setWorkout, catalog } = useWorkout()
   const [savedList, setSavedList] = useState<SavedWorkout[]>([])
   const [lastCompleted, setLastCompleted] = useState<CompletedWorkout | null>(null)
   const [loadingSaved, setLoadingSaved] = useState(false)
@@ -39,7 +39,10 @@ export default function HomeDashboard() {
   }, [user])
 
   const handleStartWorkout = () => {
-    if (workout) {
+    if (activeSession) {
+      resumeActiveSession()
+      navigate('/avvia')
+    } else if (workout) {
       navigate('/avvia')
     } else {
       navigate('/crea')
@@ -107,7 +110,7 @@ export default function HomeDashboard() {
       <div className="relative overflow-hidden rounded-2xl glass-card border border-cyan-500/30 p-5 shadow-2xl">
         <div className="absolute top-0 right-0 -mr-6 -mt-6 h-28 w-28 rounded-full bg-cyan-500/10 blur-2xl pointer-events-none" />
 
-        {workout ? (
+        {activeSession ? (
           <>
             <div className="flex items-center justify-between mb-3">
               <span className="inline-flex items-center gap-1.5 rounded-full bg-cyan-500/20 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-cyan-300">
@@ -120,11 +123,11 @@ export default function HomeDashboard() {
             </div>
 
             <h2 className="font-display text-xl font-bold text-white mb-1">
-              {workout.name}
+              {activeSession.workout.name}
             </h2>
 
             <p className="text-xs text-slate-300 mb-5">
-              {workout.duration_min} min · {workout.blocks.length} blocchi pronti
+              {activeSession.workout.duration_min} min · {activeSession.workout.blocks.length} blocchi pronti
             </p>
 
             <button

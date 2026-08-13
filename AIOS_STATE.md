@@ -4,7 +4,7 @@
 > da qui. Va **aggiornato** a ogni sessione, non accodato all'infinito.
 > L'identità del progetto e il percorso di AI-OS stanno in `AIOS_PROJECT.json`.
 
-**Ultimo aggiornamento:** 2026-08-12 (resume runner affidabile e toolchain cross-platform) - Codex
+**Ultimo aggiornamento:** 2026-08-13 (custom target BB, livelli esperienza distinti, DeepSeek locale) - Codex
 
 Etichette: `[FACT]` verificato nel codice · `[RICOSTRUITO]` dedotto da indizi ·
 `[IGNOTO]` non ricavabile dal repository
@@ -556,5 +556,6 @@ prese singolarmente non sarebbero verificabili.
 | 2026-08-07 | Codex | Corretti test CrossFit: warning ripetuti aggregati, formati diversi assegnati alle giornate e istruzioni operative per tutti i WOD. Corda riclassificata monostrutturale: Single Under principiante e Double Under avanzato anche in Hybrid; catalogo remoto aggiornato. 188 test verdi. |
 | 2026-08-12 | Antigravity | Completa la riprogettazione UI/UX Dark Glassmorphic (Fasi 1-5): Dashboard Home "Oggi", Navbar inferiore a 4 tab neon, Wizard "Crea" a 3 step con gesti swipe, Modal gratificante di salvataggio e Libreria Salvati con azioni 1-tap. 192 test verdi, 0 errori ESLint, build OK, pubblicato su Vercel. |
 | 2026-08-12 | Codex | Corretto il resume del Runner durante background/riapertura: la sessione attiva salva e ripristina stato completo, countdown, deadline reali e avanzamento Tabata/Metcon senza ripartire da capo al ritorno su `/avvia`. Rimossa inoltre la devDependency Linux-only `@rolldown/binding-linux-x64-gnu`, che bloccava `npm install` su Windows. Verifica completata: 193 test verdi e build produzione riuscita. |
+| 2026-08-12 | Codex | Introdotta una sessione attiva globale persistente nel `WorkoutContext`: Home, anteprima, salvati, `/avvia` e banner timer riaprono la stessa sessione invece di crearne una nuova. `public/sw.js` ora rifocalizza la finestra corretta e invia `RESUME_ACTIVE_SESSION`; la sincronizzazione fra istanze browser usa anche l'evento `storage`. Integrata la base Android con Capacitor (`android/`, `capacitor.config.ts`, script dedicati) configurata per caricare `https://gymbuilder-lemon.vercel.app`, cos? i deploy frontend aggiornano automaticamente l'app installata. Verifiche: test verdi, build verde, `cap:sync` riuscito; `assembleDebug` bloccato solo da Android SDK locale mancante (`ANDROID_HOME` / `sdk.dir`). |
 
 

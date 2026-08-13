@@ -8,7 +8,7 @@ import { SwipeContainer } from '../components/SwipeContainer'
 
 export default function Saved() {
   const { user } = useAuth()
-  const { catalog, setCatalog, setWorkout, setGenerationConfig } = useWorkout()
+  const { catalog, setCatalog, setWorkout, setGenerationConfig, startWorkoutSession } = useWorkout()
   const naviga = useNavigate()
   const [lista, setLista] = useState<SavedWorkout[] | null>(null)
   const [errore, setErrore] = useState<string | null>(null)
@@ -39,12 +39,14 @@ export default function Saved() {
         } : prescribed
       }),
     }))
-    setGenerationConfig(s.generation_config ?? null)
-    setWorkout({
+    const nextWorkout = {
       name: s.name, mode: s.mode as Mode, split: s.split as Split | null,
       goal: s.goal as Goal, experience: s.experience as never,
       duration_min: s.duration_min, blocks, warnings: [],
-    })
+    }
+    setGenerationConfig(s.generation_config ?? null)
+    setWorkout(nextWorkout)
+    if (startImmediate) startWorkoutSession(nextWorkout, s.generation_config ?? null)
     naviga(startImmediate ? '/avvia' : '/allenamento')
   }
 

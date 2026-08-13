@@ -50,10 +50,25 @@ self.addEventListener('notificationclick', (event) => {
   event.notification.close()
   const href = event.notification.data?.href || '/avvia'
   event.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(async (clients) => {
-    const existing = clients[0]
-    if (existing) {
-      await existing.navigate(href)
-      return existing.focus()
+    const exact = clients.find((client) => {
+      try {
+        return new URL(client.url).pathname === href
+      } catch {
+        return false
+      }
+    })
+    const fallback = exact || clients.find((client) => {
+      try {
+        return new URL(client.url).origin === self.location.origin
+      } catch {
+        return false
+      }
+    })
+    if (fallback) {
+      fallback.postMessage({ type: 'RESUME_ACTIVE_SESSION', href, source: 'notification' })
+      if (exact) return fallback.focus()
+      await fallback.navigate(href)
+      return fallback.focus()
     }
     return self.clients.openWindow(href)
   }))

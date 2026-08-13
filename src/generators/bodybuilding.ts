@@ -42,6 +42,7 @@ export interface GenerationConfig {
   available_equipment?: EquipmentItem[] | null
   duration_min: number
   priority_muscles: Muscle[]
+  target_muscles?: Muscle[]
   excluded_exercises: string[]
   /** Esercizi preferiti dall'utente (sez. 33/10 della correzione): priorità, non obbligo. */
   preferred_exercises?: string[]
@@ -278,6 +279,8 @@ const SOGLIA_PESANTE = 3
 const MAX_COMPOUND_PESANTI = 2
 
 const SHOULDER_MUSCLES: Muscle[] = ['front_delts', 'lateral_delts', 'rear_delts']
+const LOWER_MUSCLES = new Set<Muscle>(['quads', 'hamstrings', 'glutes', 'calves'])
+const COMPOUND_CAPABLE_MUSCLES = new Set<Muscle>(['chest', 'back', 'front_delts', 'quads', 'hamstrings', 'glutes', 'triceps'])
 
 /**
  * Ordine di esecuzione, separato dalla scelta casuale della variante.
@@ -366,6 +369,48 @@ function applicaPrioritaAssegnate(base: SlotDef[], priority: Muscle[]): { slots:
   return { slots, requirements }
 }
 
+function buildCustomTargetSlots(targets: Muscle[], priority: Muscle[], durationMin: number): SlotDef[] {
+  const orderedTargets = [...new Set(targets)]
+  const weighted: Muscle[] = []
+  for (const muscle of orderedTargets) {
+    weighted.push(muscle)
+    if (priority.includes(muscle)) weighted.push(muscle)
+  }
+  if (weighted.length === 0) return []
+
+  const desiredSlots = durationMin < 45 ? 5 : 6
+  const slots: SlotDef[] = []
+  let compoundUsed = false
+
+  for (const muscle of weighted) {
+    const shouldUseCompound: boolean = !compoundUsed && COMPOUND_CAPABLE_MUSCLES.has(muscle)
+    slots.push({ muscle, compound: shouldUseCompound, weakPoint: priority.includes(muscle) })
+    compoundUsed = compoundUsed || shouldUseCompound
+    if (slots.length >= desiredSlots) break
+  }
+
+  let index = 0
+  while (slots.length < desiredSlots) {
+    const muscle = weighted[index % weighted.length]
+    const alreadyDirect = slots.filter((slot) => slot.muscle === muscle).length
+    const lowerBias: boolean = priority.includes(muscle) || LOWER_MUSCLES.has(muscle)
+    slots.push({
+      muscle,
+      compound: !compoundUsed && COMPOUND_CAPABLE_MUSCLES.has(muscle) && alreadyDirect === 0,
+      weakPoint: priority.includes(muscle) || lowerBias && alreadyDirect === 0,
+    })
+    compoundUsed = compoundUsed || slots[slots.length - 1].compound
+    index++
+  }
+
+  if (!compoundUsed) {
+    const compoundIndex = slots.findIndex((slot) => COMPOUND_CAPABLE_MUSCLES.has(slot.muscle))
+    if (compoundIndex >= 0) slots[compoundIndex] = { ...slots[compoundIndex], compound: true }
+  }
+
+  return ordinaSlot('full_body', slots.slice(0, 6))
+}
+
 export function generaBodybuilding(
   catalogo: Exercise[],
   cfg: GenerationConfig
@@ -385,8 +430,9 @@ export function generaBodybuilding(
   const riscaldamentoPool = disponibili.filter((e) => e.roles.includes('warmup'))
 
   // 4. Struttura: 5 slot fissi + un sesto secondo tempo e priorità settimanali.
-  const pool = SPLIT_MUSCLE_POOL[cfg.split]
   const priorities = cfg.priority_muscles ?? []
+  const customTargets = cfg.target_muscles?.length ? [...new Set(cfg.target_muscles)] : []
+  const pool = customTargets.length > 0 ? customTargets : SPLIT_MUSCLE_POOL[cfg.split]
   let base = BASE_SLOTS[cfg.split]
   // Specializzazione Push del documento BB: dopo due press per il petto,
   // laterali, un compound più stabile, quindi bicipiti e tricipiti.
@@ -400,7 +446,9 @@ export function generaBodybuilding(
       { muscle: 'triceps', compound: false, order: 5 },
     ]
   }
-  const structured = applicaPrioritaAssegnate(base, priorities)
+  const structured = customTargets.length > 0
+    ? { slots: buildCustomTargetSlots(customTargets, priorities, cfg.duration_min), requirements: customTargets }
+    : applicaPrioritaAssegnate(base, priorities)
   const baseSlot = structured.slots
   const target = cfg.split === 'bro_chest'
     ? 5
@@ -408,9 +456,11 @@ export function generaBodybuilding(
 
   // 6. Sesto slot: prima le priorità assegnate dalla settimana, poi l'extra dello split.
   const extraSlot: SlotDef[] = []
-  for (const s of EXTRA_SLOTS[cfg.split]) {
-    if (baseSlot.length + extraSlot.length >= target) break
-    extraSlot.push(s)
+  if (customTargets.length === 0) {
+    for (const s of EXTRA_SLOTS[cfg.split]) {
+      if (baseSlot.length + extraSlot.length >= target) break
+      extraSlot.push(s)
+    }
   }
   const slot = ordinaSlot(cfg.split, [...baseSlot, ...extraSlot])
 

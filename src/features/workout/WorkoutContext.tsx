@@ -1,7 +1,8 @@
-import { createContext, useContext, useState, type ReactNode } from 'react'
-import type { Exercise, GeneratedWorkout, WeeklyProgram, WorkoutGenerationConfig } from '../../types'
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import type { ActiveWorkoutSession, Exercise, GeneratedWorkout, WeeklyProgram, WorkoutGenerationConfig } from '../../types'
 
 const CHIAVE = 'gymbuilder:allenamento'
+const ACTIVE_SESSION_KEY = `${CHIAVE}:active-session:v1`
 
 interface Valore {
   workout: GeneratedWorkout | null
@@ -12,6 +13,10 @@ interface Valore {
   setCatalog: (catalog: Exercise[]) => void
   weeklyProgram: WeeklyProgram | null
   setWeeklyProgram: (program: WeeklyProgram | null) => void
+  activeSession: ActiveWorkoutSession | null
+  startWorkoutSession: (workout: GeneratedWorkout, config?: WorkoutGenerationConfig | null) => ActiveWorkoutSession
+  resumeActiveSession: () => boolean
+  clearActiveSession: () => void
   rejectedExerciseIds: string[]
   rejectExercise: (id: string) => void
   clearRejectedExercises: () => void
@@ -41,6 +46,12 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
     try {
       const raw = localStorage.getItem(`${CHIAVE}:weekly:v1`) || sessionStorage.getItem(`${CHIAVE}:weekly:v1`)
       return raw ? JSON.parse(raw) as WeeklyProgram : null
+    } catch { return null }
+  })
+  const [activeSession, setActiveSessionState] = useState<ActiveWorkoutSession | null>(() => {
+    try {
+      const raw = localStorage.getItem(ACTIVE_SESSION_KEY)
+      return raw ? JSON.parse(raw) as ActiveWorkoutSession : null
     } catch { return null }
   })
   const [rejectedExerciseIds, setRejectedExerciseIds] = useState<string[]>(() => {
@@ -78,6 +89,71 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
     } catch { /* si continua senza persistenza locale */ }
   }
 
+  function persistActiveSession(session: ActiveWorkoutSession | null) {
+    setActiveSessionState(session)
+    try {
+      if (session) localStorage.setItem(ACTIVE_SESSION_KEY, JSON.stringify(session))
+      else localStorage.removeItem(ACTIVE_SESSION_KEY)
+    } catch {
+      /* si continua senza persistenza locale */
+    }
+  }
+
+  function startWorkoutSession(workout: GeneratedWorkout, config: WorkoutGenerationConfig | null = generationConfig) {
+    const now = Date.now()
+    const next: ActiveWorkoutSession = {
+      id: `session-${now}-${Math.random().toString(36).slice(2, 8)}`,
+      started_at: now,
+      updated_at: now,
+      workout,
+      generation_config: config,
+    }
+    setWorkout(workout)
+    updateGenerationConfig(config)
+    persistActiveSession(next)
+    return next
+  }
+
+  function resumeActiveSession() {
+    if (!activeSession) return false
+    setWorkout(activeSession.workout)
+    updateGenerationConfig(activeSession.generation_config)
+    persistActiveSession({ ...activeSession, updated_at: Date.now() })
+    return true
+  }
+
+  function clearActiveSession() {
+    persistActiveSession(null)
+  }
+
+  useEffect(() => {
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === ACTIVE_SESSION_KEY) {
+        try {
+          setActiveSessionState(event.newValue ? JSON.parse(event.newValue) as ActiveWorkoutSession : null)
+        } catch {
+          setActiveSessionState(null)
+        }
+      }
+      if (event.key === CHIAVE) {
+        try {
+          set(event.newValue ? JSON.parse(event.newValue) as GeneratedWorkout : null)
+        } catch {
+          set(null)
+        }
+      }
+      if (event.key === `${CHIAVE}:config`) {
+        try {
+          setGenerationConfig(event.newValue ? JSON.parse(event.newValue) as WorkoutGenerationConfig : null)
+        } catch {
+          setGenerationConfig(null)
+        }
+      }
+    }
+    window.addEventListener('storage', onStorage)
+    return () => window.removeEventListener('storage', onStorage)
+  }, [])
+
   function rejectExercise(id: string) {
     setRejectedExerciseIds((current) => {
       const next = current.includes(id) ? current : [...current, id]
@@ -91,7 +167,23 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
     try { sessionStorage.removeItem(`${CHIAVE}:rejected`) } catch { /* opzionale */ }
   }
 
-  return <Ctx.Provider value={{ workout, setWorkout, generationConfig, setGenerationConfig: updateGenerationConfig, catalog, setCatalog, weeklyProgram, setWeeklyProgram, rejectedExerciseIds, rejectExercise, clearRejectedExercises }}>{children}</Ctx.Provider>
+  return <Ctx.Provider value={{
+    workout,
+    setWorkout,
+    generationConfig,
+    setGenerationConfig: updateGenerationConfig,
+    catalog,
+    setCatalog,
+    weeklyProgram,
+    setWeeklyProgram,
+    activeSession,
+    startWorkoutSession,
+    resumeActiveSession,
+    clearActiveSession,
+    rejectedExerciseIds,
+    rejectExercise,
+    clearRejectedExercises,
+  }}>{children}</Ctx.Provider>
 }
 
 export function useWorkout() {

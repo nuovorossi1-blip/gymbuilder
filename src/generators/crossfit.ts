@@ -54,8 +54,8 @@ export const FORMATI_CROSSFIT: CrossFitFormat[] = [
   'amrap', 'for_time', 'emom', 'rounds', 'chipper', 'ladder', 'intervals',
 ]
 
-// La UI espone due fasce: Principiante comprende anche le progressioni
-// intermedie; Avanzato comprende tutto il catalogo avanzato/esperto.
+// La UI espone due fasce: Intermedio comprende anche le progressioni
+// principianti; Avanzato comprende tutto il catalogo avanzato/esperto.
 export const RANK_EXP: Record<Experience, number> = { beginner: 2, intermediate: 2, advanced: 3 }
 
 const PATTERN_LOWER = ['squat', 'hinge', 'lunge']

@@ -339,6 +339,7 @@ export function generateWeeklyProgram(config: WeeklyProgramConfig): WeeklyProgra
       muscle_load,
       recovery_profile: forecastProfile(mode, split, config.duration_min),
       priority_muscles, variant: 'A',
+      custom_target_muscles: customMuscles ?? undefined,
       metcon_format: mode === 'crossfit' ? config.crossfit_format : mode === 'crossfit_hybrid' ? config.hybrid_format : undefined,
     }
     return { id: `single-${Date.now()}`, persisted: false, config: normalized, week: [session], warnings: [] }

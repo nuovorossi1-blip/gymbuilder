@@ -138,7 +138,7 @@ export function poolMetcon(allenamento: Exercise[], usati: Set<string>, experien
       e.equipment !== 'machine' &&
       e.equipment !== 'cable' &&
       (e.technical_complexity <= 2 || ROPE_CARDIO_IDS.has(e.id)) &&
-      (e.roles.includes('conditioning') || e.roles.includes('cardio')) &&
+      (e.roles.includes('conditioning') || e.roles.includes('cardio') || e.metcon_safe) &&
       categoriaMetcon(e) !== undefined &&
       (experience === 'advanced' ? e.id !== 'jump_rope' : e.id !== 'double_under' && e.id !== 'triple_under')
   )

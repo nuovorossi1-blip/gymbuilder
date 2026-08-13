@@ -247,6 +247,29 @@ describe('generaBodybuilding — scenario critico sez. 28 della correzione', () 
     expect(principale.exercises.length).toBeGreaterThanOrEqual(5)
     expect(principale.exercises.length).toBeLessThanOrEqual(6)
   })
+
+  it('sessione custom spalle e braccia non inserisce compound petto se il petto non e selezionato', () => {
+    const w = generaBodybuilding(catalogo, {
+      split: 'full_body',
+      goal: 'hypertrophy',
+      experience: 'intermediate',
+      equipment: 'full_gym',
+      duration_min: 60,
+      target_muscles: ['front_delts', 'lateral_delts', 'biceps', 'triceps'],
+      priority_muscles: ['lateral_delts', 'triceps'],
+      excluded_exercises: [],
+      seed: 18,
+    })
+    const perId = new Map(catalogo.map((exercise) => [exercise.id, exercise]))
+    const main = mainBlock(w).exercises
+
+    expect(main.length).toBeLessThanOrEqual(6)
+    expect(main.map((exercise) => exercise.muscle)).toEqual(expect.arrayContaining(['front_delts', 'lateral_delts', 'biceps', 'triceps']))
+    expect(main.every((exercise) => {
+      const original = perId.get(exercise.exercise_id)
+      return !original?.primary_muscles.includes('chest')
+    })).toBe(true)
+  })
 })
 
 describe('generaBodybuilding — esercizi preferiti (sez. 10, 33)', () => {

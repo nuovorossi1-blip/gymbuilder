@@ -10,7 +10,7 @@ import { EXPERIENCE_LABELS, GOAL_LABELS, MODE_LABELS, MUSCLE_LABELS, SPLIT_LABEL
 
 export default function WorkoutPreview() {
   const { user } = useAuth()
-  const { workout, setWorkout, generationConfig, setGenerationConfig, catalog, weeklyProgram, setWeeklyProgram, rejectedExerciseIds, rejectExercise } = useWorkout()
+  const { workout, setWorkout, generationConfig, setGenerationConfig, catalog, weeklyProgram, setWeeklyProgram, startWorkoutSession, rejectedExerciseIds, rejectExercise } = useWorkout()
   const naviga = useNavigate()
   const [stato, setStato] = useState<'fermo' | 'salvo' | 'salvato' | 'errore'>('fermo')
   const [messaggio, setMessaggio] = useState<string | null>(null)
@@ -211,7 +211,7 @@ export default function WorkoutPreview() {
 
       {/* Azioni */}
       <div className="mt-8 space-y-2.5">
-        <button className="btn !py-4 text-lg" onClick={() => naviga('/avvia')}>
+        <button className="btn !py-4 text-lg" onClick={() => { startWorkoutSession(workout, generationConfig); naviga('/avvia') }}>
           Inizia
         </button>
         <div className="grid grid-cols-2 gap-2.5">

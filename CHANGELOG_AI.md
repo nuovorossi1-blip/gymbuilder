@@ -1,5 +1,27 @@
 # Changelog AI
 
+## 2026-08-13 - Target custom BB, livelli esperienza reali e DeepSeek locale
+
+- Ripristinate tre fasce esperienza distinte nell'interfaccia: `Principiante`, `Intermedio`, `Avanzato`.
+- Aggiunto nel wizard `Genera` un selettore esperienza esplicito.
+- La sessione singola Bodybuilding salva e usa `custom_target_muscles`, cosi una seduta spalle/braccia non reinserisce piu automaticamente il petto.
+- I gruppi carenti inclusi nel target custom vengono pesati di piu, restando entro il limite massimo di 6 esercizi.
+- `poolMetcon` accetta anche movimenti `metcon_safe`, rendendo piu robusta la generazione CrossFit/Hybrid quando il catalogo e imperfetto.
+- Il Profilo include ora configurazione locale DeepSeek (chiave API e modello) salvata solo sul dispositivo.
+- Il wizard `Genera` espone un prompt libero e un pulsante `Genera con DeepSeek`: l'AI suggerisce una patch di configurazione e la generazione finale resta nel motore interno.
+- Verifica completata: `npm test` verde con 194 test passati e `npm run build` verde.
+
+## 2026-08-12 ? Sessione attiva globale e base Android Capacitor
+
+- Introdotto un `ActiveWorkoutSession` persistente nel `WorkoutContext`, separato dal solo `Runner`: adesso la sessione attiva ha un proprio `sessionId` e pu? essere ripresa dagli entrypoint principali senza creare un nuovo avvio.
+- `/avvia`, Home, anteprima, salvati e banner timer convergono tutti sul resume della sessione attiva invece di dipendere solo dal `workout` in memoria della singola pagina.
+- `public/sw.js` non naviga pi? ciecamente il primo client trovato: rifocalizza la finestra corretta e invia il messaggio `RESUME_ACTIVE_SESSION` all'app.
+- Aggiunta sincronizzazione tra istanze browser via evento `storage` per `workout`, config e sessione attiva.
+- Integrato Capacitor Android con `capacitor.config.ts`, dipendenze dedicate e script `cap:sync`, `cap:copy`, `cap:open:android`.
+- Configurata l'app Android per caricare il frontend live da `https://gymbuilder-lemon.vercel.app`, cos? i deploy web aggiornano automaticamente l'app installata senza richiedere un nuovo APK per le sole modifiche frontend.
+- Verifica completata: `npm test` verde, `npm run build` verde, `npm run cap:sync` riuscito, progetto `android/` generato correttamente.
+- Primo tentativo `assembleDebug` fermato solo dall'ambiente locale: manca l'Android SDK (`ANDROID_HOME` / `sdk.dir`), non dal codice del repository.
+
 ## 2026-08-12 — Resume runner affidabile e toolchain cross-platform
 
 - Corretto il resume del Runner quando l'app web va in background o viene riaperta durante un allenamento già iniziato.
