@@ -160,27 +160,53 @@ export function generaHybrid(catalogo: Exercise[], cfg: HybridConfig): Generated
     (e) => e.roles.includes('isolation') && e.technical_complexity <= 1 &&
       e.systemic_fatigue <= 1 && e.grip_fatigue <= 2
   )
-  const coppie = cfg.duration_min < 45 ? 1 : 2
-  for (let i = 0; i < coppie; i++) {
-    const cardio = scegliCandidato(cardioPool, usati, cfg.priority_muscles, preferiti, random)
-    if (cardio) {
-      usati.add(cardio.id)
-      const categoria = categoriaMetcon(cardio) ?? 'mono'
-      metcon.push({
-        exercise_id: cardio.id, name: cardio.name, role: 'metcon',
-        muscle: cardio.primary_muscles[0] ?? null, sets: 1,
-        reps: repsMetcon(categoria, cfg.experience, intensity), rest_sec: 0,
-        note: 'cardio', instructions: cardio.instructions || undefined,
-      })
+  const targetMetconExercises = cfg.duration_min < 45 ? 3 : 4
+  while (metcon.length < targetMetconExercises) {
+    const expectCardio = metcon.length % 2 === 0
+    if (expectCardio) {
+      const cardio = scegliCandidato(cardioPool, usati, cfg.priority_muscles, preferiti, random)
+      if (cardio) {
+        usati.add(cardio.id)
+        const categoria = categoriaMetcon(cardio) ?? 'mono'
+        metcon.push({
+          exercise_id: cardio.id, name: cardio.name, role: 'metcon',
+          muscle: cardio.primary_muscles[0] ?? null, sets: 1,
+          reps: repsMetcon(categoria, cfg.experience, intensity), rest_sec: 0,
+          note: 'cardio', instructions: cardio.instructions || undefined,
+        })
+        continue
+      }
+    } else {
+      const isolamento = scegliCandidato(isolationPool, usati, cfg.priority_muscles, preferiti, random)
+      if (isolamento) {
+        usati.add(isolamento.id)
+        metcon.push({
+          exercise_id: isolamento.id, name: isolamento.name, role: 'metcon',
+          muscle: isolamento.primary_muscles[0] ?? null, sets: 1,
+          reps: intensity === 'high' ? '10-12' : '12-15', rest_sec: 30, note: 'isolamento',
+          instructions: isolamento.instructions || undefined,
+        })
+        continue
+      }
     }
-    const isolamento = scegliCandidato(isolationPool, usati, cfg.priority_muscles, preferiti, random)
-    if (isolamento) {
-      usati.add(isolamento.id)
+    const fallbackPool = expectCardio ? isolationPool : cardioPool
+    const fallback = scegliCandidato(fallbackPool, usati, cfg.priority_muscles, preferiti, random)
+    if (!fallback) break
+    usati.add(fallback.id)
+    if (expectCardio) {
       metcon.push({
-        exercise_id: isolamento.id, name: isolamento.name, role: 'metcon',
-        muscle: isolamento.primary_muscles[0] ?? null, sets: 1,
+        exercise_id: fallback.id, name: fallback.name, role: 'metcon',
+        muscle: fallback.primary_muscles[0] ?? null, sets: 1,
         reps: intensity === 'high' ? '10-12' : '12-15', rest_sec: 30, note: 'isolamento',
-        instructions: isolamento.instructions || undefined,
+        instructions: fallback.instructions || undefined,
+      })
+    } else {
+      const categoria = categoriaMetcon(fallback) ?? 'mono'
+      metcon.push({
+        exercise_id: fallback.id, name: fallback.name, role: 'metcon',
+        muscle: fallback.primary_muscles[0] ?? null, sets: 1,
+        reps: repsMetcon(categoria, cfg.experience, intensity), rest_sec: 0,
+        note: 'cardio', instructions: fallback.instructions || undefined,
       })
     }
   }

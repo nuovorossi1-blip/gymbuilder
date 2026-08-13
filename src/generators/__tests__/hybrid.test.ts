@@ -61,6 +61,16 @@ describe('generaHybrid — struttura Strength/Bodybuilding + Hybrid Metcon', () 
     }
   })
 
+  it('il Metcon Hybrid ha almeno 3 movimenti anche nelle sessioni brevi', () => {
+    for (const durata of [30, 45, 60, 75, 90]) {
+      const w = generaHybrid(catalogo, {
+        experience: 'intermediate', equipment: 'full_gym', duration_min: durata,
+        priority_muscles: [], excluded_exercises: [], seed: 1,
+      })
+      expect(metconBlock(w).exercises.length).toBeGreaterThanOrEqual(3)
+    }
+  })
+
   it('il volume cresce con la durata', () => {
     const corta = generaHybrid(catalogo, {
       experience: 'advanced', equipment: 'full_gym', duration_min: 30,

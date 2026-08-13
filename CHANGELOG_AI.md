@@ -1,5 +1,13 @@
 # Changelog AI
 
+## 2026-08-13 - Hybrid allineato ai WOD brevi
+
+- Verificato che il generatore `CrossFit Standard` produce gia un Metcon reale multi-movimento; il caso visto in app con un solo movimento non corrisponde al comportamento corretto del motore.
+- Riallineato `Hybrid` alle metodiche CrossFit applicate a esercizi BB/Hybrid: anche nelle sessioni brevi il Metcon non collassa piu a 2 soli esercizi.
+- Il Metcon `Hybrid` ora ha almeno 3 movimenti a 30 minuti e 4 movimenti da 45 minuti in su, mantenendo l'alternanza `cardio / isolamento`.
+- Aggiunto test di regressione dedicato al volume minimo del Metcon `Hybrid`.
+- Verifica completata: `npm test` verde con 199 test passati e `npm run build` verde.
+
 ## 2026-08-13 - Modifica parametri e muscoli carenti forti anche in CrossFit e Hybrid
 
 - La schermata di riepilogo ora espone `Modifica parametri`: il wizard si riapre con la configurazione gia compilata, compresi attrezzi, policy corpo libero/elastici, muscoli carenti e preferenze esercizi.
