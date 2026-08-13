@@ -130,18 +130,36 @@ export function categoriaMetcon(exercise: Exercise): CategoriaMetcon | undefined
   return CATEGORIA_PATTERN[exercise.movement_pattern]
 }
 
-export function poolMetcon(allenamento: Exercise[], usati: Set<string>, experience?: Experience): Exercise[] {
-  return allenamento.filter(
-    (e) =>
-      !usati.has(e.id) &&
-      e.equipment !== 'barbell' &&
-      e.equipment !== 'machine' &&
-      e.equipment !== 'cable' &&
-      (e.technical_complexity <= 2 || ROPE_CARDIO_IDS.has(e.id)) &&
-      (e.roles.includes('conditioning') || e.roles.includes('cardio') || e.metcon_safe) &&
-      categoriaMetcon(e) !== undefined &&
-      (experience === 'advanced' ? e.id !== 'jump_rope' : e.id !== 'double_under' && e.id !== 'triple_under')
+function isMetconCandidate(e: Exercise, usati: Set<string>, experience?: Experience): boolean {
+  return (
+    !usati.has(e.id) &&
+    e.equipment !== 'barbell' &&
+    e.equipment !== 'machine' &&
+    e.equipment !== 'cable' &&
+    (e.technical_complexity <= 2 || ROPE_CARDIO_IDS.has(e.id)) &&
+    (e.roles.includes('conditioning') || e.roles.includes('cardio') || e.metcon_safe) &&
+    categoriaMetcon(e) !== undefined &&
+    (experience === 'advanced' ? e.id !== 'jump_rope' : e.id !== 'double_under' && e.id !== 'triple_under')
   )
+}
+
+export function poolMetcon(
+  allenamento: Exercise[],
+  usati: Set<string>,
+  experience?: Experience,
+  warmupPool: Exercise[] = []
+): Exercise[] {
+  const basePool = allenamento.filter((e) => isMetconCandidate(e, usati, experience))
+  const hasMono = basePool.some((e) => categoriaMetcon(e) === 'mono')
+  const fallbackMono = !hasMono
+    ? warmupPool.filter((e) =>
+        !usati.has(e.id) &&
+        e.roles.includes('cardio') &&
+        categoriaMetcon(e) === 'mono' &&
+        (experience === 'advanced' ? e.id !== 'wu_salto_corda' : true)
+      )
+    : []
+  return [...basePool, ...fallbackMono.filter((candidate) => !basePool.some((exercise) => exercise.id === candidate.id))]
 }
 
 /** Ripetizioni per un movimento da Metcon: numeriche per la maggior parte delle categorie, a tempo per il monostrutturale. */

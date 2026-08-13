@@ -72,7 +72,7 @@ export function generaCondizionamento(catalogo: Exercise[], cfg: ConditioningCon
 
   const minutiRiscaldamento = cfg.duration_min >= 45 ? 9 : 6
   const budget = Math.max(8, cfg.duration_min - minutiRiscaldamento)
-  const metconPool = poolMetcon(allenamento, new Set(), cfg.experience)
+  const metconPool = poolMetcon(allenamento, new Set(), cfg.experience, riscaldamentoPool)
 
   const numMovimenti = { amrap: budget >= 15 ? 4 : 3, emom: budget >= 16 ? 2 : 1, for_time: 3, rounds: 4, circuit: 4, intervals: 3 }[cfg.format]
   const circuito = costruisciCircuito(metconPool, numMovimenti, cfg.priority_muscles, preferiti, random)

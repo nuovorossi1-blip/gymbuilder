@@ -1,5 +1,13 @@
 # Changelog AI
 
+## 2026-08-13 - Fallback Metcon quando mancano rower o kettlebell
+
+- Rafforzato il pool `Metcon` condiviso: se manca il monostrutturale principale nel catalogo disponibile, `CrossFit`, `Hybrid` e `Conditioning` possono usare un fallback cardio valido dal warm-up pool come cyclette o tapis roulant.
+- In assenza di `row_erg`, `kb_swing` o `kb_thruster`, il WOD non si svuota: il circuito viene completato con alternative coerenti e resta multi-movimento.
+- Riprodotto un caso senza rower e kettlebell: `CrossFit Standard` continua a generare un Metcon da 5 movimenti con fallback come `Camminata veloce sul tapis roulant`.
+- Aggiunto test di regressione sul fallback monostrutturale.
+- Verifica completata: `npm test` verde con 202 test passati e `npm run build` verde.
+
 ## 2026-08-13 - Policy preferenze corretta per CrossFit e Hybrid
 
 - Corretto il filtro preferenze: `corpo libero = solo finisher` non viene piu applicato come blocco prematuro ai generatori `CrossFit`, `Hybrid` e `Tabata`.

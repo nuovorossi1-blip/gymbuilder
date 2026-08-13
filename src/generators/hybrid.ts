@@ -155,7 +155,7 @@ export function generaHybrid(catalogo: Exercise[], cfg: HybridConfig): Generated
   // Hybrid Metcon: cardio e isolamenti semplici si alternano. Gli isolamenti
   // devono avere tecnica semplice e fatica sistemica/presa bassa.
   const metcon: PrescribedExercise[] = []
-  const cardioPool = poolMetcon(allenamento, usati, cfg.experience)
+  const cardioPool = poolMetcon(allenamento, usati, cfg.experience, riscaldamentoPool)
   const isolationPool = allenamento.filter(
     (e) => e.roles.includes('isolation') && e.technical_complexity <= 1 &&
       e.systemic_fatigue <= 1 && e.grip_fatigue <= 2

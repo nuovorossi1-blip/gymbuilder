@@ -22,4 +22,18 @@ describe('Progressione corda nei Metcon', () => {
     expect(poolMetcon([single, double], new Set(), 'beginner').map((exercise) => exercise.id)).toEqual(['jump_rope'])
     expect(poolMetcon([single, double], new Set(), 'advanced').map((exercise) => exercise.id)).toEqual(['double_under'])
   })
+
+  it('se manca il monostrutturale principale usa un fallback cardio dal warmup pool', () => {
+    const bike = {
+      ...base,
+      id: 'wu_bike',
+      name: 'Cyclette leggera',
+      movement_pattern: 'bike',
+      equipment: 'cardio' as const,
+      roles: ['warmup', 'cardio'],
+      primary_muscles: [],
+      required_equipment: ['assault_bike' as const],
+    }
+    expect(poolMetcon([], new Set(), 'beginner', [bike]).map((exercise) => exercise.id)).toEqual(['wu_bike'])
+  })
 })
