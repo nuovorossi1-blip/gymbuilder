@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { filterExercisesByPreferences } from '../engine/preferences'
+import { filterExercisesByPreferences, preferencePlacementForMode } from '../engine/preferences'
 import { adaptiveExcludedIds } from '../engine/feedback'
 import { applyAutomaticProgramming, applyWorkoutRecovery, generateWeeklyProgram, selectProgramMode, updateWeeklySession } from '../engine/weeklyPlan'
 import { adaptPrescriptionForProfile, resolveEffectiveWeakPoints } from '../engine/biomechanics'
@@ -114,7 +114,7 @@ export default function Create() {
       excludedExerciseIds: excluded,
       bodyweightPolicy: global.preferences.bodyweight_policy,
       elasticPolicy: global.preferences.elastic_policy,
-    }, 'normal')
+    }, preferencePlacementForMode(session.mode))
     const dayCatalog = session.fatigue_avoid_muscles?.length
       ? usableCatalog.filter((exercise) => exercise.systemic_fatigue <= 1 || !exercise.primary_muscles.some((muscle) => session.fatigue_avoid_muscles?.includes(muscle)))
       : usableCatalog

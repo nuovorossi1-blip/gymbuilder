@@ -5,7 +5,7 @@ import { generaBodybuilding } from '../generators/bodybuilding'
 import { isExerciseAvailable } from '../generators/equipment'
 import { estimateActiveCalories } from '../generators/calories'
 import { proposeWeeklyPlan } from './weeklyPlan'
-import { isExerciseAllowed } from './preferences'
+import { isExerciseAllowed, preferencePlacementForMode } from './preferences'
 import { nextTimerSecond, type IntervalTimerState } from './timer'
 import type { ExerciseRecord } from '../types'
 
@@ -41,6 +41,20 @@ describe('Workout Engine master specification', () => {
     const preferences = { excludedExerciseIds: [], bodyweightPolicy: 'finisher_only' as const, elasticPolicy: 'always' as const }
     expect(isExerciseAllowed(pushup, preferences, 'primary')).toBe(false)
     expect(isExerciseAllowed(pushup, preferences, 'normal')).toBe(false)
+    expect(isExerciseAllowed(pushup, preferences, 'finisher')).toBe(true)
+  })
+
+  it('CrossFit e Hybrid trattano il Metcon come contesto finisher per le policy bodyweight', () => {
+    expect(preferencePlacementForMode('crossfit')).toBe('finisher')
+    expect(preferencePlacementForMode('crossfit_hybrid')).toBe('finisher')
+    expect(preferencePlacementForMode('tabata')).toBe('finisher')
+    expect(preferencePlacementForMode('bodybuilding')).toBe('normal')
+  })
+
+  it('required_equipment mancante non rompe il filtro preferenze legacy', () => {
+    const pushup = { ...catalog.find((exercise) => exercise.equipment === 'bodyweight' && exercise.movement_pattern === 'horizontal_push')!, required_equipment: undefined as unknown as [] }
+    const preferences = { excludedExerciseIds: [], bodyweightPolicy: 'finisher_only' as const, elasticPolicy: 'never' as const }
+    expect(() => isExerciseAllowed(pushup, preferences, 'finisher')).not.toThrow()
     expect(isExerciseAllowed(pushup, preferences, 'finisher')).toBe(true)
   })
 

@@ -1,5 +1,14 @@
 # Changelog AI
 
+## 2026-08-13 - Policy preferenze corretta per CrossFit e Hybrid
+
+- Corretto il filtro preferenze: `corpo libero = solo finisher` non viene piu applicato come blocco prematuro ai generatori `CrossFit`, `Hybrid` e `Tabata`.
+- `CrossFit` e `Hybrid` trattano ora il proprio blocco metabolico come contesto `finisher`, evitando di svuotare artificialmente il pool del WOD.
+- Blindato anche il caso legacy in cui `required_equipment` non e presente su un record esercizio, cosi il filtro preferenze non rompe la generazione.
+- Riprodotto il caso reale `CrossFit Standard`, `palestra completa`, `avanzato`, `60 minuti`, `corpo libero = solo finisher`, `elastici = mai`: dopo il fix il Metcon resta un `AMRAP 20'` con 5 movimenti, non un singolo esercizio.
+- Aggiunti test di regressione sulle policy per modalita e sul fallback legacy.
+- Verifica completata: `npm test` verde con 201 test passati e `npm run build` verde.
+
 ## 2026-08-13 - Hybrid allineato ai WOD brevi
 
 - Verificato che il generatore `CrossFit Standard` produce gia un Metcon reale multi-movimento; il caso visto in app con un solo movimento non corrisponde al comportamento corretto del motore.
