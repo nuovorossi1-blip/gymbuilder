@@ -46,6 +46,19 @@ interface DeepSeekWorkoutGenerationResult {
   sessions: DeepSeekSessionWorkout[]
 }
 
+export const PROFESSIONAL_WORKOUT_SYSTEM_PROMPT = `Sei un professionista esperto nella creazione di allenamenti personalizzati e nella programmazione sportiva.
+Devi restituire esclusivamente JSON valido, senza commenti esterni al JSON, e compilare una sessione concreta per ogni session_id ricevuto.
+Considera tutte le scelte dell'utente vincoli reali: disciplina, obiettivo, livello, durata, giorni, intensità, attrezzatura disponibile, formato, muscoli prioritari, esercizi esclusi e preferiti.
+Adatta il tuo ruolo alla disciplina scelta:
+- CrossFit: agisci come coach CrossFit e genera un WOD autentico. Usa warm-up pertinente, eventuale forza/skill e un Metcon coerente con il formato richiesto (AMRAP, EMOM, For Time, Rounds, Chipper, Ladder o Intervals). Non trasformarlo in una scheda Bodybuilding. Bilancia weightlifting/gymnastics/monostructural secondo catalogo, livello, tempo e attrezzatura.
+- CrossFit Hybrid: combina un blocco Strength/Bodybuilding strutturato con un Metcon realmente metabolico e sicuro sotto fatica.
+- Bodybuilding: agisci come coach di ipertrofia; usa ordine compound-isolamenti, volume, recuperi e priorità muscolari coerenti.
+- Strength: agisci come strength coach; rispetta metodo, fondamentali, complementari, recuperi lunghi e livello tecnico.
+- Tabata: rispetta esattamente lavoro, recupero, round e prescrizione selezionati.
+Se l'utente seleziona palestra completa, sfrutta in modo sensato l'attrezzatura completa; se seleziona un inventario limitato usa solo ciò che è disponibile.
+Usa esclusivamente exercise_id presenti nel catalogo fornito. Non usare esercizi esclusi e non inventare ID.
+Regole di qualità: Bodybuilding/Hybrid almeno 5-6 esercizi totali quando durata e catalogo lo consentono; CrossFit Standard almeno 5-6 movimenti totali fra warm-up, forza/skill e Metcon, con complessità decrescente; enfatizza le carenze senza compromettere sicurezza e recupero.`
+
 const VALID_EXPERIENCE = new Set<Experience>(['beginner', 'intermediate', 'advanced'])
 const VALID_GOAL = new Set<Goal>(['hypertrophy', 'strength', 'conditioning', 'mixed'])
 const VALID_INTENSITY = new Set<Intensity>(['low', 'medium', 'high'])
@@ -273,13 +286,33 @@ export async function generateWorkoutsWithDeepSeek(
       messages: [
         {
           role: 'system',
-          content:
-            'Sei il generatore workout di GymBuilder. Devi restituire solo JSON valido. Non spiegare nulla. Devi compilare una sessione concreta per ogni session_id passato. Usa solo exercise_id presenti nel catalogo fornito. Rispetta attrezzatura, esperienza, esclusioni e preferenze. Regole forti: Bodybuilding/Hybrid almeno 5-6 esercizi totali; CrossFit Standard almeno 5-6 movimenti totali distribuiti fra warmup, forza/skill e metcon, con 2 punti cardine iniziali e poi lavoro metabolico; l ordine va dal piu complesso al piu semplice; i muscoli carenti vanno enfatizzati all inizio; niente esercizi fuori contesto o non presenti nel catalogo.',
+          content: PROFESSIONAL_WORKOUT_SYSTEM_PROMPT,
         },
         {
           role: 'user',
           content: JSON.stringify({
             richiesta_utente: input.prompt,
+            brief_professionale: {
+              tipo: input.config.program_kind,
+              discipline: input.config.selected_modes,
+              obiettivo: input.config.goal,
+              livello: input.config.experience,
+              durata_minuti: input.config.duration_min,
+              giorni_settimana: input.config.training_days,
+              intensita: input.config.intensity,
+              attrezzatura_preset: input.config.equipment.preset,
+              attrezzatura_disponibile: input.config.equipment.available,
+              muscoli_carenti: input.config.weak_points,
+              formato_crossfit: input.config.crossfit_format,
+              metodo_hybrid: input.config.hybrid_method,
+              formato_hybrid: input.config.hybrid_format,
+              metodo_forza: input.config.strength_method,
+              protocollo_tabata: input.config.tabata,
+              esercizi_preferiti: input.config.preferences.preferred_exercise_ids,
+              esercizi_esclusi: input.config.preferences.excluded_exercise_ids,
+              policy_corpo_libero: input.config.preferences.bodyweight_policy,
+              policy_elastici: input.config.preferences.elastic_policy,
+            },
             configurazione: input.config,
             sessioni_da_compilare: input.program.week.map((session) => ({
               session_id: session.id,

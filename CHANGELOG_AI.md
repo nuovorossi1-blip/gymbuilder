@@ -314,3 +314,8 @@
 - Aggiunto banner mobile: download APK su Android e istruzioni di installazione PWA su iOS.
 - Preparata la pipeline GitHub Release per APK firmati con keystore custodita nei Secrets.
 - La prima Release firmata resta da generare dopo la configurazione dei quattro segreti Android.
+## 2026-08-17 — Segnale lungo su 1 e generazione LLM professionale
+
+- Nel countdown di avvio 3 e 2 restano segnali brevi; quando compare 1 parte l'unico segnale lungo e intenso, senza un quarto suono allo zero.
+- La generazione DeepSeek usa ora un ruolo professionale e istruzioni specifiche per Bodybuilding, CrossFit, Hybrid, Forza e Tabata.
+- Il modello riceve un brief esplicito con tutte le selezioni dell'utente e un catalogo già filtrato sull'attrezzatura realmente disponibile.

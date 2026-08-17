@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { completionEvent, elapsedSeconds, remainingSeconds, resumeClock, transitionInterval } from './timer'
+import { completionEvent, elapsedSeconds, remainingSeconds, resumeClock, startupCountdownCue, transitionInterval } from './timer'
 import { DEFAULT_AUDIO_SETTINGS, soundForEvent, vibrationForEvent } from './audio'
 
 describe('Unified Timer Engine', () => {
@@ -40,7 +40,10 @@ describe('Unified Timer Engine', () => {
     expect(vibrationForEvent('WARNING', DEFAULT_AUDIO_SETTINGS)).toBe(70)
     expect(vibrationForEvent('TIMER_COMPLETED', DEFAULT_AUDIO_SETTINGS)).toEqual([140, 80, 180])
   })
-  it('allo zero usa il segnale finale lungo e una vibrazione più riconoscibile', () => {
+  it('il 3 e il 2 sono brevi, mentre il segnale lungo parte quando compare 1', () => {
+    expect(startupCountdownCue(3).type).toBe('WARNING')
+    expect(startupCountdownCue(2).type).toBe('WARNING')
+    expect(startupCountdownCue(1).type).toBe('COUNTDOWN_COMPLETED')
     expect(soundForEvent('COUNTDOWN_COMPLETED', DEFAULT_AUDIO_SETTINGS)).toBe('ding')
     expect(vibrationForEvent('COUNTDOWN_COMPLETED', DEFAULT_AUDIO_SETTINGS)).toBe(1_000)
     expect(soundForEvent('COUNTDOWN_COMPLETED', { ...DEFAULT_AUDIO_SETTINGS, endSound: 'ring' })).toBe('ring')
