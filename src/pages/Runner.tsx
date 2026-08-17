@@ -374,14 +374,27 @@ export default function Runner() {
   useEffect(() => {
     let label = 'Allenamento'
     let remaining = 0
-    if (countdown !== null) { label = 'Preparati'; remaining = countdown }
-    else if (fase.tipo === 'recupero') { label = 'Recupero'; remaining = rimanente }
-    else if (sezione === 'metcon' && formato === 'amrap') { label = 'AMRAP'; remaining = metconRimanente }
-    else if (sezione === 'metcon' && aIntervalli) { label = intervalSottofase === 'lavoro' ? 'Lavoro' : 'Recupero'; remaining = intervalRimanente }
+    if (countdown !== null) {
+      label = isTabata ? `Preparati · Tabata ${intervalliTotali} giri` : 'Preparati'
+      remaining = countdown
+    } else if (fase.tipo === 'recupero') {
+      label = 'Recupero'
+      remaining = rimanente
+    } else if (sezione === 'metcon' && formato === 'amrap') {
+      label = `AMRAP · ${metconGiri} ${metconGiri === 1 ? 'giro' : 'giri'}`
+      remaining = metconRimanente
+    } else if (sezione === 'metcon' && aIntervalli) {
+      const fase2 = intervalSottofase === 'lavoro' ? 'Lavoro' : 'Recupero'
+      label = `${fase2} · Giro ${intervalIndice + 1}/${intervalliTotali}`
+      remaining = intervalRimanente
+    }
     backgroundState.current = { label, remaining }
     const paused = (fase.tipo === 'recupero' && inPausa) || (sezione === 'metcon' && metconInPausa)
     publishBackgroundTimer(label, remaining, paused)
-  }, [aIntervalli, countdown, fase.tipo, formato, inPausa, intervalRimanente, intervalSottofase, metconInPausa, metconRimanente, rimanente, sezione])
+  }, [
+    aIntervalli, countdown, fase.tipo, formato, inPausa, intervalIndice, intervalliTotali, intervalRimanente,
+    intervalSottofase, isTabata, metconGiri, metconInPausa, metconRimanente, rimanente, sezione,
+  ])
 
   useEffect(() => {
     const syncVisibility = () => {

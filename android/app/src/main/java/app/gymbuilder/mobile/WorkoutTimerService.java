@@ -104,6 +104,9 @@ public class WorkoutTimerService extends Service {
             .setUsesChronometer(true)
             .setChronometerCountDown(true)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
+            // Contenuto pieno anche a schermo bloccato: senza questo, sul lock screen puo'
+            // comparire solo "notifica nascosta" invece del countdown vero e proprio.
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .build();
     }
 
@@ -119,6 +122,7 @@ public class WorkoutTimerService extends Service {
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
             .setVibrate(new long[] { 0, 1200 })
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .build();
         ((NotificationManager) getSystemService(NOTIFICATION_SERVICE)).notify(NOTIFICATION_ID + 1, completed);
         stopForeground(STOP_FOREGROUND_REMOVE);

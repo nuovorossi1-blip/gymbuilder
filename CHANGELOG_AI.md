@@ -1,5 +1,26 @@
 # Changelog AI
 
+## 2026-08-17 - Notifica/banner in background con giri e fase, contenuto visibile a schermo bloccato
+
+- Richiesta utente: mandando l'app in background durante Tabata (o EMOM/Intervals), il banner/la
+  notifica deve mostrare fase (lavoro/recupero) e il numero di giro corrente su quelli totali, non
+  solo l'etichetta generica; deve restare visibile anche a schermo spento/bloccato.
+- `Runner.tsx`: l'etichetta pubblicata al timer di background ora include il giro
+  (`Lavoro · Giro 3/8`) per Tabata/EMOM/Intervals, i giri completati per AMRAP
+  (`AMRAP · 2 giri`) e il numero di round Tabata durante il conto alla rovescia iniziale
+  (`Preparati · Tabata 8 giri`). Questa etichetta alimenta sia il titolo della notifica nativa
+  Android sia `document.title`/MediaSession sul web.
+- `WorkoutTimerService.java`: aggiunto `setVisibility(VISIBILITY_PUBLIC)` sia alla notifica del
+  countdown attivo sia a quella di fine timer, cosi' il contenuto (fase, giro, countdown) resta
+  leggibile sul lock screen invece di essere eventualmente redatto come "notifica nascosta".
+- Nota per l'utente: il wake lock parziale e il foreground service gia' esistenti tengono la CPU
+  attiva e completano comunque il round in corso a schermo spento; se pero' la WebView viene
+  sospesa da Android durante lo screen-off, l'avanzamento al giro *successivo* (che parte lato
+  JS) potrebbe non aggiornarsi nella notifica fino alla riattivazione dello schermo. Non
+  verificabile senza un dispositivo reale in questo ambiente: da testare sul telefono.
+- Verifica completata: 221 test verdi, build production verde, lint senza errori (resta il
+  warning storico in `Runner.tsx`).
+
 ## 2026-08-17 - "Cindy adattata" sui muscoli target, foreground service Android blindato
 
 - Richiesta utente: scegliendo il benchmark Cindy senza toccare altro deve restare la Cindy
