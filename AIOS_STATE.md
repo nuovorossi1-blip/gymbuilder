@@ -502,25 +502,26 @@ workflow APK richiede la correzione documentata nella sez. 10.
 
 ### Handoff corrente — build APK automatica
 
-- [FACT] Sul branch `main`, commit `436fbb1`, è stato aggiunto esclusivamente
-  `.github/workflows/build-apk.yml`. Il workflow parte sui push a `main`, ignora
-  `public/gymbuilder.apk`, usa Node 24 e Java 21, sincronizza Capacitor, compila
-  l'APK debug, lo rinomina `public/gymbuilder.apk` e dovrebbe eseguire il commit
-  del bot con `[skip ci]` per evitare cicli.
+- [FACT] La build APK automatica è completata end-to-end. Il workflow
+  `.github/workflows/build-apk.yml` parte sui push a `main`, ignora
+  `public/gymbuilder.apk`, usa Node 24 e Java 21, riceve le variabili pubbliche
+  Vite/Supabase, sincronizza Capacitor, compila l'APK debug, lo rinomina
+  `public/gymbuilder.apk`, lo salva con `[skip ci]` e pubblica esplicitamente su
+  Vercel tramite il secret GitHub `VERCEL_TOKEN`.
 - [FACT] La prima esecuzione GitHub Actions (`32037095948`) ha superato checkout,
   installazione strumenti, `npm ci` e sincronizzazione Capacitor, ma la build si
   è fermata con exit code 126: `./gradlew: Permission denied`.
-- [FACT] Il problema è circoscritto all'invocazione del wrapper Gradle nel nuovo
-  workflow: `android/gradlew` non ha il bit eseguibile nel repository. Non è un
-  errore del codice React, di Capacitor o della sincronizzazione Android.
-- **Prossima azione esatta:** modificare soltanto
-  `.github/workflows/build-apk.yml`, sostituendo `./gradlew assembleDebug` con
-  `bash gradlew assembleDebug`; quindi pubblicare su `main` e seguire la nuova
-  esecuzione fino al completamento.
-- **Criterio di arrivo:** Actions verde; APK prodotto come
-  `android/app/build/outputs/apk/debug/app-debug.apk`; bot che salva
-  `public/gymbuilder.apk` con `[skip ci]`; nessuna seconda compilazione causata
-  dal commit dell'APK; URL Vercel `/gymbuilder.apk` raggiungibile dopo il deploy.
+- [FACT] L'errore iniziale è stato risolto invocando `bash gradlew
+  assembleDebug`. L'esecuzione definitiva `32037676638` è verde in 2m18s,
+  inclusi Gradle, commit del bot e deploy Vercel. Commit workflow `65457ce`;
+  commit APK del bot `5ec68a0`.
+- [FACT] Il criterio di arrivo è verificato: nessun loop Actions e
+  `https://gymbuilder-lemon.vercel.app/gymbuilder.apk` restituisce HTTP 200,
+  `Content-Type: application/vnd.android.package-archive`, filename
+  `gymbuilder.apk` e 8.190.529 byte.
+- **Prossimo passo prodotto:** la build corrente è un APK debug. Per distribuire
+  aggiornamenti Android affidabili agli utenti resta da firmare le release con
+  la keystore definitiva e mantenere la stessa chiave per tutte le versioni.
 - [FACT] Il file non tracciato `BB.txt` appartiene all'utente e deve restare
   intatto e fuori dai commit.
 
@@ -572,7 +573,7 @@ prese singolarmente non sarebbero verificabili.
 | **11** | Salvataggio, preferiti, ripeti identico, rigenera variante | ✅ Salvataggio/rigenerazione fatti per tutte e sei le modalità. Modifica esercizio-per-esercizio di un salvato: non ancora |
 | **12** | Storico e valutazione post-allenamento | ✅ Fatto (valutazione soggettiva + note; niente HR/calorie, rimandato a V1.2) |
 | **13** | Test sulle parti critiche | 🟡 94 test su tutti e sei i motori di generazione (`npm test`). Da estendere se arrivano nuove regole |
-| **14** | Preparazione all'impacchettamento mobile con Capacitor | 🟡 Capacitor e workflow presenti; prima build automatica bloccata dal permesso di esecuzione di `gradlew` (handoff sez. 10) |
+| **14** | Preparazione all'impacchettamento mobile con Capacitor | 🟡 APK debug automatico online; resta la release firmata con keystore stabile (handoff sez. 10) |
 
 ---
 
@@ -621,12 +622,13 @@ La base Capacitor esistente è stata completata con un sistema di aggiornamento 
 
 La CI `.github/workflows/android-ci.yml` compila un APK debug con Java 21 sulle modifiche native; `.github/workflows/android-release.yml` costruisce `GymBuilder.apk` sui tag `android-v*`. Prima della prima Release devono essere configurati `ANDROID_KEYSTORE_BASE64`, `ANDROID_STORE_PASSWORD`, `ANDROID_KEY_ALIAS` e `ANDROID_KEY_PASSWORD` nei GitHub Actions Secrets. La stessa keystore deve essere conservata per tutte le versioni future. Finché `apkUrl` in `version.json` resta vuoto, il modal nativo non propone aggiornamenti inesistenti; il banner web rimanda alla pagina Releases. La compilazione Gradle locale non è verificabile nel Codespace attuale perché espone solo Java 25; la CI è fissata a Java 21 proprio per rendere la verifica riproducibile.
 
-Il commit `436fbb1` ha inoltre introdotto `.github/workflows/build-apk.yml` per
-costruire automaticamente a ogni push su `main` e pubblicare l'APK debug come
-`public/gymbuilder.apk`. La prima esecuzione `32037095948` è fallita unicamente
-su `./gradlew assembleDebug` con `Permission denied`; vedere la sez. 10 per il
-fix esatto e i criteri di completamento. Questo stato è il punto di ripresa
-prioritario per il prossimo LLM.
+Il commit `436fbb1` ha introdotto `.github/workflows/build-apk.yml`; i commit
+successivi `5e30396` e `65457ce` hanno corretto l'invocazione Gradle, aggiunto le
+variabili pubbliche della build e il deploy Vercel esplicito. L'esecuzione
+definitiva `32037676638` è verde e il bot ha pubblicato l'APK nel commit
+`5ec68a0`. Il file pubblico verificato è
+`https://gymbuilder-lemon.vercel.app/gymbuilder.apk`. Vedere la sez. 10 per il
+prossimo passo: passare da APK debug a release firmata con keystore stabile.
 ## Aggiornamento stato — 2026-08-17: countdown e contratto LLM
 
 Il countdown di avvio emette avvisi brevi su 3 e 2 e il segnale lungo `COUNTDOWN_COMPLETED` quando viene visualizzato 1; allo zero avvia l'azione senza produrre un quarto segnale. La generazione diretta DeepSeek condivide lo stesso prompt professionale fra i modelli configurabili e riceve un brief strutturato di tutte le scelte utente. Le discipline hanno regole esplicite: CrossFit deve produrre un WOD autentico e non Bodybuilding mascherato; il catalogo inviato è filtrato anche per inventario attrezzatura.
