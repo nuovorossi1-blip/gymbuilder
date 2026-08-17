@@ -319,3 +319,8 @@
 - Nel countdown di avvio 3 e 2 restano segnali brevi; quando compare 1 parte l'unico segnale lungo e intenso, senza un quarto suono allo zero.
 - La generazione DeepSeek usa ora un ruolo professionale e istruzioni specifiche per Bodybuilding, CrossFit, Hybrid, Forza e Tabata.
 - Il modello riceve un brief esplicito con tutte le selezioni dell'utente e un catalogo già filtrato sull'attrezzatura realmente disponibile.
+## 2026-08-17 — DeepSeek non resta più bloccato in generazione
+
+- Le chiamate DeepSeek passano ora da una funzione Vercel same-origin invece che direttamente dal browser.
+- Attivati JSON Output, limite di token e modalità non-thinking per la generazione strutturata dei workout.
+- Aggiunti timeout e messaggi chiari per chiave non valida, credito insufficiente, rate limit e risposta troppo lenta.

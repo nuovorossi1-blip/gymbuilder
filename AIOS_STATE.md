@@ -570,3 +570,6 @@ La CI `.github/workflows/android-ci.yml` compila un APK debug con Java 21 sulle 
 ## Aggiornamento stato — 2026-08-17: countdown e contratto LLM
 
 Il countdown di avvio emette avvisi brevi su 3 e 2 e il segnale lungo `COUNTDOWN_COMPLETED` quando viene visualizzato 1; allo zero avvia l'azione senza produrre un quarto segnale. La generazione diretta DeepSeek condivide lo stesso prompt professionale fra i modelli configurabili e riceve un brief strutturato di tutte le scelte utente. Le discipline hanno regole esplicite: CrossFit deve produrre un WOD autentico e non Bodybuilding mascherato; il catalogo inviato è filtrato anche per inventario attrezzatura.
+## Aggiornamento stato — 2026-08-17: trasporto DeepSeek affidabile
+
+Le richieste LLM non partono più direttamente dal browser: `/api/deepseek` inoltra in modo stateless la richiesta a DeepSeek, senza salvare o loggare la chiave personale. Il client e la funzione hanno timeout espliciti, JSON Output e `thinking: disabled` per evitare generazioni strutturate indefinite. La UI distingue chiave non valida, credito insufficiente, rate limit, timeout e problemi di connessione invece di restare su `loading` per sempre.

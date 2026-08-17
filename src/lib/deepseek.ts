@@ -69,6 +69,51 @@ const VALID_METCON = new Set<MetconFormat>(['amrap', 'emom', 'for_time', 'rounds
 const VALID_BLOCK_KIND = new Set(['warmup', 'main', 'metcon'])
 const VALID_ROLE = new Set(['compound', 'isolation', 'warmup', 'metcon'])
 
+function deepSeekError(status: number, payload: unknown): Error {
+  const apiMessage = payload && typeof payload === 'object'
+    ? (payload as { error?: string | { message?: string } }).error
+    : undefined
+  const detail = typeof apiMessage === 'string' ? apiMessage : apiMessage?.message
+  if (status === 401 || status === 403) return new Error('Chiave API DeepSeek non valida o non autorizzata. Controllala nel Profilo.')
+  if (status === 402) return new Error('Il credito DeepSeek è insufficiente. Controlla il saldo del tuo account.')
+  if (status === 429) return new Error('DeepSeek ha ricevuto troppe richieste. Attendi un minuto e riprova.')
+  if (status === 504) return new Error('DeepSeek sta impiegando troppo tempo. Riprova o usa il modello Flash.')
+  return new Error(detail || `DeepSeek ha risposto con errore ${status}.`)
+}
+
+async function requestDeepSeek(
+  settings: LocalAiSettings,
+  messages: Array<{ role: 'system' | 'user'; content: string }>
+): Promise<{ choices?: Array<{ message?: { content?: string } }> }> {
+  let response: Response
+  try {
+    response = await fetch('/api/deepseek', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        apiKey: settings.deepseek_api_key.trim(),
+        payload: {
+          model: settings.deepseek_model,
+          temperature: 0.2,
+          thinking: { type: 'disabled' },
+          response_format: { type: 'json_object' },
+          max_tokens: 16_000,
+          messages,
+        },
+      }),
+      signal: AbortSignal.timeout(120_000),
+    })
+  } catch (error) {
+    if (error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError')) {
+      throw Object.assign(new Error('DeepSeek sta impiegando troppo tempo. Riprova o usa il modello Flash.'), { cause: error })
+    }
+    throw Object.assign(new Error('Impossibile contattare DeepSeek. Controlla la connessione e riprova.'), { cause: error })
+  }
+  const payload = await response.json().catch(() => ({})) as { choices?: Array<{ message?: { content?: string } }> }
+  if (!response.ok) throw deepSeekError(response.status, payload)
+  return payload
+}
+
 function extractJsonObject(text: string): string {
   const first = text.indexOf('{')
   const last = text.lastIndexOf('}')
@@ -227,16 +272,7 @@ export async function suggestWorkoutConfigWithDeepSeek(
   const apiKey = settings.deepseek_api_key.trim()
   if (!apiKey) throw new Error('Inserisci prima la chiave API DeepSeek nel profilo.')
 
-  const response = await fetch('https://api.deepseek.com/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: settings.deepseek_model,
-      temperature: 0.2,
-      messages: [
+  const payload = await requestDeepSeek(settings, [
         {
           role: 'system',
           content:
@@ -250,17 +286,7 @@ export async function suggestWorkoutConfigWithDeepSeek(
             obiettivo: 'Suggerisci solo i campi da modificare per generare un workout o programma migliore con il motore esistente.',
           }),
         },
-      ],
-    }),
-  })
-
-  if (!response.ok) {
-    throw new Error(`DeepSeek ha risposto con errore ${response.status}.`)
-  }
-
-  const payload = await response.json() as {
-    choices?: Array<{ message?: { content?: string } }>
-  }
+      ])
   const content = payload.choices?.[0]?.message?.content
   if (!content) throw new Error('DeepSeek non ha restituito contenuto utile.')
   const parsed = JSON.parse(extractJsonObject(content))
@@ -274,16 +300,7 @@ export async function generateWorkoutsWithDeepSeek(
   const apiKey = settings.deepseek_api_key.trim()
   if (!apiKey) throw new Error('Inserisci prima la chiave API DeepSeek nel profilo.')
 
-  const response = await fetch('https://api.deepseek.com/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: settings.deepseek_model,
-      temperature: 0.2,
-      messages: [
+  const payload = await requestDeepSeek(settings, [
         {
           role: 'system',
           content: PROFESSIONAL_WORKOUT_SYSTEM_PROMPT,
@@ -366,17 +383,7 @@ export async function generateWorkoutsWithDeepSeek(
             },
           }),
         },
-      ],
-    }),
-  })
-
-  if (!response.ok) {
-    throw new Error(`DeepSeek ha risposto con errore ${response.status}.`)
-  }
-
-  const payload = await response.json() as {
-    choices?: Array<{ message?: { content?: string } }>
-  }
+      ])
   const content = payload.choices?.[0]?.message?.content
   if (!content) throw new Error('DeepSeek non ha restituito contenuto utile.')
 
