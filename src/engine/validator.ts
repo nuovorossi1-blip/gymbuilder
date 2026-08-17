@@ -1,8 +1,24 @@
 import { isExerciseAvailable } from '../generators/equipment'
 import { minutiBlocco } from '../generators/shared'
-import type { Exercise, GeneratedWorkout, WorkoutGenerationConfig } from '../types'
+import type { Exercise, GeneratedWorkout, Muscle, Split, WorkoutGenerationConfig } from '../types'
 
 export interface ValidationResult { valid: boolean; errors: string[] }
+
+const SPLIT_PRIMARY_MUSCLES: Record<Split, Muscle[]> = {
+  push: ['chest', 'front_delts', 'lateral_delts', 'triceps'],
+  pull: ['back', 'rear_delts', 'biceps'],
+  legs: ['quads', 'hamstrings', 'glutes', 'calves', 'core'],
+  upper: ['chest', 'back', 'front_delts', 'lateral_delts', 'rear_delts', 'biceps', 'triceps'],
+  lower: ['quads', 'hamstrings', 'glutes', 'calves', 'core'],
+  full_body: ['chest', 'back', 'front_delts', 'lateral_delts', 'rear_delts', 'biceps', 'triceps', 'quads', 'hamstrings', 'glutes', 'calves', 'core'],
+  bro_chest: ['chest', 'front_delts', 'triceps'],
+  bro_back: ['back', 'rear_delts', 'biceps'],
+  bro_shoulders: ['front_delts', 'lateral_delts', 'rear_delts'],
+  bro_arms: ['biceps', 'triceps'],
+  bro_legs: ['quads', 'hamstrings', 'glutes', 'calves', 'core'],
+  front_body: ['chest', 'front_delts', 'lateral_delts', 'quads', 'core'],
+  back_body: ['back', 'rear_delts', 'biceps', 'hamstrings', 'glutes'],
+}
 
 export function validateWorkout(
   workout: GeneratedWorkout,
@@ -47,6 +63,19 @@ export function validateWorkout(
       const exercise = byId.get(item.exercise_id)
       if (exercise && !exercise.primary_muscles.some((muscle) => targets.includes(muscle))) {
         errors.push(`${exercise.name} non ha come target primario uno dei muscoli scelti per oggi.`)
+      }
+    }
+  }
+  const splitBoundMode = workout.mode === 'bodybuilding' || workout.mode === 'strength'
+  if (splitBoundMode && config.current_day) {
+    const naturalMuscles = SPLIT_PRIMARY_MUSCLES[config.current_day]
+    for (const item of trainingExercises) {
+      const exercise = byId.get(item.exercise_id)
+      if (!exercise) continue
+      const belongsToSplit = exercise.primary_muscles.some((muscle) => naturalMuscles.includes(muscle))
+      const explicitWeakPointRecall = exercise.primary_muscles.some((muscle) => config.weak_points.includes(muscle))
+      if (!belongsToSplit && !explicitWeakPointRecall) {
+        errors.push(`${exercise.name} non appartiene alla sessione ${config.current_day}; può essere inserito solo se il suo muscolo principale è indicato come carente.`)
       }
     }
   }

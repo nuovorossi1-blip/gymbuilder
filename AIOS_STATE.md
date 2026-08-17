@@ -4,7 +4,7 @@
 > da qui. Va **aggiornato** a ogni sessione, non accodato all'infinito.
 > L'identità del progetto e il percorso di AI-OS stanno in `AIOS_PROJECT.json`.
 
-**Ultimo aggiornamento:** 2026-08-17 (handoff build APK automatica) - Codex
+**Ultimo aggiornamento:** 2026-08-17 (coerenza muscolare degli split) - Codex
 
 Etichette: `[FACT]` verificato nel codice · `[RICOSTRUITO]` dedotto da indizi ·
 `[IGNOTO]` non ricavabile dal repository
@@ -641,3 +641,13 @@ Il contratto audio/vibrazione è uniforme: ogni countdown di fase emette WARNING
 ## Aggiornamento stato — 2026-08-17: ordine configurazione → LLM
 
 Il wizard non permette più di invocare DeepSeek subito dopo la sola scelta della disciplina. Il pulsante LLM si trova esclusivamente in fondo allo Step 2: prima vengono definiti tutti i parametri, poi l'utente sceglie fra generazione deterministica e generazione DeepSeek. Entrambi i percorsi ricevono la stessa configurazione finale.
+
+## Aggiornamento stato — 2026-08-17: Spinta senza dorso implicito
+
+Il validatore impone ora la coerenza muscolare degli split Bodybuilding e Forza
+anche sui workout restituiti dall'LLM. Una sessione `push` accetta come target
+primari petto, deltoide anteriore/laterale e tricipiti; un esercizio primario per
+il dorso viene rifiutato, salvo che `back` sia stato indicato esplicitamente fra
+i muscoli carenti. La stessa regola split + eccezione carenze vale per tutti gli
+altri split. Aggiunti due test dedicati; suite completa: 213 test verdi e build
+produzione verde.
