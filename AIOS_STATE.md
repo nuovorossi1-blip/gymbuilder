@@ -4,7 +4,7 @@
 > da qui. Va **aggiornato** a ogni sessione, non accodato all'infinito.
 > L'identità del progetto e il percorso di AI-OS stanno in `AIOS_PROJECT.json`.
 
-**Ultimo aggiornamento:** 2026-08-17 (CrossFit per componenti e attrezzatura adattiva) - Codex
+**Ultimo aggiornamento:** 2026-08-17 (download APK visibile sul web) - Codex
 
 Etichette: `[FACT]` verificato nel codice · `[RICOSTRUITO]` dedotto da indizi ·
 `[IGNOTO]` non ricavabile dal repository
@@ -682,3 +682,25 @@ tutti i blocchi: test dedicato con soli manubri conserva la struttura usando
 solo manubri/corpo libero. Prompt DeepSeek e validatore condividono lo stesso
 contratto; il Runner include entrambi i blocchi `main`. Suite completa: 216
 test verdi e build produzione verde.
+
+## Aggiornamento stato — 2026-08-17: barra Scarica app
+
+La versione web mostra sempre in alto una barra sticky “GymBuilder Android”
+con pulsante `Scarica app`, anche prima del login. Il link punta direttamente a
+`/gymbuilder.apk` e usa il filename `gymbuilder.apk`. La barra è esclusa dentro
+la piattaforma nativa Capacitor per non proporre all'APK di scaricare sé stesso.
+Rimossa la vecchia dipendenza del banner da dispositivo, dismiss persistente e
+`version.json.apkUrl`. Suite completa verificata insieme alla correzione Spinta:
+218 test verdi; build produzione verde.
+
+## Aggiornamento stato — 2026-08-17: carenze esplicite e split Spinta
+
+Il profilo biomeccanico non inventa più carenze in base al sesso: se l'utente
+seleziona “standard”, l'elenco resta vuoto. Nelle sessioni preset, le carenze
+sono richiami separati e non vengono più trasformate in `target_muscles`; i
+target rigidi sono applicati soltanto quando l'utente sceglie esplicitamente i
+muscoli della seduta. Lo stesso contratto è stato applicato al prompt e alla
+validazione DeepSeek. Risultato: `push` standard non contiene dorso, rematori o
+tirate; il dorso può entrare soltanto come singolo `richiamo carenza` quando
+`back` è stato scelto esplicitamente. Test dedicati inclusi nella suite di 218
+test verdi; build produzione verde.

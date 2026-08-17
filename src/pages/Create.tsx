@@ -129,7 +129,7 @@ export default function Create() {
       equipment: global.equipment,
       weak_points: global.weak_points,
       target_muscles: global.program_kind === 'single_session'
-        ? (global.single_session_target_muscles?.length ? global.single_session_target_muscles : global.weak_points)
+        ? (global.single_session_target_muscles?.length ? global.single_session_target_muscles : [])
         : session.priority_muscles,
       preferences: { ...global.preferences, excluded_exercise_ids: excluded },
       intensity: global.intensity,
@@ -214,7 +214,7 @@ export default function Create() {
       seed: Date.now() % 100000,
     }
     const todayTargets = global.program_kind === 'single_session'
-      ? (global.single_session_target_muscles?.length ? global.single_session_target_muscles : global.weak_points)
+      ? (global.single_session_target_muscles?.length ? global.single_session_target_muscles : [])
       : session.priority_muscles
     const todayPriorities = global.program_kind === 'single_session' ? global.weak_points : session.priority_muscles
     const split = session.split ?? 'full_body'

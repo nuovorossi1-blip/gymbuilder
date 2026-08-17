@@ -287,7 +287,8 @@ export async function suggestWorkoutConfigWithDeepSeek(
             richiesta_utente: input.prompt,
             istruzione_operativa:
               `Sei un master allenatore specializzato in ${input.config.selected_modes.join(' + ')}. ` +
-              `Oggi voglio allenare come target principali: ${(input.config.single_session_target_muscles?.length ? input.config.single_session_target_muscles : input.config.weak_points).join(', ') || 'nessun target specifico'}. ` +
+              `Oggi voglio allenare come target principali: ${(input.config.single_session_target_muscles ?? []).join(', ') || 'quelli previsti dallo split selezionato'}. ` +
+              `Muscoli carenti da richiamare senza snaturare lo split: ${input.config.weak_points.join(', ') || 'nessuno'}. ` +
               `Livello ${input.config.experience}; elastici ${input.config.preferences.elastic_policy}; ` +
               `corpo libero ${input.config.preferences.bodyweight_policy}; attrezzatura ${input.config.equipment.preset}. ` +
               `Genera la sessione con la metodica selezionata e non usare altri muscoli come target primari.`,
@@ -333,7 +334,7 @@ export async function generateWorkoutsWithDeepSeek(
               benchmark_crossfit: input.config.crossfit_benchmark ?? 'custom',
               muscoli_target_oggi: input.config.single_session_target_muscles?.length
                 ? input.config.single_session_target_muscles
-                : input.config.weak_points,
+                : [],
               metodo_hybrid: input.config.hybrid_method,
               formato_hybrid: input.config.hybrid_format,
               metodo_forza: input.config.strength_method,
@@ -429,7 +430,7 @@ export async function generateWorkoutsWithDeepSeek(
     }
     const targets = input.config.single_session_target_muscles?.length
       ? input.config.single_session_target_muscles
-      : input.config.weak_points
+      : []
     const strictTargets = session.workout.mode !== 'crossfit' && input.config.program_kind === 'single_session' && targets.length > 0 &&
       (input.config.crossfit_benchmark ?? 'custom') === 'custom'
     if (strictTargets) {

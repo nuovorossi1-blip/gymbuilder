@@ -62,12 +62,9 @@ export function computeBiomechanicalAdjustments(profile?: BiomechanicalProfile |
   const isMaster = typeof profile.age === 'number' && profile.age >= 35 && profile.age < 50
   const isTall = typeof profile.height_cm === 'number' && profile.height_cm >= 185
 
-  // Carenze fisiologiche di default se l'utente NON ne specifica:
-  // - Donna: Glutei, Femorali, Deltoidi laterali
-  // - Uomo: Petto, Dorso, Deltoidi laterali
-  const recommendedWeakPoints: Muscle[] = isFemale
-    ? ['glutes', 'hamstrings', 'lateral_delts']
-    : ['chest', 'back', 'lateral_delts']
+  // Una carenza è una scelta/valutazione esplicita dell'utente: non può essere
+  // dedotta automaticamente dal sesso o dagli altri dati anagrafici.
+  const recommendedWeakPoints: Muscle[] = []
 
   // Tempi di recupero differenziati Uomo vs Donna:
   // Uomo: 1.0x sui fondamentali (recupero completo ATP/PCr per tensione meccanica elevata)
@@ -100,14 +97,11 @@ export function computeBiomechanicalAdjustments(profile?: BiomechanicalProfile |
 /**
  * Risolve la lista finale di carenze da usare nel programma:
  * Le carenze scelte esplicitamente dall'utente in UI HANNO SEMPRE PRIORITÀ ASSOLUTA.
- * Se l'utente non ha scelto carenze (array vuoto), vengono applicate le raccomandazioni del profilo.
+ * Le carenze sono sempre e soltanto quelle scelte esplicitamente dall'utente.
  */
 export function resolveEffectiveWeakPoints(userWeakPoints: Muscle[], profile?: BiomechanicalProfile | null): Muscle[] {
-  if (userWeakPoints && userWeakPoints.length > 0) {
-    return userWeakPoints
-  }
-  const adjustments = computeBiomechanicalAdjustments(profile)
-  return adjustments.recommendedWeakPoints
+  void profile
+  return [...new Set(userWeakPoints ?? [])]
 }
 
 /**

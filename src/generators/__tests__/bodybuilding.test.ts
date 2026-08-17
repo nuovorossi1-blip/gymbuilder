@@ -118,6 +118,28 @@ describe('generaBodybuilding — attrezzatura (sez. 21, 31)', () => {
 })
 
 describe('generaBodybuilding — priorità assegnate dalla settimana', () => {
+  it('Push standard non contiene dorso, rematori o altri esercizi di tirata', () => {
+    const w = generaBodybuilding(catalogo, {
+      split: 'push', goal: 'hypertrophy', experience: 'advanced', equipment: 'full_gym',
+      duration_min: 60, priority_muscles: [], excluded_exercises: [], seed: 37,
+    })
+    const exercises = mainBlock(w).exercises
+    const byId = new Map(catalogo.map((exercise) => [exercise.id, exercise]))
+    expect(exercises.some((exercise) => exercise.muscle === 'back')).toBe(false)
+    expect(exercises.some((exercise) => byId.get(exercise.exercise_id)?.movement_pattern === 'horizontal_pull')).toBe(false)
+    expect(exercises.some((exercise) => byId.get(exercise.exercise_id)?.movement_pattern === 'vertical_pull')).toBe(false)
+  })
+
+  it('Push ammette il dorso solo come richiamo quando è una carenza esplicita', () => {
+    const w = generaBodybuilding(catalogo, {
+      split: 'push', goal: 'hypertrophy', experience: 'advanced', equipment: 'full_gym',
+      duration_min: 60, priority_muscles: ['back'], excluded_exercises: [], seed: 37,
+    })
+    const backExercises = mainBlock(w).exercises.filter((exercise) => exercise.muscle === 'back')
+    expect(backExercises).toHaveLength(1)
+    expect(backExercises[0]?.note).toBe('richiamo carenza')
+  })
+
   it('Push con spalle e braccia carenti usa un solo esercizio per ogni distretto', () => {
     const w = generaBodybuilding(catalogo, {
       split: 'push', goal: 'hypertrophy', experience: 'advanced', equipment: 'full_gym',

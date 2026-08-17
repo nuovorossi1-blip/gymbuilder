@@ -3,11 +3,9 @@ import { adaptPrescriptionForProfile, computeBiomechanicalAdjustments, resolveEf
 import type { PrescribedExercise } from '../types'
 
 describe('Biomechanical Profile Engine', () => {
-  it('assegna carenze fisiologiche femminili di default se l’utente non ne seleziona nessuna', () => {
+  it('non inventa carenze dal profilo se l’utente non ne seleziona nessuna', () => {
     const weakPoints = resolveEffectiveWeakPoints([], { sex: 'female' })
-    expect(weakPoints).toContain('glutes')
-    expect(weakPoints).toContain('hamstrings')
-    expect(weakPoints).toContain('lateral_delts')
+    expect(weakPoints).toEqual([])
   })
 
   it('dà SEMPRE priorità alle carenze esplicite scelte dall’utente', () => {
