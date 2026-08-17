@@ -17,7 +17,11 @@ export function saveAudioSettings(settings: AudioTimerSettings): void {
 
 export function soundForEvent(type: TimerEventType, settings: AudioTimerSettings): TimerSound | null {
   if (!settings.enabled) return null
-  if (type === 'WARNING') return settings.countdown ? 'beep' : null
+  // Se l'utente ha scelto "silenzioso" sia per l'inizio sia per la fine, vuole restare
+  // muto: anche i tre bip del conto alla rovescia (3-2-1) devono tacere, non solo i
+  // segnali di inizio/fine fase, altrimenti "solo vibrazione" non lo è davvero.
+  const wantsFullSilence = settings.startSound === 'silent' && settings.endSound === 'silent'
+  if (type === 'WARNING') return settings.countdown && !wantsFullSilence ? 'beep' : null
   if (type === 'COUNTDOWN_COMPLETED' || type === 'TIMER_COMPLETED' || type === 'TIME_CAP_REACHED' || type === 'REST_STARTED') return settings.endSound
   if (type === 'TIMER_STARTED' || type === 'WORK_STARTED' || type === 'ROUND_STARTED' || type === 'SET_STARTED') return settings.startSound
   return null

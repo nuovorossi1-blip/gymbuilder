@@ -1,5 +1,25 @@
 # Changelog AI
 
+## 2026-08-17 - Vibrazione, "solo vibrazione" davvero silenzioso, meno churn sul servizio nativo in pausa
+
+- `navigator.vibrate()` non funzionava mai in APK: mancava il permesso `android.permission.VIBRATE`
+  in `AndroidManifest.xml`. Aggiunto.
+- "Solo vibrazione / silenzioso" (startSound + endSound entrambi `silent`) non silenziava i tre bip
+  del conto alla rovescia 3-2-1, che restavano sempre un `beep` udibile indipendentemente
+  dall'impostazione. Corretto in `audio.ts::soundForEvent`: con entrambi i suoni su `silent` anche
+  il conto alla rovescia resta muto (la vibrazione, se attiva, continua a funzionare).
+- Bug segnalato: crash dopo la seconda pausa durante un allenamento. `publishBackgroundTimer`
+  fermava e riavviava il servizio Android in foreground a ogni pausa/ripresa (stop su pausa, nuovo
+  `startForegroundService` alla ripresa) — distruggere/ricreare il servizio molte volte in una
+  sessione è superficie inutile per le stesse restrizioni Android sui foreground service già
+  causa del crash "3-2-1 e si chiude" corretto in precedenza. In pausa il servizio nativo non viene
+  più fermato: resta com'è (il countdown vero è comunque quello React, la notifica si limita a
+  mostrare l'ultimo stato finché la ripresa non invia il nuovo deadline). Lo stop reale
+  all'uscita/fine sessione resta invariato (`resetBackgroundTimer(true)`).
+- Verifica completata: 221 test verdi, build production verde, lint senza errori (resta il
+  warning storico in `Runner.tsx`). Il fix vibrazione/pausa lato nativo non è verificabile senza
+  un dispositivo Android in questo ambiente.
+
 ## 2026-08-17 - Notifica/banner in background con giri e fase, contenuto visibile a schermo bloccato
 
 - Richiesta utente: mandando l'app in background durante Tabata (o EMOM/Intervals), il banner/la

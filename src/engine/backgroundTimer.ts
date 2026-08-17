@@ -73,7 +73,12 @@ export function publishBackgroundTimer(label: string, remainingSec: number, paus
   }
   if (!paused && remainingSec > 0) {
     void startNativeWorkoutTimer(label, state.deadline).catch(() => { /* fallback web già attivo */ })
-  } else {
+  } else if (remainingSec <= 0) {
+    // In pausa non si ferma il servizio nativo: fermarlo e riavviarlo a ogni pausa/ripresa
+    // significa distruggere e ricreare il foreground service molte volte in una sessione,
+    // superficie inutile per crash legati alle restrizioni Android sui foreground service
+    // (sez. WorkoutTimerService). Da fermo per davvero (fine/uscita) resetBackgroundTimer(true)
+    // chiama comunque stopNativeWorkoutTimer() direttamente.
     void stopNativeWorkoutTimer().catch(() => { /* nessun servizio nativo */ })
   }
 }
