@@ -1,5 +1,14 @@
 # Changelog AI
 
+## 2026-08-17 - Tabata non blocca più l'app, Ultimo allenamento riutilizzabile, Composizione CrossFit corretta
+
+- Bug critico: generare un Tabata chiamava `startWorkoutSession` e saltava direttamente al Runner (`/avvia`) senza passare da anteprima. Poiché `activeSession` è persistita in `localStorage`, ogni riapertura dell'app forzava il redirect su `/avvia` (sez. `Guscio` in `App.tsx`) su una sessione mai davvero iniziata dall'utente, e quella schermata Metcon "anteprima" non aveva alcun pulsante di uscita: l'utente restava bloccato senza tasto Indietro e senza poter salvare il Tabata in libreria.
+- Rimossa l'eccezione Tabata in `Create.tsx`: ora, come tutte le altre modalità, naviga su `/allenamento` (anteprima) dove l'utente vede il Tabata, può salvarlo in libreria e preme "Inizia" esplicitamente prima che la sessione diventi attiva.
+- Aggiunta comunque una difesa diretta nel Runner: la schermata Metcon "anteprima" (usata anche dal Tabata) ora ha `← Indietro` / `Elimina sessione` e i controlli audio, anche se raggiunta da un percorso diretto.
+- "Ultimo allenamento" (`History.tsx`) era puramente informativo: nessun tasto per aprirlo o rieseguirlo. Aggiunto lo stesso pattern di `Saved.tsx` (`👁️ Vedi dettagli` / `▶ Ripeti`), con `mode` ora incluso in `CompletedWorkout` (colonna già presente in `completed_workouts`).
+- "Composizione Seduta di Oggi": lo split preimpostato Push/Pull/Legs/Upper/Lower/Bro è un concetto Bodybuilding/Forza; per CrossFit e Hybrid il motore lo scarta sempre (`split: null` in `generateWeeklyProgram`, sez. sessione singola), quindi selezionarlo in UI non aveva alcun effetto. Sostituito per CrossFit/Hybrid con un campo dedicato "Muscoli Target di Oggi (opzionale)" che rimanda esplicitamente al formato/benchmark scelto più sotto in "Metodica / Benchmark CrossFit".
+- Verifica completata: 218 test verdi, build production verde, lint senza errori (resta il warning storico in `Runner.tsx`).
+
 ## 2026-08-17 - Tre deltoidi distinti nelle priorità BB
 
 - Rimossa la vecchia fusione delle tre porzioni della spalla in un solo richiamo.

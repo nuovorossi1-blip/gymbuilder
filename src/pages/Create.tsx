@@ -48,7 +48,7 @@ export default function Create() {
   const [searchParams] = useSearchParams()
   const { user } = useAuth()
   const { profile } = useSettings(user?.id)
-  const { weeklyProgram, setWeeklyProgram, setWorkout, setGenerationConfig, setCatalog, startWorkoutSession, clearRejectedExercises } = useWorkout()
+  const { weeklyProgram, setWeeklyProgram, setWorkout, setGenerationConfig, setCatalog, clearRejectedExercises } = useWorkout()
   const navigate = useNavigate()
   const [catalog, setLocalCatalog] = useState<Exercise[]>([])
   const [weeklyState, setWeeklyState] = useState<WeeklyTrainingState>()
@@ -176,12 +176,7 @@ export default function Create() {
     setGenerationConfig(generationConfig)
     setWorkout(workout)
     setError(null)
-    if (session.mode === 'tabata') {
-      startWorkoutSession(workout, generationConfig)
-      navigate('/avvia')
-    } else {
-      navigate('/allenamento')
-    }
+    navigate('/allenamento')
   }
 
   function generateDay(session: WeeklySession, sourceProgram = weeklyProgram) {
@@ -582,7 +577,7 @@ function WizardBuilder({
           )}
 
           {config.program_kind === 'single_session' &&
-            (config.selected_modes.includes('bodybuilding') || config.selected_modes.includes('strength') || config.selected_modes.includes('crossfit') || config.selected_modes.includes('crossfit_hybrid')) && (
+            (config.selected_modes.includes('bodybuilding') || config.selected_modes.includes('strength')) && (
               <Field title="Composizione Seduta di Oggi">
                 <div className="grid grid-cols-2 gap-2 mb-3">
                   <Choice
@@ -652,6 +647,48 @@ function WizardBuilder({
                         {SPLIT_LABELS[split]}
                       </Choice>
                     ))}
+                  </div>
+                )}
+              </Field>
+            )}
+
+          {/* CrossFit e Hybrid non usano uno split Push/Pull/Legs: quello è un concetto
+              Bodybuilding. Qui l'unica composizione applicabile sono i muscoli target
+              (opzionali); formato WOD e benchmark si scelgono nel campo "Metodica" sotto. */}
+          {config.program_kind === 'single_session' &&
+            (config.selected_modes.includes('crossfit') || config.selected_modes.includes('crossfit_hybrid')) && (
+              <Field title="Muscoli Target di Oggi (opzionale)">
+                <p className="text-xs text-slate-300 mb-3">
+                  Il CrossFit non ha uno split per gruppo muscolare: è full body. Seleziona qui solo se vuoi
+                  che il WOD di oggi dia priorità a muscoli carenti specifici — altrimenti lascia vuoto e scegli
+                  formato o benchmark più sotto in "Metodica / Benchmark CrossFit".
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {(Object.keys(MUSCLE_LABELS) as Muscle[]).map((muscle) => {
+                    const active = (config.single_session_target_muscles ?? []).includes(muscle)
+                    return (
+                      <Choice
+                        key={muscle}
+                        active={active}
+                        onClick={() => {
+                          const current = config.single_session_target_muscles ?? []
+                          const next = current.includes(muscle)
+                            ? current.filter((m) => m !== muscle)
+                            : [...current, muscle]
+                          patch('single_session_target_muscles', next)
+                        }}
+                      >
+                        {MUSCLE_LABELS[muscle]}
+                      </Choice>
+                    )
+                  })}
+                </div>
+                {(config.single_session_target_muscles ?? []).length > 0 && (
+                  <div className="mt-3 rounded-xl border border-cyan-500/40 bg-cyan-500/10 p-3">
+                    <p className="eyebrow text-cyan-300">Target Sessione Oggi</p>
+                    <p className="mt-1 font-display font-bold text-white text-sm">
+                      {(config.single_session_target_muscles ?? []).map((m) => MUSCLE_LABELS[m]).join(' + ')}
+                    </p>
                   </div>
                 )}
               </Field>

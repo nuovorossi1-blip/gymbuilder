@@ -588,7 +588,11 @@ export default function Runner() {
     if (metconFase === 'anteprima') {
       return (
         <div className="px-5 pt-12 pb-8 min-h-dvh flex flex-col">
-          <p className="eyebrow mb-3">Metcon</p>
+          <div className="flex justify-between">
+            <button className="font-data text-[11px] uppercase tracking-[0.14em] text-slate2" onClick={tornaIndietro}>← Indietro</button>
+            <button className="font-data text-[11px] uppercase tracking-[0.14em] text-red-300" onClick={interrompiAllenamento}>Elimina sessione</button>
+          </div>
+          <p className="eyebrow mb-3 mt-6">Metcon</p>
           <h1 className="font-display font-extrabold uppercase leading-[0.9] tracking-tight text-[2.2rem]">
             {metconBlock?.title}
           </h1>
@@ -603,6 +607,7 @@ export default function Runner() {
               </li>
             ))}
           </ul>
+          <AudioControls settings={audioSettings} onChange={updateAudio} />
           <button
             className="btn mt-auto !py-4 text-lg"
             onClick={() => void startWithCountdown(() => {

@@ -11,6 +11,7 @@ function completato(exerciseId: string, sets: number, completedAt: string, kind:
   return {
     id: `${exerciseId}-${completedAt}`,
     name: 'Test',
+    mode: 'bodybuilding',
     duration_sec: 1800,
     rating: null,
     completed_at: completedAt,

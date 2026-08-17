@@ -346,6 +346,7 @@ export interface SavedWorkout {
 export interface CompletedWorkout {
   id: string
   name: string
+  mode: Mode
   duration_sec: number
   rating: string | null
   completed_at: string
