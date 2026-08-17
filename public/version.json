@@ -1,0 +1,8 @@
+{
+  "version": "1.0.0",
+  "versionCode": 1,
+  "apkUrl": "",
+  "releaseUrl": "https://github.com/nuovorossi1-blip/gymbuilder/releases/latest",
+  "notes": "Prima release Android di GymBuilder.",
+  "mandatory": false
+}
