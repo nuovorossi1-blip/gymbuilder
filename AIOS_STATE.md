@@ -97,6 +97,11 @@ presenti negli ambienti Preview e Production (valori mantenuti nascosti).
   primari rigidi per Bodybuilding, Forza, CrossFit Custom e Hybrid: gli altri
   gruppi possono intervenire come secondari ma non occupano slot principali.
   Validatore e DeepSeek rifiutano risultati fuori target.
+- [FACT] Target della giornata e carenze sono dati distinti: una sessione BB
+  custom da sei gruppi mantiene uno slot per ciascun gruppo, mentre `weak_points`
+  decide quali slot sono prioritari. Nel programma con almeno due sedute BB,
+  ogni carenza riceve almeno una seduta principale e un richiamo settimanale
+  compatibile, distribuendo il volume senza duplicare due sedute pesanti.
 - [FACT] CrossFit espone `WOD personalizzato`, Cindy, Fran, Grace e Helen.
   I benchmark risolvono i movimenti dal catalogo; una variante viene dichiarata
   `adattata`, mentre un benchmark non risolvibile torna a Custom con warning.

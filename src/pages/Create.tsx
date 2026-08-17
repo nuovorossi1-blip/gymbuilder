@@ -216,19 +216,20 @@ export default function Create() {
     const todayTargets = global.program_kind === 'single_session'
       ? (global.single_session_target_muscles?.length ? global.single_session_target_muscles : global.weak_points)
       : session.priority_muscles
+    const todayPriorities = global.program_kind === 'single_session' ? global.weak_points : session.priority_muscles
     const split = session.split ?? 'full_body'
     const forzaCrossFit = global.selected_modes.includes('strength') && global.selected_modes.includes('crossfit')
     const workout = session.mode === 'crossfit'
       ? forzaCrossFit
         ? generaHybrid(dayCatalog, { ...common, format: session.metcon_format === 'emom' ? 'emom' : session.metcon_format === 'for_time' ? 'for_time' : 'amrap' })
-        : generaCrossFit(dayCatalog, { ...common, target_muscles: todayTargets, format: session.metcon_format ?? global.crossfit_format, benchmark: global.crossfit_benchmark })
+        : generaCrossFit(dayCatalog, { ...common, priority_muscles: todayPriorities, target_muscles: todayTargets, format: session.metcon_format ?? global.crossfit_format, benchmark: global.crossfit_benchmark })
       : session.mode === 'crossfit_hybrid'
-        ? generaHybrid(dayCatalog, { ...common, priority_muscles: todayTargets, target_muscles: todayTargets, method: global.program_kind === 'single_session' && todayTargets.length > 0 ? 'specialization' : global.program_kind === 'single_session' ? global.hybrid_method : session.priority_muscles.length > 0 ? 'specialization' : global.hybrid_method, format: (session.metcon_format === 'amrap' || session.metcon_format === 'emom' || session.metcon_format === 'for_time' || session.metcon_format === 'intervals') ? session.metcon_format : global.hybrid_format })
+        ? generaHybrid(dayCatalog, { ...common, priority_muscles: todayPriorities, target_muscles: todayTargets, method: global.program_kind === 'single_session' && todayTargets.length > 0 ? 'specialization' : global.program_kind === 'single_session' ? global.hybrid_method : session.priority_muscles.length > 0 ? 'specialization' : global.hybrid_method, format: (session.metcon_format === 'amrap' || session.metcon_format === 'emom' || session.metcon_format === 'for_time' || session.metcon_format === 'intervals') ? session.metcon_format : global.hybrid_format })
         : session.mode === 'strength'
-          ? generaForza(dayCatalog, { ...common, target_muscles: todayTargets, split, method: global.strength_method, weekly_volume: weeklyState?.volume, last_trained_at: weeklyState?.last_trained_at })
+          ? generaForza(dayCatalog, { ...common, priority_muscles: todayPriorities, target_muscles: todayTargets, split, method: global.strength_method, weekly_volume: weeklyState?.volume, last_trained_at: weeklyState?.last_trained_at })
           : session.mode === 'tabata'
             ? generaTabata(dayCatalog, { ...common, ...global.tabata })
-            : generaBodybuilding(dayCatalog, { ...common, priority_muscles: todayTargets, target_muscles: todayTargets, split, goal: 'hypertrophy', weekly_volume: weeklyState?.volume, last_trained_at: weeklyState?.last_trained_at })
+            : generaBodybuilding(dayCatalog, { ...common, priority_muscles: todayPriorities, target_muscles: todayTargets, split, goal: 'hypertrophy', weekly_volume: weeklyState?.volume, last_trained_at: weeklyState?.last_trained_at })
     finalizeWorkout(session, sourceProgram, workout)
   }
 

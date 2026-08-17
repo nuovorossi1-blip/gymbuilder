@@ -286,10 +286,10 @@ describe('generaBodybuilding — scenario critico sez. 28 della correzione', () 
     expect(main.length).toBeGreaterThanOrEqual(5)
     expect(main.length).toBeLessThanOrEqual(6)
     expect(main.map((exercise) => exercise.muscle)).toEqual(expect.arrayContaining(['front_delts', 'triceps', 'biceps']))
-    expect(main[0].muscle).toBe('triceps')
+    expect(main[0].muscle).toBe('front_delts')
   })
 
-  it('sessione custom con petto spalle e braccia duplica i muscoli carenti e collassa le spalle a un solo slot', () => {
+  it('petto + tre deltoidi + braccia mantiene sei slot distinti e dà priorità alle carenze', () => {
     const w = generaBodybuilding(catalogo, {
       split: 'full_body',
       goal: 'hypertrophy',
@@ -297,19 +297,17 @@ describe('generaBodybuilding — scenario critico sez. 28 della correzione', () 
       equipment: 'full_gym',
       duration_min: 60,
       target_muscles: ['chest', 'front_delts', 'lateral_delts', 'rear_delts', 'biceps', 'triceps'],
-      priority_muscles: ['biceps', 'triceps'],
+      priority_muscles: ['front_delts', 'lateral_delts', 'rear_delts', 'biceps', 'triceps'],
       excluded_exercises: [],
       seed: 33,
     })
 
     const muscles = mainBlock(w).exercises.map((exercise) => exercise.muscle)
-    const shoulderCount = muscles.filter((muscle) => muscle && ['front_delts', 'lateral_delts', 'rear_delts'].includes(muscle)).length
-
     expect(mainBlock(w).exercises).toHaveLength(6)
-    expect(muscles.filter((muscle) => muscle === 'chest')).toHaveLength(1)
-    expect(shoulderCount).toBe(1)
-    expect(muscles.filter((muscle) => muscle === 'biceps')).toHaveLength(2)
-    expect(muscles.filter((muscle) => muscle === 'triceps')).toHaveLength(2)
+    expect(muscles).toEqual(['chest', 'front_delts', 'lateral_delts', 'rear_delts', 'biceps', 'triceps'])
+    expect(mainBlock(w).exercises.map((exercise) => exercise.role)).toEqual([
+      'compound', 'compound', 'isolation', 'isolation', 'isolation', 'isolation',
+    ])
   })
 })
 

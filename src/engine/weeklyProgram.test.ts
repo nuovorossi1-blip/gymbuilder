@@ -164,17 +164,27 @@ describe('Weekly Program Engine', () => {
   it('PPL assegna spalle e braccia a Push/Pull, mai a Legs', () => {
     const program = generateWeeklyProgram({ ...base, training_days: 3, selected_modes: ['bodybuilding'], weak_points: ['lateral_delts', 'rear_delts', 'biceps', 'triceps'] })
     const bySplit = new Map(program.week.map((session) => [session.split, session]))
-    expect(bySplit.get('push')?.priority_muscles).toEqual(['lateral_delts', 'biceps', 'triceps'])
-    expect(bySplit.get('pull')?.priority_muscles).toEqual(['rear_delts', 'biceps', 'triceps'])
+    expect(bySplit.get('push')?.priority_muscles).toEqual(['lateral_delts', 'biceps', 'triceps', 'rear_delts'])
+    expect(bySplit.get('pull')?.priority_muscles).toEqual(['rear_delts', 'biceps', 'triceps', 'lateral_delts'])
     expect(bySplit.get('legs')?.priority_muscles).toEqual([])
+  })
+
+  it('una carenza petto in PPL riceve seduta principale e richiamo settimanale', () => {
+    const program = generateWeeklyProgram({
+      ...base, training_days: 3, selected_modes: ['bodybuilding'], split_system: 'ppl', weak_points: ['chest'],
+    })
+    const exposures = program.week.filter((session) => session.priority_muscles.includes('chest'))
+    expect(exposures.length).toBeGreaterThanOrEqual(2)
+    expect(exposures.some((session) => session.split === 'push')).toBe(true)
+    expect(exposures.some((session) => session.split !== 'push')).toBe(true)
   })
 
   it('Upper/Lower ruota laterali e posteriori fra Upper A/B e lascia puliti i Lower', () => {
     const program = generateWeeklyProgram({ ...base, training_days: 4, selected_modes: ['bodybuilding'], split_system: 'upper_lower', weak_points: ['lateral_delts', 'rear_delts', 'biceps', 'triceps'] })
     const uppers = program.week.filter((session) => session.split === 'upper').sort((a, b) => a.variant.localeCompare(b.variant))
     expect(uppers.map((session) => session.priority_muscles)).toEqual([
-      ['lateral_delts', 'biceps', 'triceps'],
-      ['rear_delts', 'biceps', 'triceps'],
+      ['lateral_delts', 'biceps', 'triceps', 'rear_delts'],
+      ['rear_delts', 'biceps', 'triceps', 'lateral_delts'],
     ])
     expect(program.week.filter((session) => session.split === 'lower').every((session) => session.priority_muscles.length === 0)).toBe(true)
   })

@@ -1,5 +1,13 @@
 # Changelog AI
 
+## 2026-08-17 - Target BB separati dalle carenze e richiami settimanali
+
+- Separati i gruppi scelti per la sessione dai muscoli carenti: i primi definiscono cosa allenare, i secondi definiscono priorità, volume e richiami.
+- Caso petto + tre porzioni del deltoide + bicipiti + tricipiti: sei slot distinti con petto compound, deltoide anteriore compound, laterale/posteriore isolati, bicipiti e tricipiti.
+- Se il petto è la carenza, la stessa regola si ribalta automaticamente: il petto riceve la priorità rispetto agli altri target.
+- Nei programmi con almeno due sedute Bodybuilding ogni carenza riceve almeno due esposizioni: seduta principale più richiamo compatibile a densità controllata.
+- Verifica completata con 210 test verdi, build production verde e lint senza errori (restano due warning storici nel Runner).
+
 ## 2026-08-17 - Target muscolari rigidi e benchmark CrossFit selezionabili
 
 - I muscoli carenti/target della sessione singola sono ora vincoli primari per Bodybuilding, Forza, CrossFit Custom e Hybrid: altri gruppi possono comparire soltanto come sinergici secondari.

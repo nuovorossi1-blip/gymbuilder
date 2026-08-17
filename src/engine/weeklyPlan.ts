@@ -183,7 +183,7 @@ function assegnaPrioritaSettimanali(
   sessions: Omit<WeeklySession, 'id' | 'day'>[],
   config: WeeklyProgramConfig
 ): Omit<WeeklySession, 'id' | 'day'>[] {
-  return sessions.map((session) => {
+  const assigned = sessions.map((session) => {
     if (session.mode === 'crossfit_hybrid') {
       const upperPriority = config.weak_points.filter((muscle) => !['quads', 'hamstrings', 'glutes', 'calves', 'core'].includes(muscle))
       return session.variant === 'A'
@@ -204,6 +204,26 @@ function assegnaPrioritaSettimanali(
       : compatible
     return { ...session, priority_muscles }
   })
+
+  // Una carenza richiede almeno due esposizioni settimanali quando esistono
+  // almeno due sedute BB: una seduta principale e un richiamo a bassa densità.
+  const bodybuilding = assigned.filter((session) => session.mode === 'bodybuilding')
+  if (bodybuilding.length >= 2) {
+    const upper = new Set<Muscle>(['chest', 'back', 'front_delts', 'lateral_delts', 'rear_delts', 'biceps', 'triceps'])
+    const upperSplits = new Set<Split>(['push', 'pull', 'upper', 'bro_chest', 'bro_back', 'bro_shoulders', 'bro_arms', 'front_body', 'back_body'])
+    for (const muscle of config.weak_points) {
+      const exposureCount = assigned.filter((session) => session.priority_muscles.includes(muscle)).length
+      if (exposureCount >= 2) continue
+      const candidate = bodybuilding
+        .filter((session) => !session.priority_muscles.includes(muscle))
+        .sort((a, b) => {
+          const fit = (session: typeof a) => session.split && ((upper.has(muscle) && upperSplits.has(session.split)) || (!upper.has(muscle) && !upperSplits.has(session.split))) ? 0 : 1
+          return fit(a) - fit(b) || a.priority_muscles.length - b.priority_muscles.length
+        })[0]
+      if (candidate) candidate.priority_muscles = [...candidate.priority_muscles, muscle]
+    }
+  }
+  return assigned
 }
 
 function makeCandidates(config: WeeklyProgramConfig): Omit<WeeklySession, 'id' | 'day'>[] {

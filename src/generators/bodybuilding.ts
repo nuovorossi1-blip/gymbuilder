@@ -278,7 +278,6 @@ const SOGLIA_PESANTE = 3
 const MAX_COMPOUND_PESANTI = 2
 
 const SHOULDER_MUSCLES: Muscle[] = ['front_delts', 'lateral_delts', 'rear_delts']
-const LOWER_MUSCLES = new Set<Muscle>(['quads', 'hamstrings', 'glutes', 'calves'])
 const COMPOUND_CAPABLE_MUSCLES = new Set<Muscle>(['chest', 'back', 'front_delts', 'quads', 'hamstrings', 'glutes'])
 
 /**
@@ -348,32 +347,6 @@ function requisitiCarenze(priority: Muscle[], slots: SlotDef[]): Muscle[] {
   return requirements
 }
 
-function normalizeCustomTargets(targets: Muscle[], priority: Muscle[]): Muscle[] {
-  const orderedTargets = [...new Set(targets)]
-  const shoulderTargets = orderedTargets.filter((muscle) => SHOULDER_MUSCLES.includes(muscle))
-  const shoulderRepresentative =
-    shoulderTargets.find((muscle) => priority.includes(muscle)) ??
-    (shoulderTargets.includes('lateral_delts')
-      ? 'lateral_delts'
-      : shoulderTargets.includes('front_delts')
-        ? 'front_delts'
-        : shoulderTargets[0])
-
-  const normalized: Muscle[] = []
-  let shoulderInserted = false
-  for (const muscle of orderedTargets) {
-    if (SHOULDER_MUSCLES.includes(muscle)) {
-      if (!shoulderInserted && shoulderRepresentative) {
-        normalized.push(shoulderRepresentative)
-        shoulderInserted = true
-      }
-      continue
-    }
-    normalized.push(muscle)
-  }
-  return normalized
-}
-
 /** Mantiene almeno tre slot identitari e riserva le priorità assegnate, senza superare sei esercizi. */
 function applicaPrioritaAssegnate(base: SlotDef[], priority: Muscle[]): { slots: SlotDef[]; requirements: Muscle[] } {
   const maxReq = priority.length > 3 ? Math.min(6, priority.length) : 3
@@ -394,71 +367,27 @@ function applicaPrioritaAssegnate(base: SlotDef[], priority: Muscle[]): { slots:
   return { slots, requirements }
 }
 
-function buildCustomTargetSlots(targets: Muscle[], priority: Muscle[], durationMin: number): SlotDef[] {
-  const desiredSlots = durationMin < 45 ? 5 : 6
-  const orderedTargets = normalizeCustomTargets(targets, priority)
+function buildCustomTargetSlots(targets: Muscle[], priority: Muscle[]): SlotDef[] {
+  const desiredSlots = 6
+  const orderedTargets = [...new Set(targets)]
   if (orderedTargets.length === 0) return []
-
   const priorityTargets = orderedTargets.filter((muscle) => priority.includes(muscle))
   const nonPriorityTargets = orderedTargets.filter((muscle) => !priority.includes(muscle))
-  const nonPriorityBudget = Math.max(0, desiredSlots - priorityTargets.length * 2)
-  const keptNonPriority = nonPriorityTargets.slice(0, nonPriorityBudget)
-
-  const slots: SlotDef[] = []
-  let compoundUsed = false
-
-  for (const [index, muscle] of priorityTargets.entries()) {
-    slots.push({
-      muscle,
-      compound: false,
-      weakPoint: true,
-      order: index,
-    })
-  }
-
-  for (const [index, muscle] of keptNonPriority.entries()) {
-    const compound: boolean = !compoundUsed && COMPOUND_CAPABLE_MUSCLES.has(muscle)
-    slots.push({
-      muscle,
-      compound,
-      weakPoint: false,
-      order: 10 + index,
-    })
-    compoundUsed = compoundUsed || compound
-  }
-
-  for (const [index, muscle] of priorityTargets.entries()) {
-    if (slots.length >= desiredSlots) break
-    slots.push({
-      muscle,
-      compound: false,
-      weakPoint: true,
-      order: 20 + index,
-    })
-  }
-
-  let index = 0
-  const refillPool = keptNonPriority.length > 0 ? keptNonPriority : orderedTargets
+  const selectedTargets = [...nonPriorityTargets, ...priorityTargets]
+    .slice(0, desiredSlots)
+  let compounds = 0
+  const slots = selectedTargets.map((muscle, index): SlotDef => {
+    const compound = compounds < 2 && COMPOUND_CAPABLE_MUSCLES.has(muscle)
+    if (compound) compounds++
+    return { muscle, compound, weakPoint: priority.includes(muscle), order: compound ? index : 10 + index }
+  })
+  let refill = 0
   while (slots.length < desiredSlots) {
-    const muscle = refillPool[index % refillPool.length]
-    const alreadyDirect = slots.filter((slot) => slot.muscle === muscle).length
-    const lowerBias: boolean = priority.includes(muscle) || LOWER_MUSCLES.has(muscle)
-    slots.push({
-      muscle,
-      compound: !compoundUsed && COMPOUND_CAPABLE_MUSCLES.has(muscle) && alreadyDirect === 0,
-      weakPoint: priority.includes(muscle) || (lowerBias && alreadyDirect === 0),
-      order: priority.includes(muscle) ? 30 + index : 40 + index,
-    })
-    compoundUsed = compoundUsed || slots[slots.length - 1].compound
-    index++
+    const muscle = priorityTargets[refill % Math.max(1, priorityTargets.length)] ?? orderedTargets[refill % orderedTargets.length]
+    slots.push({ muscle, compound: false, weakPoint: priority.includes(muscle), order: 20 + refill })
+    refill++
   }
-
-  if (!compoundUsed) {
-    const compoundIndex = slots.findIndex((slot) => COMPOUND_CAPABLE_MUSCLES.has(slot.muscle))
-    if (compoundIndex >= 0) slots[compoundIndex] = { ...slots[compoundIndex], compound: true }
-  }
-
-  return ordinaSlot('full_body', slots.slice(0, 6))
+  return slots
 }
 
 export function generaBodybuilding(
@@ -497,7 +426,7 @@ export function generaBodybuilding(
     ]
   }
   const structured = customTargets.length > 0
-    ? { slots: buildCustomTargetSlots(customTargets, priorities, cfg.duration_min), requirements: customTargets }
+    ? { slots: buildCustomTargetSlots(customTargets, priorities), requirements: customTargets }
     : applicaPrioritaAssegnate(base, priorities)
   const baseSlot = structured.slots
   const target = Math.max(targetEsercizi(), baseSlot.length)
