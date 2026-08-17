@@ -93,33 +93,33 @@ const BASE_SLOTS: Record<Split, SlotDef[]> = {
 /** 4°-5° esercizio: un solo accessorio, mai due alzate pesanti in più (sez. 24, applicato alla Forza). */
 const EXTRA_SLOTS: Record<Split, SlotDef[]> = {
   push: [{ muscle: 'lateral_delts', compound: false }, { muscle: 'chest', compound: false }],
-  pull: [{ muscle: 'rear_delts', compound: false }, { muscle: 'biceps', compound: false }],
+  pull: [{ muscle: 'rear_delts', compound: false }, { muscle: 'forearms', compound: false }],
   legs: [{ muscle: 'glutes', compound: false }, { muscle: 'quads', compound: false }],
   upper: [{ muscle: 'triceps', compound: false }, { muscle: 'biceps', compound: false }],
   lower: [{ muscle: 'calves', compound: false }, { muscle: 'quads', compound: false }],
-  full_body: [{ muscle: 'hamstrings', compound: false }, { muscle: 'core', compound: false }],
+  full_body: [{ muscle: 'hamstrings', compound: false }, { muscle: 'forearms', compound: false }],
   bro_chest: [], bro_back: [], bro_shoulders: [], bro_arms: [], bro_legs: [],
   front_body: [], back_body: [],
 }
 
 const SPLIT_MUSCLE_POOL: Record<Split, Muscle[]> = {
   push: ['chest', 'front_delts', 'lateral_delts', 'triceps'],
-  pull: ['back', 'rear_delts', 'biceps'],
-  legs: ['quads', 'hamstrings', 'glutes', 'calves'],
-  upper: ['chest', 'back', 'front_delts', 'lateral_delts', 'rear_delts', 'biceps', 'triceps'],
-  lower: ['quads', 'hamstrings', 'glutes', 'calves'],
-  full_body: ['chest', 'back', 'quads', 'hamstrings', 'core'],
+  pull: ['back', 'rear_delts', 'biceps', 'forearms'],
+  legs: ['quads', 'hamstrings', 'glutes', 'adductors', 'calves'],
+  upper: ['chest', 'back', 'front_delts', 'lateral_delts', 'rear_delts', 'biceps', 'triceps', 'forearms'],
+  lower: ['quads', 'hamstrings', 'glutes', 'adductors', 'calves'],
+  full_body: ['chest', 'back', 'quads', 'hamstrings', 'forearms'],
   bro_chest: [], bro_back: [], bro_shoulders: [], bro_arms: [], bro_legs: [],
   front_body: [], back_body: [],
 }
 
 const RICHIAMO_POOL: Record<Split, Muscle[]> = {
   push: ['chest', 'front_delts', 'lateral_delts', 'triceps', 'biceps'],
-  pull: ['back', 'rear_delts', 'biceps', 'triceps'],
-  legs: ['quads', 'hamstrings', 'glutes', 'calves'],
-  upper: ['chest', 'back', 'front_delts', 'lateral_delts', 'rear_delts', 'biceps', 'triceps'],
-  lower: ['quads', 'hamstrings', 'glutes', 'calves'],
-  full_body: ['chest', 'back', 'quads', 'hamstrings', 'core'],
+  pull: ['back', 'rear_delts', 'biceps', 'triceps', 'forearms'],
+  legs: ['quads', 'hamstrings', 'glutes', 'adductors', 'calves'],
+  upper: ['chest', 'back', 'front_delts', 'lateral_delts', 'rear_delts', 'biceps', 'triceps', 'forearms'],
+  lower: ['quads', 'hamstrings', 'glutes', 'adductors', 'calves'],
+  full_body: ['chest', 'back', 'quads', 'hamstrings', 'forearms'],
   bro_chest: [], bro_back: [], bro_shoulders: [], bro_arms: [], bro_legs: [],
   front_body: [], back_body: [],
 }

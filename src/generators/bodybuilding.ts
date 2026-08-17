@@ -80,11 +80,13 @@ const PATTERN_PER_MUSCOLO: Partial<Record<Muscle, string[]>> = {
   rear_delts: ['rear_delt'],
   biceps: ['elbow_flexion'],
   triceps: ['elbow_extension'],
+  forearms: ['wrist_flexion', 'wrist_extension', 'carry'],
   // Il catalogo storico classifica Leg Extension e Leg Curl entrambi come
   // knee_flexion: lo accettiamo qui finché la migration catalogo li separa.
   quads: ['squat', 'lunge', 'knee_extension', 'knee_flexion'],
   hamstrings: ['hinge', 'knee_flexion'],
   glutes: ['hinge', 'lunge'],
+  adductors: ['hip_adduction'],
   calves: ['calf_raise', 'jump'],
   core: ['core'],
 }
@@ -119,7 +121,7 @@ const BASE_SLOTS: Record<Split, SlotDef[]> = {
     { muscle: 'hamstrings', compound: true, preferredPatterns: ['hinge'] },
     { muscle: 'quads', compound: false },
     { muscle: 'hamstrings', compound: false },
-    { muscle: 'calves', compound: false },
+    { muscle: 'adductors', compound: false },
   ],
   upper: [
     { muscle: 'chest', compound: true },
@@ -140,7 +142,7 @@ const BASE_SLOTS: Record<Split, SlotDef[]> = {
     { muscle: 'chest', compound: true },
     { muscle: 'back', compound: true },
     { muscle: 'lateral_delts', compound: false },
-    { muscle: 'core', compound: false },
+    { muscle: 'triceps', compound: false },
   ],
   bro_chest: [
     { muscle: 'chest', compound: true },
@@ -200,16 +202,16 @@ const BASE_SLOTS: Record<Split, SlotDef[]> = {
  */
 const EXTRA_SLOTS: Record<Split, SlotDef[]> = {
   push: [{ muscle: 'chest', compound: false }, { muscle: 'triceps', compound: false }],
-  pull: [{ muscle: 'triceps', compound: false }, { muscle: 'biceps', compound: false }],
-  legs: [{ muscle: 'glutes', compound: false }, { muscle: 'core', compound: false }],
+  pull: [{ muscle: 'forearms', compound: false }, { muscle: 'biceps', compound: false }],
+  legs: [{ muscle: 'calves', compound: false }, { muscle: 'adductors', compound: false }],
   upper: [{ muscle: 'lateral_delts', compound: false }, { muscle: 'chest', compound: false }],
-  lower: [{ muscle: 'hamstrings', compound: false }, { muscle: 'core', compound: false }],
+  lower: [{ muscle: 'adductors', compound: false }, { muscle: 'calves', compound: false }],
   full_body: [{ muscle: 'hamstrings', compound: false }, { muscle: 'biceps', compound: false }],
   bro_chest: [{ muscle: 'triceps', compound: false }, { muscle: 'front_delts', compound: false }],
   bro_back: [{ muscle: 'back', compound: false }, { muscle: 'biceps', compound: false }],
   bro_shoulders: [{ muscle: 'front_delts', compound: false }, { muscle: 'core', compound: false }],
-  bro_arms: [{ muscle: 'triceps', compound: false }, { muscle: 'biceps', compound: false }],
-  bro_legs: [{ muscle: 'calves', compound: false }, { muscle: 'core', compound: false }],
+  bro_arms: [{ muscle: 'forearms', compound: false }, { muscle: 'triceps', compound: false }],
+  bro_legs: [{ muscle: 'calves', compound: false }, { muscle: 'adductors', compound: false }],
   front_body: [{ muscle: 'chest', compound: false }, { muscle: 'lateral_delts', compound: false }],
   back_body: [{ muscle: 'hamstrings', compound: false }, { muscle: 'glutes', compound: false }],
 }
@@ -223,16 +225,16 @@ const EXTRA_SLOTS: Record<Split, SlotDef[]> = {
 const SPLIT_MUSCLE_POOL: Record<Split, Muscle[]> = {
   push: ['chest', 'front_delts', 'lateral_delts', 'triceps'],
   pull: ['back', 'rear_delts', 'biceps'],
-  legs: ['quads', 'hamstrings', 'glutes', 'calves', 'core'],
-  upper: ['chest', 'back', 'front_delts', 'lateral_delts', 'rear_delts', 'biceps', 'triceps'],
-  lower: ['quads', 'hamstrings', 'glutes', 'calves', 'core'],
-  full_body: ['chest', 'back', 'quads', 'hamstrings', 'lateral_delts', 'core', 'biceps', 'triceps'],
+  legs: ['quads', 'hamstrings', 'glutes', 'adductors', 'calves'],
+  upper: ['chest', 'back', 'front_delts', 'lateral_delts', 'rear_delts', 'biceps', 'triceps', 'forearms'],
+  lower: ['quads', 'hamstrings', 'glutes', 'adductors', 'calves'],
+  full_body: ['chest', 'back', 'quads', 'hamstrings', 'lateral_delts', 'biceps', 'triceps', 'forearms'],
   bro_chest: ['chest', 'front_delts', 'triceps'],
   bro_back: ['back', 'rear_delts', 'biceps'],
   bro_shoulders: ['front_delts', 'lateral_delts', 'rear_delts'],
-  bro_arms: ['biceps', 'triceps'],
-  bro_legs: ['quads', 'hamstrings', 'glutes', 'calves', 'core'],
-  front_body: ['chest', 'quads', 'front_delts', 'lateral_delts', 'core'],
+  bro_arms: ['biceps', 'triceps', 'forearms'],
+  bro_legs: ['quads', 'hamstrings', 'glutes', 'adductors', 'calves'],
+  front_body: ['chest', 'quads', 'front_delts', 'lateral_delts', 'biceps'],
   back_body: ['back', 'hamstrings', 'rear_delts', 'biceps', 'glutes'],
 }
 

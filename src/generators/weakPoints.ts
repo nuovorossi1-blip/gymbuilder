@@ -30,9 +30,11 @@ export const TARGET_SETTIMANALE: Record<Muscle, number> = {
   rear_delts: 10,
   biceps: 10,
   triceps: 10,
+  forearms: 8,
   quads: 14,
   hamstrings: 12,
   glutes: 10,
+  adductors: 8,
   calves: 8,
   core: 8,
 }
@@ -40,7 +42,7 @@ export const TARGET_SETTIMANALE: Record<Muscle, number> = {
 function vuoto(): Record<Muscle, number> {
   return {
     chest: 0, back: 0, front_delts: 0, lateral_delts: 0, rear_delts: 0,
-    biceps: 0, triceps: 0, quads: 0, hamstrings: 0, glutes: 0, calves: 0, core: 0,
+    biceps: 0, triceps: 0, forearms: 0, quads: 0, hamstrings: 0, glutes: 0, adductors: 0, calves: 0, core: 0,
   }
 }
 

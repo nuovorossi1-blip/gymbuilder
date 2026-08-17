@@ -6,16 +6,16 @@ export interface ValidationResult { valid: boolean; errors: string[] }
 
 const SPLIT_PRIMARY_MUSCLES: Record<Split, Muscle[]> = {
   push: ['chest', 'front_delts', 'lateral_delts', 'triceps'],
-  pull: ['back', 'rear_delts', 'biceps'],
-  legs: ['quads', 'hamstrings', 'glutes', 'calves', 'core'],
-  upper: ['chest', 'back', 'front_delts', 'lateral_delts', 'rear_delts', 'biceps', 'triceps'],
-  lower: ['quads', 'hamstrings', 'glutes', 'calves', 'core'],
+  pull: ['back', 'rear_delts', 'biceps', 'forearms'],
+  legs: ['quads', 'hamstrings', 'glutes', 'adductors', 'calves'],
+  upper: ['chest', 'back', 'front_delts', 'lateral_delts', 'rear_delts', 'biceps', 'triceps', 'forearms'],
+  lower: ['quads', 'hamstrings', 'glutes', 'adductors', 'calves'],
   full_body: ['chest', 'back', 'front_delts', 'lateral_delts', 'rear_delts', 'biceps', 'triceps', 'quads', 'hamstrings', 'glutes', 'calves', 'core'],
   bro_chest: ['chest', 'front_delts', 'triceps'],
   bro_back: ['back', 'rear_delts', 'biceps'],
   bro_shoulders: ['front_delts', 'lateral_delts', 'rear_delts'],
-  bro_arms: ['biceps', 'triceps'],
-  bro_legs: ['quads', 'hamstrings', 'glutes', 'calves', 'core'],
+  bro_arms: ['biceps', 'triceps', 'forearms'],
+  bro_legs: ['quads', 'hamstrings', 'glutes', 'adductors', 'calves'],
   front_body: ['chest', 'front_delts', 'lateral_delts', 'quads', 'core'],
   back_body: ['back', 'rear_delts', 'biceps', 'hamstrings', 'glutes'],
 }

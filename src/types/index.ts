@@ -32,7 +32,7 @@ export type Equipment =
 
 export type Muscle =
   | 'chest' | 'back' | 'front_delts' | 'lateral_delts' | 'rear_delts'
-  | 'biceps' | 'triceps' | 'quads' | 'hamstrings' | 'glutes' | 'calves' | 'core'
+  | 'biceps' | 'triceps' | 'forearms' | 'quads' | 'hamstrings' | 'glutes' | 'adductors' | 'calves' | 'core'
 
 export type Split =
   | 'push' | 'pull' | 'legs' | 'upper' | 'lower' | 'full_body'
@@ -519,9 +519,11 @@ export const MUSCLE_LABELS: Record<Muscle, string> = {
   rear_delts: 'Deltoidi posteriori',
   biceps: 'Bicipiti',
   triceps: 'Tricipiti',
+  forearms: 'Avambracci',
   quads: 'Quadricipiti',
   hamstrings: 'Femorali',
   glutes: 'Glutei',
+  adductors: 'Adduttori · interno coscia',
   calves: 'Polpacci',
   core: 'Core',
 }

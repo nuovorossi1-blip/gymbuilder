@@ -70,12 +70,12 @@ const PIANI: Record<SplitSystem, Record<number, Split[]>> = {
 }
 
 const SPLIT_LOAD: Record<Split, Muscle[]> = {
-  push: ['chest', 'front_delts', 'lateral_delts', 'triceps'], pull: ['back', 'rear_delts', 'biceps'],
-  legs: ['quads', 'hamstrings', 'glutes', 'calves'], upper: ['chest', 'back', 'front_delts', 'rear_delts', 'biceps', 'triceps'],
-  lower: ['quads', 'hamstrings', 'glutes', 'calves'], full_body: ['chest', 'back', 'quads', 'hamstrings', 'core'],
+  push: ['chest', 'front_delts', 'lateral_delts', 'triceps'], pull: ['back', 'rear_delts', 'biceps', 'forearms'],
+  legs: ['quads', 'hamstrings', 'glutes', 'adductors', 'calves'], upper: ['chest', 'back', 'front_delts', 'rear_delts', 'biceps', 'triceps', 'forearms'],
+  lower: ['quads', 'hamstrings', 'glutes', 'adductors', 'calves'], full_body: ['chest', 'back', 'quads', 'hamstrings'],
   bro_chest: ['chest', 'front_delts', 'triceps'], bro_back: ['back', 'rear_delts', 'biceps'],
-  bro_shoulders: ['front_delts', 'lateral_delts', 'rear_delts'], bro_arms: ['biceps', 'triceps'],
-  bro_legs: ['quads', 'hamstrings', 'glutes', 'calves'], front_body: ['chest', 'front_delts', 'quads', 'core'],
+  bro_shoulders: ['front_delts', 'lateral_delts', 'rear_delts'], bro_arms: ['biceps', 'triceps', 'forearms'],
+  bro_legs: ['quads', 'hamstrings', 'glutes', 'adductors', 'calves'], front_body: ['chest', 'front_delts', 'quads', 'biceps'],
   back_body: ['back', 'rear_delts', 'hamstrings', 'glutes', 'biceps'],
 }
 
@@ -111,8 +111,8 @@ export function proposeWeeklyPlan(system: SplitSystem, days: number): Split[] {
 
 function bodybuildingSplits(config: WeeklyProgramConfig, count: number): Split[] {
   if (config.split_system !== 'ppl' || count !== 4) return proposeWeeklyPlan(config.split_system, count)
-  const lowerPriority = config.weak_points.some((muscle) => ['quads', 'hamstrings', 'glutes', 'calves'].includes(muscle))
-  const upperPriority = config.weak_points.some((muscle) => ['chest', 'back', 'front_delts', 'lateral_delts', 'rear_delts', 'biceps', 'triceps'].includes(muscle))
+  const lowerPriority = config.weak_points.some((muscle) => ['quads', 'hamstrings', 'glutes', 'adductors', 'calves'].includes(muscle))
+  const upperPriority = config.weak_points.some((muscle) => ['chest', 'back', 'front_delts', 'lateral_delts', 'rear_delts', 'biceps', 'triceps', 'forearms'].includes(muscle))
   return ['push', 'pull', 'legs', lowerPriority && !upperPriority ? 'lower' : upperPriority ? 'upper' : 'full_body']
 }
 
@@ -152,7 +152,7 @@ function strengthSplits(count: number): Split[] {
 function splitAccogliePriorita(system: SplitSystem, split: Split | null, muscle: Muscle): boolean {
   if (!split) return false
   if (split === 'full_body') return true
-  if (['quads', 'hamstrings', 'glutes', 'calves'].includes(muscle)) {
+  if (['quads', 'hamstrings', 'glutes', 'adductors', 'calves'].includes(muscle)) {
     return ['legs', 'lower', 'bro_legs', 'front_body', 'back_body'].includes(split)
   }
   if (muscle === 'chest') return ['push', 'upper', 'bro_chest', 'front_body'].includes(split)
@@ -209,7 +209,7 @@ function assegnaPrioritaSettimanali(
   // almeno due sedute BB: una seduta principale e un richiamo a bassa densità.
   const bodybuilding = assigned.filter((session) => session.mode === 'bodybuilding')
   if (bodybuilding.length >= 2) {
-    const upper = new Set<Muscle>(['chest', 'back', 'front_delts', 'lateral_delts', 'rear_delts', 'biceps', 'triceps'])
+    const upper = new Set<Muscle>(['chest', 'back', 'front_delts', 'lateral_delts', 'rear_delts', 'biceps', 'triceps', 'forearms'])
     const upperSplits = new Set<Split>(['push', 'pull', 'upper', 'bro_chest', 'bro_back', 'bro_shoulders', 'bro_arms', 'front_body', 'back_body'])
     for (const muscle of config.weak_points) {
       const exposureCount = assigned.filter((session) => session.priority_muscles.includes(muscle)).length

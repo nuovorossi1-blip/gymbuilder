@@ -4,7 +4,7 @@
 > da qui. Va **aggiornato** a ogni sessione, non accodato all'infinito.
 > L'identità del progetto e il percorso di AI-OS stanno in `AIOS_PROJECT.json`.
 
-**Ultimo aggiornamento:** 2026-08-17 (coerenza muscolare degli split) - Codex
+**Ultimo aggiornamento:** 2026-08-17 (avambracci, adduttori e core nel warm-up) - Codex
 
 Etichette: `[FACT]` verificato nel codice · `[RICOSTRUITO]` dedotto da indizi ·
 `[IGNOTO]` non ricavabile dal repository
@@ -651,3 +651,20 @@ il dorso viene rifiutato, salvo che `back` sia stato indicato esplicitamente fra
 i muscoli carenti. La stessa regola split + eccezione carenze vale per tutti gli
 altri split. Aggiunti due test dedicati; suite completa: 213 test verdi e build
 produzione verde.
+
+## Aggiornamento stato — 2026-08-17: avambracci, adduttori e addome
+
+`Muscle` include ora `forearms` e `adductors` (etichetta UI: “Adduttori ·
+interno coscia”); trapezi non sono stati aggiunti. Pull, Legs, Upper, Bro e
+Front/Back riconoscono i nuovi distretti senza confonderli con dorso, bicipiti
+o glutei. Il core non occupa più gli slot Bodybuilding principali previsti per
+gambe/full body: `scegliRiscaldamento` inserisce sempre 1-2 attivazioni core
+quando il catalogo le offre. Migrazione versionata
+`20260817145218_add_forearms_adductors_core_warmup.sql` con adductor machine,
+Copenhagen plank, due wrist curl e Bird dog. Suite: 215 test verdi; build verde.
+
+**Blocco remoto:** applicazione della migrazione tentata sia via CLI sia tramite
+connettore Supabase, ma l'account disponibile ha risposto rispettivamente 401 e
+“You do not have permission”. Il prossimo agente deve applicare questa singola
+migrazione al progetto `geqhxhgrameaugawmaej` con un account autorizzato e poi
+verificare che i cinque ID siano attivi in `public.exercises`.

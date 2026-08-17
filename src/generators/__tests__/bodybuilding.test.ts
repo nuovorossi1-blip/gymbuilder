@@ -190,8 +190,27 @@ describe('generaBodybuilding — scenario critico sez. 28 della correzione', () 
       priority_muscles: [], excluded_exercises: [], seed: 5,
     })
     const main = mainBlock(w).exercises
-    expect(main.map((exercise) => exercise.muscle)).toEqual(['quads', 'hamstrings', 'glutes', 'quads', 'hamstrings', 'calves'])
+    expect(main.map((exercise) => exercise.muscle)).toEqual(['quads', 'hamstrings', 'quads', 'hamstrings', 'calves', 'adductors'])
     expect(main.map((exercise) => exercise.role)).toEqual(['compound', 'compound', 'isolation', 'isolation', 'isolation', 'isolation'])
+  })
+
+  it('Pull standard usa un esercizio avambracci senza trasformarlo in un muscolo dorso', () => {
+    const w = generaBodybuilding(catalogo, {
+      split: 'pull', goal: 'hypertrophy', experience: 'advanced', equipment: 'full_gym', duration_min: 60,
+      priority_muscles: [], excluded_exercises: [], seed: 18,
+    })
+    expect(mainBlock(w).exercises.map((exercise) => exercise.muscle)).toContain('forearms')
+  })
+
+  it('sposta sempre uno o due esercizi addome nel riscaldamento e non nel blocco principale', () => {
+    const w = generaBodybuilding(catalogo, {
+      split: 'legs', goal: 'hypertrophy', experience: 'advanced', equipment: 'full_gym', duration_min: 60,
+      priority_muscles: [], excluded_exercises: [], seed: 22,
+    })
+    const warmupCore = w.blocks.find((block) => block.kind === 'warmup')!.exercises.filter((exercise) => exercise.muscle === 'core')
+    expect(warmupCore.length).toBeGreaterThanOrEqual(1)
+    expect(warmupCore.length).toBeLessThanOrEqual(2)
+    expect(mainBlock(w).exercises.some((exercise) => exercise.muscle === 'core')).toBe(false)
   })
 
   it('Legs inizia sempre con uno squat/pressa stabile, mai con un affondo unilaterale', () => {
@@ -233,7 +252,7 @@ describe('generaBodybuilding — scenario critico sez. 28 della correzione', () 
       preferred_exercises: ['curl_cavo', 'pushdown', 'reverse_pec_deck'],
       weekly_volume: { // volume già scarso per triceps/rear_delts, biceps già coperto altrove questa settimana
         chest: 12, back: 4, front_delts: 8, lateral_delts: 8, rear_delts: 2,
-        biceps: 12, triceps: 2, quads: 10, hamstrings: 10, glutes: 8, calves: 6, core: 6,
+        biceps: 12, triceps: 2, forearms: 4, quads: 10, hamstrings: 10, glutes: 8, adductors: 4, calves: 6, core: 6,
       },
       seed: 28,
     })

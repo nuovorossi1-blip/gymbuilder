@@ -49,7 +49,7 @@ export function portaCompoundInApertura(scelti: PrescribedExercise[]): boolean {
 export function vuotoVolume(): Record<Muscle, number> {
   return {
     chest: 0, back: 0, front_delts: 0, lateral_delts: 0, rear_delts: 0,
-    biceps: 0, triceps: 0, quads: 0, hamstrings: 0, glutes: 0, calves: 0, core: 0,
+    biceps: 0, triceps: 0, forearms: 0, quads: 0, hamstrings: 0, glutes: 0, adductors: 0, calves: 0, core: 0,
   }
 }
 
@@ -78,6 +78,8 @@ export function scegliRiscaldamento(
   )
 
   const sceltiWu: Exercise[] = []
+  const coreWarmups = resto.filter((e) => e.primary_muscles.includes('core'))
+  for (const e of coreWarmups.slice(0, 2)) sceltiWu.push(e)
   if (cardio.length > 0) sceltiWu.push(cardio[Math.floor(random() * cardio.length)])
   for (const e of mirati) {
     if (sceltiWu.length >= 4) break
