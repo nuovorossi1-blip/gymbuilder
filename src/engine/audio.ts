@@ -26,9 +26,8 @@ export function soundForEvent(type: TimerEventType, settings: AudioTimerSettings
 export function vibrationForEvent(type: TimerEventType, settings: AudioTimerSettings): number | number[] | null {
   if (!settings.vibration) return null
   if (type === 'WARNING') return 70
-  if (type === 'COUNTDOWN_COMPLETED') return 1_000
-  if (type === 'TIMER_COMPLETED' || type === 'TIME_CAP_REACHED') return [140, 80, 180]
-  if (type === 'REST_STARTED' || type === 'WORK_STARTED' || type === 'ROUND_STARTED' || type === 'SET_STARTED') return 45
+  if (type === 'COUNTDOWN_COMPLETED' || type === 'TIMER_COMPLETED' || type === 'TIME_CAP_REACHED') return 1_000
+  if (type === 'REST_STARTED' || type === 'WORK_STARTED' || type === 'ROUND_STARTED' || type === 'SET_STARTED' || type === 'TIMER_STARTED') return 1_000
   return null
 }
 
@@ -50,14 +49,15 @@ export class TimerAudio {
     const now = this.context.currentTime
     if (event.type === 'WARNING') {
       this.tone(now, 760, 0.1, 0.28, 'square')
-    } else if (event.type === 'COUNTDOWN_COMPLETED') {
+    } else if (
+      event.type === 'COUNTDOWN_COMPLETED' || event.type === 'TIMER_COMPLETED' ||
+      event.type === 'TIME_CAP_REACHED' || event.type === 'REST_STARTED' ||
+      event.type === 'WORK_STARTED' || event.type === 'ROUND_STARTED' ||
+      event.type === 'SET_STARTED' || event.type === 'TIMER_STARTED'
+    ) {
       this.longSignal(now, sound, true)
-    } else if (sound === 'ring' || event.phase === 'tabata' || event.type === 'ROUND_STARTED' || event.type === 'REST_STARTED') {
+    } else if (sound === 'ring' || event.phase === 'tabata') {
       this.playBoxingRingGong(now)
-    } else if (event.type === 'TIMER_COMPLETED') {
-      this.longSignal(now, sound)
-    } else if (event.type === 'TIME_CAP_REACHED') {
-      this.tone(now, 330, 0.2, 0.22); this.tone(now + 0.26, 330, 0.2, 0.22)
     } else if (sound === 'ding') {
       this.tone(now, 1040, 0.18, 0.22)
     } else {

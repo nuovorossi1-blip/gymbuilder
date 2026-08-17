@@ -70,12 +70,6 @@ export function publishBackgroundTimer(label: string, remainingSec: number, paus
 }
 
 export async function notifyTimerEvent(type: TimerEventType, label: string): Promise<void> {
-  if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
-    if (type === 'TIMER_COMPLETED' || type === 'SET_STARTED' || type === 'WORK_STARTED') {
-      navigator.vibrate([300, 100, 300, 100, 500])
-    }
-  }
-
   if (typeof document === 'undefined' || !document.hidden || typeof Notification === 'undefined' || Notification.permission !== 'granted') return
   if (type !== 'TIMER_COMPLETED' && type !== 'TIME_CAP_REACHED' && type !== 'REST_STARTED' && type !== 'WORK_STARTED' && type !== 'SET_STARTED') return
 
@@ -87,7 +81,7 @@ export async function notifyTimerEvent(type: TimerEventType, label: string): Pro
   const options = {
     body,
     tag: 'gymbuilder-active-timer',
-    vibrate: [300, 100, 300, 100, 500],
+    vibrate: [1_000],
     data: { href: RESUME_WORKOUT_HREF },
   }
   try {

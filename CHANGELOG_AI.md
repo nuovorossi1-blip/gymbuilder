@@ -324,3 +324,8 @@
 - Le chiamate DeepSeek passano ora da una funzione Vercel same-origin invece che direttamente dal browser.
 - Attivati JSON Output, limite di token e modalità non-thinking per la generazione strutturata dei workout.
 - Aggiunti timeout e messaggi chiari per chiave non valida, credito insufficiente, rate limit e risposta troppo lenta.
+## 2026-08-17 — Segnali uniformi per ogni cambio lavoro/recupero
+
+- Ogni fase temporizzata scandisce 3-2-1 con tre segnali brevi e produce un solo segnale lungo al cambio fase.
+- VIA, nuova serie/round, inizio lavoro, inizio recupero e fine timer usano suono e vibrazione prolungati.
+- Rimossa la doppia vibrazione fra motore audio e modulo notifiche.
