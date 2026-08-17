@@ -4,7 +4,7 @@
 > da qui. Va **aggiornato** a ogni sessione, non accodato all'infinito.
 > L'identità del progetto e il percorso di AI-OS stanno in `AIOS_PROJECT.json`.
 
-**Ultimo aggiornamento:** 2026-08-17 (avambracci, adduttori e core nel warm-up) - Codex
+**Ultimo aggiornamento:** 2026-08-17 (CrossFit per componenti e attrezzatura adattiva) - Codex
 
 Etichette: `[FACT]` verificato nel codice · `[RICOSTRUITO]` dedotto da indizi ·
 `[IGNOTO]` non ricavabile dal repository
@@ -669,3 +669,16 @@ progetto `geqhxhgrameaugawmaej`. Un dry-run successivo ha restituito
 `upToDate: true`, zero migrazioni pendenti. La CLI va autenticata passando
 `SUPABASE_ACCESS_TOKEN` direttamente al processo: il portachiavi persistente
 del Codespace può restituire 401 anche con un token valido.
+
+## Aggiornamento stato — 2026-08-17: CrossFit per componenti
+
+CrossFit Standard non viene più gonfiato fino a sei esercizi né filtrato sui
+singoli muscoli carenti. La struttura è compatta: warm-up, un solo elemento
+Skill/Strength, WOD da 3-4 movimenti e 1-2 Accessory/Prehab. Le carenze
+orientano Skill e accessori, mentre il WOD conserva varietà di pattern. Il
+livello beginner usa davvero soltanto esercizi beginner; intensità e
+complessità restano scalate. Inventario e attrezzatura sono vincoli rigidi in
+tutti i blocchi: test dedicato con soli manubri conserva la struttura usando
+solo manubri/corpo libero. Prompt DeepSeek e validatore condividono lo stesso
+contratto; il Runner include entrambi i blocchi `main`. Suite completa: 216
+test verdi e build produzione verde.

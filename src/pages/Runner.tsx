@@ -51,7 +51,7 @@ export default function Runner() {
   const { workout, activeSession, resumeActiveSession, clearActiveSession, setWorkout } = useWorkout()
   const naviga = useNavigate()
 
-  const esercizi = workout?.blocks.find((b) => b.kind === 'main')?.exercises ?? []
+  const esercizi = workout?.blocks.filter((b) => b.kind === 'main').flatMap((b) => b.exercises) ?? []
   const riscaldamento = workout?.blocks.find((b) => b.kind === 'warmup')
   const metconBlock = workout?.blocks.find((b) => b.kind === 'metcon')
   const metconEsercizi = metconBlock?.exercises ?? []

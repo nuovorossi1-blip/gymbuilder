@@ -12,6 +12,12 @@ function mainBlock(w: ReturnType<typeof generaCrossFit>) {
 function metconBlock(w: ReturnType<typeof generaCrossFit>) {
   return w.blocks.find((b) => b.kind === 'metcon')!
 }
+function accessoryBlock(w: ReturnType<typeof generaCrossFit>) {
+  return w.blocks.find((b) => b.title.startsWith('Accessory'))!
+}
+function trainingExercises(w: ReturnType<typeof generaCrossFit>) {
+  return w.blocks.filter((block) => block.kind !== 'warmup').flatMap((block) => block.exercises)
+}
 
 const EQUIPAGGIAMENTI: Equipment[] = [
   'full_gym', 'barbell', 'dumbbells', 'machines', 'barbell_dumbbells',
@@ -19,18 +25,20 @@ const EQUIPAGGIAMENTI: Equipment[] = [
 ]
 
 describe('generaCrossFit — struttura (Forza/Skill + Metcon AMRAP)', () => {
-  it('usa i muscoli carenti come target primari nel WOD personalizzato', () => {
+  it('usa le carenze negli accessori senza filtrare il WOD per singoli muscoli', () => {
     const targets = ['front_delts', 'lateral_delts', 'rear_delts', 'biceps', 'triceps'] as const
     const w = generaCrossFit(catalogo, {
       experience: 'advanced', equipment: 'full_gym', duration_min: 60,
       priority_muscles: [...targets], target_muscles: [...targets], excluded_exercises: [],
       seed: 18, benchmark: 'custom',
     })
-    const training = w.blocks.filter((block) => block.kind !== 'warmup').flatMap((block) => block.exercises)
-    expect(training.length).toBeGreaterThanOrEqual(6)
-    expect(training.every((item) => {
+    expect(accessoryBlock(w).exercises.some((item) => {
       const exercise = perId.get(item.exercise_id)
       return exercise?.primary_muscles.some((muscle) => targets.includes(muscle as typeof targets[number]))
+    })).toBe(true)
+    expect(metconBlock(w).exercises.some((item) => {
+      const exercise = perId.get(item.exercise_id)
+      return !exercise?.primary_muscles.some((muscle) => targets.includes(muscle as typeof targets[number]))
     })).toBe(true)
   })
 
@@ -46,7 +54,7 @@ describe('generaCrossFit — struttura (Forza/Skill + Metcon AMRAP)', () => {
     expect(metconBlock(w).exercises.map((item) => [item.exercise_id, item.reps])).toEqual([
       ['trazioni', '5'], ['piegamenti', '10'], ['squat_libero', '15'],
     ])
-    expect(mainBlock(w).exercises.length + metconBlock(w).exercises.length).toBeGreaterThanOrEqual(6)
+    expect(w.blocks.filter((block) => block.kind !== 'warmup').flatMap((block) => block.exercises)).toHaveLength(6)
   })
 
   it('mode, split e goal sono impostati correttamente: nessuno split, è Strength/Skill + Metcon', () => {
@@ -64,7 +72,10 @@ describe('generaCrossFit — struttura (Forza/Skill + Metcon AMRAP)', () => {
       experience: 'intermediate', equipment: 'full_gym', duration_min: 60,
       priority_muscles: [], excluded_exercises: [], seed: 1,
     })
-    expect(w.blocks.map((b) => b.kind)).toEqual(['warmup', 'main', 'metcon'])
+    expect(w.blocks.map((b) => b.kind)).toEqual(['warmup', 'main', 'metcon', 'main'])
+    expect(mainBlock(w).exercises).toHaveLength(1)
+    expect(accessoryBlock(w).exercises.length).toBeGreaterThanOrEqual(1)
+    expect(accessoryBlock(w).exercises.length).toBeLessThanOrEqual(2)
   })
 
   it('il Metcon ha sempre formato AMRAP con un tempo a disposizione dichiarato', () => {
@@ -86,7 +97,7 @@ describe('generaCrossFit — struttura (Forza/Skill + Metcon AMRAP)', () => {
         experience: 'advanced', equipment: 'full_gym', duration_min: 60,
         priority_muscles: [], excluded_exercises: [], seed: 12,
       })
-      expect(w.blocks.map((block) => block.kind)).toEqual(['warmup', 'main', 'metcon'])
+      expect(w.blocks.map((block) => block.kind)).toEqual(['warmup', 'main', 'metcon', 'main'])
       expect(metconBlock(w).format).toBe(format)
     }
   )
@@ -104,16 +115,15 @@ describe('generaCrossFit — struttura (Forza/Skill + Metcon AMRAP)', () => {
     expect(emom.rounds).toBeGreaterThan(0)
   })
 
-  it('con palestra completa il Metcon ha fra 4 e 5 movimenti', () => {
+  it('con palestra completa il Metcon resta compatto con 3-4 movimenti', () => {
     for (const durata of [30, 45, 60, 75, 90]) {
       const w = generaCrossFit(catalogo, {
         experience: 'intermediate', equipment: 'full_gym', duration_min: durata,
         priority_muscles: [], excluded_exercises: [], seed: 7,
       })
       const n = metconBlock(w).exercises.length
-      expect(n).toBeGreaterThanOrEqual(4)
-      expect(n).toBeLessThanOrEqual(5)
-      expect(mainBlock(w).exercises.length + n).toBeGreaterThanOrEqual(6)
+      expect(n).toBeGreaterThanOrEqual(3)
+      expect(n).toBeLessThanOrEqual(4)
     }
   })
 
@@ -211,8 +221,22 @@ describe('generaCrossFit — Metcon (solo bodyweight/kettlebell/manubri/cardio)'
       experience: 'advanced', equipment: 'bodyweight', duration_min: 60,
       priority_muscles: [], excluded_exercises: [], seed: 8,
     })
-    for (const es of [...mainBlock(w).exercises, ...metconBlock(w).exercises]) {
+    for (const es of trainingExercises(w)) {
       expect(perId.get(es.exercise_id)?.equipment).toBe('bodyweight')
+    }
+  })
+
+  it('con soli manubri conserva Skill/Strength, WOD e Accessory usando solo manubri o corpo libero', () => {
+    const w = generaCrossFit(catalogo, {
+      experience: 'beginner', equipment: 'full_gym', available_equipment: ['dumbbells'], duration_min: 60,
+      priority_muscles: [], excluded_exercises: [], seed: 31,
+    })
+    expect(mainBlock(w).exercises).toHaveLength(1)
+    expect(metconBlock(w).exercises.length).toBeGreaterThanOrEqual(3)
+    expect(accessoryBlock(w).exercises.length).toBeGreaterThanOrEqual(1)
+    for (const item of trainingExercises(w)) {
+      const exercise = perId.get(item.exercise_id)!
+      expect(['dumbbell', 'bodyweight']).toContain(exercise.equipment)
     }
   })
 })
@@ -224,7 +248,7 @@ describe('generaCrossFit — attrezzatura e duplicati', () => {
         experience: 'advanced', equipment, duration_min: 60,
         priority_muscles: [], excluded_exercises: [], seed: 11,
       })
-      for (const es of [...mainBlock(w).exercises, ...metconBlock(w).exercises]) {
+      for (const es of trainingExercises(w)) {
         expect(perId.get(es.exercise_id)).toBeDefined()
       }
     }
@@ -236,7 +260,7 @@ describe('generaCrossFit — attrezzatura e duplicati', () => {
         experience: 'advanced', equipment, duration_min: 90,
         priority_muscles: [], excluded_exercises: [], seed: 13,
       })
-      const ids = [...mainBlock(w).exercises, ...metconBlock(w).exercises].map((e) => e.exercise_id)
+      const ids = trainingExercises(w).map((e) => e.exercise_id)
       expect(new Set(ids).size).toBe(ids.length)
     }
   })
@@ -246,7 +270,7 @@ describe('generaCrossFit — attrezzatura e duplicati', () => {
       experience: 'advanced', equipment: 'full_gym', duration_min: 60,
       priority_muscles: [], excluded_exercises: ['squat', 'front_squat'], seed: 2,
     })
-    const ids = [...mainBlock(w).exercises, ...metconBlock(w).exercises].map((e) => e.exercise_id)
+    const ids = trainingExercises(w).map((e) => e.exercise_id)
     expect(ids).not.toContain('squat')
     expect(ids).not.toContain('front_squat')
   })
@@ -258,7 +282,7 @@ describe('generaCrossFit — calorie', () => {
       experience: 'intermediate', equipment: 'full_gym', duration_min: 60,
       priority_muscles: [], excluded_exercises: [], seed: 1,
     })
-    for (const es of [...mainBlock(w).exercises, ...metconBlock(w).exercises]) {
+    for (const es of trainingExercises(w)) {
       expect(es.est_kcal).toBeGreaterThan(0)
     }
     expect(w.est_kcal).toBeGreaterThan(0)

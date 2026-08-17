@@ -56,10 +56,6 @@ export const FORMATI_CROSSFIT: CrossFitFormat[] = [
   'amrap', 'for_time', 'emom', 'rounds', 'chipper', 'ladder', 'intervals',
 ]
 
-const BENCHMARK_MOVEMENT_COUNT: Record<Exclude<CrossFitBenchmark, 'custom'>, number> = {
-  cindy: 3, fran: 2, grace: 1, helen: 3,
-}
-
 function findFirstById(catalog: Exercise[], ids: string[]): Exercise | undefined {
   return ids.map((id) => catalog.find((exercise) => exercise.id === id)).find(Boolean)
 }
@@ -77,7 +73,7 @@ function resolveBenchmark(benchmark: Exclude<CrossFitBenchmark, 'custom'>, catal
 
 // La UI espone due fasce: Intermedio comprende anche le progressioni
 // principianti; Avanzato comprende tutto il catalogo avanzato/esperto.
-export const RANK_EXP: Record<Experience, number> = { beginner: 2, intermediate: 2, advanced: 3 }
+export const RANK_EXP: Record<Experience, number> = { beginner: 1, intermediate: 2, advanced: 3 }
 
 const PATTERN_LOWER = ['squat', 'hinge', 'lunge']
 const PATTERN_UPPER = ['horizontal_push', 'vertical_push', 'horizontal_pull', 'vertical_pull']
@@ -244,48 +240,25 @@ export function generaCrossFit(catalogo: Exercise[], cfg: CrossFitConfig): Gener
     )
   }
 
-  if (t.strength >= 12) {
-    const preferredSecondaryPools = lift1 && PATTERN_LOWER.includes(lift1.movement_pattern)
-      ? [upperPool, strengthPool]
-      : lift1 && PATTERN_UPPER.includes(lift1.movement_pattern)
-        ? [lowerPool, strengthPool]
-        : [upperPool, lowerPool, strengthPool]
-    const lift2Pool = preferredSecondaryPools.find((pool) => pool.some((exercise) => exercise.id !== lift1?.id))
-      ?? strengthPool
-    const lift2 = scegliForzaSkillConFocus(lift2Pool, usati, cfg.priority_muscles, preferiti, random)
-    if (lift2) {
-      usati.add(lift2.id)
-      strengthEsercizi.push(
-        prescriviForzaSkill(lift2, cfg.experience, intensity, exerciseTargetsPriority(lift2, cfg.priority_muscles))
-      )
-    }
-  }
-
   adattaForzaSkillAlTempo(strengthEsercizi, t.strength)
   rimuoviDuplicati(strengthEsercizi)
 
-  const expectedBenchmarkMovements = benchmark === 'custom' ? 0 : BENCHMARK_MOVEMENT_COUNT[benchmark]
-  const minimumPreparationExercises = benchmark === 'custom' ? 2 : 6 - expectedBenchmarkMovements
-  while (strengthEsercizi.length < minimumPreparationExercises) {
-    const supportPool = allenamento.filter((exercise) =>
-      !usati.has(exercise.id) && matchesTarget(exercise) && exercise.technical_complexity <= 2
-    )
-    const support = scegliCandidato(supportPool, usati, targets, preferiti, random)
-    if (!support) break
-    usati.add(support.id)
-    const targetedMuscle = support.primary_muscles.find((muscle) => targets.includes(muscle)) ?? support.primary_muscles[0] ?? null
-    strengthEsercizi.push({
-      exercise_id: support.id,
-      name: support.name,
-      role: support.roles.includes('compound') ? 'compound' : 'isolation',
-      muscle: targetedMuscle,
-      sets: 3,
-      reps: '8-12',
-      rest_sec: 75,
-      note: targets.length > 0 ? 'target muscolare di oggi' : 'preparazione benchmark',
-      instructions: support.instructions || undefined,
-    })
-  }
+  const accessoryPool = allenamento
+    .filter((exercise) => !usati.has(exercise.id))
+    .filter((exercise) => exercise.roles.includes('isolation') || exercise.roles.includes('core'))
+    .filter((exercise) => !exercise.roles.includes('conditioning'))
+    .filter((exercise) => exercise.technical_complexity <= 2 && exercise.systemic_fatigue <= 2)
+    .sort((a, b) => Number(exerciseTargetsPriority(b, cfg.priority_muscles)) - Number(exerciseTargetsPriority(a, cfg.priority_muscles)))
+  const accessoryEsercizi: PrescribedExercise[] = accessoryPool.slice(0, cfg.duration_min >= 60 ? 2 : 1).map((exercise) => {
+    usati.add(exercise.id)
+    return {
+      exercise_id: exercise.id, name: exercise.name, role: 'isolation' as const,
+      muscle: exercise.primary_muscles[0] ?? null, sets: 2,
+      reps: exercise.primary_muscles.includes('core') ? exercise.default_reps : '12-15', rest_sec: 45,
+      note: exerciseTargetsPriority(exercise, cfg.priority_muscles) ? 'accessorio carenza / prehab' : 'accessorio / prehab',
+      instructions: exercise.instructions || undefined,
+    }
+  })
 
   if (strengthEsercizi.length === 0) {
     warnings.push('Nessun esercizio disponibile per la parte Forza/Skill con questa attrezzatura.')
@@ -302,19 +275,11 @@ export function generaCrossFit(catalogo: Exercise[], cfg: CrossFitConfig): Gener
   }
   if (benchmarkAdapted) warnings.push(`${benchmark.toUpperCase()} usa una variante compatibile con il catalogo e viene indicato come benchmark adattato.`)
   const standardMetconPool = poolMetcon(allenamento, usati, cfg.experience, riscaldamentoPool)
-  const targetedMetconPool = targets.length > 0
-    ? allenamento.filter((exercise) =>
-        !usati.has(exercise.id) && matchesTarget(exercise) && exercise.technical_complexity <= 2
-      )
-    : []
-  const metconPool = benchmark === 'custom' && targetedMetconPool.length > 0
-    ? targetedMetconPool
-    : standardMetconPool
-  // Il totale allenante (Forza/Skill + Metcon) non scende mai sotto 6.
-  const numMovimenti = Math.max(t.metcon >= 18 ? 5 : 4, 6 - strengthEsercizi.length)
+  const metconPool = standardMetconPool
+  const numMovimenti = cfg.experience === 'beginner' ? 3 : t.metcon >= 18 ? 4 : 3
   const circuito = benchmarkExercises
     ? benchmarkExercises.map((exercise) => ({ exercise, categoria: categoriaMetcon(exercise) ?? 'upper' as CategoriaMetcon }))
-    : costruisciCircuito(metconPool, numMovimenti, targets.length > 0 ? targets : cfg.priority_muscles, preferiti, random)
+    : costruisciCircuito(metconPool, numMovimenti, [], preferiti, random)
   const metconEsercizi = circuito.map((m) => prescriviMetcon(m.exercise, m.categoria, cfg.experience, intensity))
 
   if (benchmarkExercises) {
@@ -331,13 +296,13 @@ export function generaCrossFit(catalogo: Exercise[], cfg: CrossFitConfig): Gener
 
   if (metconEsercizi.length === 0) {
     warnings.push('Nessun movimento disponibile per il Metcon con queste impostazioni.')
-  } else if (metconEsercizi.length < 4) {
+  } else if (metconEsercizi.length < 3) {
     warnings.push(
       `Con questa attrezzatura il Metcon ha solo ${metconEsercizi.length} movimenti. Aggiungendo attrezzi nel profilo diventa più vario.`
     )
   }
 
-  const minutiEffettivi = t.warmup + minutiBlocco(strengthEsercizi) + t.metcon
+  const minutiEffettivi = t.warmup + minutiBlocco(strengthEsercizi) + t.metcon + minutiBlocco(accessoryEsercizi)
   if (cfg.duration_min - minutiEffettivi > 10) {
     warnings.push(
       `Una sessione CrossFit Standard resta intorno ai ${Math.round(minutiEffettivi)} minuti (Forza/Skill + Metcon), ` +
@@ -353,7 +318,10 @@ export function generaCrossFit(catalogo: Exercise[], cfg: CrossFitConfig): Gener
   for (const e of metconEsercizi) {
     e.est_kcal = stimaCalorieEsercizio('crossfit', e.role, minutiPerMovimentoMetcon, peso)
   }
-  const kcalTotali = [...strengthEsercizi, ...metconEsercizi].reduce((tot, e) => tot + (e.est_kcal ?? 0), 0)
+  for (const e of accessoryEsercizi) {
+    e.est_kcal = stimaCalorieEsercizio('crossfit', e.role, minutiEsercizio(e), peso)
+  }
+  const kcalTotali = [...strengthEsercizi, ...metconEsercizi, ...accessoryEsercizi].reduce((tot, e) => tot + (e.est_kcal ?? 0), 0)
 
   const prescrizioneMetcon: Pick<WorkoutBlock, 'title' | 'format' | 'time_cap_min' | 'rounds' | 'interval_sec'> = (() => {
     switch (format) {
@@ -401,6 +369,7 @@ export function generaCrossFit(catalogo: Exercise[], cfg: CrossFitConfig): Gener
       ...prescrizioneMetcon,
       exercises: metconEsercizi,
     },
+    { kind: 'main', title: 'Accessory / Prehab · dopo il WOD', exercises: accessoryEsercizi },
   ]
 
   return {

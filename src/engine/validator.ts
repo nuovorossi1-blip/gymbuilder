@@ -47,7 +47,7 @@ export function validateWorkout(
     ids.add(exercise.id)
   }
   if (workout.mode !== 'tabata') {
-    const minimum = workout.mode === 'strength' ? 5 : 6
+    const minimum = workout.mode === 'strength' ? 5 : workout.mode === 'crossfit' ? 3 : 6
     if (trainingExercises.length < minimum) {
       errors.push(`La sessione ${workout.mode} deve contenere almeno ${minimum} esercizi allenanti (riscaldamento escluso).`)
     }
@@ -55,7 +55,7 @@ export function validateWorkout(
     const max = workout.max_duration_min ?? Math.ceil(config.duration_min * 1.15)
     if (estimated > max + 1) errors.push(`Durata stimata ${Math.ceil(estimated)} min oltre il massimo di ${max} min.`)
   }
-  const strictTargets = config.program_kind === 'single_session' && (config.target_muscles?.length ?? 0) > 0 &&
+  const strictTargets = config.mode !== 'crossfit' && config.program_kind === 'single_session' && (config.target_muscles?.length ?? 0) > 0 &&
     (config.crossfit_benchmark ?? 'custom') === 'custom'
   if (strictTargets) {
     const targets = config.target_muscles ?? []

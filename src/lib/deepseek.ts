@@ -49,16 +49,16 @@ interface DeepSeekWorkoutGenerationResult {
 export const PROFESSIONAL_WORKOUT_SYSTEM_PROMPT = `Sei un professionista esperto nella creazione di allenamenti personalizzati e nella programmazione sportiva.
 Devi restituire esclusivamente JSON valido, senza commenti esterni al JSON, e compilare una sessione concreta per ogni session_id ricevuto.
 Considera tutte le scelte dell'utente vincoli reali: disciplina, obiettivo, livello, durata, giorni, intensità, attrezzatura disponibile, formato, benchmark, muscoli target, esercizi esclusi e preferiti.
-I muscoli indicati come target/carenze di oggi sono un vincolo primario, non un suggerimento: gli esercizi allenanti devono avere almeno uno di quei muscoli fra i primary_muscles. Altri muscoli, per esempio il petto, possono essere coinvolti soltanto come secondari e non devono occupare uno slot principale. Questa regola vale per Bodybuilding, Strength, CrossFit e Hybrid. Se è stato scelto un benchmark CrossFit ufficiale, mantieni invece intatto il suo Metcon e usa il blocco precedente per allenare i target.
+I muscoli indicati come target/carenze sono un vincolo primario per Bodybuilding e Strength. Nel CrossFit non filtrare il WOD per muscoli: mantieni equilibrio fra pattern e capacità, usando le carenze soltanto per orientare Skill/Strength e 1-2 Accessory/Prehab.
 Adatta il tuo ruolo alla disciplina scelta:
-- CrossFit: agisci come coach CrossFit e genera un WOD autentico. Usa warm-up pertinente, eventuale forza/skill e un Metcon coerente con il formato richiesto (AMRAP, EMOM, For Time, Rounds, Chipper, Ladder o Intervals). Non trasformarlo in una scheda Bodybuilding. Bilancia weightlifting/gymnastics/monostructural secondo catalogo, livello, tempo e attrezzatura.
+- CrossFit: agisci come coach CrossFit e genera un WOD autentico: warm-up, un solo elemento Skill/Strength, Metcon compatto da 8-18 minuti e 1-2 Accessory/Prehab. Non trasformarlo in una scheda Bodybuilding. Bilancia weightlifting/gymnastics/monostructural secondo catalogo, livello, tempo e attrezzatura. Se l'inventario è limitato sostituisci il movimento con una variante disponibile che conservi pattern e stimolo. Per beginner applica Meccanica -> Costanza -> Intensità, carichi leggeri, bassa complessità e scaling sicuro.
 - CrossFit Hybrid: combina un blocco Strength/Bodybuilding strutturato con un Metcon realmente metabolico e sicuro sotto fatica.
 - Bodybuilding: agisci come coach di ipertrofia; usa ordine compound-isolamenti, volume, recuperi e priorità muscolari coerenti.
 - Strength: agisci come strength coach; rispetta metodo, fondamentali, complementari, recuperi lunghi e livello tecnico.
 - Tabata: rispetta esattamente lavoro, recupero, round e prescrizione selezionati.
 Se l'utente seleziona palestra completa, sfrutta in modo sensato l'attrezzatura completa; se seleziona un inventario limitato usa solo ciò che è disponibile.
 Usa esclusivamente exercise_id presenti nel catalogo fornito. Non usare esercizi esclusi e non inventare ID.
-Regole inderogabili sul numero di esercizi allenanti, senza contare il warm-up: Bodybuilding, CrossFit Standard e CrossFit Hybrid almeno 6; Strength almeno 5; Tabata conserva esattamente il protocollo scelto. Questi minimi valgono per ogni durata e configurazione. Nel CrossFit usa complessità decrescente e benchmark autentici come riferimento quando coerenti; enfatizza le carenze senza compromettere sicurezza e recupero.`
+Regole inderogabili sul numero di esercizi allenanti, senza contare il warm-up: Bodybuilding e CrossFit Hybrid almeno 6; Strength almeno 5; CrossFit Standard segue la struttura per componenti e non deve essere gonfiato per raggiungere sei esercizi; Tabata conserva esattamente il protocollo scelto.`
 
 const VALID_EXPERIENCE = new Set<Experience>(['beginner', 'intermediate', 'advanced'])
 const VALID_GOAL = new Set<Goal>(['hypertrophy', 'strength', 'conditioning', 'mixed'])
@@ -423,14 +423,14 @@ export async function generateWorkoutsWithDeepSeek(
     const count = session.workout.blocks
       .filter((block) => block.kind !== 'warmup')
       .reduce((total, block) => total + block.exercises.length, 0)
-    const minimum = session.workout.mode === 'strength' ? 5 : 6
+    const minimum = session.workout.mode === 'strength' ? 5 : session.workout.mode === 'crossfit' ? 3 : 6
     if (count < minimum) {
       throw new Error(`DeepSeek ha generato solo ${count} esercizi allenanti: per ${session.workout.mode} ne servono almeno ${minimum}. Riprova la generazione.`)
     }
     const targets = input.config.single_session_target_muscles?.length
       ? input.config.single_session_target_muscles
       : input.config.weak_points
-    const strictTargets = input.config.program_kind === 'single_session' && targets.length > 0 &&
+    const strictTargets = session.workout.mode !== 'crossfit' && input.config.program_kind === 'single_session' && targets.length > 0 &&
       (input.config.crossfit_benchmark ?? 'custom') === 'custom'
     if (strictTargets) {
       const invalid = session.workout.blocks
