@@ -50,7 +50,14 @@ function Guscio() {
 
   // Una sessione già iniziata resta accessibile anche durante un rinnovo token
   // fallito o un periodo offline. Le altre pagine restano protette.
-  if (!user && !(pathname === '/avvia' && (workout || activeSession))) return <LoginPage />
+  if (!user && !(pathname === '/avvia' && (workout || activeSession))) {
+    return (
+      <div className="mx-auto min-h-dvh max-w-lg">
+        <InstallBanner />
+        <LoginPage />
+      </div>
+    )
+  }
 
   // Durante l'allenamento la navigazione sparisce: si resta sul pezzo.
   const conNav = pathname !== '/avvia'
