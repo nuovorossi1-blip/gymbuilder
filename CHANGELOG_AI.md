@@ -1,5 +1,22 @@
 # Changelog AI
 
+## 2026-08-17 - Ordine campi CrossFit: Metodica/Benchmark prima dei Muscoli Target
+
+- L'utente trovava confuso l'ordine dei campi nel configuratore sessione singola CrossFit:
+  "Muscoli Target di Oggi" appariva prima di "Metodica / Benchmark CrossFit", ma ha senso solo
+  dopo aver scelto Cindy o "WOD personalizzato" (con altri benchmark i target non cambiano nulla).
+  Invertiti in `Create.tsx`: Metodica/Benchmark ora precede Muscoli Target.
+- Confermato con l'utente (con esempio pratico: carenza spalle+braccia → Cindy resta un AMRAP
+  5-10-15 ma con aperture laterali/bicipiti/tricipiti al posto di trazioni/piegamenti/squat) che
+  il comportamento di "Cindy adattata sui muscoli target" e la rimozione di Forza/Skill+Accessory
+  per benchmark fissi (fix precedente in questa stessa sessione) sono esattamente quello che
+  vuole — nessuna modifica di logica di generazione in questo giro, solo riordino UI e testi.
+- Corretto anche il testo del campo Muscoli Target ("...più sotto..." → coerente col nuovo ordine)
+  e la spiegazione nel campo Metodica quando un benchmark è selezionato, che citava un "blocco
+  iniziale dedicato" ormai non più esistente.
+- Verifica completata: 227 test verdi, build production verde, lint senza errori (resta il
+  warning storico in `Runner.tsx`).
+
 ## 2026-08-17 - Benchmark CrossFit fisso: niente Forza/Skill ne' Accessory
 
 - Richiesta utente: scegliendo un benchmark fisso (Cindy, e per estensione Fran/Grace/Helen) senza

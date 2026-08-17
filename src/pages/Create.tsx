@@ -652,16 +652,55 @@ function WizardBuilder({
               </Field>
             )}
 
+          {!config.selected_modes.includes('tabata') && config.selected_modes.includes('crossfit') && (
+            <Field title="Metodica / Benchmark CrossFit">
+              <div className="grid grid-cols-1 gap-2">
+                {(Object.keys(CROSSFIT_BENCHMARK_LABELS) as CrossFitBenchmark[]).map((benchmark) => (
+                  <Choice
+                    key={benchmark}
+                    active={(config.crossfit_benchmark ?? 'custom') === benchmark}
+                    onClick={() => patch('crossfit_benchmark', benchmark)}
+                  >
+                    <span className="block">{CROSSFIT_BENCHMARK_LABELS[benchmark]}</span>
+                    <span className="mt-1 block text-[10px] font-normal text-slate-400">{CROSSFIT_BENCHMARK_HINTS[benchmark]}</span>
+                  </Choice>
+                ))}
+              </div>
+              {(config.crossfit_benchmark ?? 'custom') !== 'custom' && (
+                <p className="mt-3 text-xs text-amber-300">
+                  Il benchmark è già un allenamento completo: nessun altro esercizio viene aggiunto prima o dopo.
+                  {config.crossfit_benchmark === 'cindy'
+                    ? ' Se scegli anche muscoli target qui sotto, Cindy si adatta a quei muscoli restando 5-10-15 AMRAP; senza target resta Cindy ufficiale.'
+                    : ' Fran, Grace e Helen restano sempre i movimenti ufficiali, anche scegliendo muscoli target.'}
+                </p>
+              )}
+              {(config.crossfit_benchmark ?? 'custom') === 'custom' && (
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  {FORMATI_CROSSFIT.map((format) => (
+                    <Choice
+                      key={format}
+                      active={config.crossfit_format === format}
+                      onClick={() => patch('crossfit_format', format)}
+                    >
+                      <span className="block">{METCON_FORMAT_LABELS[format]}</span>
+                      <span className="mt-1 block text-[10px] font-normal text-slate-400">{METCON_FORMAT_HINTS[format]}</span>
+                    </Choice>
+                  ))}
+                </div>
+              )}
+            </Field>
+          )}
+
           {/* CrossFit e Hybrid non usano uno split Push/Pull/Legs: quello è un concetto
               Bodybuilding. Qui l'unica composizione applicabile sono i muscoli target
-              (opzionali); formato WOD e benchmark si scelgono nel campo "Metodica" sotto. */}
+              (opzionali); formato WOD e benchmark si scelgono nel campo "Metodica" qui sopra. */}
           {config.program_kind === 'single_session' &&
             (config.selected_modes.includes('crossfit') || config.selected_modes.includes('crossfit_hybrid')) && (
               <Field title="Muscoli Target di Oggi (opzionale)">
                 <p className="text-xs text-slate-300 mb-3">
                   Il CrossFit non ha uno split per gruppo muscolare: è full body. Seleziona qui solo se vuoi
-                  che il WOD di oggi dia priorità a muscoli carenti specifici — altrimenti lascia vuoto e scegli
-                  formato o benchmark più sotto in "Metodica / Benchmark CrossFit".
+                  che il WOD di oggi dia priorità a muscoli carenti specifici — altrimenti lascia vuoto e usa
+                  la Cindy ufficiale o il formato scelto qui sopra in "Metodica / Benchmark CrossFit".
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {(Object.keys(MUSCLE_LABELS) as Muscle[]).map((muscle) => {
@@ -815,41 +854,6 @@ function WizardBuilder({
 
           {!config.selected_modes.includes('tabata') && (
             <>
-              {config.selected_modes.includes('crossfit') && (
-                <Field title="Metodica / Benchmark CrossFit">
-                  <div className="grid grid-cols-1 gap-2">
-                    {(Object.keys(CROSSFIT_BENCHMARK_LABELS) as CrossFitBenchmark[]).map((benchmark) => (
-                      <Choice
-                        key={benchmark}
-                        active={(config.crossfit_benchmark ?? 'custom') === benchmark}
-                        onClick={() => patch('crossfit_benchmark', benchmark)}
-                      >
-                        <span className="block">{CROSSFIT_BENCHMARK_LABELS[benchmark]}</span>
-                        <span className="mt-1 block text-[10px] font-normal text-slate-400">{CROSSFIT_BENCHMARK_HINTS[benchmark]}</span>
-                      </Choice>
-                    ))}
-                  </div>
-                  {(config.crossfit_benchmark ?? 'custom') !== 'custom' && (
-                    <p className="mt-3 text-xs text-amber-300">
-                      Il Metcon del benchmark resta ufficiale; i muscoli target vengono allenati nel blocco iniziale dedicato.
-                    </p>
-                  )}
-                  {(config.crossfit_benchmark ?? 'custom') === 'custom' && (
-                    <div className="mt-3 grid grid-cols-2 gap-2">
-                      {FORMATI_CROSSFIT.map((format) => (
-                        <Choice
-                          key={format}
-                          active={config.crossfit_format === format}
-                          onClick={() => patch('crossfit_format', format)}
-                        >
-                          <span className="block">{METCON_FORMAT_LABELS[format]}</span>
-                          <span className="mt-1 block text-[10px] font-normal text-slate-400">{METCON_FORMAT_HINTS[format]}</span>
-                        </Choice>
-                      ))}
-                    </div>
-                  )}
-                </Field>
-              )}
               <Field title="Durata Sessione (minuti)">
                 <div className="grid grid-cols-5 gap-2">
                   {DURATIONS.map((duration) => (
