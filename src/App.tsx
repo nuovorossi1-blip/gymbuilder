@@ -30,6 +30,14 @@ function Guscio() {
     return () => navigator.serviceWorker.removeEventListener('message', onMessage)
   }, [navigate, resumeActiveSession])
 
+  // Riaprendo la PWA (anche dalla sua icona) si torna sempre alla sessione
+  // realmente attiva, invece di creare una seconda pagina/istanza di workout.
+  useEffect(() => {
+    if (!activeSession || pathname === '/avvia') return
+    resumeActiveSession()
+    navigate('/avvia', { replace: true })
+  }, [activeSession, navigate, pathname, resumeActiveSession])
+
   if (loading) {
     return (
       <div className="min-h-dvh grid place-items-center">

@@ -1,4 +1,4 @@
-const CACHE = 'gymbuilder-shell-v1'
+const CACHE = 'gymbuilder-shell-v2'
 const SHELL = ['/', '/manifest.webmanifest', '/gymbuilder-icon.svg']
 
 self.addEventListener('install', (event) => {
@@ -13,6 +13,13 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET' || new URL(event.request.url).origin !== self.location.origin) return
+  if (event.request.mode === 'navigate') {
+    event.respondWith(fetch(event.request).then((response) => {
+      if (response.ok) return response
+      return caches.match('/')
+    }).catch(() => caches.match('/')))
+    return
+  }
   event.respondWith(fetch(event.request).then((response) => {
     if (response.ok) {
       const copy = response.clone()
@@ -37,7 +44,7 @@ self.addEventListener('message', (event) => {
       showChronometer: true,
       chronometerDirection: 'down',
       timestamp: targetTime,
-      data: { href: '/avvia' }
+      data: { href: '/?resume=workout' }
     })
   } else if (event.data.type === 'CLEAR_BACKGROUND_TIMER') {
     self.registration.getNotifications({ tag: 'gymbuilder-active-timer' }).then((notifications) => {
@@ -48,16 +55,21 @@ self.addEventListener('message', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close()
-  const href = event.notification.data?.href || '/avvia'
+  const href = event.notification.data?.href || '/?resume=workout'
+  const target = new URL(href, self.location.origin)
   event.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(async (clients) => {
-    const exact = clients.find((client) => {
+    const runner = clients.find((client) => {
       try {
-        return new URL(client.url).pathname === href
+        return new URL(client.url).pathname === '/avvia'
       } catch {
         return false
       }
     })
-    const fallback = exact || clients.find((client) => {
+    if (runner) {
+      runner.postMessage({ type: 'RESUME_ACTIVE_SESSION', href: '/avvia', source: 'notification' })
+      return runner.focus()
+    }
+    const fallback = clients.find((client) => {
       try {
         return new URL(client.url).origin === self.location.origin
       } catch {
@@ -65,11 +77,9 @@ self.addEventListener('notificationclick', (event) => {
       }
     })
     if (fallback) {
-      fallback.postMessage({ type: 'RESUME_ACTIVE_SESSION', href, source: 'notification' })
-      if (exact) return fallback.focus()
-      await fallback.navigate(href)
+      await fallback.navigate(target.href)
       return fallback.focus()
     }
-    return self.clients.openWindow(href)
+    return self.clients.openWindow(target.href)
   }))
 })
