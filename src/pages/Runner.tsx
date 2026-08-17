@@ -589,7 +589,17 @@ export default function Runner() {
           ))}
         </ul>
         <AudioControls settings={audioSettings} onChange={updateAudio} />
-        <button className="btn mt-8 !py-4 text-lg" onClick={() => void startWithCountdown(() => { inizio.current = Date.now(); setIniziato(true); emit('SET_STARTED', 'set') })}>
+        <button
+          className="btn mt-8 !py-4 text-lg"
+          onClick={() => {
+            // Senza esercizi di forza (es. un benchmark CrossFit come Cindy), dopo il
+            // riscaldamento si passa dritti all'anteprima del Metcon, che ha gia' il suo
+            // conto alla rovescia: un secondo "Comincia" con un secondo 3-2-1 qui sarebbe
+            // solo un doppione fastidioso, non l'inizio di un vero e proprio timer.
+            if (esercizi.length === 0) { inizio.current = Date.now(); setIniziato(true); return }
+            void startWithCountdown(() => { inizio.current = Date.now(); setIniziato(true); emit('SET_STARTED', 'set') })
+          }}
+        >
           Comincia
         </button>
       </div>
@@ -876,7 +886,11 @@ export default function Runner() {
     // metconFase === 'fatto'
     return (
       <div className="px-5 pt-12 pb-8">
-        <p className="eyebrow mb-3">Metcon finito</p>
+        <div className="flex justify-between">
+          <button className="font-data text-[11px] uppercase tracking-[0.14em] text-slate2" onClick={() => setMetconFase('via')}>← Indietro</button>
+          <button className="font-data text-[11px] uppercase tracking-[0.14em] text-red-300" onClick={interrompiAllenamento}>🗑️ Elimina</button>
+        </div>
+        <p className="eyebrow mb-3 mt-6">Metcon finito</p>
         <h1 className="font-display font-extrabold uppercase leading-[0.9] tracking-tight text-[2.2rem]">
           {aGiri && `${String(Math.floor(metconTrascorsi / 60))}:${String(metconTrascorsi % 60).padStart(2, '0')}`}
           {aIntervalli && `${intervalliTotali} round completati`}
@@ -898,7 +912,7 @@ export default function Runner() {
             setFinito(true)
           }}
         >
-          Fine allenamento
+          💾 Salva e concludi
         </button>
       </div>
     )

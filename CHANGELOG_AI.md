@@ -1,5 +1,23 @@
 # Changelog AI
 
+## 2026-08-17 - Doppio "Comincia" su benchmark senza Forza/Skill, azioni sulla schermata fine Metcon
+
+- Bug segnalato dopo il test reale (CrossFit Standard, Cindy, target spalle/braccia): avviando la
+  sessione compariva "Comincia" due volte con due conti alla rovescia 3-2-1 separati prima che il
+  WOD partisse davvero. Causa: rimosso il blocco Forza/Skill per i benchmark fissi (fix
+  precedente), il Riscaldamento porta ora dritto all'anteprima del Metcon, che ha gia' il suo
+  "Comincia"/conto alla rovescia — la stessa identica azione veniva quindi chiesta due volte di
+  fila. Corretto in `Runner.tsx`: quando non ci sono esercizi di forza, il "Comincia" del
+  Riscaldamento passa direttamente alla schermata successiva senza un secondo conto alla rovescia
+  ridondante (quello vero resta solo sull'anteprima del Metcon).
+- Alla fine del Metcon ("Termina" durante il WOD), la schermata di riepilogo aveva solo "Fine
+  allenamento" come unica via d'uscita. Aggiunti "← Indietro" (torna al WOD in corso, per un tap
+  su Termina per errore — il cronometro riprende da dove sarebbe stato per davvero) ed "🗑️
+  Elimina" (elimina la sessione senza salvarla, con conferma, come nel resto del Runner); il
+  pulsante di salvataggio resta ma ora è etichettato "💾 Salva e concludi" per chiarezza.
+- Verifica completata: 227 test verdi, build production verde, lint senza errori (resta il
+  warning storico in `Runner.tsx`).
+
 ## 2026-08-17 - Banner "aggiornamento disponibile" ora funziona davvero
 
 - Il banner nativo Android (`NativeUpdater.tsx`) confronta `version.json` remoto con la versione
