@@ -4,7 +4,7 @@
 > da qui. Va **aggiornato** a ogni sessione, non accodato all'infinito.
 > L'identità del progetto e il percorso di AI-OS stanno in `AIOS_PROJECT.json`.
 
-**Ultimo aggiornamento:** 2026-08-13 (CrossFit meno ripetitivo, DeepSeek generativo reale) - Codex
+**Ultimo aggiornamento:** 2026-08-17 (nuova creazione pulita, minimi esercizi, timer Android persistente) - Codex
 
 Etichette: `[FACT]` verificato nel codice · `[RICOSTRUITO]` dedotto da indizi ·
 `[IGNOTO]` non ricavabile dal repository
@@ -34,7 +34,11 @@ e validare un allenamento anche senza AI.
 **Ristrutturazione master implementata localmente e in verifica infrastrutturale.**
 Il flusso è ora Genera → configura → anteprima → Salva/Inizia; il Profilo è
 separato dalle preferenze della sessione. I nuovi servizi centrali vivono in
-`src/engine`, la configurazione tipizzata in `WorkoutGenerationConfig`.
+  `src/engine`, la configurazione tipizzata in `WorkoutGenerationConfig`.
+La home distingue ora nettamente la sessione attiva dalla creazione: ogni
+ingresso `fresh=1` azzera scheda, configurazione, programma e rifiuti precedenti;
+la voce inferiore `Ultimo` mostra solo l'ultima sessione completata, mentre
+`Salvati` resta l'archivio delle schede salvate.
 Il Genera ora supporta più discipline contemporaneamente tramite un Weekly
 Program Engine: genera 3-7 giorni, mostra e modifica la settimana, quindi passa
 un solo giorno al generatore specifico. Configurazione globale e settimana
@@ -85,7 +89,15 @@ presenti negli ambienti Preview e Production (valori mantenuti nascosti).
 - [FACT] Pagina Profilo: nome, esperienza, obiettivo, durata abituale, frequenza
   settimanale, attrezzatura, muscoli prioritari, **esercizi preferiti** (nuovo).
   Ogni modifica si salva subito su Supabase con conferma a schermo
-- [FACT] Navigazione inferiore a 5 voci (Home, Crea, Salvati, Storico, Profilo)
+- [FACT] Navigazione inferiore a 4 voci (Oggi, Ultimo, Salvati, Profilo)
+- [FACT] Minimi inderogabili sugli esercizi allenanti, riscaldamento escluso:
+  6 per Bodybuilding/CrossFit/Hybrid, 5 per Forza; Tabata non viene modificato.
+  Il vincolo è verificato anche sui workout restituiti da DeepSeek.
+- [FACT] L'APK Android include `WorkoutTimerService`: foreground service
+  `specialUse`, notifica persistente con cronometro, task `singleTask`, tap che
+  riapre la sessione corrente e vibrazione lunga alla scadenza. Il fallback web
+  resta basato su service worker/Notification API e non può garantire un overlay
+  sopra altre app come un servizio nativo.
 - [FACT] RLS attiva su tutte le tabelle (`profiles`, `user_settings`, `exercises`,
   `saved_workouts`, `completed_workouts`): ogni utente legge e scrive solo le
   proprie righe. Verificato con l'advisor di sicurezza Supabase: zero avvisi

@@ -9,7 +9,10 @@ import { SwipeContainer } from '../components/SwipeContainer'
 export default function HomeDashboard() {
   const navigate = useNavigate()
   const { user } = useAuth()
-  const { workout, activeSession, resumeActiveSession, setWorkout, catalog } = useWorkout()
+  const {
+    activeSession, resumeActiveSession, setWorkout, setGenerationConfig,
+    setWeeklyProgram, clearRejectedExercises, catalog,
+  } = useWorkout()
   const [savedList, setSavedList] = useState<SavedWorkout[]>([])
   const [lastCompleted, setLastCompleted] = useState<CompletedWorkout | null>(null)
   const [loadingSaved, setLoadingSaved] = useState(false)
@@ -38,15 +41,19 @@ export default function HomeDashboard() {
     }
   }, [user])
 
-  const handleStartWorkout = () => {
+  const handleResumeWorkout = () => {
     if (activeSession) {
       resumeActiveSession()
       navigate('/avvia')
-    } else if (workout) {
-      navigate('/avvia')
-    } else {
-      navigate('/crea?fresh=1')
     }
+  }
+
+  const createFreshWorkout = (programKind: 'program' | 'single_session' = 'single_session') => {
+    setWorkout(null)
+    setGenerationConfig(null)
+    setWeeklyProgram(null)
+    clearRejectedExercises()
+    navigate(`/crea?program_kind=${programKind}&fresh=1`)
   }
 
   const openSavedWorkout = (sw: SavedWorkout) => {
@@ -85,7 +92,7 @@ export default function HomeDashboard() {
 
   return (
     <SwipeContainer
-      onSwipeLeft={() => navigate('/crea')}
+      onSwipeLeft={() => navigate('/ultimo')}
       onSwipeRight={() => navigate('/salvati')}
       className="space-y-6 px-4 pt-6 pb-28"
     >
@@ -131,7 +138,7 @@ export default function HomeDashboard() {
             </p>
 
             <button
-              onClick={handleStartWorkout}
+              onClick={handleResumeWorkout}
               className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 py-3.5 px-4 font-display text-sm font-bold uppercase tracking-wider text-white shadow-lg glow-cyan transition-transform active:scale-[0.98]"
             >
               <span>▶ CONTINUA ALLENAMENTO</span>
@@ -158,7 +165,7 @@ export default function HomeDashboard() {
             </p>
 
             <button
-              onClick={handleStartWorkout}
+              onClick={() => createFreshWorkout()}
               className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 py-3.5 px-4 font-display text-sm font-bold uppercase tracking-wider text-white shadow-lg glow-cyan transition-transform active:scale-[0.98]"
             >
               <span>⚡ CREA NUOVO ALLENAMENTO</span>
@@ -181,7 +188,7 @@ export default function HomeDashboard() {
             </p>
 
             <button
-              onClick={handleStartWorkout}
+              onClick={() => createFreshWorkout()}
               className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 py-3.5 px-4 font-display text-sm font-bold uppercase tracking-wider text-white shadow-lg glow-cyan transition-transform active:scale-[0.98]"
             >
               <span>⚡ CREA IL TUO PRIMO ALLENAMENTO</span>
@@ -197,7 +204,7 @@ export default function HomeDashboard() {
         <div className="grid grid-cols-1 gap-3">
           {/* Card 1: Settimana */}
           <button
-            onClick={() => navigate('/crea?program_kind=weekly_program&fresh=1')}
+            onClick={() => createFreshWorkout('program')}
             className="group relative flex items-center justify-between rounded-xl glass-card p-4 border border-edge text-left transition-all hover:border-cyan-500/40 active:scale-[0.99]"
           >
             <div className="flex items-center gap-3">
@@ -220,7 +227,7 @@ export default function HomeDashboard() {
 
           {/* Card 2: Sessione Singola */}
           <button
-            onClick={() => navigate('/crea?program_kind=single_session&fresh=1')}
+            onClick={() => createFreshWorkout('single_session')}
             className="group relative flex items-center justify-between rounded-xl glass-card p-4 border border-edge text-left transition-all hover:border-cyan-500/40 active:scale-[0.99]"
           >
             <div className="flex items-center gap-3">

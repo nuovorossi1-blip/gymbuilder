@@ -1,5 +1,15 @@
 # Changelog AI
 
+## 2026-08-17 - Nuova sessione pulita, Ultimo allenamento e timer Android persistente
+
+- `Crea nuovo allenamento` non riusa più il workout precedente: azzera scheda, configurazione, programma settimanale e rifiuti prima di aprire il configuratore.
+- La navigazione sostituisce `Crea` con `Ultimo`, che mostra soltanto l'ultima sessione completata; `Salvati` continua a contenere tutte le schede salvate e `Profilo` i parametri personali.
+- Imposti minimi di 6 esercizi allenanti per Bodybuilding, CrossFit Standard e Hybrid e 5 per Forza, indipendentemente dalla durata; il warm-up non viene conteggiato e Tabata resta invariato.
+- Il validatore e DeepSeek applicano gli stessi minimi; il prompt AI usa strutture coerenti con metodi di forza e benchmark CrossFit, senza inventare esercizi fuori catalogo.
+- Aggiunto all'APK Android un foreground service con cronometro persistente, riapertura della sessione corrente e vibrazione lunga da 1,2 secondi alla scadenza.
+- Verifica web completata: 205 test verdi, build production verde, lint senza errori (2 warning storici nel Runner).
+- `cap sync android` riuscito. La compilazione Gradle in questo Codespace è arrivata al progetto ma non può proseguire perché manca l'Android SDK; usare Android Studio con JDK 21.
+
 ## 2026-08-13 - CrossFit meno ripetitivo e DeepSeek generativo reale
 
 - `CrossFit Standard` non resta piu bloccato sugli stessi 2-3 pattern: la parte Strength/Skill varia meglio fra lower e upper quando non ci sono priorita esplicite.

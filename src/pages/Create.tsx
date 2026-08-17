@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { filterExercisesByPreferences, preferencePlacementForMode } from '../engine/preferences'
 import { adaptiveExcludedIds } from '../engine/feedback'
@@ -65,10 +65,16 @@ export default function Create() {
         }
   )
   const [builderStep, setBuilderStep] = useState<1 | 2>(1)
+  const freshResetDone = useRef(false)
 
   useEffect(() => {
-    if (freshEntry && weeklyProgram) setWeeklyProgram(null)
-  }, [freshEntry, weeklyProgram, setWeeklyProgram])
+    if (!freshEntry || freshResetDone.current) return
+    freshResetDone.current = true
+    setWeeklyProgram(null)
+    setWorkout(null)
+    setGenerationConfig(null)
+    clearRejectedExercises()
+  }, [clearRejectedExercises, freshEntry, setGenerationConfig, setWeeklyProgram, setWorkout])
 
   useEffect(() => {
     caricaCatalogo().then((items) => {

@@ -286,7 +286,7 @@ export function generaForza(catalogo: Exercise[], cfg: StrengthConfig): Generate
 
   rimuoviDuplicati(scelti)
   if (!portaCompoundInApertura(scelti)) warnings.push('Nessun esercizio multiarticolare disponibile con questa attrezzatura.')
-  if (scelti.length < 3) {
+  if (scelti.length < 5) {
     warnings.push(
       `Con questa attrezzatura escono solo ${scelti.length} alzate. ` +
         `Aggiungendo attrezzi nel profilo la sessione diventa più completa.`
@@ -353,12 +353,6 @@ function adattaAlTempo(scelti: PrescribedExercise[], budgetMin: number): void {
     riducibile.sets -= 1
   }
 
-  while (sforo() > 0 && scelti.length > 3) {
-    let iRimuovi = scelti.map((e) => e.note === 'richiamo').lastIndexOf(true)
-    if (iRimuovi < 0) iRimuovi = scelti.map((e) => e.role === 'isolation').lastIndexOf(true)
-    if (iRimuovi < 0) iRimuovi = scelti.length - 1
-    scelti.splice(iRimuovi, 1)
-  }
 }
 
 function ridistribuisci(slot: SlotDef[], priorita: Muscle[]): SlotDef[] {

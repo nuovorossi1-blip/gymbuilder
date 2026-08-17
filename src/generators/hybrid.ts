@@ -110,7 +110,7 @@ export function generaHybrid(catalogo: Exercise[], cfg: HybridConfig): Generated
 
   // Parte Strength/Bodybuilding separata: una alzata nelle sessioni brevi,
   // due da 45 minuti in su. I movimenti più tecnici restano qui, mai nel circuito.
-  const numeroAlzate = cfg.duration_min < 45 ? 1 : 2
+  const numeroAlzate = 2
   for (let i = 0; i < numeroAlzate; i++) {
     const muscoloTarget = rotazione[i % rotazione.length]
     const candidatiForza = forzaPool
@@ -160,7 +160,7 @@ export function generaHybrid(catalogo: Exercise[], cfg: HybridConfig): Generated
     (e) => e.roles.includes('isolation') && e.technical_complexity <= 1 &&
       e.systemic_fatigue <= 1 && e.grip_fatigue <= 2
   )
-  const targetMetconExercises = cfg.duration_min < 45 ? 3 : 4
+  const targetMetconExercises = cfg.duration_min < 45 ? 4 : 5
   while (metcon.length < targetMetconExercises) {
     const expectCardio = metcon.length % 2 === 0
     if (expectCardio) {

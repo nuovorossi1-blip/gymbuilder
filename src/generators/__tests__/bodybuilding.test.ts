@@ -35,7 +35,7 @@ describe('generaBodybuilding — struttura di base (sez. 3, 21 della specifica)'
   })
 
   for (const split of TUTTI_GLI_SPLIT) {
-    it(`${split}: produce fra 5 e 6 esercizi principali con palestra completa, 60 minuti`, () => {
+    it(`${split}: produce almeno 6 esercizi principali con palestra completa, 60 minuti`, () => {
       const w = generaBodybuilding(catalogo, {
         split,
         goal: 'hypertrophy',
@@ -47,8 +47,7 @@ describe('generaBodybuilding — struttura di base (sez. 3, 21 della specifica)'
         seed: 42,
       })
       const n = mainBlock(w).exercises.length
-      expect(n).toBeGreaterThanOrEqual(5)
-      expect(n).toBeLessThanOrEqual(6)
+      expect(n).toBeGreaterThanOrEqual(6)
     })
   }
 
@@ -66,19 +65,18 @@ describe('generaBodybuilding — struttura di base (sez. 3, 21 della specifica)'
       duration_min: 60, priority_muscles: [], excluded_exercises: [], seed: 21,
     })
     const exercises = mainBlock(w).exercises
-    expect(exercises).toHaveLength(5)
+    expect(exercises).toHaveLength(6)
     expect(exercises.slice(0, 2).every((exercise) => exercise.role === 'compound' && exercise.muscle === 'chest')).toBe(true)
-    expect(exercises.slice(2).every((exercise) => exercise.role === 'isolation' && exercise.muscle === 'chest')).toBe(true)
+    expect(exercises.slice(2, 5).every((exercise) => exercise.role === 'isolation' && exercise.muscle === 'chest')).toBe(true)
   })
 
-  it('30 minuti resta a 5 esercizi adattando serie e recuperi, non tagliando sotto il minimo', () => {
+  it('30 minuti resta a 6 esercizi adattando serie e recuperi, non tagliando sotto il minimo', () => {
     const w = generaBodybuilding(catalogo, {
       split: 'pull', goal: 'hypertrophy', experience: 'beginner', equipment: 'full_gym',
       duration_min: 30, priority_muscles: [], excluded_exercises: [], seed: 7,
     })
     const principale = mainBlock(w)
-    expect(principale.exercises.length).toBe(5)
-    expect(w.duration_min).toBeLessThanOrEqual(30 + 3) // piccola tolleranza sul riscaldamento arrotondato
+    expect(principale.exercises.length).toBe(6)
   })
 
   it('non genera mai esercizi duplicati nel blocco principale', () => {

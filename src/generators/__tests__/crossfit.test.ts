@@ -83,6 +83,7 @@ describe('generaCrossFit — struttura (Forza/Skill + Metcon AMRAP)', () => {
       const n = metconBlock(w).exercises.length
       expect(n).toBeGreaterThanOrEqual(4)
       expect(n).toBeLessThanOrEqual(5)
+      expect(mainBlock(w).exercises.length + n).toBeGreaterThanOrEqual(6)
     }
   })
 

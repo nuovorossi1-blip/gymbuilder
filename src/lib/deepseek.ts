@@ -57,7 +57,7 @@ Adatta il tuo ruolo alla disciplina scelta:
 - Tabata: rispetta esattamente lavoro, recupero, round e prescrizione selezionati.
 Se l'utente seleziona palestra completa, sfrutta in modo sensato l'attrezzatura completa; se seleziona un inventario limitato usa solo ciò che è disponibile.
 Usa esclusivamente exercise_id presenti nel catalogo fornito. Non usare esercizi esclusi e non inventare ID.
-Regole di qualità: Bodybuilding/Hybrid almeno 5-6 esercizi totali quando durata e catalogo lo consentono; CrossFit Standard almeno 5-6 movimenti totali fra warm-up, forza/skill e Metcon, con complessità decrescente; enfatizza le carenze senza compromettere sicurezza e recupero.`
+Regole inderogabili sul numero di esercizi allenanti, senza contare il warm-up: Bodybuilding, CrossFit Standard e CrossFit Hybrid almeno 6; Strength almeno 5; Tabata conserva esattamente il protocollo scelto. Questi minimi valgono per ogni durata e configurazione. Nel CrossFit usa complessità decrescente e benchmark autentici come riferimento quando coerenti; enfatizza le carenze senza compromettere sicurezza e recupero.`
 
 const VALID_EXPERIENCE = new Set<Experience>(['beginner', 'intermediate', 'advanced'])
 const VALID_GOAL = new Set<Goal>(['hypertrophy', 'strength', 'conditioning', 'mixed'])
@@ -404,6 +404,17 @@ export async function generateWorkoutsWithDeepSeek(
       }
     })
     .filter((item): item is DeepSeekSessionWorkout => !!item && item.workout.blocks.length > 0)
+
+  for (const session of sessions) {
+    if (session.workout.mode === 'tabata') continue
+    const count = session.workout.blocks
+      .filter((block) => block.kind !== 'warmup')
+      .reduce((total, block) => total + block.exercises.length, 0)
+    const minimum = session.workout.mode === 'strength' ? 5 : 6
+    if (count < minimum) {
+      throw new Error(`DeepSeek ha generato solo ${count} esercizi allenanti: per ${session.workout.mode} ne servono almeno ${minimum}. Riprova la generazione.`)
+    }
+  }
 
   if (sessions.length === 0) {
     throw new Error('DeepSeek non ha generato workout validi per le sessioni richieste.')

@@ -19,7 +19,7 @@ export default function History() {
 
   return (
     <div className="px-5 pt-12 pb-4">
-      <h1 className="font-display font-extrabold uppercase text-[2.4rem] leading-none tracking-tight">Storico</h1>
+      <h1 className="font-display font-extrabold uppercase text-[2.4rem] leading-none tracking-tight">Ultimo allenamento</h1>
 
       {errore && <p className="mt-6 text-sm text-amber2" role="alert">{errore}</p>}
       {lista === null && !errore && <div className="mt-8 h-24 animate-pulse rounded-xl bg-steel" aria-hidden />}
@@ -27,13 +27,13 @@ export default function History() {
       {lista?.length === 0 && (
         <div className="slab mt-8">
           <p className="text-[15px] text-slate2 leading-relaxed">
-            Qui compaiono gli allenamenti che porti a termine, con durata e valutazione.
+            Qui comparirà l’ultimo allenamento che hai portato a termine.
           </p>
         </div>
       )}
 
       <ul className="mt-7 space-y-2.5">
-        {lista?.map((c) => (
+        {lista?.slice(0, 1).map((c) => (
           <li key={c.id} className="slab">
             <div className="flex items-baseline justify-between gap-3">
               <span className="font-display font-bold uppercase tracking-wide text-[16px]">{c.name}</span>

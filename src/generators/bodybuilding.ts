@@ -10,7 +10,7 @@
  * AIOS_STATE.md sez. 8, decisione del 05/08 "motore struttura-prima"):
  *
  *   Attrezzatura/esclusioni/esperienza
- *     -> struttura della sessione (5-6 slot, decisi PRIMA di scegliere gli esercizi)
+ *     -> struttura della sessione (almeno 6 slot, decisi PRIMA di scegliere gli esercizi)
  *     -> richiami settimanali per i muscoli carenti (weakPoints.ts)
  *     -> selezione esercizi per slot (attrezzatura, fatica, esercizi preferiti)
  *     -> adattamento al tempo (si riducono serie/recuperi, non si tagliano slot)
@@ -205,7 +205,7 @@ const EXTRA_SLOTS: Record<Split, SlotDef[]> = {
   upper: [{ muscle: 'lateral_delts', compound: false }, { muscle: 'chest', compound: false }],
   lower: [{ muscle: 'hamstrings', compound: false }, { muscle: 'core', compound: false }],
   full_body: [{ muscle: 'hamstrings', compound: false }, { muscle: 'biceps', compound: false }],
-  bro_chest: [{ muscle: 'front_delts', compound: false }, { muscle: 'triceps', compound: false }],
+  bro_chest: [{ muscle: 'triceps', compound: false }, { muscle: 'front_delts', compound: false }],
   bro_back: [{ muscle: 'back', compound: false }, { muscle: 'biceps', compound: false }],
   bro_shoulders: [{ muscle: 'front_delts', compound: false }, { muscle: 'core', compound: false }],
   bro_arms: [{ muscle: 'triceps', compound: false }, { muscle: 'biceps', compound: false }],
@@ -265,8 +265,7 @@ function serieMinime(compound: boolean): number {
 const RANK_EXP: Record<Experience, number> = { beginner: 1, intermediate: 2, advanced: 3 }
 
 /** Quanti esercizi principali punta ad avere la sessione: massimo sei. */
-function targetEsercizi(duration_min: number): number {
-  if (duration_min < 45) return 5
+function targetEsercizi(): number {
   return 6
 }
 
@@ -501,9 +500,7 @@ export function generaBodybuilding(
     ? { slots: buildCustomTargetSlots(customTargets, priorities, cfg.duration_min), requirements: customTargets }
     : applicaPrioritaAssegnate(base, priorities)
   const baseSlot = structured.slots
-  const target = cfg.split === 'bro_chest'
-    ? 5
-    : Math.min(6, Math.max(targetEsercizi(cfg.duration_min), baseSlot.length))
+  const target = Math.max(targetEsercizi(), baseSlot.length)
 
   // 6. Sesto slot: prima le priorità assegnate dalla settimana, poi l'extra dello split.
   const extraSlot: SlotDef[] = []
@@ -603,9 +600,27 @@ export function generaBodybuilding(
     scelti.push(voce)
   }
 
+  // Se uno slot molto specifico non è disponibile, completa comunque il
+  // minimo con un isolamento sicuro e coerente con i muscoli dello split.
+  while (scelti.length < 6) {
+    const fallback = allenamento.find((exercise) =>
+      !usati.has(exercise.id) && exercise.roles.includes('isolation') &&
+      exercise.technical_complexity <= 2 &&
+      exercise.primary_muscles.some((muscle) => pool.includes(muscle))
+    )
+    if (!fallback) break
+    const muscle = fallback.primary_muscles.find((item) => pool.includes(item)) ?? fallback.primary_muscles[0]
+    const p = prescrizione(cfg.goal, false, cfg.experience, cfg.intensity)
+    usati.add(fallback.id)
+    scelti.push({
+      exercise_id: fallback.id, name: fallback.name, role: 'isolation', muscle: muscle ?? null,
+      sets: p.sets, reps: p.reps, rest_sec: p.rest, note: 'completamento sessione',
+      instructions: fallback.instructions || undefined,
+    })
+  }
+
   // 8. Adattamento al tempo: si riducono prima i recuperi, poi le serie
-  // (mai sotto il minimo), solo come ultimissima risorsa si toglie uno slot,
-  // partendo da un richiamo/extra e mai sotto i 5 esercizi (sez. 3, 23).
+  // (mai sotto il minimo) senza eliminare slot (sez. 3, 23).
   const minutiRiscaldamento = cfg.duration_min >= 45 ? 9 : 6
   const budget = cfg.duration_min - minutiRiscaldamento
   adattaAlTempo(scelti, budget)
@@ -614,7 +629,7 @@ export function generaBodybuilding(
   rimuoviDuplicati(scelti)
   const preserveWeakPointLead = customTargets.length > 0 && scelti[0]?.note === 'carenza'
   if (!preserveWeakPointLead && !portaCompoundInApertura(scelti)) warnings.push('Nessun esercizio multiarticolare disponibile con questa attrezzatura.')
-  if (scelti.length < 5) {
+  if (scelti.length < 6) {
     warnings.push(
       `Con questa attrezzatura escono solo ${scelti.length} esercizi. ` +
         `Aggiungendo attrezzi nel profilo la sessione diventa più completa.`
@@ -660,8 +675,7 @@ export function generaBodybuilding(
  * Adatta la sessione al budget di tempo SENZA eliminare esercizi come prima
  * mossa (sez. 3, 23): prima taglia il recupero verso il minimo dell'obiettivo,
  * poi una serie sugli slot meno prioritari (richiami ed extra prima dei
- * compound), solo alla fine — se proprio non basta — droppa l'ultimo slot,
- * mai sotto i 5 esercizi.
+ * compound). Il numero di esercizi non viene ridotto: il minimo è sei.
  */
 function adattaAlTempo(scelti: PrescribedExercise[], budgetMin: number): void {
   const RECUPERO_MINIMO = 45
@@ -693,11 +707,4 @@ function adattaAlTempo(scelti: PrescribedExercise[], budgetMin: number): void {
     riducibile.sets -= 1
   }
 
-  // Fase 3: ultima risorsa, droppa lo slot meno prioritario, mai sotto 5.
-  while (sforo() > 0 && scelti.length > 5) {
-    let iRimuovi = scelti.map((e) => e.note !== 'carenza' && e.role === 'isolation').lastIndexOf(true)
-    if (iRimuovi < 0) iRimuovi = scelti.map((e) => e.note !== 'carenza').lastIndexOf(true)
-    if (iRimuovi < 0) break
-    scelti.splice(iRimuovi, 1)
-  }
 }

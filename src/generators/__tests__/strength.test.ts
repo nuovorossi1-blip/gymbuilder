@@ -31,14 +31,13 @@ describe('generaForza — struttura di base (poche alzate pesanti, non un Bodybu
   })
 
   for (const split of SPLIT_FORZA) {
-    it(`${split}: produce fra 3 e 5 alzate con palestra completa, 60 minuti`, () => {
+    it(`${split}: produce almeno 5 alzate con palestra completa, 60 minuti`, () => {
       const w = generaForza(catalogo, {
         split, experience: 'intermediate', equipment: 'full_gym', duration_min: 60,
         priority_muscles: [], excluded_exercises: [], seed: 10,
       })
       const n = mainBlock(w).exercises.length
-      expect(n).toBeGreaterThanOrEqual(3)
-      expect(n).toBeLessThanOrEqual(5)
+      expect(n).toBeGreaterThanOrEqual(5)
     })
   }
 

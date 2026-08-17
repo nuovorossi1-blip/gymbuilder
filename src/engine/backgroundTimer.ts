@@ -1,4 +1,5 @@
 import type { TimerEventType } from './timer'
+import { startNativeWorkoutTimer, stopNativeWorkoutTimer } from '../native/workoutTimer'
 
 const DEFAULT_TITLE = 'GymBuilder'
 const RESUME_WORKOUT_HREF = '/?resume=workout'
@@ -67,6 +68,11 @@ export function publishBackgroundTimer(label: string, remainingSec: number, paus
   } catch {
     /* Il timer principale continua anche se lo storage non è disponibile. */
   }
+  if (!paused && remainingSec > 0) {
+    void startNativeWorkoutTimer(label, state.deadline).catch(() => { /* fallback web già attivo */ })
+  } else {
+    void stopNativeWorkoutTimer().catch(() => { /* nessun servizio nativo */ })
+  }
 }
 
 export async function notifyTimerEvent(type: TimerEventType, label: string): Promise<void> {
@@ -127,6 +133,7 @@ export async function notifyTimerSnapshot(label: string, remainingSec: number): 
 }
 
 export function resetBackgroundTimer(clearActive = false): void {
+  void stopNativeWorkoutTimer().catch(() => { /* nessun servizio nativo */ })
   if (typeof document !== 'undefined') document.title = DEFAULT_TITLE
   if (typeof navigator !== 'undefined' && navigator.serviceWorker?.controller) {
     navigator.serviceWorker.controller.postMessage({ type: 'CLEAR_BACKGROUND_TIMER' })

@@ -12,6 +12,9 @@ export function validateWorkout(
   const errors: string[] = []
   const byId = new Map(catalog.map((exercise) => [exercise.id, exercise]))
   const prescribed = workout.blocks.flatMap((block) => block.exercises)
+  const trainingExercises = workout.blocks
+    .filter((block) => block.kind !== 'warmup')
+    .flatMap((block) => block.exercises)
   const ids = new Set<string>()
 
   if (workout.mode !== config.mode) errors.push('La modalità generata non coincide con la configurazione.')
@@ -28,6 +31,10 @@ export function validateWorkout(
     ids.add(exercise.id)
   }
   if (workout.mode !== 'tabata') {
+    const minimum = workout.mode === 'strength' ? 5 : 6
+    if (trainingExercises.length < minimum) {
+      errors.push(`La sessione ${workout.mode} deve contenere almeno ${minimum} esercizi allenanti (riscaldamento escluso).`)
+    }
     const estimated = workout.blocks.reduce((sum, block) => sum + (block.duration_min ?? minutiBlocco(block.exercises)), 0)
     const max = workout.max_duration_min ?? Math.ceil(config.duration_min * 1.15)
     if (estimated > max + 1) errors.push(`Durata stimata ${Math.ceil(estimated)} min oltre il massimo di ${max} min.`)

@@ -65,7 +65,8 @@ function Guscio() {
         <Route path="/allenamento" element={<WorkoutPreview />} />
         <Route path="/avvia" element={<Runner />} />
         <Route path="/salvati" element={<Saved />} />
-        <Route path="/storico" element={<History />} />
+        <Route path="/ultimo" element={<History />} />
+        <Route path="/storico" element={<Navigate to="/ultimo" replace />} />
         <Route path="/profilo" element={<ProfilePage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

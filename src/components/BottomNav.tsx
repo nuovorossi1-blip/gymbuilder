@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom'
 
 const VOCI = [
   { to: '/', label: 'Oggi', icon: '🏠' },
-  { to: '/crea', label: 'Crea', icon: '🪄' },
+  { to: '/ultimo', label: 'Ultimo', icon: '⏱️' },
   { to: '/salvati', label: 'Salvati', icon: '📁' },
   { to: '/profilo', label: 'Profilo', icon: '👤' },
 ]
