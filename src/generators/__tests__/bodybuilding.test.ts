@@ -118,6 +118,21 @@ describe('generaBodybuilding — attrezzatura (sez. 21, 31)', () => {
 })
 
 describe('generaBodybuilding — priorità assegnate dalla settimana', () => {
+  it('Push con spalle e braccia carenti usa un solo esercizio per ogni distretto', () => {
+    const w = generaBodybuilding(catalogo, {
+      split: 'push', goal: 'hypertrophy', experience: 'advanced', equipment: 'full_gym',
+      duration_min: 60,
+      priority_muscles: ['front_delts', 'lateral_delts', 'rear_delts', 'biceps', 'triceps'],
+      excluded_exercises: [], seed: 31,
+    })
+    expect(mainBlock(w).exercises.map((exercise) => exercise.muscle)).toEqual([
+      'chest', 'front_delts', 'lateral_delts', 'rear_delts', 'biceps', 'triceps',
+    ])
+    expect(mainBlock(w).exercises.map((exercise) => exercise.role)).toEqual([
+      'compound', 'compound', 'isolation', 'isolation', 'isolation', 'isolation',
+    ])
+  })
+
   it('Push specializzato segue petto, petto, laterali, compound stabile, bicipiti, tricipiti', () => {
     const w = generaBodybuilding(catalogo, {
       split: 'push', goal: 'hypertrophy', experience: 'advanced', equipment: 'full_gym',

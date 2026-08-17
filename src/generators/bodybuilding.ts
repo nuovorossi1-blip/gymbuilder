@@ -304,9 +304,10 @@ function ordinaSlot(split: Split, slots: SlotDef[]): SlotDef[] {
       if (slot.compound && slot.muscle === 'front_delts') return 1
       if (!slot.compound && slot.muscle === 'chest') return 2
       if (slot.muscle === 'lateral_delts') return 3
-      if (slot.muscle === 'biceps') return 4
-      if (slot.muscle === 'triceps') return 5
-      return 6
+      if (slot.muscle === 'rear_delts') return 4
+      if (slot.muscle === 'biceps') return 5
+      if (slot.muscle === 'triceps') return 6
+      return 7
     }
     if (split === 'pull' || split === 'bro_back' || split === 'back_body') {
       if (slot.compound && (slot.muscle === 'back' || slot.muscle === 'hamstrings')) return 0
@@ -329,28 +330,15 @@ function ordinaSlot(split: Split, slots: SlotDef[]): SlotDef[] {
   return slots.map((slot, index) => ({ slot, index })).sort((a, b) => rank(a.slot) - rank(b.slot) || a.index - b.index).map(({ slot }) => slot)
 }
 
-/**
- * Collassa le tre porzioni del deltoide in un solo richiamo "spalle" per
- * sessione. Se lo split ne copre già una selezionata usa quella naturale
- * (laterale in Push, posteriore in Pull); altrimenti sceglie la prima carenza
- * dichiarata. Bicipiti e tricipiti restano due requisiti distinti.
- */
-function requisitiCarenze(priority: Muscle[], slots: SlotDef[]): Muscle[] {
-  const requirements: Muscle[] = []
-  const shoulders = priority.filter((muscle) => SHOULDER_MUSCLES.includes(muscle))
-  if (shoulders.length > 0) {
-    requirements.push(slots.find((slot) => shoulders.includes(slot.muscle))?.muscle ?? shoulders[0])
-  }
-  for (const muscle of priority.filter((item) => !SHOULDER_MUSCLES.includes(item))) {
-    if (!requirements.includes(muscle)) requirements.push(muscle)
-  }
-  return requirements
+/** Ogni porzione carente della spalla resta distinta: anteriore, laterale e posteriore. */
+function requisitiCarenze(priority: Muscle[]): Muscle[] {
+  return [...new Set(priority)]
 }
 
 /** Mantiene almeno tre slot identitari e riserva le priorità assegnate, senza superare sei esercizi. */
 function applicaPrioritaAssegnate(base: SlotDef[], priority: Muscle[]): { slots: SlotDef[]; requirements: Muscle[] } {
   const maxReq = priority.length > 3 ? Math.min(6, priority.length) : 3
-  const requirements = requisitiCarenze(priority, base).slice(0, maxReq)
+  const requirements = requisitiCarenze(priority).slice(0, maxReq)
   const slots = base.map((slot) => ({ ...slot }))
   const represented = new Set<Muscle>()
   for (const requirement of requirements) {
@@ -363,7 +351,10 @@ function applicaPrioritaAssegnate(base: SlotDef[], priority: Muscle[]): { slots:
     if (!removable) break
     slots.splice(removable.index, 1)
   }
-  for (const muscle of missing) slots.push({ muscle, compound: false, weakPoint: true })
+  for (const muscle of missing) {
+    const compoundCount = slots.filter((slot) => slot.compound).length
+    slots.push({ muscle, compound: compoundCount < 2 && COMPOUND_CAPABLE_MUSCLES.has(muscle), weakPoint: true })
+  }
   return { slots, requirements }
 }
 
@@ -421,8 +412,8 @@ export function generaBodybuilding(
       { muscle: 'chest', compound: true, order: 1 },
       { muscle: 'lateral_delts', compound: false, order: 2 },
       { muscle: 'chest', compound: true, order: 3 },
-      { muscle: 'biceps', compound: false, order: 4 },
-      { muscle: 'triceps', compound: false, order: 5 },
+      { muscle: 'biceps', compound: false, order: 5 },
+      { muscle: 'triceps', compound: false, order: 6 },
     ]
   }
   const structured = customTargets.length > 0

@@ -1,5 +1,12 @@
 # Changelog AI
 
+## 2026-08-17 - Tre deltoidi distinti nelle priorità BB
+
+- Rimossa la vecchia fusione delle tre porzioni della spalla in un solo richiamo.
+- Se deltoide anteriore, laterale e posteriore sono carenti, ognuno riceve un esercizio distinto sia nella sessione singola sia nella PPL settimanale.
+- Eliminata la duplicazione `Military press + Shoulder press`: la struttura Push specializzata è petto compound, deltoide anteriore compound, laterale isolato, posteriore isolato, bicipiti e tricipiti.
+- Verifica completata con 211 test verdi, build production verde e lint senza errori (due warning storici nel Runner).
+
 ## 2026-08-17 - Target BB separati dalle carenze e richiami settimanali
 
 - Separati i gruppi scelti per la sessione dai muscoli carenti: i primi definiscono cosa allenare, i secondi definiscono priorità, volume e richiami.
