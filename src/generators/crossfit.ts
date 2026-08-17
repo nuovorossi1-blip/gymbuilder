@@ -60,6 +60,37 @@ function findFirstById(catalog: Exercise[], ids: string[]): Exercise | undefined
   return ids.map((id) => catalog.find((exercise) => exercise.id === id)).find(Boolean)
 }
 
+/**
+ * Cindy con muscoli target espliciti: l'utente ha chiesto esplicitamente di allenare quei
+ * muscoli, quindi i tre movimenti ufficiali (trazioni/piegamenti/squat) lasciano il posto a
+ * movimenti scelti esclusivamente fra quelli il cui muscolo primario è nel target, mantenendo
+ * la struttura di Cindy (3 movimenti, AMRAP 20', schema a ripetizioni crescenti 5-10-15).
+ * Senza target espliciti Cindy resta sempre quella ufficiale (vedi resolveBenchmark).
+ */
+function buildTargetAdaptedCindy(
+  allenamento: Exercise[],
+  targets: Muscle[],
+  usati: Set<string>,
+  preferiti: Set<string>,
+  random: () => number
+): Exercise[] | null {
+  const pool = allenamento.filter(
+    (exercise) =>
+      !usati.has(exercise.id) &&
+      exercise.technical_complexity <= 2 &&
+      exercise.primary_muscles.some((muscle) => targets.includes(muscle))
+  )
+  const localUsati = new Set<string>()
+  const scelti: Exercise[] = []
+  for (let i = 0; i < 3; i++) {
+    const scelto = scegliCandidato(pool, localUsati, targets, preferiti, random)
+    if (!scelto) break
+    localUsati.add(scelto.id)
+    scelti.push(scelto)
+  }
+  return scelti.length > 0 ? scelti : null
+}
+
 function resolveBenchmark(benchmark: Exclude<CrossFitBenchmark, 'custom'>, catalog: Exercise[]): Exercise[] | null {
   const recipes: Record<Exclude<CrossFitBenchmark, 'custom'>, string[][]> = {
     cindy: [['trazioni'], ['piegamenti'], ['squat_libero']],
@@ -265,8 +296,13 @@ export function generaCrossFit(catalogo: Exercise[], cfg: CrossFitConfig): Gener
   }
 
   // --- Metcon: formato scelto, con 4-5 movimenti sicuri sotto fatica, uno per categoria. ---
-  const benchmarkExercises = benchmark === 'custom' ? null : resolveBenchmark(benchmark, [...allenamento, ...riscaldamentoPool])
-  const benchmarkAdapted = !!benchmarkExercises && (
+  const targetAdaptedCindy = benchmark === 'cindy' && targets.length > 0
+    ? buildTargetAdaptedCindy(allenamento, targets, usati, preferiti, random)
+    : null
+  const benchmarkExercises = targetAdaptedCindy
+    ?? (benchmark === 'custom' ? null : resolveBenchmark(benchmark, [...allenamento, ...riscaldamentoPool]))
+  const targetAdapted = !!targetAdaptedCindy
+  const benchmarkAdapted = !!benchmarkExercises && !targetAdapted && (
     (benchmark === 'fran' && benchmarkExercises[0]?.id !== 'thruster_bil') ||
     (benchmark === 'helen' && benchmarkExercises[0]?.id !== 'run_400m' && benchmarkExercises[0]?.id !== 'corsa')
   )
@@ -274,6 +310,12 @@ export function generaCrossFit(catalogo: Exercise[], cfg: CrossFitConfig): Gener
     warnings.push(`Benchmark ${benchmark.toUpperCase()} non disponibile con catalogo, attrezzatura o esclusioni correnti: generato un WOD personalizzato.`)
   }
   if (benchmarkAdapted) warnings.push(`${benchmark.toUpperCase()} usa una variante compatibile con il catalogo e viene indicato come benchmark adattato.`)
+  if (targetAdapted) {
+    warnings.push(
+      `Cindy è stata adattata ai muscoli target scelti: non sono i movimenti ufficiali (trazioni, piegamenti, squat). ` +
+        'Lascia i muscoli target vuoti per ottenere Cindy standard.'
+    )
+  }
   const standardMetconPool = poolMetcon(allenamento, usati, cfg.experience, riscaldamentoPool)
   const metconPool = standardMetconPool
   const numMovimenti = cfg.experience === 'beginner' ? 3 : t.metcon >= 18 ? 4 : 3
@@ -336,8 +378,8 @@ export function generaCrossFit(catalogo: Exercise[], cfg: CrossFitConfig): Gener
   })()
 
   const effectiveBenchmark = benchmarkExercises ? benchmark : 'custom'
-  const adaptedLabel = benchmarkAdapted ? ' adattata' : ''
-  const benchmarkTitle = effectiveBenchmark === 'cindy' ? 'Cindy · AMRAP 20′'
+  const adaptedLabel = (benchmarkAdapted || targetAdapted) ? ' adattata' : ''
+  const benchmarkTitle = effectiveBenchmark === 'cindy' ? `Cindy${adaptedLabel} · AMRAP 20′`
     : effectiveBenchmark === 'fran' ? `Fran${adaptedLabel} · 21-15-9 For Time`
     : effectiveBenchmark === 'grace' ? 'Grace · 30 Clean & Jerk For Time'
     : effectiveBenchmark === 'helen' ? `Helen${adaptedLabel} · 3 Rounds For Time`

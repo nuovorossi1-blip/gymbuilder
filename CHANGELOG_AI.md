@@ -1,5 +1,34 @@
 # Changelog AI
 
+## 2026-08-17 - "Cindy adattata" sui muscoli target, foreground service Android blindato
+
+- Richiesta utente: scegliendo il benchmark Cindy senza toccare altro deve restare la Cindy
+  ufficiale (5 trazioni, 10 piegamenti, 15 squat); scegliendo anche muscoli target, il WOD deve
+  usare movimenti esclusivamente su quei muscoli mantenendo la struttura di Cindy (3 movimenti,
+  AMRAP 20', schema a ripetizioni crescenti 5-10-15).
+- Aggiunta `buildTargetAdaptedCindy` in `crossfit.ts`: con `benchmark: 'cindy'` e `target_muscles`
+  non vuoto, i tre movimenti ufficiali lasciano il posto a movimenti scelti esclusivamente fra
+  quelli con muscolo primario nel target (complessità tecnica bassa, niente bilanciere/macchine
+  pesanti). Titolo ed etichetta diventano "Cindy adattata"; un warning dedicato spiega la
+  sostituzione. Senza muscoli target il comportamento resta invariato (Cindy sempre ufficiale).
+  Se non esistono movimenti compatibili col target scelto, ricade sulla Cindy ufficiale invece di
+  restituire un WOD vuoto.
+- Fran/Grace/Helen non sono stati toccati: restano benchmark fissi indipendentemente dai target,
+  come da comportamento gia' esistente e testato.
+- Aggiornati i test su Cindy (senza target / con target compatibili / con target incompatibili)
+  in `crossfit.test.ts`.
+- Android: la precedente protezione (351ac8a) copriva solo la chiamata Capacitor
+  `startForegroundService()` lato plugin Java. La vera `ServiceCompat.startForeground()` avviene
+  dentro `onStartCommand()` del `WorkoutTimerService`, fuori da quel try/catch: su target SDK 35
+  (Android 15) un'eccezione li' faceva crashare l'intero processo app, non solo il servizio -
+  coerente con la segnalazione "premo avvia, fa 3-2-1 e si chiude" su qualsiasi allenamento, non
+  solo Tabata. Avvolti `onStartCommand()` e il completion Runnable ritardato in try/catch: in caso
+  di errore il servizio si ferma da solo, il timer React in WebView resta comunque la fonte di
+  verità del countdown e continua a funzionare senza notifica persistente nativa. Non verificabile
+  in locale (manca Android SDK in questo ambiente); la GitHub Action ricompila l'APK a ogni push.
+- Verifica completata: 221 test verdi, build production verde, lint senza errori (resta il
+  warning storico in `Runner.tsx`).
+
 ## 2026-08-17 - Sessione singola BB a gruppi scelti non viene più rifiutata dal validatore
 
 - Bug reale segnalato dall'utente: scegliendo "Gruppi a Scelta" per una sessione Bodybuilding singola

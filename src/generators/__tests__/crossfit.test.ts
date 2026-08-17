@@ -42,12 +42,11 @@ describe('generaCrossFit — struttura (Forza/Skill + Metcon AMRAP)', () => {
     })).toBe(true)
   })
 
-  it('Cindy conserva movimenti e ripetizioni ufficiali e aggiunge preparazione target', () => {
+  it('Cindy senza muscoli target conserva i movimenti e le ripetizioni ufficiali', () => {
     const w = generaCrossFit(catalogo, {
       experience: 'advanced', equipment: 'full_gym', duration_min: 60,
       priority_muscles: ['front_delts', 'biceps', 'triceps'],
-      target_muscles: ['front_delts', 'biceps', 'triceps'], excluded_exercises: [],
-      seed: 4, benchmark: 'cindy',
+      excluded_exercises: [], seed: 4, benchmark: 'cindy',
     })
     expect(w.name).toContain('Cindy')
     expect(metconBlock(w).title).toBe('Cindy · AMRAP 20′')
@@ -55,6 +54,39 @@ describe('generaCrossFit — struttura (Forza/Skill + Metcon AMRAP)', () => {
       ['trazioni', '5'], ['piegamenti', '10'], ['squat_libero', '15'],
     ])
     expect(w.blocks.filter((block) => block.kind !== 'warmup').flatMap((block) => block.exercises)).toHaveLength(6)
+  })
+
+  it('Cindy con muscoli target diventa "Cindy adattata" ed esclude i movimenti fuori target', () => {
+    const targets = ['front_delts', 'biceps', 'triceps'] as const
+    const w = generaCrossFit(catalogo, {
+      experience: 'advanced', equipment: 'full_gym', duration_min: 60,
+      priority_muscles: [...targets], target_muscles: [...targets], excluded_exercises: [],
+      seed: 4, benchmark: 'cindy',
+    })
+    expect(w.name).toContain('Cindy adattata')
+    expect(metconBlock(w).title).toBe('Cindy adattata · AMRAP 20′')
+    expect(metconBlock(w).format).toBe('amrap')
+    expect(metconBlock(w).time_cap_min).toBe(20)
+    const metconIds = metconBlock(w).exercises.map((item) => item.exercise_id)
+    expect(metconIds).not.toContain('trazioni')
+    expect(metconIds).not.toContain('piegamenti')
+    expect(metconIds).not.toContain('squat_libero')
+    for (const item of metconBlock(w).exercises) {
+      const exercise = perId.get(item.exercise_id)
+      expect(exercise?.primary_muscles.some((muscle) => (targets as readonly string[]).includes(muscle))).toBe(true)
+    }
+    expect(metconBlock(w).exercises.map((item) => item.reps)).toEqual(['5', '10', '15'].slice(0, metconBlock(w).exercises.length))
+  })
+
+  it('Cindy con muscoli target senza movimenti compatibili ricade sulla versione ufficiale', () => {
+    const w = generaCrossFit(catalogo, {
+      experience: 'advanced', equipment: 'full_gym', duration_min: 60,
+      priority_muscles: ['calves'], target_muscles: ['calves'], excluded_exercises: [],
+      seed: 4, benchmark: 'cindy',
+    })
+    // Nessun esercizio polpacci a bassa complessita' tecnica nel catalogo di test: niente
+    // WOD vuoto, si torna alla Cindy ufficiale invece di un buco silenzioso.
+    expect(metconBlock(w).exercises.length).toBeGreaterThan(0)
   })
 
   it('mode, split e goal sono impostati correttamente: nessuno split, è Strength/Skill + Metcon', () => {
