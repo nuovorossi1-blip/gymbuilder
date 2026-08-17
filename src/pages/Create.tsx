@@ -11,7 +11,7 @@ import { useSettings } from '../features/profile/useSettings'
 import { useWorkout } from '../features/workout/WorkoutContext'
 import { generaBodybuilding } from '../generators/bodybuilding'
 import { generaCrossFit } from '../generators/crossfit'
-import { PRESET_EQUIPMENT } from '../generators/equipment'
+import { isExerciseAvailable, PRESET_EQUIPMENT } from '../generators/equipment'
 import { generaHybrid } from '../generators/hybrid'
 import { generaForza } from '../generators/strength'
 import { generaTabata } from '../generators/tabata'
@@ -231,11 +231,16 @@ export default function Create() {
       const skeletonProgram = generateWeeklyProgram(normalizedConfig)
       const adaptiveExcluded = user ? adaptiveExcludedIds(user.id, catalog) : []
       const excluded = [...new Set([...normalizedConfig.preferences.excluded_exercise_ids, ...adaptiveExcluded])]
-      const usableCatalog = filterExercisesByPreferences(catalog, {
+      const preferredCatalog = filterExercisesByPreferences(catalog, {
         excludedExerciseIds: excluded,
         bodyweightPolicy: normalizedConfig.preferences.bodyweight_policy,
         elasticPolicy: normalizedConfig.preferences.elastic_policy,
       }, 'normal')
+      const usableCatalog = preferredCatalog.filter((exercise) => isExerciseAvailable(
+        exercise,
+        normalizedConfig.equipment.preset,
+        normalizedConfig.equipment.available
+      ))
       const aiSettings = loadLocalAiSettings()
       const aiResult = await generateWorkoutsWithDeepSeek(aiSettings, {
         config: normalizedConfig,

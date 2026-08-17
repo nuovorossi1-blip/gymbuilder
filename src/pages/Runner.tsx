@@ -6,7 +6,7 @@ import { registraCompletato } from '../lib/api'
 import { FORMATO_A_GIRI, FORMATO_A_INTERVALLI, MUSCLE_LABELS, type PrescribedExercise } from '../types'
 import { metconInstruction, metconSubtitle } from '../engine/metconInstructions'
 import { loadAudioSettings, saveAudioSettings, TimerAudio, type AudioTimerSettings, type TimerSound } from '../engine/audio'
-import type { TimerEventType, TimerPhase } from '../engine/timer'
+import { startupCountdownCue, type TimerEventType, type TimerPhase } from '../engine/timer'
 import { notifyTimerEvent, notifyTimerSnapshot, publishBackgroundTimer, requestTimerNotifications, resetBackgroundTimer } from '../engine/backgroundTimer'
 
 type Fase = { tipo: 'serie'; iEs: number; serie: number } | { tipo: 'recupero'; iEs: number; serie: number; sec: number }
@@ -277,10 +277,10 @@ export default function Runner() {
       const next = Math.max(0, Math.ceil((countdownDeadline.current - Date.now()) / 1000))
       setCountdown(next)
       if (next > 0 && lastWarning.current !== `countdown-${next}`) {
-        lastWarning.current = `countdown-${next}`; emit('WARNING', 'countdown')
+        lastWarning.current = `countdown-${next}`
+        emit(startupCountdownCue(next).type, 'countdown')
       }
       if (next === 0) {
-        emit('COUNTDOWN_COMPLETED', 'countdown')
         const action = afterCountdown.current; afterCountdown.current = null
         setCountdown(null); action?.()
       }

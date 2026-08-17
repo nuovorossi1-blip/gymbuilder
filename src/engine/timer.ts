@@ -33,6 +33,15 @@ export function countdownEvents(previous: number, current: number, phase: TimerP
   return []
 }
 
+/** Nel countdown di avvio 3 e 2 sono avvisi brevi; 1 è il segnale lungo di VIA. */
+export function startupCountdownCue(second: number, now = Date.now()): TimerEvent {
+  return {
+    type: second === 1 ? 'COUNTDOWN_COMPLETED' : 'WARNING',
+    at: now,
+    phase: 'countdown',
+  }
+}
+
 export interface IntervalTimerConfig { workSec: number; restSec: number; rounds: number }
 export interface IntervalTimerState { round: number; phase: 'work' | 'rest' | 'complete'; remainingSec: number }
 
