@@ -576,3 +576,6 @@ Le richieste LLM non partono più direttamente dal browser: `/api/deepseek` inol
 ## Aggiornamento stato — 2026-08-17: contratto segnali lavoro/recupero
 
 Il contratto audio/vibrazione è uniforme: ogni countdown di fase emette WARNING brevi su 3, 2 e 1; il successivo evento di transizione (`SET_STARTED`, `WORK_STARTED`, `ROUND_STARTED` o `REST_STARTED`) emette un unico segnale lungo da un secondo. Anche completamento e time-cap sono prolungati. Il modulo notifiche non vibra più direttamente in primo piano, evitando duplicazioni con `TimerAudio`; in background la notifica usa una singola vibrazione lunga.
+## Aggiornamento stato — 2026-08-17: ordine configurazione → LLM
+
+Il wizard non permette più di invocare DeepSeek subito dopo la sola scelta della disciplina. Il pulsante LLM si trova esclusivamente in fondo allo Step 2: prima vengono definiti tutti i parametri, poi l'utente sceglie fra generazione deterministica e generazione DeepSeek. Entrambi i percorsi ricevono la stessa configurazione finale.
