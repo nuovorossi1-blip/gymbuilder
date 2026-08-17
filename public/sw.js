@@ -31,13 +31,15 @@ self.addEventListener('fetch', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close()
-  const href = event.notification.data?.href || '/avvia'
+  const href = event.notification.data?.href || '/?resume=workout'
   event.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(async (clients) => {
-    const existing = clients.find((client) => new URL(client.url).pathname === href) || clients[0]
+    const runner = clients.find((client) => new URL(client.url).pathname === '/avvia')
+    if (runner) return runner.focus()
+    const existing = clients[0]
     if (existing) {
-      if (new URL(existing.url).pathname !== href) await existing.navigate(href)
+      await existing.navigate(new URL(href, self.location.origin).href)
       return existing.focus()
     }
-    return self.clients.openWindow(href)
+    return self.clients.openWindow(new URL(href, self.location.origin).href)
   }))
 })

@@ -3,6 +3,7 @@ import type { TimerEventType } from './timer'
 const DEFAULT_TITLE = 'GymBuilder'
 export const ACTIVE_TIMER_KEY = 'gymbuilder:active-timer:v1'
 export const ACTIVE_TIMER_EVENT = 'gymbuilder:active-timer'
+const RESUME_WORKOUT_HREF = '/?resume=workout'
 
 export interface ActiveTimerState {
   label: string
@@ -57,7 +58,7 @@ export async function notifyTimerEvent(type: TimerEventType, label: string): Pro
   if (typeof document === 'undefined' || !document.hidden || typeof Notification === 'undefined' || Notification.permission !== 'granted') return
   if (type !== 'TIMER_COMPLETED' && type !== 'TIME_CAP_REACHED' && type !== 'REST_STARTED' && type !== 'WORK_STARTED') return
   const body = type === 'REST_STARTED' ? 'Inizia il recupero.' : type === 'WORK_STARTED' ? 'Riprendi il lavoro.' : type === 'TIME_CAP_REACHED' ? 'Tempo massimo raggiunto.' : 'Timer completato.'
-  const options = { body, tag: 'gymbuilder-active-timer', data: { href: '/avvia' } }
+  const options = { body, tag: 'gymbuilder-active-timer', data: { href: RESUME_WORKOUT_HREF } }
   try {
     const registration = await navigator.serviceWorker?.ready
     if (registration) {
@@ -76,9 +77,9 @@ export async function notifyTimerSnapshot(label: string, remainingSec: number): 
     const registration = await navigator.serviceWorker?.ready
     if (!registration) return
     await registration.showNotification(timerTitle(label, remainingSec), {
-      body: 'Timer attivo · tocca per tornare all’allenamento.',
+      body: `Timer attivo fino alle ${new Date(Date.now() + remainingSec * 1000).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })} · tocca per tornare all’allenamento.`,
       tag: 'gymbuilder-active-timer',
-      data: { href: '/avvia' },
+      data: { href: RESUME_WORKOUT_HREF },
       requireInteraction: true,
     })
   } catch { /* miglioramento progressivo */ }

@@ -234,8 +234,17 @@ export default function Runner() {
       publishBackgroundTimer(backgroundState.current.label, backgroundState.current.remaining)
       if (document.hidden) void notifyTimerSnapshot(backgroundState.current.label, backgroundState.current.remaining)
     }
+    const syncPageHide = () => {
+      publishBackgroundTimer(backgroundState.current.label, backgroundState.current.remaining)
+      void notifyTimerSnapshot(backgroundState.current.label, backgroundState.current.remaining)
+    }
     document.addEventListener('visibilitychange', syncVisibility)
-    return () => { document.removeEventListener('visibilitychange', syncVisibility); resetBackgroundTimer() }
+    window.addEventListener('pagehide', syncPageHide)
+    return () => {
+      document.removeEventListener('visibilitychange', syncVisibility)
+      window.removeEventListener('pagehide', syncPageHide)
+      resetBackgroundTimer()
+    }
   }, [])
 
   useEffect(() => {

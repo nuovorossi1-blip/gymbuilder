@@ -1,5 +1,12 @@
 # Changelog AI
 
+## 2026-08-17 — Rientro affidabile dalle notifiche timer
+
+- Il click sulla notifica cerca prima il Runner esistente e lo porta in primo piano senza navigazione o nuova finestra.
+- Se la webview è stata eliminata dal sistema, apre la root con un parametro di ripresa; l'app ricostruisce poi localmente il Runner, evitando deep-link 404.
+- Aggiunto il salvataggio/notifica anche su `pagehide`; la notifica web mostra tempo residuo e orario di fine.
+- Un timer animato ogni secondo nella barra di sistema resta riservato alla futura app Android con foreground service: browser e PWA possono essere sospesi dal sistema operativo.
+
 ## 2026-08-17 — Keep-alive Supabase programmato
 
 - Aggiunta una Vercel Function protetta da `CRON_SECRET` che verifica ogni giorno la Data API Supabase con una query di sola lettura e timeout di 10 secondi.

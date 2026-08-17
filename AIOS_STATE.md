@@ -220,6 +220,12 @@ presenti negli ambienti Preview e Production (valori mantenuti nascosti).
 
 ## 4. Cosa è in lavorazione
 
+Il rientro dalle notifiche timer è stato ulteriormente irrobustito: il Service
+Worker mette in primo piano il Runner esistente; se la webview non esiste più,
+apre la root con richiesta di ripresa invece del deep-link `/avvia`. La futura
+APK dovrà usare un foreground service Android per una notifica con timer
+continuamente aggiornato; una PWA sospesa non può garantirlo.
+
 È pronto localmente un keep-alive Supabase best-effort: Vercel richiama ogni
 giorno `/api/keep-alive`, protetto da `CRON_SECRET`, e interroga in sola lettura
 il catalogo esercizi. Per attivarlo servono pubblicazione e configurazione di
