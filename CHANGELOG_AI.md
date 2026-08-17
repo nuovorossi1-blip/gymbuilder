@@ -1,5 +1,20 @@
 # Changelog AI
 
+## 2026-08-17 — Keep-alive Supabase programmato
+
+- Aggiunta una Vercel Function protetta da `CRON_SECRET` che verifica ogni giorno la Data API Supabase con una query di sola lettura e timeout di 10 secondi.
+- Il job distingue progetto sospeso (`540`), timeout, configurazione mancante e altri errori API; gli esiti sono consultabili nei log Vercel.
+- Configurato Vercel Cron alle 06:17 UTC. È una mitigazione best-effort per il piano Free, non sostituisce la garanzia di disponibilità del piano Supabase Pro.
+
+## 2026-08-17 — Ripristino affidabile della sessione attiva
+
+- Corretto il deep-link delle rotte React su Vercel con fallback SPA a `index.html`, eliminando la 404 al ritorno su `/avvia`.
+- Il Runner salva ora uno snapshot locale versionato con esercizio, serie, round, fase, pause, note e deadline assolute dei timer.
+- Riaprendo l'app durante un allenamento attivo si torna automaticamente al Runner nello stesso punto, anche dopo sospensione o ricreazione della webview.
+- Il Service Worker riusa e porta in primo piano la finestra esistente; ne apre una nuova soltanto se l'app non è già aperta.
+- Il workout attivo è stato spostato da `sessionStorage` a `localStorage`, con lettura retrocompatibile dei dati precedenti.
+- Aggiunti test sulla persistenza; corretti due test Weak Point dipendenti dall'orologio. Verifica: 191 test, lint senza errori e build Vite verde.
+
 ## 2026-08-07 — Programma prima, esercizi dopo
 
 - I programmi costruiscono e salvano prima calendario, discipline e split; gli esercizi vengono generati soltanto aprendo una giornata confermata.

@@ -4,7 +4,7 @@
 > da qui. Va **aggiornato** a ogni sessione, non accodato all'infinito.
 > L'identità del progetto e il percorso di AI-OS stanno in `AIOS_PROJECT.json`.
 
-**Ultimo aggiornamento:** 2026-08-07 (programmi multi-settimana e Hybrid) — Codex
+**Ultimo aggiornamento:** 2026-08-17 (ripristino sessione Runner e deep-link SPA) — Codex
 
 Etichette: `[FACT]` verificato nel codice · `[RICOSTRUITO]` dedotto da indizi ·
 `[IGNOTO]` non ricavabile dal repository
@@ -219,6 +219,18 @@ presenti negli ambienti Preview e Production (valori mantenuti nascosti).
 - [FACT] 112 test automatici totali; build TypeScript/Vite verde.
 
 ## 4. Cosa è in lavorazione
+
+È pronto localmente un keep-alive Supabase best-effort: Vercel richiama ogni
+giorno `/api/keep-alive`, protetto da `CRON_SECRET`, e interroga in sola lettura
+il catalogo esercizi. Per attivarlo servono pubblicazione e configurazione di
+`CRON_SECRET` nell'ambiente Production di Vercel. Il piano Supabase Pro resta
+l'unica garanzia ufficiale contro il pausing per inattività.
+
+Il difetto critico di ritorno all'app durante un allenamento è stato corretto
+localmente: Vercel riceve il fallback SPA per `/avvia`, il workout e lo stato
+completo del Runner persistono in `localStorage`, e il Service Worker riusa la
+finestra esistente. Verifica locale: 191 test verdi, lint senza errori e build
+Vite verde. Le modifiche non sono ancora state pubblicate.
 
 Riallineamento sequenziale al master prompt richiesto dall'utente. Le Phase 2-7
 sono completate; la Phase 8 è stata verificata contro i requisiti conservati in

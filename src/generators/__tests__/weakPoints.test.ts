@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import catalogoReale from './fixtures/exercises.json'
 import type { CompletedWorkout, Exercise, Muscle, WorkoutBlock } from '../../types'
 import { analizzaSettimana, decidiRichiami } from '../weakPoints'
@@ -6,6 +6,10 @@ import { vuotoVolume } from '../shared'
 
 const catalogo = catalogoReale as unknown as Exercise[]
 const now = new Date('2026-08-06T12:00:00.000Z')
+
+beforeEach(() => {
+  vi.setSystemTime(now)
+})
 
 function completato(exerciseId: string, sets: number, completedAt: string, kind: WorkoutBlock['kind'] = 'main'): CompletedWorkout {
   return {

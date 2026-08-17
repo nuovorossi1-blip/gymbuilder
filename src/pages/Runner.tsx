@@ -8,8 +8,9 @@ import { metconInstruction, metconSubtitle } from '../engine/metconInstructions'
 import { loadAudioSettings, saveAudioSettings, TimerAudio, type AudioTimerSettings, type TimerSound } from '../engine/audio'
 import type { TimerEventType, TimerPhase } from '../engine/timer'
 import { notifyTimerEvent, notifyTimerSnapshot, publishBackgroundTimer, requestTimerNotifications, resetBackgroundTimer } from '../engine/backgroundTimer'
+import { clearActiveWorkoutSession, readActiveWorkoutSession, saveActiveWorkoutSession, workoutSessionKey, type RunnerPhase } from '../engine/activeWorkoutSession'
 
-type Fase = { tipo: 'serie'; iEs: number; serie: number } | { tipo: 'recupero'; iEs: number; serie: number; sec: number }
+type Fase = RunnerPhase
 
 const VALUTAZIONI = [
   { v: 'facile', l: 'Facile' },
@@ -22,6 +23,8 @@ export default function Runner() {
   const { user } = useAuth()
   const { workout, setWorkout } = useWorkout()
   const naviga = useNavigate()
+  const restored = useRef(readActiveWorkoutSession(workout))
+  const saved = restored.current
 
   const esercizi = workout?.blocks.find((b) => b.kind === 'main')?.exercises ?? []
   const riscaldamento = workout?.blocks.find((b) => b.kind === 'warmup')
@@ -39,33 +42,33 @@ export default function Runner() {
     return isTabata ? metconEsercizi[Math.floor(i / rondaPerMovimento)] : metconEsercizi[i % metconEsercizi.length]
   }
 
-  const [iniziato, setIniziato] = useState(false)
-  const [fase, setFase] = useState<Fase>({ tipo: 'serie', iEs: 0, serie: 1 })
-  const [rimanente, setRimanente] = useState(0)
-  const [inPausa, setInPausa] = useState(false)
-  const [sezione, setSezione] = useState<'principale' | 'metcon'>(esercizi.length > 0 ? 'principale' : 'metcon')
-  const [metconFase, setMetconFase] = useState<'anteprima' | 'via' | 'fatto'>('anteprima')
-  const [metconRimanente, setMetconRimanente] = useState(0)
-  const [metconGiri, setMetconGiri] = useState(0)
-  const [metconInPausa, setMetconInPausa] = useState(false)
-  const [metconTrascorsi, setMetconTrascorsi] = useState(0)
-  const [intervalIndice, setIntervalIndice] = useState(0)
-  const [intervalSottofase, setIntervalSottofase] = useState<'lavoro' | 'riposo'>('lavoro')
-  const [intervalRimanente, setIntervalRimanente] = useState(0)
-  const [finito, setFinito] = useState(false)
-  const [valutazione, setValutazione] = useState<string | null>(null)
-  const [note, setNote] = useState('')
+  const [iniziato, setIniziato] = useState(saved?.iniziato ?? false)
+  const [fase, setFase] = useState<Fase>(saved?.fase ?? { tipo: 'serie', iEs: 0, serie: 1 })
+  const [rimanente, setRimanente] = useState(saved?.rimanente ?? 0)
+  const [inPausa, setInPausa] = useState(saved?.inPausa ?? false)
+  const [sezione, setSezione] = useState<'principale' | 'metcon'>(saved?.sezione ?? (esercizi.length > 0 ? 'principale' : 'metcon'))
+  const [metconFase, setMetconFase] = useState<'anteprima' | 'via' | 'fatto'>(saved?.metconFase ?? 'anteprima')
+  const [metconRimanente, setMetconRimanente] = useState(saved?.metconRimanente ?? 0)
+  const [metconGiri, setMetconGiri] = useState(saved?.metconGiri ?? 0)
+  const [metconInPausa, setMetconInPausa] = useState(saved?.metconInPausa ?? false)
+  const [metconTrascorsi, setMetconTrascorsi] = useState(saved?.metconTrascorsi ?? 0)
+  const [intervalIndice, setIntervalIndice] = useState(saved?.intervalIndice ?? 0)
+  const [intervalSottofase, setIntervalSottofase] = useState<'lavoro' | 'riposo'>(saved?.intervalSottofase ?? 'lavoro')
+  const [intervalRimanente, setIntervalRimanente] = useState(saved?.intervalRimanente ?? 0)
+  const [finito, setFinito] = useState(saved?.finito ?? false)
+  const [valutazione, setValutazione] = useState<string | null>(saved?.valutazione ?? null)
+  const [note, setNote] = useState(saved?.note ?? '')
   const [salvataggio, setSalvataggio] = useState<'fermo' | 'salvo' | 'errore'>('fermo')
-  const inizio = useRef<number>(Date.now())
+  const inizio = useRef<number>(saved?.startedAt ?? Date.now())
   const [audioSettings, setAudioSettings] = useState<AudioTimerSettings>(() => loadAudioSettings())
   const audio = useRef<TimerAudio | null>(null)
   const [countdown, setCountdown] = useState<number | null>(null)
   const countdownDeadline = useRef(0)
   const afterCountdown = useRef<(() => void) | null>(null)
-  const restDeadline = useRef(0)
-  const metconDeadline = useRef(0)
-  const intervalDeadline = useRef(0)
-  const metconStartedAt = useRef(0)
+  const restDeadline = useRef(saved?.restDeadline ?? 0)
+  const metconDeadline = useRef(saved?.metconDeadline ?? 0)
+  const intervalDeadline = useRef(saved?.intervalDeadline ?? 0)
+  const metconStartedAt = useRef(saved?.metconStartedAt ?? 0)
   const lastWarning = useRef<string>('')
   const restPausedAt = useRef(0)
   const metconPausedAt = useRef(0)
@@ -235,6 +238,36 @@ export default function Runner() {
     return () => { document.removeEventListener('visibilitychange', syncVisibility); resetBackgroundTimer() }
   }, [])
 
+  useEffect(() => {
+    if (!workout || !iniziato) return
+    saveActiveWorkoutSession({
+      version: 1,
+      workoutKey: workoutSessionKey(workout),
+      startedAt: inizio.current,
+      savedAt: Date.now(),
+      iniziato,
+      fase,
+      rimanente,
+      inPausa,
+      sezione,
+      metconFase,
+      metconRimanente,
+      metconGiri,
+      metconInPausa,
+      metconTrascorsi,
+      intervalIndice,
+      intervalSottofase,
+      intervalRimanente,
+      finito,
+      valutazione,
+      note,
+      restDeadline: restDeadline.current,
+      metconDeadline: metconDeadline.current,
+      intervalDeadline: intervalDeadline.current,
+      metconStartedAt: metconStartedAt.current,
+    })
+  }, [fase, finito, inPausa, iniziato, intervalIndice, intervalRimanente, intervalSottofase, metconFase, metconGiri, metconInPausa, metconRimanente, metconTrascorsi, note, rimanente, sezione, valutazione, workout])
+
   if (!workout || (esercizi.length === 0 && metconEsercizi.length === 0)) {
     return (
       <div className="px-5 pt-12">
@@ -253,6 +286,7 @@ export default function Runner() {
   function interrompiAllenamento() {
     if (!window.confirm('Interrompere questo allenamento? I progressi della sessione corrente verranno eliminati.')) return
     resetBackgroundTimer(true)
+    clearActiveWorkoutSession()
     setWorkout(null)
     naviga('/')
   }
@@ -303,6 +337,7 @@ export default function Runner() {
         valutazione,
         note.trim() || null
       )
+      clearActiveWorkoutSession()
       setWorkout(null)
       naviga('/')
     } catch {

@@ -10,6 +10,7 @@ import Saved from './pages/Saved'
 import History from './pages/History'
 import ProfilePage from './pages/ProfilePage'
 import ActiveTimerBanner from './components/ActiveTimerBanner'
+import { hasActiveWorkoutSession } from './engine/activeWorkoutSession'
 
 function Guscio() {
   const { user, loading } = useAuth()
@@ -27,6 +28,10 @@ function Guscio() {
   // Una sessione già iniziata resta accessibile anche durante un rinnovo token
   // fallito o un periodo offline. Le altre pagine restano protette.
   if (!user && !(pathname === '/avvia' && workout)) return <LoginPage />
+
+  if (workout && pathname !== '/avvia' && hasActiveWorkoutSession()) {
+    return <Navigate to="/avvia" replace />
+  }
 
   // Durante l'allenamento la navigazione sparisce: si resta sul pezzo.
   const conNav = pathname !== '/avvia'
