@@ -36,6 +36,7 @@ export interface HybridConfig {
   available_equipment?: EquipmentItem[] | null
   duration_min: number
   priority_muscles: Muscle[]
+  target_muscles?: Muscle[]
   excluded_exercises: string[]
   preferred_exercises?: string[]
   intensity?: Intensity
@@ -87,6 +88,8 @@ export function generaHybrid(catalogo: Exercise[], cfg: HybridConfig): Generated
   const intensity = cfg.intensity ?? 'medium'
   const format = cfg.format ?? 'amrap'
   const method = cfg.method ?? (cfg.priority_muscles.length > 0 ? 'specialization' : 'full_body_functional')
+  const strictTargets = [...new Set(cfg.target_muscles ?? [])]
+  const matchesTarget = (exercise: Exercise) => strictTargets.length === 0 || exercise.primary_muscles.some((muscle) => strictTargets.includes(muscle))
 
   const disponibili = catalogo.filter(
     (e) =>
@@ -105,7 +108,7 @@ export function generaHybrid(catalogo: Exercise[], cfg: HybridConfig): Generated
   const usati = new Set<string>()
   const forza: PrescribedExercise[] = []
   const forzaPool = allenamento.filter(
-    (e) => e.roles.includes('compound') && (e.roles.includes('hypertrophy') || e.roles.includes('strength'))
+    (e) => e.roles.includes('compound') && (e.roles.includes('hypertrophy') || e.roles.includes('strength')) && matchesTarget(e)
   )
 
   // Parte Strength/Bodybuilding separata: una alzata nelle sessioni brevi,
@@ -155,10 +158,12 @@ export function generaHybrid(catalogo: Exercise[], cfg: HybridConfig): Generated
   // Hybrid Metcon: cardio e isolamenti semplici si alternano. Gli isolamenti
   // devono avere tecnica semplice e fatica sistemica/presa bassa.
   const metcon: PrescribedExercise[] = []
-  const cardioPool = poolMetcon(allenamento, usati, cfg.experience, riscaldamentoPool)
+  const cardioPool = strictTargets.length > 0
+    ? allenamento.filter((exercise) => !usati.has(exercise.id) && matchesTarget(exercise) && exercise.technical_complexity <= 2)
+    : poolMetcon(allenamento, usati, cfg.experience, riscaldamentoPool)
   const isolationPool = allenamento.filter(
     (e) => e.roles.includes('isolation') && e.technical_complexity <= 1 &&
-      e.systemic_fatigue <= 1 && e.grip_fatigue <= 2
+      e.systemic_fatigue <= 1 && e.grip_fatigue <= 2 && matchesTarget(e)
   )
   const targetMetconExercises = cfg.duration_min < 45 ? 4 : 5
   while (metcon.length < targetMetconExercises) {
@@ -167,7 +172,7 @@ export function generaHybrid(catalogo: Exercise[], cfg: HybridConfig): Generated
       const cardio = scegliCandidato(cardioPool, usati, cfg.priority_muscles, preferiti, random)
       if (cardio) {
         usati.add(cardio.id)
-        const categoria = categoriaMetcon(cardio) ?? 'mono'
+        const categoria = categoriaMetcon(cardio) ?? (strictTargets.length > 0 ? 'upper' : 'mono')
         metcon.push({
           exercise_id: cardio.id, name: cardio.name, role: 'metcon',
           muscle: cardio.primary_muscles[0] ?? null, sets: 1,
@@ -201,7 +206,7 @@ export function generaHybrid(catalogo: Exercise[], cfg: HybridConfig): Generated
         instructions: fallback.instructions || undefined,
       })
     } else {
-      const categoria = categoriaMetcon(fallback) ?? 'mono'
+      const categoria = categoriaMetcon(fallback) ?? (strictTargets.length > 0 ? 'upper' : 'mono')
       metcon.push({
         exercise_id: fallback.id, name: fallback.name, role: 'metcon',
         muscle: fallback.primary_muscles[0] ?? null, sets: 1,

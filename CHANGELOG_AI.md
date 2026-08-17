@@ -1,5 +1,14 @@
 # Changelog AI
 
+## 2026-08-17 - Target muscolari rigidi e benchmark CrossFit selezionabili
+
+- I muscoli carenti/target della sessione singola sono ora vincoli primari per Bodybuilding, Forza, CrossFit Custom e Hybrid: altri gruppi possono comparire soltanto come sinergici secondari.
+- CrossFit può essere configurato anche per gruppi muscolari scelti; il WOD personalizzato applica AMRAP, EMOM, For Time, Rounds, Chipper, Ladder o Intervals agli esercizi coerenti con quei target.
+- Aggiunti nel configuratore Cindy, Fran, Grace e Helen con descrizione visibile; il Metcon mantiene prescrizione e ripetizioni del benchmark, mentre il blocco precedente copre i target dell’utente.
+- Le varianti di catalogo vengono indicate come benchmark `adattato`; se mancano movimenti necessari il nome ufficiale non viene usato e il motore genera un WOD Custom con warning.
+- Il prompt DeepSeek esplicita disciplina, livello, attrezzatura, policy corpo libero/elastici e muscoli target; validatore e sanitizer rifiutano esercizi con un muscolo primario fuori target.
+- Aggiunti test sul caso avanzato deltoidi anteriori/laterali/posteriori + bicipiti + tricipiti e sull’esatta struttura di Cindy. Suite: 209 test verdi.
+
 ## 2026-08-17 - Nuova sessione pulita, Ultimo allenamento e timer Android persistente
 
 - `Crea nuovo allenamento` non riusa più il workout precedente: azzera scheda, configurazione, programma settimanale e rifiuti prima di aprire il configuratore.

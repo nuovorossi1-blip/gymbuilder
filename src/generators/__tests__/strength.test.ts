@@ -10,6 +10,19 @@ function mainBlock(w: ReturnType<typeof generaForza>) {
 }
 
 describe('generaForza — struttura di base (poche alzate pesanti, non un Bodybuilding ridotto)', () => {
+  it('con target espliciti non usa altri muscoli come primari', () => {
+    const targets = ['front_delts', 'lateral_delts', 'rear_delts', 'biceps', 'triceps'] as const
+    const w = generaForza(catalogo, {
+      split: 'full_body', experience: 'advanced', equipment: 'full_gym', duration_min: 60,
+      priority_muscles: [...targets], target_muscles: [...targets], excluded_exercises: [], seed: 12,
+    })
+    expect(mainBlock(w).exercises).toHaveLength(5)
+    const byId = new Map(catalogo.map((exercise) => [exercise.id, exercise]))
+    expect(mainBlock(w).exercises.every((item) =>
+      byId.get(item.exercise_id)?.primary_muscles.some((muscle) => targets.includes(muscle as typeof targets[number]))
+    )).toBe(true)
+  })
+
   it('apre sempre con un fondamentale compound per ogni split', () => {
     for (const split of SPLIT_FORZA) {
       const w = generaForza(catalogo, {

@@ -19,6 +19,36 @@ const EQUIPAGGIAMENTI: Equipment[] = [
 ]
 
 describe('generaCrossFit — struttura (Forza/Skill + Metcon AMRAP)', () => {
+  it('usa i muscoli carenti come target primari nel WOD personalizzato', () => {
+    const targets = ['front_delts', 'lateral_delts', 'rear_delts', 'biceps', 'triceps'] as const
+    const w = generaCrossFit(catalogo, {
+      experience: 'advanced', equipment: 'full_gym', duration_min: 60,
+      priority_muscles: [...targets], target_muscles: [...targets], excluded_exercises: [],
+      seed: 18, benchmark: 'custom',
+    })
+    const training = w.blocks.filter((block) => block.kind !== 'warmup').flatMap((block) => block.exercises)
+    expect(training.length).toBeGreaterThanOrEqual(6)
+    expect(training.every((item) => {
+      const exercise = perId.get(item.exercise_id)
+      return exercise?.primary_muscles.some((muscle) => targets.includes(muscle as typeof targets[number]))
+    })).toBe(true)
+  })
+
+  it('Cindy conserva movimenti e ripetizioni ufficiali e aggiunge preparazione target', () => {
+    const w = generaCrossFit(catalogo, {
+      experience: 'advanced', equipment: 'full_gym', duration_min: 60,
+      priority_muscles: ['front_delts', 'biceps', 'triceps'],
+      target_muscles: ['front_delts', 'biceps', 'triceps'], excluded_exercises: [],
+      seed: 4, benchmark: 'cindy',
+    })
+    expect(w.name).toContain('Cindy')
+    expect(metconBlock(w).title).toBe('Cindy · AMRAP 20′')
+    expect(metconBlock(w).exercises.map((item) => [item.exercise_id, item.reps])).toEqual([
+      ['trazioni', '5'], ['piegamenti', '10'], ['squat_libero', '15'],
+    ])
+    expect(mainBlock(w).exercises.length + metconBlock(w).exercises.length).toBeGreaterThanOrEqual(6)
+  })
+
   it('mode, split e goal sono impostati correttamente: nessuno split, è Strength/Skill + Metcon', () => {
     const w = generaCrossFit(catalogo, {
       experience: 'intermediate', equipment: 'full_gym', duration_min: 60,

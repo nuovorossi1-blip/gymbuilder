@@ -19,6 +19,7 @@ export type Weekday = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday'
  * una vera scelta di formato come gli altri.
  */
 export type MetconFormat = 'amrap' | 'emom' | 'for_time' | 'rounds' | 'circuit' | 'chipper' | 'ladder' | 'intervals' | 'tabata'
+export type CrossFitBenchmark = 'custom' | 'cindy' | 'fran' | 'grace' | 'helen'
 
 /** Le due famiglie di comportamento del Runner per i formati Metcon (sez. Runner). */
 export const FORMATO_A_INTERVALLI: MetconFormat[] = ['emom', 'intervals', 'tabata']
@@ -207,9 +208,11 @@ export interface WorkoutGenerationConfig {
   duration_min: number
   equipment: EquipmentInventory
   weak_points: Muscle[]
+  target_muscles?: Muscle[]
   preferences: ExercisePreference
   intensity: Intensity
   workout_format?: MetconFormat
+  crossfit_benchmark?: CrossFitBenchmark
   tabata?: { work_sec: number; rest_sec: number; rounds: number; prescription: 'time' | 'reps' }
 }
 
@@ -238,6 +241,7 @@ export interface WeeklyProgramConfig {
   preferences: ExercisePreference
   intensity: Intensity
   crossfit_format: Exclude<MetconFormat, 'circuit' | 'tabata'>
+  crossfit_benchmark?: CrossFitBenchmark
   tabata: { work_sec: number; rest_sec: number; rounds: number; prescription: 'time' | 'reps' }
 }
 
@@ -415,6 +419,22 @@ export const METCON_FORMAT_HINTS: Record<MetconFormat, string> = {
   ladder: 'Ripetizioni che salgono a ogni giro',
   intervals: 'Lavoro e riposo a intervalli regolari',
   tabata: 'Protocollo fisso 20″ lavoro / 10″ riposo × 8',
+}
+
+export const CROSSFIT_BENCHMARK_LABELS: Record<CrossFitBenchmark, string> = {
+  custom: 'WOD personalizzato sui target',
+  cindy: 'Cindy · AMRAP 20′',
+  fran: 'Fran · 21-15-9 For Time',
+  grace: 'Grace · 30 Clean & Jerk',
+  helen: 'Helen · 3 giri For Time',
+}
+
+export const CROSSFIT_BENCHMARK_HINTS: Record<CrossFitBenchmark, string> = {
+  custom: 'Costruito sui muscoli target scelti oggi',
+  cindy: '5 trazioni, 10 push-up, 15 squat',
+  fran: 'Thruster e trazioni, schema 21-15-9',
+  grace: '30 clean & jerk nel minor tempo possibile',
+  helen: '400 m corsa, 21 swing, 12 trazioni × 3',
 }
 
 /** Modalità della specifica non ancora costruite: mostrate ma disattivate (sez. 84, non si finge che esistano). */

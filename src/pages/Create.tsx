@@ -10,7 +10,7 @@ import { loadLocalAiSettings } from '../features/profile/aiSettings'
 import { useSettings } from '../features/profile/useSettings'
 import { useWorkout } from '../features/workout/WorkoutContext'
 import { generaBodybuilding } from '../generators/bodybuilding'
-import { generaCrossFit } from '../generators/crossfit'
+import { FORMATI_CROSSFIT, generaCrossFit } from '../generators/crossfit'
 import { isExerciseAvailable, PRESET_EQUIPMENT } from '../generators/equipment'
 import { generaHybrid } from '../generators/hybrid'
 import { generaForza } from '../generators/strength'
@@ -19,11 +19,11 @@ import type { WeeklyTrainingState } from '../generators/weakPoints'
 import { aggiornaProgramma, caricaCatalogo, salvaProgramma, situazioneSettimanaleUtente } from '../lib/api'
 import { generateWorkoutsWithDeepSeek } from '../lib/deepseek'
 import {
-  DURATIONS, EQUIPMENT_ITEM_LABELS, EQUIPMENT_LABELS, EXERCISE_POLICY_LABELS,
-  MODE_LABELS, MUSCLE_LABELS, PUBLIC_MODES, SPLIT_LABELS,
+  CROSSFIT_BENCHMARK_HINTS, CROSSFIT_BENCHMARK_LABELS, DURATIONS, EQUIPMENT_ITEM_LABELS, EQUIPMENT_LABELS, EXERCISE_POLICY_LABELS,
+  METCON_FORMAT_HINTS, METCON_FORMAT_LABELS, MODE_LABELS, MUSCLE_LABELS, PUBLIC_MODES, SPLIT_LABELS,
   SPLIT_SYSTEM_LABELS, type Equipment, type EquipmentItem, type Exercise,
   type ExercisePolicy, type Muscle,
-  type PublicMode, type Split, type SplitSystem, type Weekday, type WeeklyProgram,
+  type CrossFitBenchmark, type PublicMode, type Split, type SplitSystem, type Weekday, type WeeklyProgram,
   type WeeklyProgramConfig, type WeeklySession, type WorkoutGenerationConfig,
 } from '../types'
 import { SwipeContainer } from '../components/SwipeContainer'
@@ -40,7 +40,7 @@ const DEFAULT_CONFIG: WeeklyProgramConfig = {
   strength_method: '5x5', hybrid_method: 'full_body_functional', hybrid_format: 'amrap',
   equipment: { preset: 'full_gym', available: PRESET_EQUIPMENT.full_gym }, weak_points: [],
   preferences: { excluded_exercise_ids: [], preferred_exercise_ids: [], bodyweight_policy: 'always', elastic_policy: 'always' },
-  intensity: 'medium', crossfit_format: 'amrap',
+  intensity: 'medium', crossfit_format: 'amrap', crossfit_benchmark: 'custom',
   tabata: { work_sec: 20, rest_sec: 10, rounds: 8, prescription: 'time' },
 }
 
@@ -128,9 +128,13 @@ export default function Create() {
       duration_min: global.duration_min,
       equipment: global.equipment,
       weak_points: global.weak_points,
+      target_muscles: global.program_kind === 'single_session'
+        ? (global.single_session_target_muscles?.length ? global.single_session_target_muscles : global.weak_points)
+        : session.priority_muscles,
       preferences: { ...global.preferences, excluded_exercise_ids: excluded },
       intensity: global.intensity,
       workout_format: session.mode === 'crossfit' ? global.crossfit_format : undefined,
+      crossfit_benchmark: session.mode === 'crossfit' ? global.crossfit_benchmark : undefined,
       tabata: session.mode === 'tabata' ? global.tabata : undefined,
     }
   }
@@ -209,19 +213,22 @@ export default function Create() {
       weight_kg: profile?.weight_kg ?? null,
       seed: Date.now() % 100000,
     }
+    const todayTargets = global.program_kind === 'single_session'
+      ? (global.single_session_target_muscles?.length ? global.single_session_target_muscles : global.weak_points)
+      : session.priority_muscles
     const split = session.split ?? 'full_body'
     const forzaCrossFit = global.selected_modes.includes('strength') && global.selected_modes.includes('crossfit')
     const workout = session.mode === 'crossfit'
       ? forzaCrossFit
         ? generaHybrid(dayCatalog, { ...common, format: session.metcon_format === 'emom' ? 'emom' : session.metcon_format === 'for_time' ? 'for_time' : 'amrap' })
-        : generaCrossFit(dayCatalog, { ...common, format: session.metcon_format ?? global.crossfit_format })
+        : generaCrossFit(dayCatalog, { ...common, target_muscles: todayTargets, format: session.metcon_format ?? global.crossfit_format, benchmark: global.crossfit_benchmark })
       : session.mode === 'crossfit_hybrid'
-        ? generaHybrid(dayCatalog, { ...common, priority_muscles: session.priority_muscles, method: global.program_kind === 'single_session' ? global.hybrid_method : session.priority_muscles.length > 0 ? 'specialization' : global.hybrid_method, format: (session.metcon_format === 'amrap' || session.metcon_format === 'emom' || session.metcon_format === 'for_time' || session.metcon_format === 'intervals') ? session.metcon_format : global.hybrid_format })
+        ? generaHybrid(dayCatalog, { ...common, priority_muscles: todayTargets, target_muscles: todayTargets, method: global.program_kind === 'single_session' && todayTargets.length > 0 ? 'specialization' : global.program_kind === 'single_session' ? global.hybrid_method : session.priority_muscles.length > 0 ? 'specialization' : global.hybrid_method, format: (session.metcon_format === 'amrap' || session.metcon_format === 'emom' || session.metcon_format === 'for_time' || session.metcon_format === 'intervals') ? session.metcon_format : global.hybrid_format })
         : session.mode === 'strength'
-          ? generaForza(dayCatalog, { ...common, split, method: global.strength_method, weekly_volume: weeklyState?.volume, last_trained_at: weeklyState?.last_trained_at })
+          ? generaForza(dayCatalog, { ...common, target_muscles: todayTargets, split, method: global.strength_method, weekly_volume: weeklyState?.volume, last_trained_at: weeklyState?.last_trained_at })
           : session.mode === 'tabata'
             ? generaTabata(dayCatalog, { ...common, ...global.tabata })
-            : generaBodybuilding(dayCatalog, { ...common, priority_muscles: session.priority_muscles ?? global.weak_points, target_muscles: session.custom_target_muscles, split, goal: 'hypertrophy', weekly_volume: weeklyState?.volume, last_trained_at: weeklyState?.last_trained_at })
+            : generaBodybuilding(dayCatalog, { ...common, priority_muscles: todayTargets, target_muscles: todayTargets, split, goal: 'hypertrophy', weekly_volume: weeklyState?.volume, last_trained_at: weeklyState?.last_trained_at })
     finalizeWorkout(session, sourceProgram, workout)
   }
 
@@ -574,7 +581,7 @@ function WizardBuilder({
           )}
 
           {config.program_kind === 'single_session' &&
-            (config.selected_modes.includes('bodybuilding') || config.selected_modes.includes('strength') || config.selected_modes.includes('crossfit_hybrid')) && (
+            (config.selected_modes.includes('bodybuilding') || config.selected_modes.includes('strength') || config.selected_modes.includes('crossfit') || config.selected_modes.includes('crossfit_hybrid')) && (
               <Field title="Composizione Seduta di Oggi">
                 <div className="grid grid-cols-2 gap-2 mb-3">
                   <Choice
@@ -770,6 +777,41 @@ function WizardBuilder({
 
           {!config.selected_modes.includes('tabata') && (
             <>
+              {config.selected_modes.includes('crossfit') && (
+                <Field title="Metodica / Benchmark CrossFit">
+                  <div className="grid grid-cols-1 gap-2">
+                    {(Object.keys(CROSSFIT_BENCHMARK_LABELS) as CrossFitBenchmark[]).map((benchmark) => (
+                      <Choice
+                        key={benchmark}
+                        active={(config.crossfit_benchmark ?? 'custom') === benchmark}
+                        onClick={() => patch('crossfit_benchmark', benchmark)}
+                      >
+                        <span className="block">{CROSSFIT_BENCHMARK_LABELS[benchmark]}</span>
+                        <span className="mt-1 block text-[10px] font-normal text-slate-400">{CROSSFIT_BENCHMARK_HINTS[benchmark]}</span>
+                      </Choice>
+                    ))}
+                  </div>
+                  {(config.crossfit_benchmark ?? 'custom') !== 'custom' && (
+                    <p className="mt-3 text-xs text-amber-300">
+                      Il Metcon del benchmark resta ufficiale; i muscoli target vengono allenati nel blocco iniziale dedicato.
+                    </p>
+                  )}
+                  {(config.crossfit_benchmark ?? 'custom') === 'custom' && (
+                    <div className="mt-3 grid grid-cols-2 gap-2">
+                      {FORMATI_CROSSFIT.map((format) => (
+                        <Choice
+                          key={format}
+                          active={config.crossfit_format === format}
+                          onClick={() => patch('crossfit_format', format)}
+                        >
+                          <span className="block">{METCON_FORMAT_LABELS[format]}</span>
+                          <span className="mt-1 block text-[10px] font-normal text-slate-400">{METCON_FORMAT_HINTS[format]}</span>
+                        </Choice>
+                      ))}
+                    </div>
+                  )}
+                </Field>
+              )}
               <Field title="Durata Sessione (minuti)">
                 <div className="grid grid-cols-5 gap-2">
                   {DURATIONS.map((duration) => (

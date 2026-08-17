@@ -4,7 +4,7 @@
 > da qui. Va **aggiornato** a ogni sessione, non accodato all'infinito.
 > L'identità del progetto e il percorso di AI-OS stanno in `AIOS_PROJECT.json`.
 
-**Ultimo aggiornamento:** 2026-08-17 (nuova creazione pulita, minimi esercizi, timer Android persistente) - Codex
+**Ultimo aggiornamento:** 2026-08-17 (target muscolari rigidi e benchmark CrossFit) - Codex
 
 Etichette: `[FACT]` verificato nel codice · `[RICOSTRUITO]` dedotto da indizi ·
 `[IGNOTO]` non ricavabile dal repository
@@ -93,6 +93,13 @@ presenti negli ambienti Preview e Production (valori mantenuti nascosti).
 - [FACT] Minimi inderogabili sugli esercizi allenanti, riscaldamento escluso:
   6 per Bodybuilding/CrossFit/Hybrid, 5 per Forza; Tabata non viene modificato.
   Il vincolo è verificato anche sui workout restituiti da DeepSeek.
+- [FACT] Nelle sessioni singole i muscoli scelti/carenze diventano target
+  primari rigidi per Bodybuilding, Forza, CrossFit Custom e Hybrid: gli altri
+  gruppi possono intervenire come secondari ma non occupano slot principali.
+  Validatore e DeepSeek rifiutano risultati fuori target.
+- [FACT] CrossFit espone `WOD personalizzato`, Cindy, Fran, Grace e Helen.
+  I benchmark risolvono i movimenti dal catalogo; una variante viene dichiarata
+  `adattata`, mentre un benchmark non risolvibile torna a Custom con warning.
 - [FACT] L'APK Android include `WorkoutTimerService`: foreground service
   `specialUse`, notifica persistente con cronometro, task `singleTask`, tap che
   riapre la sessione corrente e vibrazione lunga alla scadenza. Il fallback web

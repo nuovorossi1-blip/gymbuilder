@@ -39,6 +39,17 @@ export function validateWorkout(
     const max = workout.max_duration_min ?? Math.ceil(config.duration_min * 1.15)
     if (estimated > max + 1) errors.push(`Durata stimata ${Math.ceil(estimated)} min oltre il massimo di ${max} min.`)
   }
+  const strictTargets = config.program_kind === 'single_session' && (config.target_muscles?.length ?? 0) > 0 &&
+    (config.crossfit_benchmark ?? 'custom') === 'custom'
+  if (strictTargets) {
+    const targets = config.target_muscles ?? []
+    for (const item of trainingExercises) {
+      const exercise = byId.get(item.exercise_id)
+      if (exercise && !exercise.primary_muscles.some((muscle) => targets.includes(muscle))) {
+        errors.push(`${exercise.name} non ha come target primario uno dei muscoli scelti per oggi.`)
+      }
+    }
+  }
   if (prescribed.length === 0) errors.push('La sessione non contiene esercizi.')
   return { valid: errors.length === 0, errors }
 }

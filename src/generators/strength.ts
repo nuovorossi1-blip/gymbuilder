@@ -37,6 +37,7 @@ export interface StrengthConfig {
   available_equipment?: EquipmentItem[] | null
   duration_min: number
   priority_muscles: Muscle[]
+  target_muscles?: Muscle[]
   excluded_exercises: string[]
   preferred_exercises?: string[]
   weekly_volume?: Record<Muscle, number>
@@ -166,6 +167,7 @@ export function generaForza(catalogo: Exercise[], cfg: StrengthConfig): Generate
   const preferiti = new Set(cfg.preferred_exercises ?? [])
   const intensity = cfg.intensity ?? 'medium'
   const method = cfg.method ?? '5x5'
+  const strictTargets = [...new Set(cfg.target_muscles ?? [])]
 
   const disponibili = catalogo.filter(
     (e) =>
@@ -173,7 +175,10 @@ export function generaForza(catalogo: Exercise[], cfg: StrengthConfig): Generate
       !cfg.excluded_exercises.includes(e.id) &&
       RANK_EXP[e.min_experience] <= RANK_EXP[cfg.experience]
   )
-  const allenamento = disponibili.filter((e) => !e.roles.includes('warmup'))
+  const allenamentoBase = disponibili.filter((e) => !e.roles.includes('warmup'))
+  const allenamento = strictTargets.length > 0
+    ? allenamentoBase.filter((exercise) => exercise.primary_muscles.some((muscle) => strictTargets.includes(muscle)))
+    : allenamentoBase
   const riscaldamentoPool = disponibili.filter((e) => e.roles.includes('warmup'))
 
   const pool = SPLIT_MUSCLE_POOL[cfg.split]
@@ -225,7 +230,9 @@ export function generaForza(catalogo: Exercise[], cfg: StrengthConfig): Generate
   for (let i = 0; i < slot.length; i++) {
     const s = slot[i]
     const isRichiamo = i >= baseSlot.length && richiamoSet.has(s.muscle)
-    const musclesDaProvare = [s.muscle, ...pool.filter((m) => m !== s.muscle)]
+    const musclesDaProvare = strictTargets.length > 0
+      ? strictTargets
+      : [s.muscle, ...pool.filter((m) => m !== s.muscle)]
 
     let scelto: Exercise | undefined
     let muscoloUsato: Muscle = s.muscle
@@ -278,6 +285,21 @@ export function generaForza(catalogo: Exercise[], cfg: StrengthConfig): Generate
     faticaPresa += scelto.grip_fatigue
     if (scelto.systemic_fatigue >= SOGLIA_PESANTE && s.compound) compoundPesanti++
     scelti.push(voce)
+  }
+
+  while (scelti.length < 5) {
+    const fallback = allenamento.find((exercise) => !usati.has(exercise.id) && exercise.technical_complexity <= 2)
+    if (!fallback) break
+    const compound = fallback.roles.includes('compound')
+    const p = prescrizioneForza(compound, cfg.experience, intensity, method)
+    const muscle = fallback.primary_muscles.find((item) => strictTargets.includes(item)) ?? fallback.primary_muscles[0] ?? null
+    usati.add(fallback.id)
+    scelti.push({
+      exercise_id: fallback.id, name: fallback.name,
+      role: compound ? 'compound' : 'isolation', muscle,
+      sets: p.sets, reps: p.reps, rest_sec: p.rest,
+      note: 'target muscolare di oggi', instructions: fallback.instructions || undefined,
+    })
   }
 
   const minutiRiscaldamento = cfg.duration_min >= 45 ? 9 : 6

@@ -19,6 +19,20 @@ const EQUIPAGGIAMENTI: Equipment[] = [
 ]
 
 describe('generaHybrid — struttura Strength/Bodybuilding + Hybrid Metcon', () => {
+  it('con target espliciti mantiene tutti gli esercizi sui muscoli scelti', () => {
+    const targets = ['front_delts', 'lateral_delts', 'rear_delts', 'biceps', 'triceps'] as const
+    const w = generaHybrid(catalogo, {
+      experience: 'advanced', equipment: 'full_gym', duration_min: 60,
+      priority_muscles: [...targets], target_muscles: [...targets], excluded_exercises: [], seed: 16,
+    })
+    const byId = new Map(catalogo.map((exercise) => [exercise.id, exercise]))
+    const training = [...mainBlock(w).exercises, ...metconBlock(w).exercises]
+    expect(training.length).toBeGreaterThanOrEqual(6)
+    expect(training.every((item) =>
+      byId.get(item.exercise_id)?.primary_muscles.some((muscle) => targets.includes(muscle as typeof targets[number]))
+    )).toBe(true)
+  })
+
   it('mode, split e goal sono impostati correttamente: niente split, è forza+cardio alternati', () => {
     const w = generaHybrid(catalogo, {
       experience: 'intermediate', equipment: 'full_gym', duration_min: 60,

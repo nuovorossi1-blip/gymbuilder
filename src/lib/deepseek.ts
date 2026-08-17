@@ -1,6 +1,6 @@
 import type { LocalAiSettings } from '../features/profile/aiSettings'
 import type {
-  Experience, Exercise, GeneratedWorkout, Goal, Intensity, MetconFormat, Muscle,
+  CrossFitBenchmark, Experience, Exercise, GeneratedWorkout, Goal, Intensity, MetconFormat, Muscle,
   PrescribedExercise, PublicMode, Split, SplitSystem, WeeklyProgram, WeeklyProgramConfig,
 } from '../types'
 
@@ -34,7 +34,7 @@ type PlannerPatch = Partial<Pick<
   'goal' | 'experience' | 'duration_min' | 'training_days' | 'split_system' |
   'single_session_split' | 'single_session_target_muscles' | 'weak_points' |
   'selected_modes' | 'crossfit_format' | 'hybrid_method' | 'hybrid_format' |
-  'strength_method' | 'intensity'
+  'strength_method' | 'intensity' | 'crossfit_benchmark'
 >>
 
 interface DeepSeekSessionWorkout {
@@ -48,7 +48,8 @@ interface DeepSeekWorkoutGenerationResult {
 
 export const PROFESSIONAL_WORKOUT_SYSTEM_PROMPT = `Sei un professionista esperto nella creazione di allenamenti personalizzati e nella programmazione sportiva.
 Devi restituire esclusivamente JSON valido, senza commenti esterni al JSON, e compilare una sessione concreta per ogni session_id ricevuto.
-Considera tutte le scelte dell'utente vincoli reali: disciplina, obiettivo, livello, durata, giorni, intensità, attrezzatura disponibile, formato, muscoli prioritari, esercizi esclusi e preferiti.
+Considera tutte le scelte dell'utente vincoli reali: disciplina, obiettivo, livello, durata, giorni, intensità, attrezzatura disponibile, formato, benchmark, muscoli target, esercizi esclusi e preferiti.
+I muscoli indicati come target/carenze di oggi sono un vincolo primario, non un suggerimento: gli esercizi allenanti devono avere almeno uno di quei muscoli fra i primary_muscles. Altri muscoli, per esempio il petto, possono essere coinvolti soltanto come secondari e non devono occupare uno slot principale. Questa regola vale per Bodybuilding, Strength, CrossFit e Hybrid. Se è stato scelto un benchmark CrossFit ufficiale, mantieni invece intatto il suo Metcon e usa il blocco precedente per allenare i target.
 Adatta il tuo ruolo alla disciplina scelta:
 - CrossFit: agisci come coach CrossFit e genera un WOD autentico. Usa warm-up pertinente, eventuale forza/skill e un Metcon coerente con il formato richiesto (AMRAP, EMOM, For Time, Rounds, Chipper, Ladder o Intervals). Non trasformarlo in una scheda Bodybuilding. Bilancia weightlifting/gymnastics/monostructural secondo catalogo, livello, tempo e attrezzatura.
 - CrossFit Hybrid: combina un blocco Strength/Bodybuilding strutturato con un Metcon realmente metabolico e sicuro sotto fatica.
@@ -66,6 +67,7 @@ const VALID_SPLIT_SYSTEM = new Set<SplitSystem>(['ppl', 'upper_lower', 'bro_spli
 const VALID_MODES = new Set<PublicMode>(['bodybuilding', 'crossfit', 'crossfit_hybrid', 'strength', 'tabata'])
 const VALID_MUSCLES = new Set<Muscle>(['chest', 'back', 'front_delts', 'lateral_delts', 'rear_delts', 'biceps', 'triceps', 'quads', 'hamstrings', 'glutes', 'calves', 'core'])
 const VALID_METCON = new Set<MetconFormat>(['amrap', 'emom', 'for_time', 'rounds', 'circuit', 'chipper', 'ladder', 'intervals', 'tabata'])
+const VALID_BENCHMARK = new Set<CrossFitBenchmark>(['custom', 'cindy', 'fran', 'grace', 'helen'])
 const VALID_BLOCK_KIND = new Set(['warmup', 'main', 'metcon'])
 const VALID_ROLE = new Set(['compound', 'isolation', 'warmup', 'metcon'])
 
@@ -140,6 +142,7 @@ function sanitizePatch(raw: unknown, base: WeeklyProgramConfig): PlannerPatch {
     if (modes.length > 0) next.selected_modes = [...new Set(modes)].slice(0, base.program_kind === 'single_session' ? 1 : 2)
   }
   if (typeof patch.crossfit_format === 'string') next.crossfit_format = patch.crossfit_format as WeeklyProgramConfig['crossfit_format']
+  if (typeof patch.crossfit_benchmark === 'string' && VALID_BENCHMARK.has(patch.crossfit_benchmark as CrossFitBenchmark)) next.crossfit_benchmark = patch.crossfit_benchmark as CrossFitBenchmark
   if (typeof patch.hybrid_method === 'string') next.hybrid_method = patch.hybrid_method as WeeklyProgramConfig['hybrid_method']
   if (typeof patch.hybrid_format === 'string') next.hybrid_format = patch.hybrid_format as WeeklyProgramConfig['hybrid_format']
   if (typeof patch.strength_method === 'string') next.strength_method = patch.strength_method as WeeklyProgramConfig['strength_method']
@@ -282,6 +285,12 @@ export async function suggestWorkoutConfigWithDeepSeek(
           role: 'user',
           content: JSON.stringify({
             richiesta_utente: input.prompt,
+            istruzione_operativa:
+              `Sei un master allenatore specializzato in ${input.config.selected_modes.join(' + ')}. ` +
+              `Oggi voglio allenare come target principali: ${(input.config.single_session_target_muscles?.length ? input.config.single_session_target_muscles : input.config.weak_points).join(', ') || 'nessun target specifico'}. ` +
+              `Livello ${input.config.experience}; elastici ${input.config.preferences.elastic_policy}; ` +
+              `corpo libero ${input.config.preferences.bodyweight_policy}; attrezzatura ${input.config.equipment.preset}. ` +
+              `Genera la sessione con la metodica selezionata e non usare altri muscoli come target primari.`,
             configurazione_corrente: input.config,
             obiettivo: 'Suggerisci solo i campi da modificare per generare un workout o programma migliore con il motore esistente.',
           }),
@@ -321,6 +330,10 @@ export async function generateWorkoutsWithDeepSeek(
               attrezzatura_disponibile: input.config.equipment.available,
               muscoli_carenti: input.config.weak_points,
               formato_crossfit: input.config.crossfit_format,
+              benchmark_crossfit: input.config.crossfit_benchmark ?? 'custom',
+              muscoli_target_oggi: input.config.single_session_target_muscles?.length
+                ? input.config.single_session_target_muscles
+                : input.config.weak_points,
               metodo_hybrid: input.config.hybrid_method,
               formato_hybrid: input.config.hybrid_format,
               metodo_forza: input.config.strength_method,
@@ -413,6 +426,23 @@ export async function generateWorkoutsWithDeepSeek(
     const minimum = session.workout.mode === 'strength' ? 5 : 6
     if (count < minimum) {
       throw new Error(`DeepSeek ha generato solo ${count} esercizi allenanti: per ${session.workout.mode} ne servono almeno ${minimum}. Riprova la generazione.`)
+    }
+    const targets = input.config.single_session_target_muscles?.length
+      ? input.config.single_session_target_muscles
+      : input.config.weak_points
+    const strictTargets = input.config.program_kind === 'single_session' && targets.length > 0 &&
+      (input.config.crossfit_benchmark ?? 'custom') === 'custom'
+    if (strictTargets) {
+      const invalid = session.workout.blocks
+        .filter((block) => block.kind !== 'warmup')
+        .flatMap((block) => block.exercises)
+        .find((item) => {
+          const catalogExercise = catalogById.get(item.exercise_id)
+          return !catalogExercise?.primary_muscles.some((muscle) => targets.includes(muscle))
+        })
+      if (invalid) {
+        throw new Error(`DeepSeek ha inserito ${invalid.name} fuori dai muscoli target di oggi. Riprova: la sessione deve restare specifica sui gruppi scelti.`)
+      }
     }
   }
 
