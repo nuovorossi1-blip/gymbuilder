@@ -22,6 +22,8 @@ Configurare in GitHub → Settings → Secrets and variables → Actions:
 
 La keystore non deve mai essere inserita nel repository. Va conservata anche in un backup sicuro: perderla impedisce di aggiornare le installazioni esistenti.
 
+Le pipeline usano Node 24/npm 11 e Java 21, allineati alla toolchain con cui vengono verificati lockfile, Capacitor e Gradle.
+
 ## Pubblicare una versione
 
 1. Aumentare `versionCode` e `versionName` in `android/app/build.gradle`.
