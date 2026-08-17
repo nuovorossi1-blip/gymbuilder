@@ -85,7 +85,7 @@ export default function Runner() {
   const [valutazione, setValutazione] = useState<string | null>(null)
   const [note, setNote] = useState('')
   const [salvataggio, setSalvataggio] = useState<'fermo' | 'salvo' | 'errore'>('fermo')
-  const [runnerHydrated, setRunnerHydrated] = useState(false)
+  const [, setRunnerHydrated] = useState(false)
 
   // Previene lo standby dello schermo durante l'allenamento (Screen Wake Lock API)
   useEffect(() => {
@@ -392,25 +392,6 @@ export default function Runner() {
     return () => { document.removeEventListener('visibilitychange', syncVisibility); resetBackgroundTimer() }
   }, [])
 
-  // Auto-start il conto alla rovescia 3-2-1 per la modalità Tabata
-  // DEVE essere prima di ogni early return per rispettare le regole degli Hooks React.
-  useEffect(() => {
-    if (!runnerHydrated) return
-    if (isTabata && countdown === null && metconFase === 'anteprima') {
-      setIniziato(true)
-      setSezione('metcon')
-      void startWithCountdown(() => {
-        setIntervalIndice(0)
-        setIntervalSottofase('lavoro')
-        const duration = metconBlock?.interval_sec ?? 20
-        setIntervalRimanente(duration)
-        intervalDeadline.current = Date.now() + duration * 1000
-        emit('ROUND_STARTED', 'tabata', 1)
-        setMetconFase('via')
-      })
-    }
-  }, [runnerHydrated, isTabata, countdown, metconFase, metconBlock?.interval_sec, emit])
-
   if (!workout && activeSession) {
     return (
       <div className="px-5 pt-12">
@@ -641,7 +622,7 @@ export default function Runner() {
               setMetconFase('via')
             })}
           >
-            Comincia
+            {isTabata ? 'Avvia Tabata' : 'Comincia'}
           </button>
         </div>
       )

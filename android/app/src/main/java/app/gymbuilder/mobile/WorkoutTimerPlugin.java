@@ -30,6 +30,14 @@ public class WorkoutTimerPlugin extends Plugin {
 
     @PermissionCallback
     private void permissionResult(PluginCall call) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+            && getPermissionState("notifications") != PermissionState.GRANTED) {
+            JSObject result = new JSObject();
+            result.put("started", false);
+            result.put("notificationsGranted", false);
+            call.resolve(result);
+            return;
+        }
         startService(call);
     }
 
@@ -44,8 +52,19 @@ public class WorkoutTimerPlugin extends Plugin {
             .setAction(WorkoutTimerService.ACTION_START)
             .putExtra(WorkoutTimerService.EXTRA_LABEL, label)
             .putExtra(WorkoutTimerService.EXTRA_DEADLINE, deadline);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) getContext().startForegroundService(intent);
-        else getContext().startService(intent);
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) getContext().startForegroundService(intent);
+            else getContext().startService(intent);
+        } catch (RuntimeException error) {
+            // Il timer React continua a funzionare anche se Android rifiuta il
+            // foreground service (permessi, restrizioni del produttore, ecc.).
+            JSObject fallback = new JSObject();
+            fallback.put("started", false);
+            fallback.put("notificationsGranted", Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU
+                || getPermissionState("notifications") == PermissionState.GRANTED);
+            call.resolve(fallback);
+            return;
+        }
         JSObject result = new JSObject();
         result.put("started", true);
         result.put("notificationsGranted", Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU

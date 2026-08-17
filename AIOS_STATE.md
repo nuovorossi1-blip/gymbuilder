@@ -704,3 +704,16 @@ validazione DeepSeek. Risultato: `push` standard non contiene dorso, rematori o
 tirate; il dorso può entrare soltanto come singolo `richiamo carenza` quando
 `back` è stato scelto esplicitamente. Test dedicati inclusi nella suite di 218
 test verdi; build produzione verde.
+
+## Aggiornamento stato — 2026-08-17: avvio Tabata sicuro su Android
+
+Rimosso l'auto-start del Tabata all'ingresso nel Runner: la schermata di
+anteprima mostra `Avvia Tabata` e il countdown parte soltanto dal tocco
+esplicito dell'utente. Nell'APK la WebView non richiede più in parallelo il
+permesso Web Notification: `POST_NOTIFICATIONS` viene gestito esclusivamente
+dal plugin Android. Se il permesso viene negato oppure Android rifiuta il
+foreground service, il plugin restituisce un fallback non fatale e il timer
+React continua senza terminare l'app. Suite completa: 218 test verdi; build web
+verde e `cap sync android` riuscito. La build Gradle locale resta non eseguibile
+nel Codespace privo di Android SDK; la GitHub Action dispone dell'SDK e deve
+validare/produrre il nuovo APK.
