@@ -1,5 +1,27 @@
 # Changelog AI
 
+## 2026-08-17 - Sessione singola BB a gruppi scelti non viene più rifiutata dal validatore
+
+- Bug reale segnalato dall'utente: scegliendo "Gruppi a Scelta" per una sessione Bodybuilding singola
+  (es. deltoide anteriore + laterale + posteriore + bicipiti + tricipiti) e "Croce inversa ai cavi"
+  (deltoide posteriore) finiva nel workout, il validatore la rifiutava con "non appartiene alla sessione
+  push" e la generazione falliva del tutto, senza restituire nessun allenamento.
+- Causa: `single_session_split` restava sull'ultimo preset scelto (default `push`) anche passando a
+  "Gruppi a Scelta"; quello split stantio diventava `current_day` per la validazione, e il deltoide
+  posteriore non è un muscolo "naturale" di Push (lo è di Pull) nella mappa `SPLIT_PRIMARY_MUSCLES`.
+  Il generatore stesso (`buildCustomTargetSlots`) era già corretto e ignorava lo split per la scelta
+  degli esercizi: il problema era solo nell'etichetta di split che arrivava al validatore.
+- Fix in `weeklyPlan.ts`: con gruppi a scelta attivi lo split della sessione singola è ora `null` (come
+  già per CrossFit/Hybrid); `Create.tsx` ricade comunque su `full_body` per generare la scheda, mentre
+  la validazione passa dal controllo sui target scelti (`strictTargets`), che li accetta correttamente.
+  Corretto anche `forecastProfile`, che assumeva erroneamente `split` sempre valorizzato per Bodybuilding/Forza.
+- Aggiunti test di regressione in `weeklyProgram.test.ts` e `validator.test.ts` sull'esatto scenario riportato.
+- Chiarito che il comportamento CrossFit segnalato in parallelo (Power Snatch / affondi a corpo libero nel
+  Metcon nonostante target deltoidi+bicipiti) non è un bug: per CrossFit il WOD resta intenzionalmente
+  full body/funzionale by design (`validator.ts`, `strictTargets` esclude esplicitamente `mode === 'crossfit'`;
+  test dedicato in `crossfit.test.ts`); solo Forza/Skill e Accessory privilegiano i muscoli target.
+- Verifica completata: 219 test verdi, build production verde, lint senza errori (resta il warning storico in `Runner.tsx`).
+
 ## 2026-08-17 - Tabata non blocca più l'app, Ultimo allenamento riutilizzabile, Composizione CrossFit corretta
 
 - Bug critico: generare un Tabata chiamava `startWorkoutSession` e saltava direttamente al Runner (`/avvia`) senza passare da anteprima. Poiché `activeSession` è persistita in `localStorage`, ogni riapertura dell'app forzava il redirect su `/avvia` (sez. `Guscio` in `App.tsx`) su una sessione mai davvero iniziata dall'utente, e quella schermata Metcon "anteprima" non aveva alcun pulsante di uscita: l'utente restava bloccato senza tasto Indietro e senza poter salvare il Tabata in libreria.

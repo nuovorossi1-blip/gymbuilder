@@ -93,8 +93,8 @@ const GENERIC_LOAD: Record<Exclude<PublicMode, 'bodybuilding' | 'strength'>, Mus
 }
 const STRENGTH_SPLITS = new Set<Split>(['push', 'pull', 'legs', 'upper', 'lower', 'full_body'])
 
-function forecastProfile(mode: PublicMode, split: Split | null, duration: number): RecoveryProfile {
-  const load = split ? SPLIT_LOAD[split] : GENERIC_LOAD[mode as keyof typeof GENERIC_LOAD]
+function forecastProfile(mode: PublicMode, split: Split | null, duration: number, loadOverride?: Muscle[]): RecoveryProfile {
+  const load = loadOverride ?? (split ? SPLIT_LOAD[split] : GENERIC_LOAD[mode as keyof typeof GENERIC_LOAD])
   const muscleStress = Object.fromEntries(load.map((muscle) => [muscle, split === 'legs' || split === 'lower' ? 8 : 6])) as Partial<Record<Muscle, number>>
   const values: Record<PublicMode, [number, number, number, number]> = {
     bodybuilding: [6, 2, 3, 36], strength: [8, 2, 5, 48],
@@ -343,7 +343,13 @@ export function generateWeeklyProgram(config: WeeklyProgramConfig): WeeklyProgra
       ? config.single_session_target_muscles
       : null
     const requested = config.single_session_split ?? 'full_body'
-    const split = mode === 'bodybuilding' ? requested : mode === 'strength' ? (STRENGTH_SPLITS.has(requested) ? requested : 'full_body') : null
+    // Con gruppi muscolari a scelta l'utente puo' combinare muscoli che appartengono a split
+    // diversi (es. i tre capi del deltoide, sia push che pull): un'etichetta di split fissa
+    // (rimasta quella scelta l'ultima volta nel preset, es. 'push') non descrive piu' la sessione
+    // e il validatore la rifiuterebbe confrontandola con i muscoli "naturali" di quello split.
+    // Nullo qui fa saltare quel controllo: generateDay ricade comunque su 'full_body' per generare
+    // la scheda (sez. Create.tsx), mentre la validazione passa dal controllo sui target scelti.
+    const split = customMuscles ? null : mode === 'bodybuilding' ? requested : mode === 'strength' ? (STRENGTH_SPLITS.has(requested) ? requested : 'full_body') : null
     
     const label = customMuscles
       ? `${MODE_LABELS[mode]} · ${customMuscles.map((m) => MUSCLE_LABELS[m]).join(' + ')}`
@@ -359,7 +365,7 @@ export function generateWeeklyProgram(config: WeeklyProgramConfig): WeeklyProgra
       label,
       estimated_fatigue: mode === 'bodybuilding' ? 2 : 3,
       muscle_load,
-      recovery_profile: forecastProfile(mode, split, config.duration_min),
+      recovery_profile: forecastProfile(mode, split, config.duration_min, muscle_load),
       priority_muscles, variant: 'A',
       custom_target_muscles: customMuscles ?? undefined,
       metcon_format: mode === 'crossfit' ? config.crossfit_format : mode === 'crossfit_hybrid' ? config.hybrid_format : undefined,

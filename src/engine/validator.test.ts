@@ -43,4 +43,29 @@ describe('validateWorkout — coerenza dello split', () => {
     const result = validateWorkout(pushConRematore(), pushConfig(['back']), catalog)
     expect(result.valid).toBe(true)
   })
+
+  it('sessione singola con gruppi a scelta multi-split (deltoide anteriore+laterale+posteriore) non viene rifiutata', () => {
+    // Bug reale: la sessione singola BB con gruppi a scelta usava ancora l'ultimo split
+    // preimpostato (es. 'push') come current_day per la validazione, anche quando i muscoli
+    // scelti attraversano piu' split (i deltoidi posteriori appartengono a Pull, non a Push).
+    // weeklyPlan.ts ora lascia lo split a null per queste sessioni: current_day resta assente
+    // e la validazione passa dal controllo sui target scelti, che li accetta correttamente.
+    const targets: WorkoutGenerationConfig['target_muscles'] = ['front_delts', 'lateral_delts', 'rear_delts', 'biceps', 'triceps']
+    const workout = generaBodybuilding(catalog, {
+      split: 'full_body', goal: 'hypertrophy', experience: 'advanced', equipment: 'full_gym',
+      duration_min: 60, priority_muscles: ['lateral_delts', 'biceps'], target_muscles: targets,
+      excluded_exercises: [], seed: 4,
+    })
+    const config: WorkoutGenerationConfig = {
+      program_kind: 'single_session', mode: 'bodybuilding', goal: 'hypertrophy',
+      training_days: 1, current_day: null, experience: 'advanced', duration_min: 60,
+      equipment: { preset: 'full_gym', available: PRESET_EQUIPMENT.full_gym },
+      weak_points: ['lateral_delts', 'biceps'], target_muscles: targets,
+      preferences: { excluded_exercise_ids: [], preferred_exercise_ids: [], bodyweight_policy: 'always', elastic_policy: 'always' },
+      intensity: 'medium',
+    }
+    const result = validateWorkout(workout, config, catalog)
+    expect(result.valid).toBe(true)
+    expect(result.errors).toEqual([])
+  })
 })

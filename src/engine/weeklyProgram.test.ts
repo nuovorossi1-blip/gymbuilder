@@ -159,6 +159,10 @@ describe('Weekly Program Engine', () => {
     expect(session.week[0].custom_target_muscles).toEqual(['front_delts', 'lateral_delts', 'biceps', 'triceps', 'quads'])
     expect(session.week[0].label).toContain('Deltoidi')
     expect(session.week[0].label).toContain('Bicipiti')
+    // Nessuno split fisso: i gruppi scelti possono attraversare push e pull (es. deltoide
+    // posteriore + laterale), quindi non esiste un'unica etichetta di split naturale per loro.
+    expect(session.week[0].split).toBeNull()
+    expect(session.week[0].recovery_profile).toBeTruthy()
   })
 
   it('PPL assegna spalle e braccia a Push/Pull, mai a Legs', () => {
