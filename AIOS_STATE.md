@@ -663,8 +663,9 @@ quando il catalogo le offre. Migrazione versionata
 `20260817145218_add_forearms_adductors_core_warmup.sql` con adductor machine,
 Copenhagen plank, due wrist curl e Bird dog. Suite: 215 test verdi; build verde.
 
-**Blocco remoto:** applicazione della migrazione tentata sia via CLI sia tramite
-connettore Supabase, ma l'account disponibile ha risposto rispettivamente 401 e
-“You do not have permission”. Il prossimo agente deve applicare questa singola
-migrazione al progetto `geqhxhgrameaugawmaej` con un account autorizzato e poi
-verificare che i cinque ID siano attivi in `public.exercises`.
+**Migrazione remota completata:**
+`20260817145218_add_forearms_adductors_core_warmup.sql` è stata applicata al
+progetto `geqhxhgrameaugawmaej`. Un dry-run successivo ha restituito
+`upToDate: true`, zero migrazioni pendenti. La CLI va autenticata passando
+`SUPABASE_ACCESS_TOKEN` direttamente al processo: il portachiavi persistente
+del Codespace può restituire 401 anche con un token valido.
