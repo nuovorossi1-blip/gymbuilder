@@ -53,7 +53,30 @@ describe('generaCrossFit — struttura (Forza/Skill + Metcon AMRAP)', () => {
     expect(metconBlock(w).exercises.map((item) => [item.exercise_id, item.reps])).toEqual([
       ['trazioni', '5'], ['piegamenti', '10'], ['squat_libero', '15'],
     ])
-    expect(w.blocks.filter((block) => block.kind !== 'warmup').flatMap((block) => block.exercises)).toHaveLength(6)
+    // Un benchmark fisso e' gia' un allenamento completo: niente Forza/Skill ne' Accessory.
+    expect(mainBlock(w).exercises).toHaveLength(0)
+    expect(accessoryBlock(w).exercises).toHaveLength(0)
+    expect(w.blocks.filter((block) => block.kind !== 'warmup').flatMap((block) => block.exercises)).toHaveLength(3)
+  })
+
+  it.each(['cindy', 'fran', 'grace', 'helen'] as const)('%s non ha Forza/Skill ne Accessory: e gia un allenamento completo', (benchmark) => {
+    const w = generaCrossFit(catalogo, {
+      experience: 'advanced', equipment: 'full_gym', duration_min: 60,
+      priority_muscles: [], excluded_exercises: [], seed: 4, benchmark,
+    })
+    expect(mainBlock(w).exercises).toHaveLength(0)
+    expect(accessoryBlock(w).exercises).toHaveLength(0)
+    expect(metconBlock(w).exercises.length).toBeGreaterThan(0)
+  })
+
+  it('con benchmark "custom" Forza/Skill e Accessory restano popolati come prima', () => {
+    const w = generaCrossFit(catalogo, {
+      experience: 'advanced', equipment: 'full_gym', duration_min: 60,
+      priority_muscles: ['front_delts', 'biceps', 'triceps'], excluded_exercises: [],
+      seed: 4, benchmark: 'custom',
+    })
+    expect(mainBlock(w).exercises.length).toBeGreaterThan(0)
+    expect(accessoryBlock(w).exercises.length).toBeGreaterThan(0)
   })
 
   it('Cindy con muscoli target diventa "Cindy adattata" ed esclude i movimenti fuori target', () => {
@@ -76,6 +99,8 @@ describe('generaCrossFit — struttura (Forza/Skill + Metcon AMRAP)', () => {
       expect(exercise?.primary_muscles.some((muscle) => (targets as readonly string[]).includes(muscle))).toBe(true)
     }
     expect(metconBlock(w).exercises.map((item) => item.reps)).toEqual(['5', '10', '15'].slice(0, metconBlock(w).exercises.length))
+    expect(mainBlock(w).exercises).toHaveLength(0)
+    expect(accessoryBlock(w).exercises).toHaveLength(0)
   })
 
   it('Cindy con muscoli target senza movimenti compatibili ricade sulla versione ufficiale', () => {

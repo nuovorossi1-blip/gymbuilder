@@ -4,7 +4,7 @@
 > da qui. Va **aggiornato** a ogni sessione, non accodato all'infinito.
 > L'identità del progetto e il percorso di AI-OS stanno in `AIOS_PROJECT.json`.
 
-**Ultimo aggiornamento:** 2026-08-17 (download APK visibile sul web) - Codex
+**Ultimo aggiornamento:** 2026-08-17 (sessione fix multipli Tabata/CrossFit/Android + Hybrid pianificato, vedi fondo file) - Codex
 
 Etichette: `[FACT]` verificato nel codice · `[RICOSTRUITO]` dedotto da indizi ·
 `[IGNOTO]` non ricavabile dal repository
@@ -717,3 +717,72 @@ React continua senza terminare l'app. Suite completa: 218 test verdi; build web
 verde e `cap sync android` riuscito. La build Gradle locale resta non eseguibile
 nel Codespace privo di Android SDK; la GitHub Action dispone dell'SDK e deve
 validare/produrre il nuovo APK.
+
+## Aggiornamento stato — 2026-08-17: sessione fix multipli (Tabata, CrossFit, Android nativo) + Hybrid pianificato ma non iniziato
+
+Sessione lunga con l'utente che ha testato l'app dal vivo (web e APK) e segnalato bug uno alla
+volta. In ordine cronologico, tutti corretti e verificati (test + build + lint), tutti pushati e
+deployati (Vercel auto-deploy su push a `main`; GitHub Action ricompila l'APK a ogni push, vedi
+`.github/workflows/build-apk.yml`):
+
+- **Tabata bloccava l'app**: `Create.tsx` marcava la sessione "attiva" e saltava all'anteprima del
+  Runner prima ancora che l'utente premesse Inizia, per il solo Tabata; combinato col redirect
+  automatico su `/avvia` quando c'è una sessione attiva (`App.tsx`), l'utente restava intrappolato
+  senza tasto Indietro. Ora il Tabata segue lo stesso percorso di anteprima di tutte le altre
+  modalità.
+- **"Ultimo allenamento" non cliccabile**: aggiunti i tasti Vedi dettagli/Ripeti.
+- **Sessione singola Bodybuilding a gruppi scelti multi-split** (es. deltoide anteriore+laterale+
+  posteriore) veniva rifiutata dal validatore perché lo split restava sull'ultimo preset (`push`)
+  anche in modalità gruppi-a-scelta. Ora lo split resta `null` in quel caso, come già per CrossFit/
+  Hybrid; `Create.tsx` ricade su `full_body` solo per generare, la validazione passa dal controllo
+  sui target scelti.
+- **"Cindy adattata sui muscoli target"** (nuova funzione): scegliendo Cindy senza altro resta la
+  Cindy ufficiale; scegliendo anche muscoli target, il WOD usa movimenti esclusivamente su quei
+  muscoli mantenendo la struttura di Cindy (3 movimenti, AMRAP 20', schema 5-10-15). Fran/Grace/
+  Helen restano benchmark fissi non toccati.
+- **Benchmark CrossFit fisso (Cindy/Fran/Grace/Helen) non deve avere Forza/Skill né Accessory**:
+  un benchmark è già un allenamento completo da solo; quei due blocchi restano solo quando
+  l'utente sceglie "WOD personalizzato sui target" (`benchmark: 'custom'`). Adattato anche il
+  controllo minimo-esercizi del validatore, che altrimenti avrebbe sempre rifiutato Grace
+  (ufficialmente un solo movimento, "30 Clean & Jerk").
+- **Crash Android "premo avvia, fa 3-2-1 e si chiude" su qualsiasi allenamento**: la vera
+  `ServiceCompat.startForeground()` avviene dentro `onStartCommand()` di `WorkoutTimerService`,
+  fuori dal try/catch che un fix precedente aveva messo solo sulla chiamata Capacitor lato plugin.
+  Su target SDK 35 un'eccezione lì crashava l'intero processo. Avvolto anche questo in try/catch:
+  in caso di errore il servizio nativo si ferma da solo, il timer React resta comunque la fonte di
+  verità del countdown.
+- **Vibrazione non funzionava mai in APK**: mancava `android.permission.VIBRATE` nel manifest.
+- **"Solo vibrazione" non era davvero silenzioso**: i tre bip del conto alla rovescia 3-2-1 non
+  rispettavano l'impostazione "silenzioso" di inizio/fine. Corretto in `audio.ts`.
+- **Crash dopo la seconda pausa**: `publishBackgroundTimer` fermava/riavviava il servizio Android
+  in foreground a ogni pausa/ripresa — stessa famiglia del crash "3-2-1" sopra. In pausa il
+  servizio nativo ora non viene più fermato, solo alla fine/uscita reale della sessione.
+- **Notifica/banner in background**: ora mostra fase e giro corrente (es. "Lavoro · Giro 3/8" per
+  Tabata/EMOM/Intervals, "AMRAP · 2 giri"), non solo l'etichetta generica; aggiunto
+  `VISIBILITY_PUBLIC` alle notifiche così il countdown resta leggibile a schermo bloccato.
+
+**In sospeso, non ancora iniziato — richiesta esplicita dell'utente:** sostituire il motore
+`generators/hybrid.ts` (oggi: warmup + 2 alzate forza + metcon che alterna cardio/isolamento, vedi
+sopra) con una nuova architettura "Functional Bodybuilding" a 3 blocchi sequenziali a costo
+neurale decrescente — Blocco A: 2 esercizi forza (~35% tempo), Blocco B: metcon EMOM/AMRAP/For Time
+a 3-4 stazioni con alternanza Anaerobico pesi/Aerobico cardio/Anaerobico corpo libero (~30%),
+Blocco C: 1 superserie da 2 esercizi isolamento carenze, 2 round, 60s recupero (~20%) — con
+scalabilità dinamica sul tempo (Express 30-40', Standard 45-60', Extended 70-80') e fallback
+attrezzatura espliciti. L'utente ha confermato di voler **sostituire** l'Hybrid esistente (non
+aggiungere una modalità nuova). Un piano dettagliato è stato scritto e approvato
+(`~/.claude/plans/wondrous-tickling-boole.md` nella sessione Claude Code, non nel repo) ma
+l'implementazione non è partita: due domande di chiarimento (tenere il blocco Riscaldamento? scelta
+manuale o automatica del formato EMOM/AMRAP/For Time nella sessione singola?) sono state poste ma
+l'utente è passato ad altro prima di rispondere. Punto di ripartenza: il Blocco C (superserie: due
+esercizi consecutivi senza recupero, poi recupero solo a fine coppia, per N round) non ha nessun
+equivalente nell'attuale modello `WorkoutBlock`/`PrescribedExercise`/Runner — serve un nuovo
+`format` per i blocchi `kind: 'metcon'` (es. `'superset'`) e una nuova sezione di rendering/
+esecuzione in `Runner.tsx`, sul modello di come oggi convivono già i rami `aGiri`/`aIntervalli`/
+`amrap`. Il resto dell'architettura Hybrid attuale (tipi, weekly programming PPL+HY, UI generica a
+blocchi) può restare com'è: sostituire in loco richiede di toccare solo `generators/hybrid.ts` e
+`generators/__tests__/hybrid.test.ts`.
+
+Verifica di questa sessione: 227 test verdi, build production verde, lint senza errori (resta il
+warning storico in `Runner.tsx`). I fix lato nativo Android (foreground service, vibrazione,
+notifiche) non sono verificabili in locale: manca un dispositivo/emulatore Android in questo
+ambiente, verificati solo per compilazione tramite la GitHub Action che ricompila l'APK a ogni push.

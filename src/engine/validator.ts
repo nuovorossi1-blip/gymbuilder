@@ -46,9 +46,14 @@ export function validateWorkout(
     if (ids.has(exercise.id) && item.role !== 'warmup') errors.push(`${exercise.name} è duplicato.`)
     ids.add(exercise.id)
   }
+  // Un benchmark CrossFit fisso (Cindy/Fran/Grace/Helen) è per definizione un allenamento
+  // completo con un numero di movimenti ufficiale (anche solo 1, es. Grace): niente Forza/Skill
+  // né Accessory in quel caso (generators/crossfit.ts), quindi il minimo generico pensato per un
+  // WOD costruito liberamente non si applica.
+  const isFixedBenchmarkSession = workout.mode === 'crossfit' && !!config.crossfit_benchmark && config.crossfit_benchmark !== 'custom'
   if (workout.mode !== 'tabata') {
     const minimum = workout.mode === 'strength' ? 5 : workout.mode === 'crossfit' ? 3 : 6
-    if (trainingExercises.length < minimum) {
+    if (!isFixedBenchmarkSession && trainingExercises.length < minimum) {
       errors.push(`La sessione ${workout.mode} deve contenere almeno ${minimum} esercizi allenanti (riscaldamento escluso).`)
     }
     const estimated = workout.blocks.reduce((sum, block) => sum + (block.duration_min ?? minutiBlocco(block.exercises)), 0)

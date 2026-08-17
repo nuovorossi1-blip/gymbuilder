@@ -237,6 +237,11 @@ export function generaCrossFit(catalogo: Exercise[], cfg: CrossFitConfig): Gener
   const format = cfg.format ?? 'amrap'
   const benchmark = cfg.benchmark ?? 'custom'
   const targets = [...new Set(cfg.target_muscles ?? [])]
+  // Un benchmark fisso (ufficiale o adattato sui target) e' gia' un allenamento completo e
+  // autosufficiente: niente Forza/Skill prima ne' Accessory dopo, a meno che l'utente non abbia
+  // scelto esplicitamente "WOD personalizzato sui target" (benchmark 'custom'), l'unica opzione
+  // pensata per essere una classe CrossFit Standard completa Forza/Skill + Metcon + Accessory.
+  const isFixedBenchmark = benchmark !== 'custom'
 
   const disponibili = catalogo.filter(
     (e) =>
@@ -251,48 +256,52 @@ export function generaCrossFit(catalogo: Exercise[], cfg: CrossFitConfig): Gener
   const usati = new Set<string>()
 
   // --- Forza/Skill: 1-2 alzate. Preferisce il catalogo tag 'strength' (bilanciere); scende a un compound equivalente se l'attrezzatura non lo consente. ---
+  // Saltata del tutto quando l'utente ha scelto un benchmark fisso (vedi isFixedBenchmark sopra).
   const matchesTarget = (exercise: Exercise) => targets.length === 0 || exercise.primary_muscles.some((muscle) => targets.includes(muscle))
-  const strengthPoolPrincipale = allenamento.filter((e) => e.roles.includes('strength') && matchesTarget(e))
-  const strengthPool =
-    strengthPoolPrincipale.length > 0
-      ? strengthPoolPrincipale
-      : allenamento.filter((e) => e.roles.includes('compound') && !e.roles.includes('conditioning') && matchesTarget(e))
-
-  const lowerPool = strengthPool.filter((e) => PATTERN_LOWER.includes(e.movement_pattern))
-  const upperPool = strengthPool.filter((e) => PATTERN_UPPER.includes(e.movement_pattern))
-
   const strengthEsercizi: PrescribedExercise[] = []
-  const lift1Pool = scegliPoolApertura(strengthPool, lowerPool, upperPool, cfg.priority_muscles, random)
-  const lift1 = scegliForzaSkillConFocus(lift1Pool, usati, cfg.priority_muscles, preferiti, random)
-  if (lift1) {
-    usati.add(lift1.id)
-    strengthEsercizi.push(
-      prescriviForzaSkill(lift1, cfg.experience, intensity, exerciseTargetsPriority(lift1, cfg.priority_muscles))
-    )
-  }
+  const accessoryEsercizi: PrescribedExercise[] = []
+  if (!isFixedBenchmark) {
+    const strengthPoolPrincipale = allenamento.filter((e) => e.roles.includes('strength') && matchesTarget(e))
+    const strengthPool =
+      strengthPoolPrincipale.length > 0
+        ? strengthPoolPrincipale
+        : allenamento.filter((e) => e.roles.includes('compound') && !e.roles.includes('conditioning') && matchesTarget(e))
 
-  adattaForzaSkillAlTempo(strengthEsercizi, t.strength)
-  rimuoviDuplicati(strengthEsercizi)
+    const lowerPool = strengthPool.filter((e) => PATTERN_LOWER.includes(e.movement_pattern))
+    const upperPool = strengthPool.filter((e) => PATTERN_UPPER.includes(e.movement_pattern))
 
-  const accessoryPool = allenamento
-    .filter((exercise) => !usati.has(exercise.id))
-    .filter((exercise) => exercise.roles.includes('isolation') || exercise.roles.includes('core'))
-    .filter((exercise) => !exercise.roles.includes('conditioning'))
-    .filter((exercise) => exercise.technical_complexity <= 2 && exercise.systemic_fatigue <= 2)
-    .sort((a, b) => Number(exerciseTargetsPriority(b, cfg.priority_muscles)) - Number(exerciseTargetsPriority(a, cfg.priority_muscles)))
-  const accessoryEsercizi: PrescribedExercise[] = accessoryPool.slice(0, cfg.duration_min >= 60 ? 2 : 1).map((exercise) => {
-    usati.add(exercise.id)
-    return {
-      exercise_id: exercise.id, name: exercise.name, role: 'isolation' as const,
-      muscle: exercise.primary_muscles[0] ?? null, sets: 2,
-      reps: exercise.primary_muscles.includes('core') ? exercise.default_reps : '12-15', rest_sec: 45,
-      note: exerciseTargetsPriority(exercise, cfg.priority_muscles) ? 'accessorio carenza / prehab' : 'accessorio / prehab',
-      instructions: exercise.instructions || undefined,
+    const lift1Pool = scegliPoolApertura(strengthPool, lowerPool, upperPool, cfg.priority_muscles, random)
+    const lift1 = scegliForzaSkillConFocus(lift1Pool, usati, cfg.priority_muscles, preferiti, random)
+    if (lift1) {
+      usati.add(lift1.id)
+      strengthEsercizi.push(
+        prescriviForzaSkill(lift1, cfg.experience, intensity, exerciseTargetsPriority(lift1, cfg.priority_muscles))
+      )
     }
-  })
 
-  if (strengthEsercizi.length === 0) {
-    warnings.push('Nessun esercizio disponibile per la parte Forza/Skill con questa attrezzatura.')
+    adattaForzaSkillAlTempo(strengthEsercizi, t.strength)
+    rimuoviDuplicati(strengthEsercizi)
+
+    const accessoryPool = allenamento
+      .filter((exercise) => !usati.has(exercise.id))
+      .filter((exercise) => exercise.roles.includes('isolation') || exercise.roles.includes('core'))
+      .filter((exercise) => !exercise.roles.includes('conditioning'))
+      .filter((exercise) => exercise.technical_complexity <= 2 && exercise.systemic_fatigue <= 2)
+      .sort((a, b) => Number(exerciseTargetsPriority(b, cfg.priority_muscles)) - Number(exerciseTargetsPriority(a, cfg.priority_muscles)))
+    accessoryPool.slice(0, cfg.duration_min >= 60 ? 2 : 1).forEach((exercise) => {
+      usati.add(exercise.id)
+      accessoryEsercizi.push({
+        exercise_id: exercise.id, name: exercise.name, role: 'isolation' as const,
+        muscle: exercise.primary_muscles[0] ?? null, sets: 2,
+        reps: exercise.primary_muscles.includes('core') ? exercise.default_reps : '12-15', rest_sec: 45,
+        note: exerciseTargetsPriority(exercise, cfg.priority_muscles) ? 'accessorio carenza / prehab' : 'accessorio / prehab',
+        instructions: exercise.instructions || undefined,
+      })
+    })
+
+    if (strengthEsercizi.length === 0) {
+      warnings.push('Nessun esercizio disponibile per la parte Forza/Skill con questa attrezzatura.')
+    }
   }
 
   // --- Metcon: formato scelto, con 4-5 movimenti sicuri sotto fatica, uno per categoria. ---

@@ -1,5 +1,28 @@
 # Changelog AI
 
+## 2026-08-17 - Benchmark CrossFit fisso: niente Forza/Skill ne' Accessory
+
+- Richiesta utente: scegliendo un benchmark fisso (Cindy, e per estensione Fran/Grace/Helen) senza
+  altro, l'app generava comunque un blocco Forza/Skill (1-2 alzate) prima del WOD e un blocco
+  Accessory dopo. Un benchmark e' gia' un allenamento completo e autosufficiente; quei due blocchi
+  hanno senso solo scegliendo esplicitamente "WOD personalizzato sui target" (`benchmark: 'custom'`).
+- `crossfit.ts`: aggiunto `isFixedBenchmark = benchmark !== 'custom'`; con benchmark fisso (ufficiale
+  o "Cindy adattata" sui target) `strengthEsercizi` e `accessoryEsercizi` restano vuoti, nessuna
+  costruzione di pool ne' selezione. Il comportamento con `benchmark: 'custom'` non cambia.
+  `WorkoutPreview.tsx`/`Runner.tsx` gia' ignorano i blocchi `main` vuoti, nessuna modifica UI
+  necessaria.
+- `validator.ts`: il controllo minimo esercizi allenanti (3 per CrossFit) si sarebbe sempre rifiutato
+  per Grace (ufficialmente un solo movimento, "30 Clean & Jerk") una volta rimossi Forza/Skill e
+  Accessory. Aggiunta eccezione: con `crossfit_benchmark` impostato e diverso da `'custom'` il
+  minimo generico non si applica (il conteggio ufficiale del benchmark e' per definizione corretto).
+  Il controllo sulla durata massima resta invariato.
+- Aggiornati i test su Cindy in `crossfit.test.ts` (3 esercizi nel Metcon, non piu' 6), aggiunto un
+  test parametrico sui 4 benchmark che verifica Forza/Skill e Accessory vuoti, un test che conferma
+  invariato il comportamento con `benchmark: 'custom'`, e un test di regressione dedicato a Grace in
+  `validator.test.ts`.
+- Verifica completata: 227 test verdi, build production verde, lint senza errori (resta il warning
+  storico in `Runner.tsx`).
+
 ## 2026-08-17 - Vibrazione, "solo vibrazione" davvero silenzioso, meno churn sul servizio nativo in pausa
 
 - `navigator.vibrate()` non funzionava mai in APK: mancava il permesso `android.permission.VIBRATE`

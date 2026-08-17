@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import fixture from '../generators/__tests__/fixtures/exercises.json'
 import { normalizeExercise } from '../data/exercises/normalize'
 import { generaBodybuilding } from '../generators/bodybuilding'
+import { generaCrossFit } from '../generators/crossfit'
 import { PRESET_EQUIPMENT } from '../generators/equipment'
 import type { ExerciseRecord, WorkoutGenerationConfig } from '../types'
 import { validateWorkout } from './validator'
@@ -61,6 +62,27 @@ describe('validateWorkout — coerenza dello split', () => {
       training_days: 1, current_day: null, experience: 'advanced', duration_min: 60,
       equipment: { preset: 'full_gym', available: PRESET_EQUIPMENT.full_gym },
       weak_points: ['lateral_delts', 'biceps'], target_muscles: targets,
+      preferences: { excluded_exercise_ids: [], preferred_exercise_ids: [], bodyweight_policy: 'always', elastic_policy: 'always' },
+      intensity: 'medium',
+    }
+    const result = validateWorkout(workout, config, catalog)
+    expect(result.valid).toBe(true)
+    expect(result.errors).toEqual([])
+  })
+
+  it('Grace (un solo movimento, niente Forza/Skill ne Accessory) non viene rifiutata per numero minimo di esercizi', () => {
+    // Grace e' ufficialmente "30 Clean & Jerk", un solo movimento: con Forza/Skill e Accessory
+    // saltati (benchmark fisso), il minimo generico di 3 esercizi allenanti per CrossFit non
+    // deve applicarsi, altrimenti Grace fallirebbe sempre la validazione.
+    const workout = generaCrossFit(catalog, {
+      experience: 'advanced', equipment: 'full_gym', duration_min: 60,
+      priority_muscles: [], excluded_exercises: [], seed: 4, benchmark: 'grace',
+    })
+    const config: WorkoutGenerationConfig = {
+      program_kind: 'single_session', mode: 'crossfit', goal: 'conditioning',
+      training_days: 1, current_day: null, experience: 'advanced', duration_min: 60,
+      equipment: { preset: 'full_gym', available: PRESET_EQUIPMENT.full_gym },
+      weak_points: [], crossfit_benchmark: 'grace',
       preferences: { excluded_exercise_ids: [], preferred_exercise_ids: [], bodyweight_policy: 'always', elastic_policy: 'always' },
       intensity: 'medium',
     }
