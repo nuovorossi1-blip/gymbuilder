@@ -40,18 +40,27 @@ public class WorkoutTimerService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        if (intent == null) return START_NOT_STICKY;
-        if (ACTION_STOP.equals(intent.getAction())) {
-            stopTimer();
-            return START_NOT_STICKY;
+        // Il timer React in WebView e' gia' la fonte di verita' del countdown: questo servizio
+        // e' solo un miglioramento (notifica persistente + wake lock) quando l'app va in
+        // background. Qualunque eccezione qui (restrizioni Android su foreground service,
+        // permessi negati a runtime, produttori che bloccano i wake lock, ecc.) non deve mai
+        // far crashare l'intera app: si spegne solo questo servizio, l'allenamento continua.
+        try {
+            if (intent == null) return START_NOT_STICKY;
+            if (ACTION_STOP.equals(intent.getAction())) {
+                stopTimer();
+                return START_NOT_STICKY;
+            }
+            long deadline = intent.getLongExtra(EXTRA_DEADLINE, 0L);
+            String label = intent.getStringExtra(EXTRA_LABEL);
+            if (deadline <= System.currentTimeMillis()) {
+                stopTimer();
+                return START_NOT_STICKY;
+            }
+            startTimer(label == null ? "Timer allenamento" : label, deadline);
+        } catch (RuntimeException error) {
+            stopTimerSafely();
         }
-        long deadline = intent.getLongExtra(EXTRA_DEADLINE, 0L);
-        String label = intent.getStringExtra(EXTRA_LABEL);
-        if (deadline <= System.currentTimeMillis()) {
-            stopTimer();
-            return START_NOT_STICKY;
-        }
-        startTimer(label == null ? "Timer allenamento" : label, deadline);
         return START_NOT_STICKY;
     }
 
@@ -63,8 +72,23 @@ public class WorkoutTimerService extends Service {
         ServiceCompat.startForeground(this, NOTIFICATION_ID, notification, type);
 
         if (completion != null) handler.removeCallbacks(completion);
-        completion = () -> completeTimer(label);
+        completion = () -> {
+            try {
+                completeTimer(label);
+            } catch (RuntimeException error) {
+                stopTimerSafely();
+            }
+        };
         handler.postDelayed(completion, Math.max(0L, deadline - System.currentTimeMillis()));
+    }
+
+    /** Come stopTimer(), ma non propaga eccezioni: usata nel percorso di recupero da errore. */
+    private void stopTimerSafely() {
+        try {
+            stopTimer();
+        } catch (RuntimeException ignored) {
+            stopSelf();
+        }
     }
 
     private Notification buildCountdown(String label, long deadline) {
