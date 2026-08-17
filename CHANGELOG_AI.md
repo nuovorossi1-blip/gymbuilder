@@ -297,3 +297,9 @@
 - Single Under e Double Under sono ora cardio monostrutturale in CrossFit, Hybrid, Conditioning e Tabata.
 - Principiante usa Single Under; Avanzato usa Double Under. Aggiornati nomi e cue nel catalogo Supabase remoto.
 - Aggiunti test per warning, istruzioni Metcon e progressione corda; 188 test verdi.
+## 2026-08-17 — Resume affidabile, deep-link PWA e Supabase keep-alive
+
+- La riapertura dell'app torna automaticamente alla sessione attiva e al suo avanzamento persistito.
+- I click sulle notifiche rifocalizzano il Runner esistente oppure aprono un URL di ripresa sicuro; il Service Worker usa la shell anche per navigazioni offline o risposte 404.
+- Vercel riscrive tutte le rotte della SPA su `index.html`, eliminando i 404 su `/avvia`, refresh e riapertura da Android/PWA.
+- Aggiunto un Cron Vercel giornaliero autenticato che interroga Supabase e impedisce l'inattività prolungata del progetto.

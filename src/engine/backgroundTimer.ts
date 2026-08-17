@@ -1,6 +1,7 @@
 import type { TimerEventType } from './timer'
 
 const DEFAULT_TITLE = 'GymBuilder'
+const RESUME_WORKOUT_HREF = '/?resume=workout'
 export const ACTIVE_TIMER_KEY = 'gymbuilder:active-timer:v1'
 export const ACTIVE_TIMER_EVENT = 'gymbuilder:active-timer'
 
@@ -87,7 +88,7 @@ export async function notifyTimerEvent(type: TimerEventType, label: string): Pro
     body,
     tag: 'gymbuilder-active-timer',
     vibrate: [300, 100, 300, 100, 500],
-    data: { href: '/avvia' },
+    data: { href: RESUME_WORKOUT_HREF },
   }
   try {
     const registration = await navigator.serviceWorker?.ready
@@ -125,7 +126,7 @@ export async function notifyTimerSnapshot(label: string, remainingSec: number): 
       showChronometer: true,
       chronometerDirection: 'down',
       timestamp: endTime,
-      data: { href: '/avvia' },
+      data: { href: RESUME_WORKOUT_HREF },
       requireInteraction: true,
     } as NotificationOptions & { showChronometer?: boolean; chronometerDirection?: string })
   } catch { /* miglioramento progressivo */ }
