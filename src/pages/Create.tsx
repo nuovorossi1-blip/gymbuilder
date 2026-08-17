@@ -495,15 +495,6 @@ function WizardBuilder({
               <span>PROSEGUI ALLO STEP 2 (Swipe 👈)</span>
             </button>
           </div>
-          {!config.selected_modes.includes('tabata') && (
-            <button
-              disabled={!valid || !loadLocalAiSettings().deepseek_api_key.trim() || aiState === 'loading'}
-              onClick={() => { void generateWithAi() }}
-              className="w-full rounded-xl border border-cyan-500/40 bg-cyan-500/15 py-4 font-display font-bold uppercase text-cyan-200 shadow-md transition-transform active:scale-[0.98] disabled:opacity-40"
-            >
-              {aiState === 'loading' ? 'DeepSeek sta generando...' : 'Genera con DeepSeek'}
-            </button>
-          )}
         </SwipeContainer>
       )}
 
@@ -946,6 +937,13 @@ function WizardBuilder({
                 : 'Caricamento…'}
             </button>
           </div>
+          <button
+            disabled={!valid || !loadLocalAiSettings().deepseek_api_key.trim() || aiState === 'loading'}
+            onClick={() => { void generateWithAi() }}
+            className="w-full rounded-xl border border-cyan-500/40 bg-cyan-500/15 py-4 font-display font-bold uppercase text-cyan-200 shadow-md transition-transform active:scale-[0.98] disabled:opacity-40"
+          >
+            {aiState === 'loading' ? 'DeepSeek sta generando...' : 'Genera con DeepSeek usando questi parametri'}
+          </button>
         </SwipeContainer>
       )}
     </div>

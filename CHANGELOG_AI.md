@@ -329,3 +329,8 @@
 - Ogni fase temporizzata scandisce 3-2-1 con tre segnali brevi e produce un solo segnale lungo al cambio fase.
 - VIA, nuova serie/round, inizio lavoro, inizio recupero e fine timer usano suono e vibrazione prolungati.
 - Rimossa la doppia vibrazione fra motore audio e modulo notifiche.
+## 2026-08-17 — DeepSeek soltanto dopo la configurazione completa
+
+- Rimosso il pulsante DeepSeek dallo Step 1, dove erano state scelte soltanto le discipline.
+- La generazione LLM è ora disponibile alla fine dello Step 2, dopo durata, livello, attrezzatura, formato, carenze e preferenze.
+- L'utente può scegliere nello stesso punto fra motore interno e DeepSeek usando gli stessi parametri definitivi.
