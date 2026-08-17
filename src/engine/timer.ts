@@ -33,10 +33,11 @@ export function countdownEvents(previous: number, current: number, phase: TimerP
   return []
 }
 
-/** Nel countdown di avvio 3 e 2 sono avvisi brevi; 1 è il segnale lungo di VIA. */
+/** Il countdown scandisce 3-2-1 con avvisi brevi; il cambio fase emette il segnale lungo. */
 export function startupCountdownCue(second: number, now = Date.now()): TimerEvent {
+  if (second < 1 || second > 3) throw new RangeError('Il countdown di avvio accetta solo 3, 2 o 1.')
   return {
-    type: second === 1 ? 'COUNTDOWN_COMPLETED' : 'WARNING',
+    type: 'WARNING',
     at: now,
     phase: 'countdown',
   }

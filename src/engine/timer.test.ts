@@ -38,14 +38,18 @@ describe('Unified Timer Engine', () => {
   it('gli ultimi tre secondi hanno beep e vibrazione distinti', () => {
     expect(soundForEvent('WARNING', DEFAULT_AUDIO_SETTINGS)).toBe('beep')
     expect(vibrationForEvent('WARNING', DEFAULT_AUDIO_SETTINGS)).toBe(70)
-    expect(vibrationForEvent('TIMER_COMPLETED', DEFAULT_AUDIO_SETTINGS)).toEqual([140, 80, 180])
+    expect(vibrationForEvent('TIMER_COMPLETED', DEFAULT_AUDIO_SETTINGS)).toBe(1_000)
   })
-  it('il 3 e il 2 sono brevi, mentre il segnale lungo parte quando compare 1', () => {
+  it('scandisce 3-2-1 brevi e usa il segnale lungo al cambio fase', () => {
     expect(startupCountdownCue(3).type).toBe('WARNING')
     expect(startupCountdownCue(2).type).toBe('WARNING')
-    expect(startupCountdownCue(1).type).toBe('COUNTDOWN_COMPLETED')
+    expect(startupCountdownCue(1).type).toBe('WARNING')
     expect(soundForEvent('COUNTDOWN_COMPLETED', DEFAULT_AUDIO_SETTINGS)).toBe('ding')
     expect(vibrationForEvent('COUNTDOWN_COMPLETED', DEFAULT_AUDIO_SETTINGS)).toBe(1_000)
+    expect(vibrationForEvent('REST_STARTED', DEFAULT_AUDIO_SETTINGS)).toBe(1_000)
+    expect(vibrationForEvent('WORK_STARTED', DEFAULT_AUDIO_SETTINGS)).toBe(1_000)
+    expect(vibrationForEvent('ROUND_STARTED', DEFAULT_AUDIO_SETTINGS)).toBe(1_000)
+    expect(vibrationForEvent('SET_STARTED', DEFAULT_AUDIO_SETTINGS)).toBe(1_000)
     expect(soundForEvent('COUNTDOWN_COMPLETED', { ...DEFAULT_AUDIO_SETTINGS, endSound: 'ring' })).toBe('ring')
   })
   it('pausa non crea drift', () => {

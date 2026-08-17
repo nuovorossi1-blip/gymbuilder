@@ -573,3 +573,6 @@ Il countdown di avvio emette avvisi brevi su 3 e 2 e il segnale lungo `COUNTDOWN
 ## Aggiornamento stato — 2026-08-17: trasporto DeepSeek affidabile
 
 Le richieste LLM non partono più direttamente dal browser: `/api/deepseek` inoltra in modo stateless la richiesta a DeepSeek, senza salvare o loggare la chiave personale. Il client e la funzione hanno timeout espliciti, JSON Output e `thinking: disabled` per evitare generazioni strutturate indefinite. La UI distingue chiave non valida, credito insufficiente, rate limit, timeout e problemi di connessione invece di restare su `loading` per sempre.
+## Aggiornamento stato — 2026-08-17: contratto segnali lavoro/recupero
+
+Il contratto audio/vibrazione è uniforme: ogni countdown di fase emette WARNING brevi su 3, 2 e 1; il successivo evento di transizione (`SET_STARTED`, `WORK_STARTED`, `ROUND_STARTED` o `REST_STARTED`) emette un unico segnale lungo da un secondo. Anche completamento e time-cap sono prolungati. Il modulo notifiche non vibra più direttamente in primo piano, evitando duplicazioni con `TimerAudio`; in background la notifica usa una singola vibrazione lunga.
