@@ -1,5 +1,28 @@
 # Changelog AI
 
+## 2026-08-17 - Banner "aggiornamento disponibile" ora funziona davvero
+
+- Il banner nativo Android (`NativeUpdater.tsx`) confronta `version.json` remoto con la versione
+  installata (`ApkUpdater.getCurrentVersion()`, legge `PackageInfo.versionName`), ma
+  `public/version.json` era statico ("1.0.0", `apkUrl` vuoto) e la pipeline che ricompila l'APK a
+  ogni push (`build-apk.yml`) non lo toccava mai: l'app non si accorgeva mai da sola di una build
+  più recente, serviva sempre scaricare manualmente.
+- `android/app/build.gradle` aveva anch'esso `versionCode`/`versionName` statici (1 / "1.0.0"): un
+  aggiornamento manuale dell'APK non avrebbe comunque cambiato la versione letta dall'app, quindi
+  il banner sarebbe comunque comparso di nuovo subito dopo (o mai, a seconda dell'ordine).
+- `build-apk.yml`: prima della build, calcola una versione dal numero di run di GitHub Actions
+  (`github.run_number`, sempre crescente) — `versionCode` = run number, `versionName` =
+  `1.0.<run number>` — e la scrive sia in `android/app/build.gradle` (cosi' l'APK la incorpora
+  davvero) sia in `public/version.json` (con `apkUrl` puntato a `gymbuilder-lemon.vercel.app/
+  gymbuilder.apk`). Il commit automatico dell'APK ora include anche `version.json`; aggiunto ai
+  `paths-ignore` per non ritriggerare la pipeline su se stesso.
+- Effetto pratico: da questa build in poi, l'app rileva da sola quando c'e' una versione più
+  recente e mostra il banner con il tasto Aggiorna — non serve più scaricare manualmente l'APK a
+  ogni fix nativo. Serve un'ultima installazione manuale per allineare la versione installata a
+  questo nuovo schema; da li' in poi il banner prende il sopravvento.
+- Non verificabile in locale (pipeline GitHub Actions + APK reale): da confermare al primo giro
+  di build automatica dopo il push.
+
 ## 2026-08-17 - Ordine campi CrossFit: Metodica/Benchmark prima dei Muscoli Target
 
 - L'utente trovava confuso l'ordine dei campi nel configuratore sessione singola CrossFit:

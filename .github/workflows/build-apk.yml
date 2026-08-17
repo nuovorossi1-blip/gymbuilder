@@ -6,6 +6,7 @@ on:
       - main
     paths-ignore:
       - 'public/gymbuilder.apk'
+      - 'public/version.json'
 
 permissions:
   contents: write
@@ -47,6 +48,19 @@ jobs:
       - name: Synchronize Capacitor Android
         run: npm run cap:sync
 
+      - name: Compute build version
+        id: version
+        run: |
+          CODE="${{ github.run_number }}"
+          NAME="1.0.${{ github.run_number }}"
+          echo "code=$CODE" >> "$GITHUB_OUTPUT"
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Bump Android version for this build
+        run: |
+          sed -i "s/versionCode [0-9]\+/versionCode ${{ steps.version.outputs.code }}/" android/app/build.gradle
+          sed -i "s/versionName \"[^\"]*\"/versionName \"${{ steps.version.outputs.name }}\"/" android/app/build.gradle
+
       - name: Build debug APK
         working-directory: android
         run: bash gradlew assembleDebug
@@ -54,10 +68,23 @@ jobs:
       - name: Copy APK for Vercel
         run: cp android/app/build/outputs/apk/debug/app-debug.apk public/gymbuilder.apk
 
+      - name: Update version.json
+        run: |
+          cat > public/version.json <<EOF
+          {
+            "version": "${{ steps.version.outputs.name }}",
+            "versionCode": ${{ steps.version.outputs.code }},
+            "apkUrl": "https://gymbuilder-lemon.vercel.app/gymbuilder.apk",
+            "releaseUrl": "https://github.com/nuovorossi1-blip/gymbuilder/releases/latest",
+            "notes": "Build automatica dal commit ${{ github.sha }}.",
+            "mandatory": false
+          }
+          EOF
+
       - name: Commit APK to main
         run: |
-          git add public/gymbuilder.apk
-          if git diff --cached --quiet -- public/gymbuilder.apk; then
+          git add public/gymbuilder.apk public/version.json
+          if git diff --cached --quiet -- public/gymbuilder.apk public/version.json; then
             echo "APK unchanged; no commit required."
             exit 0
           fi
