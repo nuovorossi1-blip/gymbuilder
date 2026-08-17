@@ -307,3 +307,10 @@
 
 - Il click sul banner di notifica ora rifocalizza una finestra GymBuilder esistente e le invia il comando di resume, senza navigarla né aprire un secondo tab.
 - Al termine del conto alla rovescia la vibrazione è una singola pulsazione lunga da un secondo e il suono finale dura fino a 1,8 secondi; i tre avvisi precedenti restano brevi.
+## 2026-08-17 — Base APK Android con controllo aggiornamenti
+
+- Aggiunti `version.json`, confronto semantico e modal nativo di aggiornamento all'avvio.
+- Creato il plugin Capacitor Android che scarica via DownloadManager e apre l'installatore di sistema, inclusa la gestione del permesso per origini sconosciute.
+- Aggiunto banner mobile: download APK su Android e istruzioni di installazione PWA su iOS.
+- Preparata la pipeline GitHub Release per APK firmati con keystore custodita nei Secrets.
+- La prima Release firmata resta da generare dopo la configurazione dei quattro segreti Android.

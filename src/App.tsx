@@ -12,6 +12,8 @@ import Saved from './pages/Saved'
 import History from './pages/History'
 import ProfilePage from './pages/ProfilePage'
 import { ActiveTimerBanner } from './components/ActiveTimerBanner'
+import NativeUpdater from './components/NativeUpdater'
+import InstallBanner from './components/InstallBanner'
 
 function Guscio() {
   const { user, loading } = useAuth()
@@ -56,6 +58,7 @@ function Guscio() {
   return (
     <div className={`mx-auto min-h-dvh max-w-lg ${conNav ? 'pb-24' : ''}`}>
       <ActiveTimerBanner />
+      <InstallBanner />
       <Routes>
         <Route path="/" element={<HomeDashboard />} />
         <Route path="/crea" element={<Create />} />
@@ -73,12 +76,15 @@ function Guscio() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <WorkoutProvider>
-        <BrowserRouter>
-          <Guscio />
-        </BrowserRouter>
-      </WorkoutProvider>
-    </AuthProvider>
+    <>
+      <NativeUpdater />
+      <AuthProvider>
+        <WorkoutProvider>
+          <BrowserRouter>
+            <Guscio />
+          </BrowserRouter>
+        </WorkoutProvider>
+      </AuthProvider>
+    </>
   )
 }
