@@ -26,7 +26,7 @@ export function soundForEvent(type: TimerEventType, settings: AudioTimerSettings
 export function vibrationForEvent(type: TimerEventType, settings: AudioTimerSettings): number | number[] | null {
   if (!settings.vibration) return null
   if (type === 'WARNING') return 70
-  if (type === 'COUNTDOWN_COMPLETED') return [250, 80, 350]
+  if (type === 'COUNTDOWN_COMPLETED') return 1_000
   if (type === 'TIMER_COMPLETED' || type === 'TIME_CAP_REACHED') return [140, 80, 180]
   if (type === 'REST_STARTED' || type === 'WORK_STARTED' || type === 'ROUND_STARTED' || type === 'SET_STARTED') return 45
   return null
@@ -50,9 +50,11 @@ export class TimerAudio {
     const now = this.context.currentTime
     if (event.type === 'WARNING') {
       this.tone(now, 760, 0.1, 0.28, 'square')
+    } else if (event.type === 'COUNTDOWN_COMPLETED') {
+      this.longSignal(now, sound, true)
     } else if (sound === 'ring' || event.phase === 'tabata' || event.type === 'ROUND_STARTED' || event.type === 'REST_STARTED') {
       this.playBoxingRingGong(now)
-    } else if (event.type === 'COUNTDOWN_COMPLETED' || event.type === 'TIMER_COMPLETED') {
+    } else if (event.type === 'TIMER_COMPLETED') {
       this.longSignal(now, sound)
     } else if (event.type === 'TIME_CAP_REACHED') {
       this.tone(now, 330, 0.2, 0.22); this.tone(now + 0.26, 330, 0.2, 0.22)
@@ -63,7 +65,7 @@ export class TimerAudio {
     }
   }
 
-  private playBoxingRingGong(at: number) {
+  private playBoxingRingGong(at: number, duration = 1.2) {
     if (!this.context) return
     const freqs = [587.33, 1174.66, 1760]
     const gains = [0.45, 0.35, 0.2]
@@ -74,21 +76,22 @@ export class TimerAudio {
       osc.type = idx === 0 ? 'sine' : 'triangle'
       osc.frequency.value = freq
       g.gain.setValueAtTime(gains[idx], at)
-      g.gain.exponentialRampToValueAtTime(0.0001, at + 1.2)
+      g.gain.exponentialRampToValueAtTime(0.0001, at + duration)
       osc.connect(g)
       g.connect(this.context.destination)
       osc.start(at)
-      osc.stop(at + 1.2)
+      osc.stop(at + duration)
     })
   }
 
-  private longSignal(at: number, sound: Exclude<TimerSound, 'silent'>) {
+  private longSignal(at: number, sound: Exclude<TimerSound, 'silent'>, emphasized = false) {
+    const duration = emphasized ? 1.5 : 0.8
     if (sound === 'ring') {
-      this.playBoxingRingGong(at)
+      this.playBoxingRingGong(at, emphasized ? 1.8 : 1.2)
     } else if (sound === 'ding') {
-      this.tone(at, 1040, 0.8, 0.24)
+      this.tone(at, 1040, duration, emphasized ? 0.38 : 0.24)
     } else {
-      this.tone(at, 720, 0.7, 0.3, 'square')
+      this.tone(at, 720, emphasized ? 1.3 : 0.7, emphasized ? 0.42 : 0.3, 'square')
     }
   }
   private tone(at: number, frequency: number, duration: number, gainValue: number, type: OscillatorType = 'sine') {
