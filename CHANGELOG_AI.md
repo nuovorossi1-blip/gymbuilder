@@ -1,5 +1,30 @@
 # Changelog AI
 
+## 2026-08-17 - Keystore debug fisso: l'aggiornamento in-app ora si installa davvero
+
+- Bug segnalato subito dopo aver reso funzionante il banner "aggiornamento disponibile" (fix
+  precedente): il download partiva ma Android rifiutava l'installazione ("c'è un problema").
+  Causa: `build-apk.yml` compila con `gradlew assembleDebug` su un runner GitHub Actions pulito
+  ad ogni push; senza un keystore debug fisso, Android Gradle Plugin ne genera uno nuovo e
+  casuale ogni volta. Ogni APK finiva quindi firmata con un certificato diverso dalla precedente,
+  e Android blocca sempre l'installazione di un "aggiornamento" il cui certificato non combacia
+  con quello dell'app già installata.
+- `android/app/build.gradle`: aggiunto un `signingConfig` debug esplicito che punta a
+  `android/app/debug.keystore` (password/alias standard `android`/`androiddebugkey`), usato dal
+  `buildType debug` quando il file esiste.
+- `build-apk.yml`: nuovo step "Ensure stable debug keystore" che genera
+  `android/app/debug.keystore` con `keytool` **solo se non esiste già**, poi lo tratta come gli
+  altri artefatti generati (committato insieme ad APK e `version.json`, aggiunto ai
+  `paths-ignore`). Da qui in poi ogni build riusa lo stesso identico keystore/certificato.
+- **Importante per l'utente**: questo fix garantisce aggiornamenti stabili da ora in poi, ma la
+  primissima installazione della build con il nuovo keystore fisso avrà comunque un certificato
+  diverso da quella attualmente installata sul telefono (che usava un keystore casuale di una
+  build precedente) — serve **un'ultima disinstallazione manuale** dell'app esistente prima di
+  installare questa build. Da quella in poi, tutte le build successive condivideranno lo stesso
+  keystore e l'aggiornamento in-app funzionerà senza disinstallare.
+- Non verificabile in locale (manca `keytool`/Android SDK in questo ambiente): da confermare al
+  primo giro di build automatica dopo il push.
+
 ## 2026-08-17 - Doppio "Comincia" su benchmark senza Forza/Skill, azioni sulla schermata fine Metcon
 
 - Bug segnalato dopo il test reale (CrossFit Standard, Cindy, target spalle/braccia): avviando la
