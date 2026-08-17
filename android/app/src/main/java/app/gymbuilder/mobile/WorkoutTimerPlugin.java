@@ -18,10 +18,28 @@ import com.getcapacitor.annotation.PermissionCallback;
     permissions = @Permission(alias = "notifications", strings = Manifest.permission.POST_NOTIFICATIONS)
 )
 public class WorkoutTimerPlugin extends Plugin {
+    // Il Runner chiama start() a ogni cambio di fase/round (lavoro->riposo, serie->recupero,
+    // ecc.), spesso a distanza di pochi secondi. Senza questi due flag, ogni chiamata con
+    // permesso non ancora concesso richiedeva di nuovo il permesso: due richieste sovrapposte
+    // (una gia' in corso, una nuova) o richieste ripetute dopo un rifiuto esplicito possono far
+    // crashare il bridge dei permessi di Capacitor. Una volta chiesto (concesso o negato), non
+    // si richiede piu' per il resto della sessione dell'app.
+    private boolean permissionRequestInFlight = false;
+    private boolean permissionDenied = false;
+
     @PluginMethod
     public void start(PluginCall call) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
-            && getPermissionState("notifications") != PermissionState.GRANTED) {
+        boolean needsPermission = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+            && getPermissionState("notifications") != PermissionState.GRANTED;
+        if (needsPermission) {
+            if (permissionDenied || permissionRequestInFlight) {
+                JSObject result = new JSObject();
+                result.put("started", false);
+                result.put("notificationsGranted", false);
+                call.resolve(result);
+                return;
+            }
+            permissionRequestInFlight = true;
             requestPermissionForAlias("notifications", call, "permissionResult");
             return;
         }
@@ -30,8 +48,11 @@ public class WorkoutTimerPlugin extends Plugin {
 
     @PermissionCallback
     private void permissionResult(PluginCall call) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
-            && getPermissionState("notifications") != PermissionState.GRANTED) {
+        permissionRequestInFlight = false;
+        boolean granted = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU
+            || getPermissionState("notifications") == PermissionState.GRANTED;
+        if (!granted) {
+            permissionDenied = true;
             JSObject result = new JSObject();
             result.put("started", false);
             result.put("notificationsGranted", false);

@@ -1,5 +1,28 @@
 # Changelog AI
 
+## 2026-08-17 - Richieste permesso notifiche sovrapposte: causa reale dei crash durante pause/cambi fase
+
+- Bug segnalato: Tabata parte, fa il primo giro, entra in pausa/recupero e crasha; non completa
+  tutti i round configurati; sospettato un problema generale con pause e cambi fase su qualsiasi
+  allenamento, non solo Tabata.
+- Causa reale (diversa dai due fix precedenti sullo stesso servizio): `WorkoutTimerPlugin.start()`
+  lato Android richiedeva il permesso notifiche (`POST_NOTIFICATIONS`) ogni volta che veniva
+  chiamato con permesso non ancora concesso — e viene chiamato a **ogni** cambio di fase/round
+  (lavoro→riposo, serie→recupero, giro successivo…), spesso a pochi secondi di distanza. Se il
+  permesso non è concesso, ogni cambio fase genera una nuova richiesta di permesso; due richieste
+  sovrapposte (una già in corso, una nuova) o richieste ripetute dopo un rifiuto esplicito sono
+  una causa nota di crash nel bridge dei permessi di Capacitor. Questo spiega perché il problema
+  non è specifico di Tabata: qualsiasi allenamento con più di un cambio di fase in background lo
+  può innescare.
+- `WorkoutTimerPlugin.java`: aggiunti due flag (`permissionRequestInFlight`, `permissionDenied`)
+  per garantire che il permesso venga richiesto **una sola volta** per sessione dell'app; le
+  chiamate successive, se il permesso resta non concesso, si limitano a segnalare
+  `started:false` senza richiederlo di nuovo. Il timer React resta comunque la fonte di verità
+  del countdown, come per gli altri fix di questa sessione sullo stesso servizio.
+- Non verificabile in locale (manca un dispositivo Android in questo ambiente): da confermare
+  dopo l'installazione della prossima build (richiede la disinstallazione manuale già segnalata
+  per il fix del keystore debug fisso).
+
 ## 2026-08-17 - Keystore debug fisso: l'aggiornamento in-app ora si installa davvero
 
 - Bug segnalato subito dopo aver reso funzionante il banner "aggiornamento disponibile" (fix
