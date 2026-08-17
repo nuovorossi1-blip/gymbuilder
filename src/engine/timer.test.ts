@@ -42,7 +42,7 @@ describe('Unified Timer Engine', () => {
   })
   it('allo zero usa il segnale finale lungo e una vibrazione più riconoscibile', () => {
     expect(soundForEvent('COUNTDOWN_COMPLETED', DEFAULT_AUDIO_SETTINGS)).toBe('ding')
-    expect(vibrationForEvent('COUNTDOWN_COMPLETED', DEFAULT_AUDIO_SETTINGS)).toEqual([250, 80, 350])
+    expect(vibrationForEvent('COUNTDOWN_COMPLETED', DEFAULT_AUDIO_SETTINGS)).toBe(1_000)
     expect(soundForEvent('COUNTDOWN_COMPLETED', { ...DEFAULT_AUDIO_SETTINGS, endSound: 'ring' })).toBe('ring')
   })
   it('pausa non crea drift', () => {

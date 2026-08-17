@@ -1,4 +1,4 @@
-const CACHE = 'gymbuilder-shell-v2'
+const CACHE = 'gymbuilder-shell-v3'
 const SHELL = ['/', '/manifest.webmanifest', '/gymbuilder-icon.svg']
 
 self.addEventListener('install', (event) => {
@@ -58,27 +58,22 @@ self.addEventListener('notificationclick', (event) => {
   const href = event.notification.data?.href || '/?resume=workout'
   const target = new URL(href, self.location.origin)
   event.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(async (clients) => {
-    const runner = clients.find((client) => {
-      try {
-        return new URL(client.url).pathname === '/avvia'
-      } catch {
-        return false
-      }
-    })
-    if (runner) {
-      runner.postMessage({ type: 'RESUME_ACTIVE_SESSION', href: '/avvia', source: 'notification' })
-      return runner.focus()
-    }
-    const fallback = clients.find((client) => {
+    const sameOrigin = clients.filter((client) => {
       try {
         return new URL(client.url).origin === self.location.origin
       } catch {
         return false
       }
     })
-    if (fallback) {
-      await fallback.navigate(target.href)
-      return fallback.focus()
+    const existing = sameOrigin.find((client) => new URL(client.url).pathname === '/avvia')
+      || sameOrigin.find((client) => client.focused)
+      || sameOrigin.find((client) => client.visibilityState === 'visible')
+      || sameOrigin[0]
+    if (existing) {
+      // Non navigare e non aprire una seconda superficie browser: React riceve
+      // il comando e riporta la finestra esistente al Runner persistito.
+      existing.postMessage({ type: 'RESUME_ACTIVE_SESSION', href: '/avvia', source: 'notification' })
+      return existing.focus()
     }
     return self.clients.openWindow(target.href)
   }))

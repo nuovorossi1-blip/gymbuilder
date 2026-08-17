@@ -303,3 +303,7 @@
 - I click sulle notifiche rifocalizzano il Runner esistente oppure aprono un URL di ripresa sicuro; il Service Worker usa la shell anche per navigazioni offline o risposte 404.
 - Vercel riscrive tutte le rotte della SPA su `index.html`, eliminando i 404 su `/avvia`, refresh e riapertura da Android/PWA.
 - Aggiunto un Cron Vercel giornaliero autenticato che interroga Supabase e impedisce l'inattività prolungata del progetto.
+## 2026-08-17 — Notifica senza doppio tab e segnale finale marcato
+
+- Il click sul banner di notifica ora rifocalizza una finestra GymBuilder esistente e le invia il comando di resume, senza navigarla né aprire un secondo tab.
+- Al termine del conto alla rovescia la vibrazione è una singola pulsazione lunga da un secondo e il suono finale dura fino a 1,8 secondi; i tre avvisi precedenti restano brevi.
