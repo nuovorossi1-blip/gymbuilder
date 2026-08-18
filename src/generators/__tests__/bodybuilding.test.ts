@@ -155,26 +155,27 @@ describe('generaBodybuilding — priorità assegnate dalla settimana', () => {
     ])
   })
 
-  it('Push specializzato segue petto, petto, laterali, compound stabile, bicipiti, tricipiti', () => {
+  it('Push con laterali/bicipiti/tricipiti carenti non triplica il petto per fargli spazio', () => {
     const w = generaBodybuilding(catalogo, {
       split: 'push', goal: 'hypertrophy', experience: 'advanced', equipment: 'full_gym',
       duration_min: 60, priority_muscles: ['lateral_delts', 'biceps', 'triceps'],
       excluded_exercises: [], seed: 11,
     })
     const main = mainBlock(w).exercises
-    expect(main.map((exercise) => exercise.muscle)).toEqual(['chest', 'chest', 'lateral_delts', 'chest', 'biceps', 'triceps'])
-    expect(main[4].sets).toBe(2)
-    expect(main[4].note).toBe('richiamo carenza')
+    expect(main.filter((exercise) => exercise.muscle === 'chest').length).toBeLessThanOrEqual(2)
+    expect(main.map((exercise) => exercise.muscle)).toEqual(expect.arrayContaining(['lateral_delts', 'biceps', 'triceps']))
+    const laterali = main.find((exercise) => exercise.muscle === 'lateral_delts')
+    expect(laterali?.note).toBe('carenza')
   })
 
-  it('Push 60 minuti usa due petto e riserva gli slot alle carenze prima delle croci extra', () => {
+  it('Push 60 minuti riserva gli slot alle carenze prima di raddoppiare il petto', () => {
     const w = generaBodybuilding(catalogo, {
       split: 'push', goal: 'hypertrophy', experience: 'advanced', equipment: 'full_gym', duration_min: 60,
       priority_muscles: ['lateral_delts', 'biceps', 'triceps'], excluded_exercises: [], seed: 7,
     })
     const main = mainBlock(w).exercises
     expect(main).toHaveLength(6)
-    expect(main.filter((exercise) => exercise.muscle === 'chest')).toHaveLength(3)
+    expect(main.filter((exercise) => exercise.muscle === 'chest').length).toBeLessThanOrEqual(2)
     expect(main.map((exercise) => exercise.muscle)).toEqual(expect.arrayContaining(['lateral_delts', 'biceps', 'triceps']))
   })
 })

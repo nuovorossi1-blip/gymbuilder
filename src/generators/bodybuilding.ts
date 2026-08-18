@@ -405,19 +405,7 @@ export function generaBodybuilding(
   const priorities = cfg.priority_muscles ?? []
   const customTargets = cfg.target_muscles?.length ? [...new Set(cfg.target_muscles)] : []
   const pool = customTargets.length > 0 ? customTargets : SPLIT_MUSCLE_POOL[cfg.split]
-  let base = BASE_SLOTS[cfg.split]
-  // Specializzazione Push del documento BB: dopo due press per il petto,
-  // laterali, un compound più stabile, quindi bicipiti e tricipiti.
-  if (cfg.split === 'push' && priorities.includes('lateral_delts') && priorities.includes('biceps') && priorities.includes('triceps')) {
-    base = [
-      { muscle: 'chest', compound: true, order: 0 },
-      { muscle: 'chest', compound: true, order: 1 },
-      { muscle: 'lateral_delts', compound: false, order: 2 },
-      { muscle: 'chest', compound: true, order: 3 },
-      { muscle: 'biceps', compound: false, order: 5 },
-      { muscle: 'triceps', compound: false, order: 6 },
-    ]
-  }
+  const base = BASE_SLOTS[cfg.split]
   const structured = customTargets.length > 0
     ? { slots: buildCustomTargetSlots(customTargets, priorities), requirements: customTargets }
     : applicaPrioritaAssegnate(base, priorities)
