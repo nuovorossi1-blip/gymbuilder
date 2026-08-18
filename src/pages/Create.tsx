@@ -999,15 +999,10 @@ function WizardBuilder({
             </button>
             <button
               disabled={!valid}
-              onClick={() => {
-                const finalConfig = config.selected_modes.includes('tabata')
-                  ? { ...config, program_kind: 'single_session' as const }
-                  : config
-                void onCreate(finalConfig)
-              }}
+              onClick={() => void onCreate(config)}
               className="w-2/3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 py-4 font-display font-bold uppercase text-white shadow-lg glow-amber transition-transform active:scale-[0.98] disabled:opacity-40"
             >
-              {config.selected_modes.includes('tabata')
+              {isTabataOnly
                 ? '▶ INIZIA TABATA'
                 : catalog.length
                 ? config.program_kind === 'program'

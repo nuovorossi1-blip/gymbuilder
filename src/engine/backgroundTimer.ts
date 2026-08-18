@@ -1,5 +1,5 @@
 import type { TimerEventType } from './timer'
-import { ensureNativeTimerPermission, isNativeWorkoutTimerAvailable, startNativeWorkoutTimer, stopNativeWorkoutTimer } from '../native/workoutTimer'
+import { ensureNativeTimerPermission, isNativeWorkoutTimerAvailable, startNativeWorkoutTimer, stopNativeWorkoutTimer, type NativeTimerPhase } from '../native/workoutTimer'
 
 const DEFAULT_TITLE = 'GymBuilder'
 const RESUME_WORKOUT_HREF = '/?resume=workout'
@@ -55,7 +55,7 @@ function updateMediaSession(label: string, remainingSec: number): void {
   }
 }
 
-export function publishBackgroundTimer(label: string, remainingSec: number, paused = false): void {
+export function publishBackgroundTimer(label: string, remainingSec: number, paused = false, phase: NativeTimerPhase = 'other'): void {
   if (typeof document === 'undefined') return
   document.title = document.hidden ? timerTitle(label, remainingSec) : DEFAULT_TITLE
   updateMediaSession(label, remainingSec)
@@ -74,7 +74,7 @@ export function publishBackgroundTimer(label: string, remainingSec: number, paus
     /* Il timer principale continua anche se lo storage non è disponibile. */
   }
   if (!paused && remainingSec > 0) {
-    void startNativeWorkoutTimer(label, state.deadline).catch(() => { /* fallback web già attivo */ })
+    void startNativeWorkoutTimer(label, state.deadline, phase).catch(() => { /* fallback web già attivo */ })
   }
   // Non si ferma mai qui il servizio nativo per remainingSec <= 0: quello stato e' anche il
   // fotogramma transitorio fra un round e il successivo (il round finisce a 0 un istante prima

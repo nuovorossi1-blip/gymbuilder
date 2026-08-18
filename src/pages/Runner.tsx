@@ -123,7 +123,7 @@ export default function Runner() {
   const lastWarning = useRef<string>('')
   const restPausedAt = useRef(0)
   const metconPausedAt = useRef(0)
-  const backgroundState = useRef({ label: 'Allenamento', remaining: 0 })
+  const backgroundState = useRef<{ label: string; remaining: number; phase: 'work' | 'rest' | 'other' }>({ label: 'Allenamento', remaining: 0, phase: 'work' })
 
   if (!audio.current) audio.current = new TimerAudio(audioSettings)
 
@@ -374,23 +374,28 @@ export default function Runner() {
   useEffect(() => {
     let label = 'Allenamento'
     let remaining = 0
+    let phase: 'work' | 'rest' | 'other' = 'work'
     if (countdown !== null) {
       label = isTabata ? `Preparati · Tabata ${intervalliTotali} giri` : 'Preparati'
       remaining = countdown
+      phase = 'other'
     } else if (fase.tipo === 'recupero') {
       label = 'Recupero'
       remaining = rimanente
+      phase = 'rest'
     } else if (sezione === 'metcon' && formato === 'amrap') {
       label = `AMRAP · ${metconGiri} ${metconGiri === 1 ? 'giro' : 'giri'}`
       remaining = metconRimanente
+      phase = 'work'
     } else if (sezione === 'metcon' && aIntervalli) {
       const fase2 = intervalSottofase === 'lavoro' ? 'Lavoro' : 'Recupero'
       label = `${fase2} · Giro ${intervalIndice + 1}/${intervalliTotali}`
       remaining = intervalRimanente
+      phase = intervalSottofase === 'lavoro' ? 'work' : 'rest'
     }
-    backgroundState.current = { label, remaining }
+    backgroundState.current = { label, remaining, phase }
     const paused = (fase.tipo === 'recupero' && inPausa) || (sezione === 'metcon' && metconInPausa)
-    publishBackgroundTimer(label, remaining, paused)
+    publishBackgroundTimer(label, remaining, paused, phase)
   }, [
     aIntervalli, countdown, fase.tipo, formato, inPausa, intervalIndice, intervalliTotali, intervalRimanente,
     intervalSottofase, isTabata, metconGiri, metconInPausa, metconRimanente, rimanente, sezione,
@@ -398,7 +403,7 @@ export default function Runner() {
 
   useEffect(() => {
     const syncVisibility = () => {
-      publishBackgroundTimer(backgroundState.current.label, backgroundState.current.remaining)
+      publishBackgroundTimer(backgroundState.current.label, backgroundState.current.remaining, false, backgroundState.current.phase)
       if (document.hidden) void notifyTimerSnapshot(backgroundState.current.label, backgroundState.current.remaining)
     }
     document.addEventListener('visibilitychange', syncVisibility)

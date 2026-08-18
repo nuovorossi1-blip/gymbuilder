@@ -1,23 +1,25 @@
 import { Capacitor, registerPlugin } from '@capacitor/core'
 
+export type NativeTimerPhase = 'work' | 'rest' | 'other'
+
 interface WorkoutTimerPlugin {
-  start(options: { label: string; deadline: number }): Promise<{ started: boolean; notificationsGranted: boolean }>
+  start(options: { label: string; deadline: number; phase: NativeTimerPhase }): Promise<{ started: boolean; notificationsGranted: boolean }>
   stop(): Promise<void>
   ensurePermission(): Promise<{ granted: boolean }>
 }
 
 const NativeWorkoutTimer = registerPlugin<WorkoutTimerPlugin>('WorkoutTimer')
-let activeNativeTimer: { label: string; deadline: number } | null = null
+let activeNativeTimer: { label: string; deadline: number; phase: NativeTimerPhase } | null = null
 
 export function isNativeWorkoutTimerAvailable(): boolean {
   return Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android'
 }
 
-export async function startNativeWorkoutTimer(label: string, deadline: number): Promise<void> {
+export async function startNativeWorkoutTimer(label: string, deadline: number, phase: NativeTimerPhase = 'other'): Promise<void> {
   if (!isNativeWorkoutTimerAvailable()) return
-  if (activeNativeTimer?.label === label && Math.abs(activeNativeTimer.deadline - deadline) < 1_500) return
-  await NativeWorkoutTimer.start({ label, deadline })
-  activeNativeTimer = { label, deadline }
+  if (activeNativeTimer?.label === label && activeNativeTimer.phase === phase && Math.abs(activeNativeTimer.deadline - deadline) < 1_500) return
+  await NativeWorkoutTimer.start({ label, deadline, phase })
+  activeNativeTimer = { label, deadline, phase }
 }
 
 export async function stopNativeWorkoutTimer(): Promise<void> {

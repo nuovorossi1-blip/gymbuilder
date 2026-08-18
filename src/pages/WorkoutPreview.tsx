@@ -472,8 +472,9 @@ function ReorderableList<T>({
           <li
             key={key}
             data-drag-key={key}
-            className={`slab !py-3.5 ${dragging ? 'opacity-0' : ''}`}
-            style={{ touchAction: dragging ? 'none' : 'pan-y' }}
+            className={`slab !py-3.5 select-none ${dragging ? 'opacity-0' : ''}`}
+            style={{ touchAction: dragging ? 'none' : 'pan-y', WebkitUserSelect: 'none', WebkitTouchCallout: 'none' }}
+            onContextMenu={(event) => event.preventDefault()}
             onPointerDown={(event) => onItemPointerDown(key, index, event)}
             onPointerMove={onItemPointerMove}
             onPointerUp={endDrag}

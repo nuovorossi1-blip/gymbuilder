@@ -7,13 +7,16 @@ import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Intent;
 import android.content.pm.ServiceInfo;
+import android.graphics.Color;
 import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 import android.os.PowerManager;
+import android.os.SystemClock;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
+import android.widget.RemoteViews;
 
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
@@ -24,9 +27,13 @@ public class WorkoutTimerService extends Service {
     public static final String ACTION_STOP = "app.gymbuilder.mobile.STOP_WORKOUT_TIMER";
     public static final String EXTRA_LABEL = "label";
     public static final String EXTRA_DEADLINE = "deadline";
+    /** 'work' | 'rest' | 'other' - decide il colore del countdown custom (sez. buildCountdown). */
+    public static final String EXTRA_PHASE = "phase";
     private static final String CHANNEL_ACTIVE = "gymbuilder_workout_timer";
-    private static final String CHANNEL_ALERTS = "gymbuilder_timer_alerts";
     private static final int NOTIFICATION_ID = 4201;
+    private static final int COLOR_WORK = 0xFFFFD600;
+    private static final int COLOR_REST = 0xFF40C4FF;
+    private static final int COLOR_OTHER = Color.WHITE;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private Runnable completion;
@@ -64,6 +71,8 @@ public class WorkoutTimerService extends Service {
             long deadline = intent.getLongExtra(EXTRA_DEADLINE, 0L);
             String label = intent.getStringExtra(EXTRA_LABEL);
             String safeLabel = label == null ? "Timer allenamento" : label;
+            String phase = intent.getStringExtra(EXTRA_PHASE);
+            String safePhase = phase == null ? "other" : phase;
             if (deadline <= System.currentTimeMillis()) {
                 // Questo Service e' stato avviato con startForegroundService(): se non e' ancora
                 // in foreground, il sistema pretende startForeground() entro pochi secondi anche
@@ -74,39 +83,39 @@ public class WorkoutTimerService extends Service {
                 // lo calcola viene eseguito in ritardo (throttling in background/schermo spento).
                 // Se invece la sessione e' gia' in corso (foregrounded), non c'e' nessun
                 // contratto da rispettare: ci si ferma e basta.
-                if (foregrounded) stopTimer(); else promoteToForegroundThenStop(safeLabel);
+                if (foregrounded) stopTimer(); else promoteToForegroundThenStop(safeLabel, safePhase);
                 return START_NOT_STICKY;
             }
-            if (foregrounded) updateTimer(safeLabel, deadline); else startTimer(safeLabel, deadline);
+            if (foregrounded) updateTimer(safeLabel, deadline, safePhase); else startTimer(safeLabel, deadline, safePhase);
         } catch (RuntimeException error) {
             stopTimerSafely();
         }
         return START_NOT_STICKY;
     }
 
-    private void startTimer(String label, long deadline) {
+    private void startTimer(String label, long deadline, String phase) {
         acquireWakeLock(deadline - System.currentTimeMillis());
-        Notification notification = buildCountdown(label, deadline);
+        Notification notification = buildCountdown(label, deadline, phase);
         int type = Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE
             ? ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE : 0;
         ServiceCompat.startForeground(this, NOTIFICATION_ID, notification, type);
         foregrounded = true;
-        scheduleCompletion(label, deadline);
+        scheduleCompletion(deadline);
     }
 
     /** Round successivo nella stessa sessione: nessuna nuova chiamata a startForeground. */
-    private void updateTimer(String label, long deadline) {
+    private void updateTimer(String label, long deadline, String phase) {
         acquireWakeLock(deadline - System.currentTimeMillis());
         NotificationManager manager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
-        manager.notify(NOTIFICATION_ID, buildCountdown(label, deadline));
-        scheduleCompletion(label, deadline);
+        manager.notify(NOTIFICATION_ID, buildCountdown(label, deadline, phase));
+        scheduleCompletion(deadline);
     }
 
-    private void scheduleCompletion(String label, long deadline) {
+    private void scheduleCompletion(long deadline) {
         if (completion != null) handler.removeCallbacks(completion);
         completion = () -> {
             try {
-                completeTimer(label);
+                completeTimer();
             } catch (RuntimeException error) {
                 stopTimerSafely();
             }
@@ -114,8 +123,8 @@ public class WorkoutTimerService extends Service {
         handler.postDelayed(completion, Math.max(0L, deadline - System.currentTimeMillis()));
     }
 
-    private void promoteToForegroundThenStop(String label) {
-        Notification notification = buildCountdown(label, System.currentTimeMillis());
+    private void promoteToForegroundThenStop(String label, String phase) {
+        Notification notification = buildCountdown(label, System.currentTimeMillis(), phase);
         int type = Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE
             ? ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE : 0;
         ServiceCompat.startForeground(this, NOTIFICATION_ID, notification, type);
@@ -132,40 +141,65 @@ public class WorkoutTimerService extends Service {
         }
     }
 
-    private Notification buildCountdown(String label, long deadline) {
-        return new NotificationCompat.Builder(this, CHANNEL_ACTIVE)
+    /**
+     * Notifica completamente custom (sfondo nero, countdown grande) invece dello stile di
+     * sistema: giallo durante il lavoro, blu durante il riposo, cosi' la fase si riconosce anche
+     * senza leggere il testo. Il Chronometer di RemoteViews e' un widget nativo che l'OS aggiorna
+     * da solo ogni secondo: nessun notify() ripetuto lato nostro, quindi nessun rischio di
+     * spam/flicker di notifiche durante round brevi come nel Tabata.
+     */
+    private Notification buildCountdown(String label, long deadline, String phase) {
+        RemoteViews content = buildCountdownViews(label, deadline, phase);
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ACTIVE)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
-            .setContentTitle(label)
-            .setContentText("Timer attivo · tocca per tornare all’allenamento")
             .setContentIntent(openWorkoutIntent())
             .setCategory("workout")
             .setOngoing(true)
             .setOnlyAlertOnce(true)
-            .setWhen(deadline)
-            .setUsesChronometer(true)
-            .setChronometerCountDown(true)
+            .setShowWhen(false)
+            .setCustomContentView(content)
+            .setCustomBigContentView(content)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             // Contenuto pieno anche a schermo bloccato: senza questo, sul lock screen puo'
             // comparire solo "notifica nascosta" invece del countdown vero e proprio.
-            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .build();
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC);
+        return builder.build();
     }
 
-    private void completeTimer(String label) {
+    private RemoteViews buildCountdownViews(String label, long deadline, String phase) {
+        RemoteViews views = new RemoteViews(getPackageName(), R.layout.notification_timer);
+        views.setTextViewText(R.id.notification_timer_label, phaseTitle(phase));
+        views.setTextViewText(R.id.notification_timer_title, label);
+        views.setTextColor(R.id.notification_timer_chronometer, phaseColor(phase));
+        // Chronometer conta da SystemClock.elapsedRealtime(), non da un epoch: va convertita la
+        // deadline (wall clock, calcolata lato JS con Date.now()) nella stessa base temporale.
+        long base = SystemClock.elapsedRealtime() + (deadline - System.currentTimeMillis());
+        views.setChronometer(R.id.notification_timer_chronometer, base, null, true);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            views.setChronometerCountDown(R.id.notification_timer_chronometer, true);
+        }
+        return views;
+    }
+
+    private static String phaseTitle(String phase) {
+        if ("work".equals(phase)) return "LAVORO";
+        if ("rest".equals(phase)) return "RIPOSO";
+        return "TIMER ATTIVO";
+    }
+
+    private static int phaseColor(String phase) {
+        if ("work".equals(phase)) return COLOR_WORK;
+        if ("rest".equals(phase)) return COLOR_REST;
+        return COLOR_OTHER;
+    }
+
+    private void completeTimer() {
         releaseWakeLock();
+        // Solo vibrazione come segnale di cambio fase: prima qui si postava anche una notifica
+        // separata a ogni round, che su un Tabata (round ogni 10-30s) diventava uno spam continuo
+        // di popup/vibrazioni sovrapposte a quelle della UI in-app. Il countdown persistente
+        // (gia' aggiornato dal round successivo via updateTimer) resta l'unico avviso visivo.
         vibrateLong();
-        Notification completed = new NotificationCompat.Builder(this, CHANNEL_ALERTS)
-            .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
-            .setContentTitle("⏱️ Tempo terminato")
-            .setContentText(label + " · tocca per continuare l’allenamento")
-            .setContentIntent(openWorkoutIntent())
-            .setCategory(NotificationCompat.CATEGORY_ALARM)
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setAutoCancel(true)
-            .setVibrate(new long[] { 0, 1200 })
-            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .build();
-        ((NotificationManager) getSystemService(NOTIFICATION_SERVICE)).notify(NOTIFICATION_ID + 1, completed);
         // Non ferma il Service: la sessione prosegue col round successivo (updateTimer(), stesso
         // ServiceRecord). Si ferma solo su ACTION_STOP esplicito da JS a fine sessione vera.
     }
@@ -211,11 +245,10 @@ public class WorkoutTimerService extends Service {
         NotificationChannel active = new NotificationChannel(CHANNEL_ACTIVE, "Timer allenamento", NotificationManager.IMPORTANCE_LOW);
         active.setDescription("Conto alla rovescia persistente dell’allenamento in corso");
         manager.createNotificationChannel(active);
-        NotificationChannel alerts = new NotificationChannel(CHANNEL_ALERTS, "Scadenze timer", NotificationManager.IMPORTANCE_HIGH);
-        alerts.setDescription("Avvisi per inizio lavoro e fine recupero");
-        alerts.enableVibration(true);
-        alerts.setVibrationPattern(new long[] { 0, 1200 });
-        manager.createNotificationChannel(alerts);
+        // Il canale "Scadenze timer" postava un popup separato a ogni cambio round: rimosso
+        // (sez. completeTimer) perche' era spam su round brevi. Si elimina anche qui il canale
+        // gia' creato sui device con una versione precedente dell'app installata.
+        manager.deleteNotificationChannel("gymbuilder_timer_alerts");
     }
 
     @Override
