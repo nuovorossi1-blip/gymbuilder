@@ -84,7 +84,7 @@ export default function History() {
       <ul className="mt-7 space-y-2.5">
         {lista?.slice(0, 1).map((c) => (
           <li key={c.id}>
-            <SwipeToDeleteRow confirmLabel={`Eliminare “${c.name}” dallo storico?`} onDelete={() => void elimina(c)}>
+            <SwipeToDeleteRow confirmLabel={`Eliminare “${c.name}” dallo storico?`} onDelete={() => elimina(c)}>
               <div className="slab space-y-3">
                 <div className="flex items-baseline justify-between gap-3">
                   <span className="font-display font-bold uppercase tracking-wide text-[16px]">{c.name}</span>

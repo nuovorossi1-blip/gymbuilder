@@ -207,6 +207,16 @@ describe('generaBodybuilding — scenario critico sez. 28 della correzione', () 
     expect(muscles).toContain('rear_delts'); expect(muscles).toContain('biceps'); expect(muscles).toContain('triceps')
   })
 
+  it('Pull con tutte e cinque le carenze di spalle/braccia non perde mai il dorso', () => {
+    const w = generaBodybuilding(catalogo, {
+      split: 'pull', goal: 'hypertrophy', experience: 'advanced', equipment: 'full_gym', duration_min: 60,
+      priority_muscles: ['front_delts', 'lateral_delts', 'rear_delts', 'biceps', 'triceps'],
+      excluded_exercises: [], seed: 14,
+    })
+    const muscles = mainBlock(w).exercises.map((exercise) => exercise.muscle)
+    expect(muscles.filter((muscle) => muscle === 'back').length).toBeGreaterThanOrEqual(1)
+  })
+
   it('Legs senza carenze esterne mantiene quad compound, posterior chain, isolamenti e polpacci', () => {
     const w = generaBodybuilding(catalogo, {
       split: 'legs', goal: 'hypertrophy', experience: 'advanced', equipment: 'full_gym', duration_min: 60,

@@ -41,6 +41,10 @@ public class WorkoutTimerService extends Service {
     private Runnable completion;
     private PowerManager.WakeLock wakeLock;
     private boolean vibrateEnabled = true;
+    // Serve a completeTimer() per ricostruire la notifica "congelata" a fine round (sez. sotto):
+    // l'ultima label/fase note, dato che li' non arrivano piu' come parametro.
+    private String lastLabel = "";
+    private String lastPhase = "other";
     // true dal momento in cui QUESTA istanza del Service ha soddisfatto il contratto
     // startForeground() dopo Context.startForegroundService(). Il Runner React riavvia il
     // timer a ogni cambio di fase/round (ogni 10-20s in un Tabata), spesso a schermo spento:
@@ -98,6 +102,8 @@ public class WorkoutTimerService extends Service {
     }
 
     private void startTimer(String label, long deadline, String phase) {
+        lastLabel = label;
+        lastPhase = phase;
         acquireWakeLock(deadline - System.currentTimeMillis());
         Notification notification = buildCountdown(label, deadline, phase);
         int type = Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE
@@ -109,6 +115,8 @@ public class WorkoutTimerService extends Service {
 
     /** Round successivo nella stessa sessione: nessuna nuova chiamata a startForeground. */
     private void updateTimer(String label, long deadline, String phase) {
+        lastLabel = label;
+        lastPhase = phase;
         acquireWakeLock(deadline - System.currentTimeMillis());
         NotificationManager manager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
         manager.notify(NOTIFICATION_ID, buildCountdown(label, deadline, phase));
@@ -153,8 +161,17 @@ public class WorkoutTimerService extends Service {
      * spam/flicker di notifiche durante round brevi come nel Tabata.
      */
     private Notification buildCountdown(String label, long deadline, String phase) {
-        RemoteViews content = buildCountdownViews(label, deadline, phase);
-        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ACTIVE)
+        RemoteViews content = buildCountdownViews(label, phaseTitle(phase), phase);
+        long base = SystemClock.elapsedRealtime() + (deadline - System.currentTimeMillis());
+        content.setChronometer(R.id.notification_timer_chronometer, base, null, true);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            content.setChronometerCountDown(R.id.notification_timer_chronometer, true);
+        }
+        return notificationFrom(content);
+    }
+
+    private Notification notificationFrom(RemoteViews content) {
+        return new NotificationCompat.Builder(this, CHANNEL_ACTIVE)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
             .setContentIntent(openWorkoutIntent())
             .setCategory("workout")
@@ -166,22 +183,16 @@ public class WorkoutTimerService extends Service {
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             // Contenuto pieno anche a schermo bloccato: senza questo, sul lock screen puo'
             // comparire solo "notifica nascosta" invece del countdown vero e proprio.
-            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC);
-        return builder.build();
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .build();
     }
 
-    private RemoteViews buildCountdownViews(String label, long deadline, String phase) {
+    /** exerciseLabel: testo secondario (nome esercizio/round, da JS). topLabel: testo in alto in grassetto (fase). */
+    private RemoteViews buildCountdownViews(String exerciseLabel, String topLabel, String phase) {
         RemoteViews views = new RemoteViews(getPackageName(), R.layout.notification_timer);
-        views.setTextViewText(R.id.notification_timer_label, phaseTitle(phase));
-        views.setTextViewText(R.id.notification_timer_title, label);
+        views.setTextViewText(R.id.notification_timer_label, topLabel);
+        views.setTextViewText(R.id.notification_timer_title, exerciseLabel);
         views.setTextColor(R.id.notification_timer_chronometer, phaseColor(phase));
-        // Chronometer conta da SystemClock.elapsedRealtime(), non da un epoch: va convertita la
-        // deadline (wall clock, calcolata lato JS con Date.now()) nella stessa base temporale.
-        long base = SystemClock.elapsedRealtime() + (deadline - System.currentTimeMillis());
-        views.setChronometer(R.id.notification_timer_chronometer, base, null, true);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            views.setChronometerCountDown(R.id.notification_timer_chronometer, true);
-        }
         return views;
     }
 
@@ -197,13 +208,20 @@ public class WorkoutTimerService extends Service {
         return COLOR_OTHER;
     }
 
+    /**
+     * Il Chronometer di RemoteViews e' un cronometro puro: non sa nulla del round, quindi una
+     * volta avviato continua a contare OLTRE lo zero (i "-00:13" osservati) finche' non arriva un
+     * round successivo. Qui lo si ferma esplicitamente al momento della scadenza, cosi' resta
+     * fermo su 00:00 invece di andare in negativo se il round successivo tarda ad arrivare
+     * (schermo spento, throttling in background).
+     */
     private void completeTimer() {
         releaseWakeLock();
-        // Solo vibrazione come segnale di cambio fase: prima qui si postava anche una notifica
-        // separata a ogni round, che su un Tabata (round ogni 10-30s) diventava uno spam continuo
-        // di popup/vibrazioni sovrapposte a quelle della UI in-app. Il countdown persistente
-        // (gia' aggiornato dal round successivo via updateTimer) resta l'unico avviso visivo.
         if (vibrateEnabled) vibrateLong();
+        RemoteViews frozen = buildCountdownViews(lastLabel, "COMPLETATO", lastPhase);
+        frozen.setChronometer(R.id.notification_timer_chronometer, SystemClock.elapsedRealtime(), null, false);
+        NotificationManager manager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+        manager.notify(NOTIFICATION_ID, notificationFrom(frozen));
         // Non ferma il Service: la sessione prosegue col round successivo (updateTimer(), stesso
         // ServiceRecord). Si ferma solo su ACTION_STOP esplicito da JS a fine sessione vera.
     }

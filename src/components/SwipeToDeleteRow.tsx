@@ -2,7 +2,7 @@ import { useRef, useState, type PointerEvent, type ReactNode } from 'react'
 
 interface SwipeToDeleteRowProps {
   children: ReactNode
-  onDelete: () => void
+  onDelete: () => void | Promise<void>
   confirmLabel: string
 }
 
@@ -20,9 +20,27 @@ const REVEAL_THRESHOLD = 70
  */
 export function SwipeToDeleteRow({ children, onDelete, confirmLabel }: SwipeToDeleteRowProps) {
   const [confirming, setConfirming] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const [dragX, setDragX] = useState(0)
   const [dragging, setDragging] = useState(false)
   const state = useRef<{ pointerId: number; startX: number; startY: number; committed: boolean } | null>(null)
+
+  // Se si chiude subito il pannello di conferma al tap su "Elimina" (senza aspettare che
+  // l'eliminazione remota finisca), la riga torna a sembrare una card normale mentre la richiesta
+  // è ancora in volo: sembra che il tap non abbia fatto nulla. Restare in stato "Eliminazione…"
+  // finché la promise non risolve dà un riscontro immediato; in caso di errore si torna alla
+  // conferma (non alla card normale) così il tentativo resta a portata di un altro tap.
+  async function confermaEliminazione() {
+    setDeleting(true)
+    try {
+      await onDelete()
+    } finally {
+      // Su successo il genitore rimuove l'elemento dalla lista e questo componente si smonta:
+      // resettare qui non ha effetto visibile. Su un fallimento anche solo gestito dal genitore
+      // (senza rilanciare l'errore), riabilita il pulsante invece di restare bloccato per sempre.
+      setDeleting(false)
+    }
+  }
 
   function onPointerDown(event: PointerEvent<HTMLDivElement>) {
     if (event.pointerType === 'mouse' && event.button !== 0) return
@@ -60,16 +78,18 @@ export function SwipeToDeleteRow({ children, onDelete, confirmLabel }: SwipeToDe
         <p className="text-[13px] leading-snug text-red-200">{confirmLabel}</p>
         <div className="flex shrink-0 gap-2">
           <button
-            className="rounded-xl border border-edge px-3.5 py-2.5 font-data text-[11px] uppercase tracking-wider text-slate2"
+            className="rounded-xl border border-edge px-3.5 py-2.5 font-data text-[11px] uppercase tracking-wider text-slate2 disabled:opacity-40"
+            disabled={deleting}
             onClick={() => setConfirming(false)}
           >
             Annulla
           </button>
           <button
-            className="rounded-xl bg-red-500 px-3.5 py-2.5 font-data text-[11px] font-bold uppercase tracking-wider text-white"
-            onClick={() => { setConfirming(false); onDelete() }}
+            className="rounded-xl bg-red-500 px-3.5 py-2.5 font-data text-[11px] font-bold uppercase tracking-wider text-white disabled:opacity-60"
+            disabled={deleting}
+            onClick={() => void confermaEliminazione()}
           >
-            Elimina
+            {deleting ? 'Eliminazione…' : 'Elimina'}
           </button>
         </div>
       </div>

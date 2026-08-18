@@ -348,8 +348,14 @@ function applicaPrioritaAssegnate(base: SlotDef[], priority: Muscle[]): { slots:
     if (existing) { existing.weakPoint = true; represented.add(requirement) }
   }
   const missing = requirements.filter((muscle) => !represented.has(muscle))
+  // Muscolo identitario dello split (dorso per Pull, petto per Push, ecc.): con abbastanza
+  // carenze mancanti il taglio qui sotto poteva svuotarlo del tutto (visto in produzione: un Pull
+  // senza un solo esercizio dorso). Finché resta un'alternativa, si preferisce togliere altro.
+  const identitario = base[0]?.muscle
   while (slots.length + missing.length > 6 && slots.length > 3) {
-    const removable = slots.map((slot, index) => ({ slot, index })).reverse().find(({ slot }) => !slot.weakPoint)
+    const candidati = slots.map((slot, index) => ({ slot, index })).reverse().filter(({ slot }) => !slot.weakPoint)
+    const ultimaCopiaIdentitaria = (muscle: Muscle) => slots.filter((slot) => slot.muscle === muscle).length <= 1
+    const removable = candidati.find(({ slot }) => slot.muscle !== identitario || !ultimaCopiaIdentitaria(slot.muscle)) ?? candidati[0]
     if (!removable) break
     slots.splice(removable.index, 1)
   }

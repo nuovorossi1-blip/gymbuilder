@@ -74,7 +74,8 @@ export async function cambiaPreferito(id: string, favorite: boolean): Promise<vo
 }
 
 export async function eliminaSalvato(id: string): Promise<void> {
-  await supabase.from('saved_workouts').delete().eq('id', id)
+  const { error } = await supabase.from('saved_workouts').delete().eq('id', id)
+  if (error) throw new Error('Non siamo riusciti a eliminare la scheda.')
 }
 
 export async function registraCompletato(

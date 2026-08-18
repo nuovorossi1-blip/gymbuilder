@@ -117,7 +117,7 @@ export default function Saved() {
           <li key={s.id}>
             <SwipeToDeleteRow
               confirmLabel={`Eliminare “${SPLIT_LABELS[s.split as Split] ?? s.name}” dai salvati?`}
-              onDelete={() => void elimina(s)}
+              onDelete={() => elimina(s)}
             >
               <div className="rounded-2xl glass-card border border-edge p-4 space-y-3">
                 <div className="flex items-start justify-between">
