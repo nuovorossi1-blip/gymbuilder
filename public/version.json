@@ -1,8 +1,8 @@
 {
-  "version": "1.0.27",
-  "versionCode": 27,
+  "version": "1.0.28",
+  "versionCode": 28,
   "apkUrl": "https://gymbuilder-lemon.vercel.app/gymbuilder.apk",
   "releaseUrl": "https://github.com/nuovorossi1-blip/gymbuilder/releases/latest",
-  "notes": "Build automatica dal commit 07b32a7e9086eb171ff214e1173a18b978eaa064.",
+  "notes": "Build automatica dal commit 8be73fdff3dfded40cc793e21d3f75d03b3313ef.",
   "mandatory": false
 }
