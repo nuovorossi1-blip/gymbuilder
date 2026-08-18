@@ -75,14 +75,14 @@ export function publishBackgroundTimer(label: string, remainingSec: number, paus
   }
   if (!paused && remainingSec > 0) {
     void startNativeWorkoutTimer(label, state.deadline).catch(() => { /* fallback web già attivo */ })
-  } else if (remainingSec <= 0) {
-    // In pausa non si ferma il servizio nativo: fermarlo e riavviarlo a ogni pausa/ripresa
-    // significa distruggere e ricreare il foreground service molte volte in una sessione,
-    // superficie inutile per crash legati alle restrizioni Android sui foreground service
-    // (sez. WorkoutTimerService). Da fermo per davvero (fine/uscita) resetBackgroundTimer(true)
-    // chiama comunque stopNativeWorkoutTimer() direttamente.
-    void stopNativeWorkoutTimer().catch(() => { /* nessun servizio nativo */ })
   }
+  // Non si ferma mai qui il servizio nativo per remainingSec <= 0: quello stato e' anche il
+  // fotogramma transitorio fra un round e il successivo (il round finisce a 0 un istante prima
+  // che il Runner calcoli il prossimo remaining/deadline). Fermare e ricreare il foreground
+  // service a ogni cambio round riapriva la finestra di 5s del contratto startForeground() a
+  // ogni round, causa dei crash ForegroundServiceDidNotStartInTimeException in serie (sez.
+  // WorkoutTimerService). Il servizio nativo resta vivo per tutta la sessione: si ferma solo
+  // per davvero via resetBackgroundTimer(true), chiamato a fine sessione o all'uscita.
 }
 
 export async function notifyTimerEvent(type: TimerEventType, label: string): Promise<void> {

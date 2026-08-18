@@ -450,6 +450,11 @@ export function analyzeWorkoutRecovery(workout: GeneratedWorkout, catalog: Exerc
 
 export function applyWorkoutRecovery(program: WeeklyProgram, sessionId: string, workout: GeneratedWorkout, catalog: Exercise[]): WeeklyProgram {
   const profile = analyzeWorkoutRecovery(workout, catalog)
-  const week = program.week.map((session) => session.id === sessionId ? { ...session, recovery_profile: profile, muscle_load: Object.keys(profile.muscle_stress) as Muscle[], estimated_fatigue: profile.fatigue_score >= 8 ? 3 as const : profile.fatigue_score >= 5 ? 2 as const : 1 as const } : session)
+  // Si congela anche il workout generato sulla seduta (come gia' avveniva solo per le sedute
+  // compilate da un LLM): senza questo, ogni volta che si riapre un giorno gia' generato dal
+  // motore locale (generateDay in Create.tsx trova generated_workout assente) lo si rigenerava
+  // da zero con un nuovo seed casuale, perdendo qualunque riordino o sostituzione fatta
+  // dall'utente in WorkoutPreview e mostrando esercizi diversi ogni volta.
+  const week = program.week.map((session) => session.id === sessionId ? { ...session, generated_workout: workout, recovery_profile: profile, muscle_load: Object.keys(profile.muscle_stress) as Muscle[], estimated_fatigue: profile.fatigue_score >= 8 ? 3 as const : profile.fatigue_score >= 5 ? 2 as const : 1 as const } : session)
   return { ...program, week, warnings: validateWeeklyProgram(week, program.config) }
 }

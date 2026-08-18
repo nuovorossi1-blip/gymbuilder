@@ -107,6 +107,11 @@ export async function elencoStorico(userId: string): Promise<CompletedWorkout[]>
   return (data ?? []) as CompletedWorkout[]
 }
 
+export async function eliminaStorico(id: string): Promise<void> {
+  const { error } = await supabase.from('completed_workouts').delete().eq('id', id)
+  if (error) throw new Error("Non siamo riusciti a eliminare l'allenamento.")
+}
+
 /**
  * Volume settimanale per muscolo dagli ultimi allenamenti completati, usato
  * dal motore per decidere i richiami sui muscoli carenti (weakPoints.ts).

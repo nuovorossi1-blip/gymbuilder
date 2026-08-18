@@ -14,6 +14,7 @@ import ProfilePage from './pages/ProfilePage'
 import { ActiveTimerBanner } from './components/ActiveTimerBanner'
 import NativeUpdater from './components/NativeUpdater'
 import InstallBanner from './components/InstallBanner'
+import { ErrorBoundary } from './components/ErrorBoundary'
 
 function Guscio() {
   const { user, loading } = useAuth()
@@ -84,7 +85,7 @@ function Guscio() {
 
 export default function App() {
   return (
-    <>
+    <ErrorBoundary>
       <NativeUpdater />
       <AuthProvider>
         <WorkoutProvider>
@@ -93,6 +94,6 @@ export default function App() {
           </BrowserRouter>
         </WorkoutProvider>
       </AuthProvider>
-    </>
+    </ErrorBoundary>
   )
 }

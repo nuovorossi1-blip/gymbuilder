@@ -136,6 +136,10 @@ export interface WorkoutBlock {
 
 export interface GeneratedWorkout {
   name: string
+  /** Presente quando il workout appartiene a una seduta di un WeeklyProgram: lega WorkoutPreview
+   *  alla seduta da aggiornare (riordino/sostituzione esercizi) quando si salva. Assente per un
+   *  workout salvato in Libreria in modo indipendente. */
+  session_id?: string
   mode: Mode
   /** Null per CrossFit Standard: non ha uno split per gruppo muscolare, ha Strength/Skill + Metcon. */
   split: Split | null

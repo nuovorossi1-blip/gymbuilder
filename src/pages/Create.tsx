@@ -86,16 +86,20 @@ export default function Create() {
   async function createProgram(config: WeeklyProgramConfig) {
     try {
       const effectiveWeakPoints = resolveEffectiveWeakPoints(config.weak_points, profile)
-      const isTabata = config.selected_modes.includes('tabata')
+      // Solo il tabata "puro" (unica disciplina selezionata) forza una sessione singola: se e'
+      // combinato con un'altra disciplina (es. bodybuilding + tabata su un programma di 5
+      // giorni), il programma settimanale va generato e salvato normalmente, coi giorni misti
+      // che il motore (generateWeeklyProgram) gia' sa assegnare.
+      const isTabataOnly = config.selected_modes.length === 1 && config.selected_modes[0] === 'tabata'
       const configWithProfile = {
         ...config,
         weak_points: effectiveWeakPoints,
-        program_kind: isTabata ? ('single_session' as const) : config.program_kind,
+        program_kind: isTabataOnly ? ('single_session' as const) : config.program_kind,
       }
       const automaticConfig = applyAutomaticProgramming(configWithProfile)
       const generated = generateWeeklyProgram(automaticConfig)
       setBuilderInitial(generated.config)
-      if (automaticConfig.program_kind === 'single_session' || isTabata) {
+      if (automaticConfig.program_kind === 'single_session') {
         setWeeklyProgram(generated)
         generateDay(generated.week[0], generated)
         return
@@ -150,6 +154,7 @@ export default function Create() {
     const excluded = [...new Set([...global.preferences.excluded_exercise_ids, ...adaptiveExcluded])]
     const workout = {
       ...workoutBase,
+      session_id: session.id,
       blocks: workoutBase.blocks.map((block) => ({
         ...block,
         exercises: block.exercises.map((exercise) => ({ ...exercise })),
@@ -232,10 +237,11 @@ export default function Create() {
   async function createProgramWithAi(config: WeeklyProgramConfig, prompt: string) {
     try {
       const effectiveWeakPoints = resolveEffectiveWeakPoints(config.weak_points, profile)
+      const isTabataOnly = config.selected_modes.length === 1 && config.selected_modes[0] === 'tabata'
       const normalizedConfig = applyAutomaticProgramming({
         ...config,
         weak_points: effectiveWeakPoints,
-        program_kind: config.selected_modes.includes('tabata') ? ('single_session' as const) : config.program_kind,
+        program_kind: isTabataOnly ? ('single_session' as const) : config.program_kind,
       })
       const skeletonProgram = generateWeeklyProgram(normalizedConfig)
       const adaptiveExcluded = user ? adaptiveExcludedIds(user.id, catalog) : []
@@ -371,6 +377,11 @@ function WizardBuilder({
   }, [initial, initialStep])
 
   const isTabata = config.selected_modes.includes('tabata')
+  // Tabata "puro": unica disciplina selezionata, nessuna combinazione (es. bodybuilding +
+  // tabata). Solo in questo caso il tabata non ha bisogno di split/attrezzatura/muscoli
+  // carenti/preferenze propri della disciplina che manca - se e' combinato con un'altra
+  // disciplina, quegli step servono comunque a configurare la disciplina abbinata.
+  const isTabataOnly = isTabata && config.selected_modes.length === 1
   const maxModes = config.program_kind === 'single_session' ? 1 : 2
   const modesValid = config.selected_modes.length > 0 && config.selected_modes.length <= maxModes
   const valid = modesValid && catalog.length > 0
@@ -398,20 +409,21 @@ function WizardBuilder({
     })
   }
 
-  // Il Tabata ha una prescrizione fissa: dopo il timer si salta direttamente a Genera,
-  // senza chiedere attrezzatura/muscoli carenti/preferenze/durata che non usa.
-  const stepAfter = (n: number) => (isTabata && n === 4 ? 9 : Math.min(TOTAL_STEPS, n + 1))
-  const stepBefore = (n: number) => (isTabata && n === 9 ? 4 : Math.max(1, n - 1))
+  // Il Tabata puro ha una prescrizione fissa: dopo il timer si salta direttamente a Genera,
+  // senza chiedere attrezzatura/muscoli carenti/preferenze/durata che non usa. Combinato con
+  // un'altra disciplina, invece, quegli step restano necessari per configurarla.
+  const stepAfter = (n: number) => (isTabataOnly && n === 4 ? 9 : Math.min(TOTAL_STEPS, n + 1))
+  const stepBefore = (n: number) => (isTabataOnly && n === 9 ? 4 : Math.max(1, n - 1))
 
   const stepValid = (n: number): boolean => {
     if (n === 3) return modesValid
     return true
   }
 
-  const showBBSplitSystem = !isTabata && config.program_kind === 'program' && config.selected_modes.includes('bodybuilding')
-  const showSingleSplit = !isTabata && config.program_kind === 'single_session' && (config.selected_modes.includes('bodybuilding') || config.selected_modes.includes('strength'))
-  const showCrossfitBenchmark = !isTabata && config.selected_modes.includes('crossfit')
-  const showCrossfitTarget = !isTabata && config.program_kind === 'single_session' && (config.selected_modes.includes('crossfit') || config.selected_modes.includes('crossfit_hybrid'))
+  const showBBSplitSystem = !isTabataOnly && config.program_kind === 'program' && config.selected_modes.includes('bodybuilding')
+  const showSingleSplit = !isTabataOnly && config.program_kind === 'single_session' && (config.selected_modes.includes('bodybuilding') || config.selected_modes.includes('strength'))
+  const showCrossfitBenchmark = !isTabataOnly && config.selected_modes.includes('crossfit')
+  const showCrossfitTarget = !isTabataOnly && config.program_kind === 'single_session' && (config.selected_modes.includes('crossfit') || config.selected_modes.includes('crossfit_hybrid'))
   const hasSplitContent = showBBSplitSystem || showSingleSplit || showCrossfitBenchmark || showCrossfitTarget
 
   const goNext = () => {
@@ -440,7 +452,7 @@ function WizardBuilder({
     }
   }
 
-  const stepTitle = step === 4 ? (isTabata ? 'Timer Tabata' : 'Split') : STEP_TITLES[step]
+  const stepTitle = step === 4 ? (isTabataOnly ? 'Timer Tabata' : isTabata ? 'Split & Timer Tabata' : 'Split') : STEP_TITLES[step]
 
   return (
     <div className="space-y-6">
@@ -575,7 +587,8 @@ function WizardBuilder({
       {/* STEP 4: Split (o parametri speciali CrossFit/Tabata) */}
       {step === 4 && (
         <SwipeContainer direction={slideDirection} onSwipeLeft={goNext} onSwipeRight={goBack} className="space-y-5">
-          {isTabata ? (
+          <>
+          {isTabata && (
             <Field title="⏱️ Parametri Timer Tabata / Intervalli">
               <div className="space-y-4 rounded-xl border border-amber-500/40 bg-amber-500/10 p-4">
                 {/* 1. Numero di Giri */}
@@ -692,7 +705,8 @@ function WizardBuilder({
                 </div>
               </div>
             </Field>
-          ) : (
+          )}
+          {!isTabataOnly && (
             <>
               {showBBSplitSystem && (
                 <Field title="Sistema Split Bodybuilding">
@@ -812,6 +826,7 @@ function WizardBuilder({
               )}
             </>
           )}
+          </>
           <StepNav onBack={goBack} onNext={goNext} nextDisabled={!stepValid(4)} />
         </SwipeContainer>
       )}

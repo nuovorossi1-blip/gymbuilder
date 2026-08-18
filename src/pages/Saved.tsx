@@ -5,6 +5,7 @@ import { useWorkout } from '../features/workout/WorkoutContext'
 import { cambiaPreferito, caricaCatalogo, elencoSalvati, eliminaSalvato } from '../lib/api'
 import { GOAL_LABELS, SPLIT_LABELS, type Goal, type Mode, type SavedWorkout, type Split } from '../types'
 import { SwipeContainer } from '../components/SwipeContainer'
+import { SwipeToDeleteRow } from '../components/SwipeToDeleteRow'
 
 export default function Saved() {
   const { user } = useAuth()
@@ -51,7 +52,6 @@ export default function Saved() {
   }
 
   async function elimina(s: SavedWorkout) {
-    if (!window.confirm(`Eliminare “${s.name}” dai tuoi allenamenti salvati?`)) return
     try {
       await eliminaSalvato(s.id)
       setLista((current) => current?.filter((item) => item.id !== s.id) ?? [])
@@ -114,51 +114,52 @@ export default function Saved() {
 
       <ul className="space-y-3">
         {lista?.map((s) => (
-          <li key={s.id} className="rounded-2xl glass-card border border-edge p-4 space-y-3">
-            <div className="flex items-start justify-between">
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="font-display font-bold text-base text-white">
-                    {SPLIT_LABELS[s.split as Split] ?? s.name}
-                  </span>
-                  {s.favorite && (
-                    <span className="text-amber-400 text-sm">★</span>
-                  )}
+          <li key={s.id}>
+            <SwipeToDeleteRow
+              confirmLabel={`Eliminare “${SPLIT_LABELS[s.split as Split] ?? s.name}” dai salvati?`}
+              onDelete={() => void elimina(s)}
+            >
+              <div className="rounded-2xl glass-card border border-edge p-4 space-y-3">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-display font-bold text-base text-white">
+                        {SPLIT_LABELS[s.split as Split] ?? s.name}
+                      </span>
+                      {s.favorite && (
+                        <span className="text-amber-400 text-sm">★</span>
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      {GOAL_LABELS[s.goal as Goal]} · {s.duration_min} min · {new Date(s.created_at).toLocaleDateString('it-IT')}
+                    </p>
+                  </div>
+                  <button
+                    className="text-slate-400 hover:text-amber-400 transition-colors text-lg"
+                    onClick={async () => { await cambiaPreferito(s.id, !s.favorite); carica() }}
+                    aria-label="Preferito"
+                  >
+                    {s.favorite ? '★' : '☆'}
+                  </button>
                 </div>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  {GOAL_LABELS[s.goal as Goal]} · {s.duration_min} min · {new Date(s.created_at).toLocaleDateString('it-IT')}
-                </p>
-              </div>
-              <button
-                className="text-slate-400 hover:text-amber-400 transition-colors text-lg"
-                onClick={async () => { await cambiaPreferito(s.id, !s.favorite); carica() }}
-                aria-label="Preferito"
-              >
-                {s.favorite ? '★' : '☆'}
-              </button>
-            </div>
 
-            {/* 1-Tap Action Row */}
-            <div className="grid grid-cols-3 gap-2 border-t border-edge/60 pt-3">
-              <button
-                onClick={() => apri(s, true)}
-                className="rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 py-2.5 font-display text-xs font-bold uppercase text-white shadow-md glow-emerald active:scale-[0.98]"
-              >
-                ▶ Inizia
-              </button>
-              <button
-                onClick={() => apri(s, false)}
-                className="rounded-xl glass-card py-2.5 font-display text-xs font-bold uppercase text-slate-300 hover:text-white"
-              >
-                👁️ Dettagli
-              </button>
-              <button
-                onClick={() => void elimina(s)}
-                className="rounded-xl border border-red-500/30 bg-red-500/10 py-2.5 font-display text-xs font-bold uppercase text-red-300 hover:bg-red-500/20"
-              >
-                🗑️ Elimina
-              </button>
-            </div>
+                {/* 1-Tap Action Row · elimina: swipe a destra sulla card */}
+                <div className="grid grid-cols-2 gap-2 border-t border-edge/60 pt-3">
+                  <button
+                    onClick={() => apri(s, true)}
+                    className="rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 py-2.5 font-display text-xs font-bold uppercase text-white shadow-md glow-emerald active:scale-[0.98]"
+                  >
+                    ▶ Inizia
+                  </button>
+                  <button
+                    onClick={() => apri(s, false)}
+                    className="rounded-xl glass-card py-2.5 font-display text-xs font-bold uppercase text-slate-300 hover:text-white"
+                  >
+                    👁️ Dettagli
+                  </button>
+                </div>
+              </div>
+            </SwipeToDeleteRow>
           </li>
         ))}
       </ul>

@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../features/auth/AuthProvider'
 import { useWorkout } from '../features/workout/WorkoutContext'
-import { caricaCatalogo, elencoStorico } from '../lib/api'
+import { caricaCatalogo, elencoStorico, eliminaStorico } from '../lib/api'
 import type { CompletedWorkout } from '../types'
+import { SwipeToDeleteRow } from '../components/SwipeToDeleteRow'
 
 const VALUTAZIONI: Record<string, string> = {
   facile: 'Facile', giusto: 'Giusto', duro: 'Duro', troppo_duro: 'Troppo duro',
@@ -56,6 +57,15 @@ export default function History() {
     naviga(startImmediate ? '/avvia' : '/allenamento')
   }
 
+  async function elimina(c: CompletedWorkout) {
+    try {
+      await eliminaStorico(c.id)
+      setLista((current) => current?.filter((item) => item.id !== c.id) ?? [])
+    } catch (e) {
+      setErrore(e instanceof Error ? e.message : "Non siamo riusciti a eliminare l'allenamento.")
+    }
+  }
+
   return (
     <div className="px-5 pt-12 pb-4">
       <h1 className="font-display font-extrabold uppercase text-[2.4rem] leading-none tracking-tight">Ultimo allenamento</h1>
@@ -73,31 +83,35 @@ export default function History() {
 
       <ul className="mt-7 space-y-2.5">
         {lista?.slice(0, 1).map((c) => (
-          <li key={c.id} className="slab space-y-3">
-            <div className="flex items-baseline justify-between gap-3">
-              <span className="font-display font-bold uppercase tracking-wide text-[16px]">{c.name}</span>
-              <span className="font-data text-[12px] text-slate2 whitespace-nowrap">
-                {Math.round(c.duration_sec / 60)} min
-              </span>
-            </div>
-            <p className="font-data text-[11px] uppercase tracking-[0.12em] text-slate2">
-              {new Date(c.completed_at).toLocaleDateString('it-IT', { day: 'numeric', month: 'long' })}
-              {c.rating && ` · ${VALUTAZIONI[c.rating] ?? c.rating}`}
-            </p>
-            <div className="grid grid-cols-2 gap-2 border-t border-edge/60 pt-3">
-              <button
-                className="rounded-xl border border-edge bg-steel py-2.5 font-data text-[11px] uppercase tracking-[0.14em] text-chalk active:bg-edge"
-                onClick={() => apri(c, false)}
-              >
-                👁️ Vedi dettagli
-              </button>
-              <button
-                className="rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 py-2.5 font-display text-[11px] font-bold uppercase tracking-[0.14em] text-white active:scale-[0.98]"
-                onClick={() => apri(c, true)}
-              >
-                ▶ Ripeti
-              </button>
-            </div>
+          <li key={c.id}>
+            <SwipeToDeleteRow confirmLabel={`Eliminare “${c.name}” dallo storico?`} onDelete={() => void elimina(c)}>
+              <div className="slab space-y-3">
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="font-display font-bold uppercase tracking-wide text-[16px]">{c.name}</span>
+                  <span className="font-data text-[12px] text-slate2 whitespace-nowrap">
+                    {Math.round(c.duration_sec / 60)} min
+                  </span>
+                </div>
+                <p className="font-data text-[11px] uppercase tracking-[0.12em] text-slate2">
+                  {new Date(c.completed_at).toLocaleDateString('it-IT', { day: 'numeric', month: 'long' })}
+                  {c.rating && ` · ${VALUTAZIONI[c.rating] ?? c.rating}`}
+                </p>
+                <div className="grid grid-cols-2 gap-2 border-t border-edge/60 pt-3">
+                  <button
+                    className="rounded-xl border border-edge bg-steel py-2.5 font-data text-[11px] uppercase tracking-[0.14em] text-chalk active:bg-edge"
+                    onClick={() => apri(c, false)}
+                  >
+                    👁️ Vedi dettagli
+                  </button>
+                  <button
+                    className="rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 py-2.5 font-display text-[11px] font-bold uppercase tracking-[0.14em] text-white active:scale-[0.98]"
+                    onClick={() => apri(c, true)}
+                  >
+                    ▶ Ripeti
+                  </button>
+                </div>
+              </div>
+            </SwipeToDeleteRow>
           </li>
         ))}
       </ul>

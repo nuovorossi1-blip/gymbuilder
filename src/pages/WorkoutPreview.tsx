@@ -1,12 +1,15 @@
-import { useState } from 'react'
+import { useRef, useState, type PointerEvent, type ReactNode } from 'react'
 import { metconInstruction, metconSubtitle } from '../engine/metconInstructions'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../features/auth/AuthProvider'
 import { useWorkout } from '../features/workout/WorkoutContext'
-import { salvaAllenamento } from '../lib/api'
+import { aggiornaProgramma, salvaAllenamento } from '../lib/api'
 import { findExerciseReplacement } from '../engine/replacement'
 import { recordExerciseFeedback } from '../engine/feedback'
-import { EXPERIENCE_LABELS, GOAL_LABELS, MODE_LABELS, MUSCLE_LABELS, SPLIT_LABELS, type ExerciseFeedbackReason } from '../types'
+import {
+  EXPERIENCE_LABELS, GOAL_LABELS, MODE_LABELS, MUSCLE_LABELS, SPLIT_LABELS,
+  type ExerciseFeedbackReason, type GeneratedWorkout, type PrescribedExercise, type WeeklyProgram, type WeeklyProgramConfig,
+} from '../types'
 
 export default function WorkoutPreview() {
   const { user } = useAuth()
@@ -15,6 +18,11 @@ export default function WorkoutPreview() {
   const [stato, setStato] = useState<'fermo' | 'salvo' | 'salvato' | 'errore'>('fermo')
   const [messaggio, setMessaggio] = useState<string | null>(null)
   const [feedbackTarget, setFeedbackTarget] = useState<{ block: number; exercise: number } | null>(null)
+  // Modifiche non ancora salvate (riordino via drag): finche' non si conferma, la lista mostrata
+  // (displayed) riflette il riordino ma workout/weeklyProgram restano quelli confermati - da qui
+  // il pulsante Salva/Annulla che compare solo quando c'e' un pendingWorkout.
+  const [pendingWorkout, setPendingWorkout] = useState<GeneratedWorkout | null>(null)
+  const exerciseKey = useStableKeys<PrescribedExercise>()
 
   if (!workout) {
     return (
@@ -30,13 +38,56 @@ export default function WorkoutPreview() {
     )
   }
 
-  const riscaldamento = workout.blocks.find((b) => b.kind === 'warmup')
-  const principale = workout.blocks.find((b) => b.kind === 'main')
-  const metcon = workout.blocks.find((b) => b.kind === 'metcon')
+  const displayed = pendingWorkout ?? workout
+  const riscaldamento = displayed.blocks.find((b) => b.kind === 'warmup')
+  const principale = displayed.blocks.find((b) => b.kind === 'main')
+  const metcon = displayed.blocks.find((b) => b.kind === 'metcon')
+
+  // Unico punto di scrittura per un workout confermato: aggiorna la sessione attiva e, se il
+  // workout appartiene a una seduta di un WeeklyProgram (session_id), congela anche li' il nuovo
+  // ordine/contenuto cosi' riaprendo quel giorno in futuro si ritrova la modifica invece di
+  // perderla (prima di questo, ne' il riordino ne' una sostituzione sopravvivevano alla riapertura
+  // del giorno). Un eventuale configPatch aggiorna insieme le preferenze globali del programma.
+  async function persistWorkout(next: GeneratedWorkout, configPatch?: Partial<WeeklyProgramConfig>) {
+    setWorkout(next)
+    setPendingWorkout(null)
+    if (!weeklyProgram) return
+    const belongsToSession = !!next.session_id && weeklyProgram.week.some((s) => s.id === next.session_id)
+    const week = belongsToSession
+      ? weeklyProgram.week.map((s) => (s.id === next.session_id ? { ...s, generated_workout: next } : s))
+      : weeklyProgram.week
+    const config = configPatch ? { ...weeklyProgram.config, ...configPatch } : weeklyProgram.config
+    if (week === weeklyProgram.week && config === weeklyProgram.config) return
+    const updated: WeeklyProgram = { ...weeklyProgram, week, config }
+    setWeeklyProgram(updated)
+    if (user && updated.persisted) {
+      try { await aggiornaProgramma(user.id, updated) } catch (reason) {
+        setMessaggio(reason instanceof Error ? reason.message : 'Modifica salvata solo su questo dispositivo: sincronizzazione fallita.')
+      }
+    }
+  }
+
+  function reorderBlock(kind: 'main' | 'metcon', from: number, to: number) {
+    if (from === to) return
+    setPendingWorkout((current) => {
+      const base = current ?? workout
+      if (!base) return current
+      return {
+        ...base,
+        blocks: base.blocks.map((block) => {
+          if (block.kind !== kind) return block
+          const exercises = [...block.exercises]
+          const [moved] = exercises.splice(from, 1)
+          exercises.splice(to, 0, moved)
+          return { ...block, exercises }
+        }),
+      }
+    })
+  }
 
   function cambiaEsercizio(blockIndex: number, exerciseIndex: number, reason: ExerciseFeedbackReason, permanent: boolean) {
     if (!workout || !generationConfig || !user) return
-    const current = workout.blocks[blockIndex].exercises[exerciseIndex]
+    const current = displayed.blocks[blockIndex].exercises[exerciseIndex]
     const original = catalog.find((exercise) => exercise.id === current.exercise_id)
     if (!original) return
     rejectExercise(original.id)
@@ -45,7 +96,7 @@ export default function WorkoutPreview() {
       ? generationConfig.equipment.available.filter((item) => !original.required_equipment.includes(item))
       : generationConfig.equipment.available
     const equipment = { ...generationConfig.equipment, available }
-    const used = new Set(workout.blocks.flatMap((block) => block.exercises.map((exercise) => exercise.exercise_id)))
+    const used = new Set(displayed.blocks.flatMap((block) => block.exercises.map((exercise) => exercise.exercise_id)))
     const replacement = findExerciseReplacement(current, catalog, equipment, {
       excludedExerciseIds: generationConfig.preferences.excluded_exercise_ids,
       bodyweightPolicy: generationConfig.preferences.bodyweight_policy,
@@ -56,17 +107,15 @@ export default function WorkoutPreview() {
       setMessaggio('Nessuna alternativa compatibile disponibile.')
       return
     }
-    const blocks = workout.blocks.map((block, index) => index !== blockIndex ? block : {
+    const blocks = displayed.blocks.map((block, index) => index !== blockIndex ? block : {
       ...block, exercises: block.exercises.map((exercise, itemIndex) => itemIndex !== exerciseIndex ? exercise : {
         ...exercise, exercise_id: replacement.id, name: replacement.name,
         muscle: replacement.primary_muscles[0] ?? null, instructions: replacement.instructions,
       }),
     })
-    setWorkout({ ...workout, blocks })
     const excluded = permanent || reason === 'discomfort' ? [...new Set([...generationConfig.preferences.excluded_exercise_ids, original.id])] : generationConfig.preferences.excluded_exercise_ids
-    const nextConfig = { ...generationConfig, equipment, preferences: { ...generationConfig.preferences, excluded_exercise_ids: excluded } }
-    setGenerationConfig(nextConfig)
-    if (weeklyProgram) setWeeklyProgram({ ...weeklyProgram, config: { ...weeklyProgram.config, equipment, preferences: { ...weeklyProgram.config.preferences, excluded_exercise_ids: excluded } } })
+    setGenerationConfig({ ...generationConfig, equipment, preferences: { ...generationConfig.preferences, excluded_exercise_ids: excluded } })
+    void persistWorkout({ ...displayed, blocks }, { equipment, preferences: { ...generationConfig.preferences, excluded_exercise_ids: excluded } })
     setFeedbackTarget(null)
     setMessaggio(reason === 'discomfort' ? `${current.name} sostituito con ${replacement.name}. Se il dolore persiste, interrompi l’esercizio e valuta un professionista qualificato.` : `${current.name} sostituito con ${replacement.name}. Il resto del workout non è cambiato.`)
   }
@@ -75,7 +124,7 @@ export default function WorkoutPreview() {
     if (!user || !workout) return
     setStato('salvo')
     try {
-      await salvaAllenamento(user.id, workout, undefined, generationConfig)
+      await salvaAllenamento(user.id, displayed, undefined, generationConfig)
       setStato('salvato')
       setMessaggio('Lo trovi in Salvati.')
     } catch (e) {
@@ -86,30 +135,30 @@ export default function WorkoutPreview() {
 
   return (
     <div className="px-5 pt-12 pb-8">
-      <p className="eyebrow mb-2">{EXPERIENCE_LABELS[workout.experience]} · {GOAL_LABELS[workout.goal]}</p>
+      <p className="eyebrow mb-2">{EXPERIENCE_LABELS[displayed.experience]} · {GOAL_LABELS[displayed.goal]}</p>
       <h1 className="font-display font-extrabold uppercase leading-[0.9] tracking-tight text-[2.4rem]">
-        {workout.split ? SPLIT_LABELS[workout.split] : MODE_LABELS[workout.mode]}
+        {displayed.split ? SPLIT_LABELS[displayed.split] : MODE_LABELS[displayed.mode]}
       </h1>
 
       <div className="mt-4 flex flex-wrap items-baseline gap-6 font-data">
         <span>
-          <span className="text-3xl">{workout.duration_min}</span>
+          <span className="text-3xl">{displayed.duration_min}</span>
           <span className="text-slate2 text-[13px]"> min</span>
         </span>
-        <span><span className="text-3xl">{workout.max_duration_min ?? Math.ceil(workout.duration_min * 1.15)}</span><span className="text-slate2 text-[13px]"> min max</span></span>
+        <span><span className="text-3xl">{displayed.max_duration_min ?? Math.ceil(displayed.duration_min * 1.15)}</span><span className="text-slate2 text-[13px]"> min max</span></span>
         <span>
           <span className="text-3xl">{(principale?.exercises.length ?? 0) + (metcon?.exercises.length ?? 0)}</span>
           <span className="text-slate2 text-[13px]"> esercizi</span>
         </span>
-        {!!workout.est_kcal && (
+        {!!displayed.est_kcal && (
           <span>
-            <span className="text-3xl">~{workout.est_kcal}</span>
+            <span className="text-3xl">~{displayed.est_kcal}</span>
             <span className="text-slate2 text-[13px]"> kcal stimate</span>
           </span>
         )}
       </div>
 
-      {workout.warnings.map((w, i) => (
+      {displayed.warnings.map((w, i) => (
         <p key={i} className="mt-4 rounded-lg border border-amber2/40 bg-amber2/10 px-3 py-2.5 text-[13px] text-amber2">
           {w}
         </p>
@@ -136,12 +185,18 @@ export default function WorkoutPreview() {
       {/* Allenamento */}
       {principale && principale.exercises.length > 0 && (
         <section className="mt-8">
-          <h2 className="field-label">
-            {workout.mode === 'crossfit' ? 'Forza/Skill' : workout.mode === 'crossfit_hybrid' ? 'Forza + Cardio' : 'Allenamento'}
-          </h2>
-          <ol className="space-y-2.5">
-            {principale.exercises.map((e, i) => (
-              <li key={i} className="slab !py-3.5">
+          <div className="flex items-baseline justify-between">
+            <h2 className="field-label !mb-0">
+              {displayed.mode === 'crossfit' ? 'Forza/Skill' : displayed.mode === 'crossfit_hybrid' ? 'Forza + Cardio' : 'Allenamento'}
+            </h2>
+            {principale.exercises.length > 1 && <span className="font-data text-[10px] text-slate2">tieni premuto per riordinare</span>}
+          </div>
+          <ReorderableList
+            items={principale.exercises}
+            getKey={exerciseKey}
+            onReorder={(from, to) => reorderBlock('main', from, to)}
+            renderItem={(e, i) => (
+              <>
                 <div className="flex items-baseline gap-3">
                   <span className="font-data text-[13px] text-slate2 w-4 shrink-0">{i + 1}</span>
                   <div className="min-w-0 flex-1">
@@ -165,10 +220,10 @@ export default function WorkoutPreview() {
                 {e.instructions && (
                   <p className="mt-1.5 pl-7 text-[12px] text-slate2 leading-relaxed">{e.instructions}</p>
                 )}
-                <button className="mt-3 pl-7 font-data text-[10px] uppercase tracking-wider text-amber2" onClick={() => setFeedbackTarget({ block: workout.blocks.indexOf(principale), exercise: i })}>↻ Sostituisci</button>
-              </li>
-            ))}
-          </ol>
+                <button className="mt-3 pl-7 font-data text-[10px] uppercase tracking-wider text-amber2" onClick={() => setFeedbackTarget({ block: displayed.blocks.indexOf(principale), exercise: i })}>↻ Sostituisci</button>
+              </>
+            )}
+          />
         </section>
       )}
 
@@ -179,9 +234,13 @@ export default function WorkoutPreview() {
             <h2 className="field-label !mb-0">{metcon.title}</h2>
             <span className="font-data text-[11px] text-slate2">{metconSubtitle(metcon)}</span>
           </div>
-          <ol className="mt-3 space-y-2.5">
-            {metcon.exercises.map((e, i) => (
-              <li key={i} className="slab !py-3.5">
+          <ReorderableList
+            className="mt-3 space-y-2.5"
+            items={metcon.exercises}
+            getKey={exerciseKey}
+            onReorder={(from, to) => reorderBlock('metcon', from, to)}
+            renderItem={(e, i) => (
+              <>
                 <div className="flex items-baseline gap-3">
                   <span className="font-data text-[13px] text-slate2 w-4 shrink-0">{i + 1}</span>
                   <div className="min-w-0 flex-1">
@@ -194,10 +253,10 @@ export default function WorkoutPreview() {
                 {e.instructions && (
                   <p className="mt-1.5 pl-7 text-[12px] text-slate2 leading-relaxed">{e.instructions}</p>
                 )}
-                <button className="mt-3 pl-7 font-data text-[10px] uppercase tracking-wider text-amber2" onClick={() => setFeedbackTarget({ block: workout.blocks.indexOf(metcon), exercise: i })}>↻ Sostituisci</button>
-              </li>
-            ))}
-          </ol>
+                <button className="mt-3 pl-7 font-data text-[10px] uppercase tracking-wider text-amber2" onClick={() => setFeedbackTarget({ block: displayed.blocks.indexOf(metcon), exercise: i })}>↻ Sostituisci</button>
+              </>
+            )}
+          />
           <p className="mt-2 text-[12px] leading-relaxed text-slate2">{metconInstruction(metcon)}</p>
         </section>
       )}
@@ -207,11 +266,11 @@ export default function WorkoutPreview() {
           {messaggio}
         </p>
       )}
-      {feedbackTarget ? <FeedbackPanel exerciseName={workout.blocks[feedbackTarget.block].exercises[feedbackTarget.exercise].name} onCancel={() => setFeedbackTarget(null)} onSubmit={(reason, permanent) => cambiaEsercizio(feedbackTarget.block, feedbackTarget.exercise, reason, permanent)} /> : null}
+      {feedbackTarget ? <FeedbackPanel exerciseName={displayed.blocks[feedbackTarget.block].exercises[feedbackTarget.exercise].name} onCancel={() => setFeedbackTarget(null)} onSubmit={(reason, permanent) => cambiaEsercizio(feedbackTarget.block, feedbackTarget.exercise, reason, permanent)} /> : null}
 
       {/* Azioni */}
       <div className="mt-8 space-y-2.5">
-        <button className="btn !py-4 text-lg" onClick={() => { startWorkoutSession(workout, generationConfig); naviga('/avvia') }}>
+        <button className="btn !py-4 text-lg" onClick={() => { startWorkoutSession(displayed, generationConfig); naviga('/avvia') }}>
           Inizia
         </button>
         <div className="grid grid-cols-2 gap-2.5">
@@ -231,6 +290,25 @@ export default function WorkoutPreview() {
         </div>
       </div>
 
+      {/* Barra Salva/Annulla riordino */}
+      {pendingWorkout && (
+        <div className="fixed inset-x-4 bottom-4 z-40 flex items-center gap-2.5 rounded-2xl border border-cyan-500/40 bg-ink/95 p-3 shadow-2xl backdrop-blur">
+          <p className="flex-1 text-[12px] text-slate-300">Ordine esercizi modificato</p>
+          <button
+            className="rounded-xl border border-edge bg-steel px-4 py-2.5 font-data text-[11px] uppercase tracking-wider text-chalk active:bg-edge"
+            onClick={() => setPendingWorkout(null)}
+          >
+            Annulla
+          </button>
+          <button
+            className="rounded-xl bg-cyan-500/90 px-4 py-2.5 font-display text-[11px] font-bold uppercase tracking-wider text-ink active:bg-cyan-400"
+            onClick={() => void persistWorkout(pendingWorkout)}
+          >
+            Salva
+          </button>
+        </div>
+      )}
+
       {/* Modal Gratificante di Salvataggio */}
       {stato === 'salvato' && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4 animate-modal-in">
@@ -243,7 +321,7 @@ export default function WorkoutPreview() {
                 Allenamento Salvato!
               </h2>
               <p className="mt-1 text-xs text-slate-300">
-                “{workout.name}” è stato aggiunto con successo alla tua libreria.
+                “{displayed.name}” è stato aggiunto con successo alla tua libreria.
               </p>
             </div>
             <div className="space-y-2 pt-2">
@@ -284,4 +362,139 @@ function formattaRec(sec: number): string {
   const m = Math.floor(sec / 60)
   const s = sec % 60
   return s === 0 ? `${m} min` : `${m}:${String(s).padStart(2, '0')}`
+}
+
+/** Assegna e ricorda una chiave stabile per ogni oggetto esercizio (per identita', non per indice
+ *  o per exercise_id, che puo' ripetersi): un riordino sposta gli stessi oggetti nell'array, cosi'
+ *  React riusa gli stessi nodi DOM invece di rimontarli, e il drag in corso (con la relativa
+ *  pointer capture) sopravvive al cambio di posizione nella lista. */
+function useStableKeys<T extends object>() {
+  const map = useRef(new WeakMap<T, string>())
+  const counter = useRef(0)
+  return (item: T): string => {
+    let key = map.current.get(item)
+    if (!key) {
+      key = `k${counter.current++}`
+      map.current.set(item, key)
+    }
+    return key
+  }
+}
+
+interface DragState {
+  itemKey: string
+  index: number
+  pointerId: number
+  startY: number
+  top: number
+  left: number
+  width: number
+  translateY: number
+}
+
+/**
+ * Lista riordinabile via tieni-premuto: pointerdown avvia un timer (soglia pressione lunga),
+ * un movimento oltre soglia prima che scatti lo annulla (cosi' un tap o uno scroll normali non
+ * attivano il drag). Attivato il drag, un elemento "fantasma" a position:fixed segue il dito,
+ * mentre l'elemento reale (invisibile ma ancora nel flusso) si riordina dal vivo confrontando la
+ * posizione Y del puntatore con il punto medio degli altri elementi.
+ */
+function ReorderableList<T>({
+  items,
+  getKey,
+  onReorder,
+  renderItem,
+  className = 'space-y-2.5',
+}: {
+  items: T[]
+  getKey: (item: T) => string
+  onReorder: (from: number, to: number) => void
+  renderItem: (item: T, index: number) => ReactNode
+  className?: string
+}) {
+  const containerRef = useRef<HTMLOListElement>(null)
+  const [drag, setDrag] = useState<DragState | null>(null)
+  const pressRef = useRef<{ key: string; index: number; x: number; y: number; timer: number } | null>(null)
+
+  function clearPress() {
+    if (pressRef.current) window.clearTimeout(pressRef.current.timer)
+    pressRef.current = null
+  }
+
+  function onItemPointerDown(key: string, index: number, event: PointerEvent<HTMLLIElement>) {
+    if (event.pointerType === 'mouse' && event.button !== 0) return
+    const el = event.currentTarget
+    const timer = window.setTimeout(() => {
+      pressRef.current = null
+      const rect = el.getBoundingClientRect()
+      try { el.setPointerCapture(event.pointerId) } catch { /* capture opzionale */ }
+      setDrag({ itemKey: key, index, pointerId: event.pointerId, startY: event.clientY, top: rect.top, left: rect.left, width: rect.width, translateY: 0 })
+      if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(12)
+    }, 420)
+    pressRef.current = { key, index, x: event.clientX, y: event.clientY, timer }
+  }
+
+  function onItemPointerMove(event: PointerEvent<HTMLLIElement>) {
+    if (pressRef.current && !drag) {
+      if (Math.abs(event.clientX - pressRef.current.x) > 8 || Math.abs(event.clientY - pressRef.current.y) > 8) clearPress()
+      return
+    }
+    if (!drag || event.pointerId !== drag.pointerId) return
+    event.preventDefault()
+    const translateY = event.clientY - drag.startY
+    const container = containerRef.current
+    let nextIndex = drag.index
+    if (container) {
+      const others = Array.from(container.children).filter(
+        (child): child is HTMLLIElement => child instanceof HTMLLIElement && child.dataset.dragKey !== drag.itemKey
+      )
+      nextIndex = others.length
+      for (let i = 0; i < others.length; i++) {
+        const rect = others[i].getBoundingClientRect()
+        if (event.clientY < rect.top + rect.height / 2) { nextIndex = i; break }
+      }
+    }
+    if (nextIndex !== drag.index) onReorder(drag.index, nextIndex)
+    setDrag({ ...drag, translateY, index: nextIndex })
+  }
+
+  function endDrag(event: PointerEvent<HTMLLIElement>) {
+    clearPress()
+    if (drag && event.pointerId === drag.pointerId) setDrag(null)
+  }
+
+  return (
+    <ol ref={containerRef} className={`relative ${className}`}>
+      {items.map((item, index) => {
+        const key = getKey(item)
+        const dragging = drag?.itemKey === key
+        return (
+          <li
+            key={key}
+            data-drag-key={key}
+            className={`slab !py-3.5 ${dragging ? 'opacity-0' : ''}`}
+            style={{ touchAction: dragging ? 'none' : 'pan-y' }}
+            onPointerDown={(event) => onItemPointerDown(key, index, event)}
+            onPointerMove={onItemPointerMove}
+            onPointerUp={endDrag}
+            onPointerCancel={endDrag}
+          >
+            {renderItem(item, index)}
+          </li>
+        )
+      })}
+      {drag && items[drag.index] && (
+        <li
+          className="pointer-events-none fixed z-50 list-none slab !py-3.5"
+          style={{
+            top: drag.top, left: drag.left, width: drag.width,
+            transform: `translateY(${drag.translateY}px) scale(1.02)`,
+            boxShadow: '0 12px 32px rgba(0,0,0,0.45)',
+          }}
+        >
+          {renderItem(items[drag.index], drag.index)}
+        </li>
+      )}
+    </ol>
+  )
 }

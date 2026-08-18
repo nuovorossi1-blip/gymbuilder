@@ -31,6 +31,16 @@ public class WorkoutTimerService extends Service {
     private final Handler handler = new Handler(Looper.getMainLooper());
     private Runnable completion;
     private PowerManager.WakeLock wakeLock;
+    // true dal momento in cui QUESTA istanza del Service ha soddisfatto il contratto
+    // startForeground() dopo Context.startForegroundService(). Il Runner React riavvia il
+    // timer a ogni cambio di fase/round (ogni 10-20s in un Tabata), spesso a schermo spento:
+    // fermare e ricreare il Service a ogni round significa riaprire la finestra di 5s del
+    // contratto a ogni round, in corsa con l'eventuale throttling del processo in background -
+    // da cui i crash ForegroundServiceDidNotStartInTimeException osservati in serie ravvicinata.
+    // Con questo flag, startForeground() viene chiamato una sola volta per sessione (primo
+    // round): i round successivi, finche' l'istanza resta viva, si limitano ad aggiornare
+    // notifica/wake lock/countdown senza mai passare di nuovo da startForegroundService().
+    private boolean foregrounded = false;
 
     @Override
     public void onCreate() {
@@ -55,17 +65,19 @@ public class WorkoutTimerService extends Service {
             String label = intent.getStringExtra(EXTRA_LABEL);
             String safeLabel = label == null ? "Timer allenamento" : label;
             if (deadline <= System.currentTimeMillis()) {
-                // Questo Service e' stato avviato con startForegroundService(): il sistema
-                // pretende startForeground() entro pochi secondi da OGNI esito, non solo da
-                // quello valido, altrimenti termina l'intero processo con
+                // Questo Service e' stato avviato con startForegroundService(): se non e' ancora
+                // in foreground, il sistema pretende startForeground() entro pochi secondi anche
+                // da un esito nullo, altrimenti termina l'intero processo con
                 // ForegroundServiceDidNotStartInTimeException - un crash lanciato dal sistema
                 // DOPO che onStartCommand() e' gia' tornato, quindi il try/catch qui sopra non
                 // puo' intercettarlo. Un deadline gia' scaduto arriva quando il tick React che
                 // lo calcola viene eseguito in ritardo (throttling in background/schermo spento).
-                promoteToForegroundThenStop(safeLabel);
+                // Se invece la sessione e' gia' in corso (foregrounded), non c'e' nessun
+                // contratto da rispettare: ci si ferma e basta.
+                if (foregrounded) stopTimer(); else promoteToForegroundThenStop(safeLabel);
                 return START_NOT_STICKY;
             }
-            startTimer(safeLabel, deadline);
+            if (foregrounded) updateTimer(safeLabel, deadline); else startTimer(safeLabel, deadline);
         } catch (RuntimeException error) {
             stopTimerSafely();
         }
@@ -78,7 +90,19 @@ public class WorkoutTimerService extends Service {
         int type = Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE
             ? ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE : 0;
         ServiceCompat.startForeground(this, NOTIFICATION_ID, notification, type);
+        foregrounded = true;
+        scheduleCompletion(label, deadline);
+    }
 
+    /** Round successivo nella stessa sessione: nessuna nuova chiamata a startForeground. */
+    private void updateTimer(String label, long deadline) {
+        acquireWakeLock(deadline - System.currentTimeMillis());
+        NotificationManager manager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+        manager.notify(NOTIFICATION_ID, buildCountdown(label, deadline));
+        scheduleCompletion(label, deadline);
+    }
+
+    private void scheduleCompletion(String label, long deadline) {
         if (completion != null) handler.removeCallbacks(completion);
         completion = () -> {
             try {
@@ -95,6 +119,7 @@ public class WorkoutTimerService extends Service {
         int type = Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE
             ? ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE : 0;
         ServiceCompat.startForeground(this, NOTIFICATION_ID, notification, type);
+        foregrounded = true;
         stopTimer();
     }
 
@@ -141,8 +166,8 @@ public class WorkoutTimerService extends Service {
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .build();
         ((NotificationManager) getSystemService(NOTIFICATION_SERVICE)).notify(NOTIFICATION_ID + 1, completed);
-        stopForeground(STOP_FOREGROUND_REMOVE);
-        stopSelf();
+        // Non ferma il Service: la sessione prosegue col round successivo (updateTimer(), stesso
+        // ServiceRecord). Si ferma solo su ACTION_STOP esplicito da JS a fine sessione vera.
     }
 
     private PendingIntent openWorkoutIntent() {
@@ -171,6 +196,7 @@ public class WorkoutTimerService extends Service {
         if (completion != null) handler.removeCallbacks(completion);
         releaseWakeLock();
         stopForeground(STOP_FOREGROUND_REMOVE);
+        foregrounded = false;
         stopSelf();
     }
 
