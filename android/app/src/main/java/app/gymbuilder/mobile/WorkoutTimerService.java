@@ -53,11 +53,19 @@ public class WorkoutTimerService extends Service {
             }
             long deadline = intent.getLongExtra(EXTRA_DEADLINE, 0L);
             String label = intent.getStringExtra(EXTRA_LABEL);
+            String safeLabel = label == null ? "Timer allenamento" : label;
             if (deadline <= System.currentTimeMillis()) {
-                stopTimer();
+                // Questo Service e' stato avviato con startForegroundService(): il sistema
+                // pretende startForeground() entro pochi secondi da OGNI esito, non solo da
+                // quello valido, altrimenti termina l'intero processo con
+                // ForegroundServiceDidNotStartInTimeException - un crash lanciato dal sistema
+                // DOPO che onStartCommand() e' gia' tornato, quindi il try/catch qui sopra non
+                // puo' intercettarlo. Un deadline gia' scaduto arriva quando il tick React che
+                // lo calcola viene eseguito in ritardo (throttling in background/schermo spento).
+                promoteToForegroundThenStop(safeLabel);
                 return START_NOT_STICKY;
             }
-            startTimer(label == null ? "Timer allenamento" : label, deadline);
+            startTimer(safeLabel, deadline);
         } catch (RuntimeException error) {
             stopTimerSafely();
         }
@@ -80,6 +88,14 @@ public class WorkoutTimerService extends Service {
             }
         };
         handler.postDelayed(completion, Math.max(0L, deadline - System.currentTimeMillis()));
+    }
+
+    private void promoteToForegroundThenStop(String label) {
+        Notification notification = buildCountdown(label, System.currentTimeMillis());
+        int type = Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE
+            ? ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE : 0;
+        ServiceCompat.startForeground(this, NOTIFICATION_ID, notification, type);
+        stopTimer();
     }
 
     /** Come stopTimer(), ma non propaga eccezioni: usata nel percorso di recupero da errore. */

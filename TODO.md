@@ -14,6 +14,8 @@
 - [x] Correggere `public/sw.js` per rifocalizzare la finestra giusta e inviare un messaggio `RESUME_ACTIVE_SESSION`, invece di navigare alla cieca il primo client disponibile.
 - [x] Gestire esplicitamente multi-tab/multi-instance con `BroadcastChannel` o evento `storage`, mantenendo una sola sessione attiva proprietaria.
 - [ ] Verificare su telefono reale il flusso completo: avvio Tabata, cambio app, lock screen, ritorno da banner/notifica e ripresa su `/avvia` senza reset della sessione.
+- [ ] Verificare su telefono reale che il fix del crash `WorkoutTimerService` (18/08: `startForeground()` mancante su deadline scaduto) risolva davvero la chiusura dell'app durante l'allenamento con schermo spento — non riproducibile nel Codespace, corretto solo per lettura di codice.
+- [ ] Verificare a mano nel browser (con credenziali Supabase reali, non un catalogo finto) il percorso di generazione vera del wizard `Genera` a 9 step (18/08), inclusi i campi CrossFit/Hybrid riposizionati nello step Split.
 - [x] Integrare Capacitor Android come contenitore nativo dell'app web, mantenendo il frontend servito dal dominio di produzione.
 - [x] Configurare l'app Android perché carichi la build live aggiornata a ogni deploy, evitando la reinstallazione manuale dell'APK per ogni release frontend.
 - [ ] Installare Android SDK locale e produrre una prima `debug APK` da `android/`; oggi il repository è pronto ma la build si ferma per `ANDROID_HOME`/`sdk.dir` mancanti.

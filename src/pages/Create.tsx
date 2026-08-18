@@ -64,7 +64,7 @@ export default function Create() {
           program_kind: initialKind,
         }
   )
-  const [builderStep, setBuilderStep] = useState<1 | 2>(1)
+  const [builderStep, setBuilderStep] = useState<number>(1)
   const freshResetDone = useRef(false)
 
   useEffect(() => {
@@ -302,7 +302,7 @@ export default function Create() {
           }}
           onEditConfig={() => {
             setBuilderInitial(weeklyProgram.config)
-            setBuilderStep(2)
+            setBuilderStep(4)
             setWeeklyProgram(null)
           }}
         />
@@ -320,6 +320,19 @@ export default function Create() {
   )
 }
 
+const TOTAL_STEPS = 9
+const STEP_TITLES: Record<number, string> = {
+  1: 'Livello',
+  2: 'Cosa vuoi creare',
+  3: 'Seduta di oggi',
+  4: 'Split',
+  5: 'Attrezzi',
+  6: 'Muscoli carenti',
+  7: 'Preferenze',
+  8: 'Durata',
+  9: 'Genera',
+}
+
 function WizardBuilder({
   catalog,
   error,
@@ -331,17 +344,17 @@ function WizardBuilder({
   catalog: Exercise[]
   error: string | null
   initial: WeeklyProgramConfig
-  initialStep: 1 | 2
+  initialStep: number
   onCreate: (config: WeeklyProgramConfig) => void | Promise<void>
   onCreateWithAi: (config: WeeklyProgramConfig, prompt: string) => void | Promise<void>
 }) {
-  const [step, setStep] = useState<1 | 2>(initialStep)
+  const [step, setStep] = useState<number>(initialStep)
   const [config, setConfig] = useState(initial)
   const [slideDirection, setSlideDirection] = useState<'left' | 'right'>('left')
   const [advanced, setAdvanced] = useState(false)
   const [exercisePreferences, setExercisePreferences] = useState(false)
-  const [singleSessionMode, setSingleSessionMode] = useState<'custom_muscles' | 'preset_split'>('custom_muscles')
   const [aiPrompt, setAiPrompt] = useState('')
+  const [aiNotesOpen, setAiNotesOpen] = useState(false)
   const [aiState, setAiState] = useState<'idle' | 'loading' | 'error'>('idle')
   const [aiError, setAiError] = useState<string | null>(null)
 
@@ -352,15 +365,15 @@ function WizardBuilder({
     setAdvanced(false)
     setExercisePreferences(false)
     setAiPrompt('')
+    setAiNotesOpen(false)
     setAiState('idle')
     setAiError(null)
-    setSingleSessionMode(initial.single_session_target_muscles?.length ? 'custom_muscles' : 'preset_split')
   }, [initial, initialStep])
 
-  const valid =
-    config.selected_modes.length > 0 &&
-    config.selected_modes.length <= (config.program_kind === 'single_session' ? 1 : 2) &&
-    catalog.length > 0
+  const isTabata = config.selected_modes.includes('tabata')
+  const maxModes = config.program_kind === 'single_session' ? 1 : 2
+  const modesValid = config.selected_modes.length > 0 && config.selected_modes.length <= maxModes
+  const valid = modesValid && catalog.length > 0
 
   const patch = <K extends keyof WeeklyProgramConfig>(key: K, value: WeeklyProgramConfig[K]) =>
     setConfig((old) => ({ ...old, [key]: value }))
@@ -385,14 +398,31 @@ function WizardBuilder({
     })
   }
 
+  // Il Tabata ha una prescrizione fissa: dopo il timer si salta direttamente a Genera,
+  // senza chiedere attrezzatura/muscoli carenti/preferenze/durata che non usa.
+  const stepAfter = (n: number) => (isTabata && n === 4 ? 9 : Math.min(TOTAL_STEPS, n + 1))
+  const stepBefore = (n: number) => (isTabata && n === 9 ? 4 : Math.max(1, n - 1))
+
+  const stepValid = (n: number): boolean => {
+    if (n === 3) return modesValid
+    return true
+  }
+
+  const showBBSplitSystem = !isTabata && config.program_kind === 'program' && config.selected_modes.includes('bodybuilding')
+  const showSingleSplit = !isTabata && config.program_kind === 'single_session' && (config.selected_modes.includes('bodybuilding') || config.selected_modes.includes('strength'))
+  const showCrossfitBenchmark = !isTabata && config.selected_modes.includes('crossfit')
+  const showCrossfitTarget = !isTabata && config.program_kind === 'single_session' && (config.selected_modes.includes('crossfit') || config.selected_modes.includes('crossfit_hybrid'))
+  const hasSplitContent = showBBSplitSystem || showSingleSplit || showCrossfitBenchmark || showCrossfitTarget
+
   const goNext = () => {
+    if (!stepValid(step)) return
     setSlideDirection('left')
-    setStep(2)
+    setStep(stepAfter(step))
   }
 
   const goBack = () => {
     setSlideDirection('right')
-    setStep(1)
+    setStep(stepBefore(step))
   }
 
   async function generateWithAi() {
@@ -410,29 +440,48 @@ function WizardBuilder({
     }
   }
 
+  const stepTitle = step === 4 ? (isTabata ? 'Timer Tabata' : 'Split') : STEP_TITLES[step]
+
   return (
     <div className="space-y-6">
       {/* Wizard Progress Bar & Header */}
-      <header className="flex items-center justify-between">
-        <div>
-          <span className="eyebrow text-cyan-400">Step {step} di 2</span>
-          <h1 className="font-display text-2xl font-black uppercase text-white">
-            {step === 1 ? 'Scegli Disciplina' : 'Imposta Parametri'}
-          </h1>
-        </div>
-        <div className="flex gap-1.5">
-          <div className={`h-2.5 w-8 rounded-full transition-all ${step === 1 ? 'bg-cyan-400 glow-cyan' : 'bg-steel'}`} />
-          <div className={`h-2.5 w-8 rounded-full transition-all ${step === 2 ? 'bg-cyan-400 glow-cyan' : 'bg-steel'}`} />
+      <header className="space-y-2">
+        <span className="eyebrow text-cyan-400">Step {step} di {TOTAL_STEPS}</span>
+        <h1 className="font-display text-2xl font-black uppercase text-white">{stepTitle}</h1>
+        <div className="h-1.5 w-full overflow-hidden rounded-full bg-steel">
+          <div
+            className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-blue-600 transition-all"
+            style={{ width: `${(step / TOTAL_STEPS) * 100}%` }}
+          />
         </div>
       </header>
 
-      {/* STEP 1: Discipline & Program Kind */}
+      {/* STEP 1: Livello */}
       {step === 1 && (
-        <SwipeContainer
-          direction={slideDirection}
-          onSwipeLeft={goNext}
-          className="space-y-5"
-        >
+        <SwipeContainer direction={slideDirection} onSwipeLeft={goNext} className="space-y-5">
+          <Field title="Livello di Esperienza">
+            <Grid>
+              {([
+                ['beginner', 'Intermedio · include Principiante'],
+                ['advanced', 'Avanzato · include Esperto'],
+              ] as const).map(([experience, label]) => (
+                <Choice
+                  key={experience}
+                  active={config.experience === experience}
+                  onClick={() => patch('experience', experience)}
+                >
+                  {label}
+                </Choice>
+              ))}
+            </Grid>
+          </Field>
+          <StepNav onNext={goNext} nextDisabled={!stepValid(1)} />
+        </SwipeContainer>
+      )}
+
+      {/* STEP 2: Cosa vuoi creare */}
+      {step === 2 && (
+        <SwipeContainer direction={slideDirection} onSwipeLeft={goNext} onSwipeRight={goBack} className="space-y-5">
           <Field title="Cosa vuoi creare?">
             <Grid>
               <Choice
@@ -453,6 +502,29 @@ function WizardBuilder({
             </Grid>
           </Field>
 
+          {config.program_kind === 'program' && (
+            <Field title="Numero di Giorni">
+              <div className="grid grid-cols-5 gap-2">
+                {[3, 4, 5, 6, 7].map((days) => (
+                  <Choice
+                    key={days}
+                    active={config.training_days === days}
+                    onClick={() => patch('training_days', days)}
+                  >
+                    {days} gg
+                  </Choice>
+                ))}
+              </div>
+            </Field>
+          )}
+
+          <StepNav onBack={goBack} onNext={goNext} nextDisabled={!stepValid(2)} />
+        </SwipeContainer>
+      )}
+
+      {/* STEP 3: Seduta di oggi — tipologia di allenamento */}
+      {step === 3 && (
+        <SwipeContainer direction={slideDirection} onSwipeLeft={goNext} onSwipeRight={goBack} className="space-y-5">
           <Field title={config.program_kind === 'program' ? 'Discipline della settimana (max 2)' : 'Tipo di sessione'}>
             <div className="grid grid-cols-2 gap-2.5">
               {PUBLIC_MODES.map((mode) => (
@@ -496,244 +568,14 @@ function WizardBuilder({
             )}
           </Field>
 
-          <div className="pt-2">
-            <button
-              onClick={goNext}
-              className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 py-4 font-display font-bold uppercase text-white shadow-lg glow-cyan transition-transform active:scale-[0.98]"
-            >
-              <span>PROSEGUI ALLO STEP 2 (Swipe 👈)</span>
-            </button>
-          </div>
+          <StepNav onBack={goBack} onNext={goNext} nextDisabled={!stepValid(3)} />
         </SwipeContainer>
       )}
 
-      {/* STEP 2: Parameters & Generation */}
-      {step === 2 && (
-        <SwipeContainer
-          direction={slideDirection}
-          onSwipeRight={goBack}
-          className="space-y-5"
-        >
-          {/* Top Return Indicator Bar */}
-          <button
-            onClick={goBack}
-            className="w-full flex items-center justify-between rounded-xl glass-card p-3 border border-cyan-500/30 text-xs text-cyan-300"
-          >
-            <span>← Step 1: {config.selected_modes.map((m) => MODE_LABELS[m]).join(' + ')}</span>
-            <span className="font-bold underline">Tocca per cambiare</span>
-          </button>
-
-          {config.program_kind === 'program' && (
-            <>
-              <Field title="Numero di Giorni">
-                <div className="grid grid-cols-5 gap-2">
-                  {[3, 4, 5, 6, 7].map((days) => (
-                    <Choice
-                      key={days}
-                      active={config.training_days === days}
-                      onClick={() => patch('training_days', days)}
-                    >
-                      {days} gg
-                    </Choice>
-                  ))}
-                </div>
-              </Field>
-
-              {config.selected_modes.includes('bodybuilding') && (
-                <Field title="Sistema Split Bodybuilding">
-                  <Grid>
-                    {(Object.keys(SPLIT_SYSTEM_LABELS) as SplitSystem[]).map((system) => (
-                      <Choice
-                        key={system}
-                        active={config.split_system === system}
-                        onClick={() => patch('split_system', system)}
-                      >
-                        {SPLIT_SYSTEM_LABELS[system]}
-                      </Choice>
-                    ))}
-                  </Grid>
-                </Field>
-              )}
-            </>
-          )}
-
-          {!config.selected_modes.includes('tabata') && (
-            <Field title="Livello di Esperienza">
-              <Grid>
-                {([
-                  ['beginner', 'Intermedio · include Principiante'],
-                  ['advanced', 'Avanzato · include Esperto'],
-                ] as const).map(([experience, label]) => (
-                  <Choice
-                    key={experience}
-                    active={config.experience === experience}
-                    onClick={() => patch('experience', experience)}
-                  >
-                    {label}
-                  </Choice>
-                ))}
-              </Grid>
-            </Field>
-          )}
-
-          {config.program_kind === 'single_session' &&
-            (config.selected_modes.includes('bodybuilding') || config.selected_modes.includes('strength')) && (
-              <Field title="Composizione Seduta di Oggi">
-                <div className="grid grid-cols-2 gap-2 mb-3">
-                  <Choice
-                    active={singleSessionMode === 'custom_muscles'}
-                    onClick={() => {
-                      setSingleSessionMode('custom_muscles')
-                      if (!config.single_session_target_muscles || config.single_session_target_muscles.length === 0) {
-                        patch('single_session_target_muscles', ['front_delts', 'lateral_delts', 'biceps', 'triceps'])
-                      }
-                    }}
-                  >
-                    🎯 Gruppi a Scelta
-                  </Choice>
-                  <Choice
-                    active={singleSessionMode === 'preset_split'}
-                    onClick={() => {
-                      setSingleSessionMode('preset_split')
-                      patch('single_session_target_muscles', [])
-                    }}
-                  >
-                    📋 Split Preimpostato
-                  </Choice>
-                </div>
-
-                {singleSessionMode === 'custom_muscles' ? (
-                  <div className="space-y-3">
-                    <p className="text-xs text-slate-300">
-                      Scegli i gruppi muscolari che vuoi allenare oggi (es. Spalle + Braccia + Gambe):
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {(Object.keys(MUSCLE_LABELS) as Muscle[]).map((muscle) => {
-                        const active = (config.single_session_target_muscles ?? []).includes(muscle)
-                        return (
-                          <Choice
-                            key={muscle}
-                            active={active}
-                            onClick={() => {
-                              const current = config.single_session_target_muscles ?? []
-                              const next = current.includes(muscle)
-                                ? current.filter((m) => m !== muscle)
-                                : [...current, muscle]
-                              patch('single_session_target_muscles', next)
-                            }}
-                          >
-                            {MUSCLE_LABELS[muscle]}
-                          </Choice>
-                        )
-                      })}
-                    </div>
-                    {(config.single_session_target_muscles ?? []).length > 0 && (
-                      <div className="rounded-xl border border-cyan-500/40 bg-cyan-500/10 p-3">
-                        <p className="eyebrow text-cyan-300">Target Sessione Oggi</p>
-                        <p className="mt-1 font-display font-bold text-white text-sm">
-                          {(config.single_session_target_muscles ?? []).map((m) => MUSCLE_LABELS[m]).join(' + ')}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-2 gap-2">
-                    {(config.selected_modes.includes('strength') ? STRENGTH_SPLITS : EDITABLE_SPLITS).map((split) => (
-                      <Choice
-                        key={split}
-                        active={config.single_session_split === split}
-                        onClick={() => patch('single_session_split', split)}
-                      >
-                        {SPLIT_LABELS[split]}
-                      </Choice>
-                    ))}
-                  </div>
-                )}
-              </Field>
-            )}
-
-          {!config.selected_modes.includes('tabata') && config.selected_modes.includes('crossfit') && (
-            <Field title="Metodica / Benchmark CrossFit">
-              <div className="grid grid-cols-1 gap-2">
-                {(Object.keys(CROSSFIT_BENCHMARK_LABELS) as CrossFitBenchmark[]).map((benchmark) => (
-                  <Choice
-                    key={benchmark}
-                    active={(config.crossfit_benchmark ?? 'custom') === benchmark}
-                    onClick={() => patch('crossfit_benchmark', benchmark)}
-                  >
-                    <span className="block">{CROSSFIT_BENCHMARK_LABELS[benchmark]}</span>
-                    <span className="mt-1 block text-[10px] font-normal text-slate-400">{CROSSFIT_BENCHMARK_HINTS[benchmark]}</span>
-                  </Choice>
-                ))}
-              </div>
-              {(config.crossfit_benchmark ?? 'custom') !== 'custom' && (
-                <p className="mt-3 text-xs text-amber-300">
-                  Il benchmark è già un allenamento completo: nessun altro esercizio viene aggiunto prima o dopo.
-                  {config.crossfit_benchmark === 'cindy'
-                    ? ' Se scegli anche muscoli target qui sotto, Cindy si adatta a quei muscoli restando 5-10-15 AMRAP; senza target resta Cindy ufficiale.'
-                    : ' Fran, Grace e Helen restano sempre i movimenti ufficiali, anche scegliendo muscoli target.'}
-                </p>
-              )}
-              {(config.crossfit_benchmark ?? 'custom') === 'custom' && (
-                <div className="mt-3 grid grid-cols-2 gap-2">
-                  {FORMATI_CROSSFIT.map((format) => (
-                    <Choice
-                      key={format}
-                      active={config.crossfit_format === format}
-                      onClick={() => patch('crossfit_format', format)}
-                    >
-                      <span className="block">{METCON_FORMAT_LABELS[format]}</span>
-                      <span className="mt-1 block text-[10px] font-normal text-slate-400">{METCON_FORMAT_HINTS[format]}</span>
-                    </Choice>
-                  ))}
-                </div>
-              )}
-            </Field>
-          )}
-
-          {/* CrossFit e Hybrid non usano uno split Push/Pull/Legs: quello è un concetto
-              Bodybuilding. Qui l'unica composizione applicabile sono i muscoli target
-              (opzionali); formato WOD e benchmark si scelgono nel campo "Metodica" qui sopra. */}
-          {config.program_kind === 'single_session' &&
-            (config.selected_modes.includes('crossfit') || config.selected_modes.includes('crossfit_hybrid')) && (
-              <Field title="Muscoli Target di Oggi (opzionale)">
-                <p className="text-xs text-slate-300 mb-3">
-                  Il CrossFit non ha uno split per gruppo muscolare: è full body. Seleziona qui solo se vuoi
-                  che il WOD di oggi dia priorità a muscoli carenti specifici — altrimenti lascia vuoto e usa
-                  la Cindy ufficiale o il formato scelto qui sopra in "Metodica / Benchmark CrossFit".
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {(Object.keys(MUSCLE_LABELS) as Muscle[]).map((muscle) => {
-                    const active = (config.single_session_target_muscles ?? []).includes(muscle)
-                    return (
-                      <Choice
-                        key={muscle}
-                        active={active}
-                        onClick={() => {
-                          const current = config.single_session_target_muscles ?? []
-                          const next = current.includes(muscle)
-                            ? current.filter((m) => m !== muscle)
-                            : [...current, muscle]
-                          patch('single_session_target_muscles', next)
-                        }}
-                      >
-                        {MUSCLE_LABELS[muscle]}
-                      </Choice>
-                    )
-                  })}
-                </div>
-                {(config.single_session_target_muscles ?? []).length > 0 && (
-                  <div className="mt-3 rounded-xl border border-cyan-500/40 bg-cyan-500/10 p-3">
-                    <p className="eyebrow text-cyan-300">Target Sessione Oggi</p>
-                    <p className="mt-1 font-display font-bold text-white text-sm">
-                      {(config.single_session_target_muscles ?? []).map((m) => MUSCLE_LABELS[m]).join(' + ')}
-                    </p>
-                  </div>
-                )}
-              </Field>
-            )}
-
-          {config.selected_modes.includes('tabata') && (
+      {/* STEP 4: Split (o parametri speciali CrossFit/Tabata) */}
+      {step === 4 && (
+        <SwipeContainer direction={slideDirection} onSwipeLeft={goNext} onSwipeRight={goBack} className="space-y-5">
+          {isTabata ? (
             <Field title="⏱️ Parametri Timer Tabata / Intervalli">
               <div className="space-y-4 rounded-xl border border-amber-500/40 bg-amber-500/10 p-4">
                 {/* 1. Numero di Giri */}
@@ -850,155 +692,287 @@ function WizardBuilder({
                 </div>
               </div>
             </Field>
-          )}
-
-          {!config.selected_modes.includes('tabata') && (
+          ) : (
             <>
-              <Field title="Durata Sessione (minuti)">
-                <div className="grid grid-cols-5 gap-2">
-                  {DURATIONS.map((duration) => (
-                    <Choice
-                      key={duration}
-                      active={config.duration_min === duration}
-                      onClick={() => patch('duration_min', duration)}
-                    >
-                      {duration}m
-                    </Choice>
-                  ))}
-                </div>
-              </Field>
-
-              <Field title="Attrezzatura Disponibile">
-                <Grid>
-                  {(Object.keys(EQUIPMENT_LABELS) as Equipment[])
-                    .filter((item) => ['full_gym', 'dumbbells', 'barbell', 'machines', 'home_gym'].includes(item))
-                    .map((equipment) => (
+              {showBBSplitSystem && (
+                <Field title="Sistema Split Bodybuilding">
+                  <Grid>
+                    {(Object.keys(SPLIT_SYSTEM_LABELS) as SplitSystem[]).map((system) => (
                       <Choice
-                        key={equipment}
-                        active={config.equipment.preset === equipment}
-                        onClick={() =>
-                          patch('equipment', { preset: equipment, available: PRESET_EQUIPMENT[equipment] })
-                        }
+                        key={system}
+                        active={config.split_system === system}
+                        onClick={() => patch('split_system', system)}
                       >
-                        {EQUIPMENT_LABELS[equipment]}
+                        {SPLIT_SYSTEM_LABELS[system]}
                       </Choice>
                     ))}
-                </Grid>
-                <button
-                  className="mt-3 text-xs uppercase tracking-wider text-cyan-400"
-                  onClick={() => setAdvanced((old) => !old)}
-                >
-                  {advanced ? 'Chiudi inventario' : '⚙️ Configurazione avanzata attrezzi'}
-                </button>
-                {advanced && (
-                  <div className="mt-3 grid grid-cols-2 gap-2">
-                    {(Object.keys(EQUIPMENT_ITEM_LABELS) as EquipmentItem[]).map((item) => (
+                  </Grid>
+                </Field>
+              )}
+
+              {showSingleSplit && (
+                <Field title="Split della Seduta">
+                  <div className="grid grid-cols-2 gap-2">
+                    {(config.selected_modes.includes('strength') ? STRENGTH_SPLITS : EDITABLE_SPLITS).map((split) => (
                       <Choice
-                        key={item}
-                        active={config.equipment.available.includes(item)}
-                        onClick={() =>
-                          patch('equipment', {
-                            ...config.equipment,
-                            available: config.equipment.available.includes(item)
-                              ? config.equipment.available.filter((value) => value !== item)
-                              : [...config.equipment.available, item],
-                          })
-                        }
+                        key={split}
+                        active={config.single_session_split === split}
+                        onClick={() => patch('single_session_split', split)}
                       >
-                        {EQUIPMENT_ITEM_LABELS[item]}
+                        {SPLIT_LABELS[split]}
                       </Choice>
                     ))}
                   </div>
-                )}
-              </Field>
+                </Field>
+              )}
 
-              <Field title="Muscoli Carenti (Priorità)">
-                <div className="flex flex-wrap gap-2">
-                  {(Object.keys(MUSCLE_LABELS) as Muscle[]).map((muscle) => (
-                    <Choice
-                      key={muscle}
-                      active={config.weak_points.includes(muscle)}
-                      onClick={() => toggleMuscle(muscle)}
-                    >
-                      {MUSCLE_LABELS[muscle]}
-                    </Choice>
-                  ))}
-                </div>
-              </Field>
-
-              <Field title="Assistente AI (DeepSeek)">
-                <p className="text-xs text-slate-300">
-                  Scrivi un focus libero. Se scegli DeepSeek, l'LLM riceve tutti i parametri impostati e restituisce direttamente il workout o il programma compilato.
-                </p>
-                <textarea
-                  className="input min-h-28"
-                  value={aiPrompt}
-                  onChange={(event) => setAiPrompt(event.target.value)}
-                  placeholder="Esempio: rapido upper con priorita' deltoidi e tricipiti, poco volume sul petto, massimo focus su un gruppo carente."
-                />
-                {!loadLocalAiSettings().deepseek_api_key.trim() && (
-                  <p className="text-xs text-amber-300">
-                    Aggiungi prima la chiave API DeepSeek nella pagina Profilo.
-                  </p>
-                )}
-                {aiError && <p className="text-xs text-red-400">{aiError}</p>}
-              </Field>
-
-              <Field title="Preferenze Esercizi">
-                <Policy
-                  title="Corpo libero"
-                  value={config.preferences.bodyweight_policy}
-                  onChange={(value) => setPolicy('bodyweight_policy', value)}
-                />
-                <Policy
-                  title="Elastici"
-                  value={config.preferences.elastic_policy}
-                  onChange={(value) => setPolicy('elastic_policy', value)}
-                />
-                <button
-                  className="mt-4 text-xs uppercase tracking-wider text-cyan-400"
-                  onClick={() => setExercisePreferences((old) => !old)}
-                >
-                  {exercisePreferences ? 'Chiudi preferiti' : '⭐ Preferiti / Esclusi'}
-                </button>
-                {exercisePreferences && (
-                  <div className="mt-3 max-h-80 space-y-2 overflow-y-auto">
-                    {catalog
-                      .filter((exercise) => !exercise.roles.includes('warmup'))
-                      .map((exercise) => (
-                        <div
-                          key={exercise.id}
-                          className="grid grid-cols-[1fr_auto_auto] items-center gap-2 border-b border-edge py-2 text-sm text-white"
+              {showCrossfitBenchmark && (
+                <Field title="Metodica / Benchmark CrossFit">
+                  <div className="grid grid-cols-1 gap-2">
+                    {(Object.keys(CROSSFIT_BENCHMARK_LABELS) as CrossFitBenchmark[]).map((benchmark) => (
+                      <Choice
+                        key={benchmark}
+                        active={(config.crossfit_benchmark ?? 'custom') === benchmark}
+                        onClick={() => patch('crossfit_benchmark', benchmark)}
+                      >
+                        <span className="block">{CROSSFIT_BENCHMARK_LABELS[benchmark]}</span>
+                        <span className="mt-1 block text-[10px] font-normal text-slate-400">{CROSSFIT_BENCHMARK_HINTS[benchmark]}</span>
+                      </Choice>
+                    ))}
+                  </div>
+                  {(config.crossfit_benchmark ?? 'custom') !== 'custom' && (
+                    <p className="mt-3 text-xs text-amber-300">
+                      Il benchmark è già un allenamento completo: nessun altro esercizio viene aggiunto prima o dopo.
+                      {config.crossfit_benchmark === 'cindy'
+                        ? ' Se scegli anche muscoli target qui sotto, Cindy si adatta a quei muscoli restando 5-10-15 AMRAP; senza target resta Cindy ufficiale.'
+                        : ' Fran, Grace e Helen restano sempre i movimenti ufficiali, anche scegliendo muscoli target.'}
+                    </p>
+                  )}
+                  {(config.crossfit_benchmark ?? 'custom') === 'custom' && (
+                    <div className="mt-3 grid grid-cols-2 gap-2">
+                      {FORMATI_CROSSFIT.map((format) => (
+                        <Choice
+                          key={format}
+                          active={config.crossfit_format === format}
+                          onClick={() => patch('crossfit_format', format)}
                         >
-                          <span>{exercise.name}</span>
-                          <button
-                            className={
-                              config.preferences.preferred_exercise_ids.includes(exercise.id)
-                                ? 'text-cyan-400 font-bold'
-                                : 'text-slate-400'
-                            }
-                            onClick={() => toggleExercise('preferred_exercise_ids', exercise.id)}
-                          >
-                            Preferito
-                          </button>
-                          <button
-                            className={
-                              config.preferences.excluded_exercise_ids.includes(exercise.id)
-                                ? 'text-red-400 font-bold'
-                                : 'text-slate-400'
-                            }
-                            onClick={() => toggleExercise('excluded_exercise_ids', exercise.id)}
-                          >
-                            Escludi
-                          </button>
-                        </div>
+                          <span className="block">{METCON_FORMAT_LABELS[format]}</span>
+                          <span className="mt-1 block text-[10px] font-normal text-slate-400">{METCON_FORMAT_HINTS[format]}</span>
+                        </Choice>
                       ))}
+                    </div>
+                  )}
+                </Field>
+              )}
+
+              {showCrossfitTarget && (
+                <Field title="Muscoli Target di Oggi (opzionale)">
+                  <p className="text-xs text-slate-300 mb-3">
+                    Il CrossFit non ha uno split per gruppo muscolare: è full body. Seleziona qui solo se vuoi
+                    che il WOD di oggi dia priorità a muscoli carenti specifici — altrimenti lascia vuoto e usa
+                    la Cindy ufficiale o il formato scelto qui sopra in "Metodica / Benchmark CrossFit".
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {(Object.keys(MUSCLE_LABELS) as Muscle[]).map((muscle) => {
+                      const active = (config.single_session_target_muscles ?? []).includes(muscle)
+                      return (
+                        <Choice
+                          key={muscle}
+                          active={active}
+                          onClick={() => {
+                            const current = config.single_session_target_muscles ?? []
+                            const next = current.includes(muscle)
+                              ? current.filter((m) => m !== muscle)
+                              : [...current, muscle]
+                            patch('single_session_target_muscles', next)
+                          }}
+                        >
+                          {MUSCLE_LABELS[muscle]}
+                        </Choice>
+                      )
+                    })}
                   </div>
-                )}
-              </Field>
+                  {(config.single_session_target_muscles ?? []).length > 0 && (
+                    <div className="mt-3 rounded-xl border border-cyan-500/40 bg-cyan-500/10 p-3">
+                      <p className="eyebrow text-cyan-300">Target Sessione Oggi</p>
+                      <p className="mt-1 font-display font-bold text-white text-sm">
+                        {(config.single_session_target_muscles ?? []).map((m) => MUSCLE_LABELS[m]).join(' + ')}
+                      </p>
+                    </div>
+                  )}
+                </Field>
+              )}
+
+              {!hasSplitContent && (
+                <Field title="Split">
+                  <p className="text-sm text-slate-400">
+                    Questa disciplina non richiede una scelta di split: si passa direttamente ad attrezzatura e muscoli carenti.
+                  </p>
+                </Field>
+              )}
             </>
           )}
+          <StepNav onBack={goBack} onNext={goNext} nextDisabled={!stepValid(4)} />
+        </SwipeContainer>
+      )}
 
+      {/* STEP 5: Attrezzatura */}
+      {step === 5 && (
+        <SwipeContainer direction={slideDirection} onSwipeLeft={goNext} onSwipeRight={goBack} className="space-y-5">
+          <Field title="Attrezzatura Disponibile">
+            <Grid>
+              {(Object.keys(EQUIPMENT_LABELS) as Equipment[])
+                .filter((item) => ['full_gym', 'dumbbells', 'barbell', 'machines', 'home_gym'].includes(item))
+                .map((equipment) => (
+                  <Choice
+                    key={equipment}
+                    active={config.equipment.preset === equipment}
+                    onClick={() =>
+                      patch('equipment', { preset: equipment, available: PRESET_EQUIPMENT[equipment] })
+                    }
+                  >
+                    {EQUIPMENT_LABELS[equipment]}
+                  </Choice>
+                ))}
+            </Grid>
+            <button
+              className="mt-3 text-xs uppercase tracking-wider text-cyan-400"
+              onClick={() => setAdvanced((old) => !old)}
+            >
+              {advanced ? 'Chiudi inventario' : '⚙️ Configurazione avanzata attrezzi'}
+            </button>
+            {advanced && (
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                {(Object.keys(EQUIPMENT_ITEM_LABELS) as EquipmentItem[]).map((item) => (
+                  <Choice
+                    key={item}
+                    active={config.equipment.available.includes(item)}
+                    onClick={() =>
+                      patch('equipment', {
+                        ...config.equipment,
+                        available: config.equipment.available.includes(item)
+                          ? config.equipment.available.filter((value) => value !== item)
+                          : [...config.equipment.available, item],
+                      })
+                    }
+                  >
+                    {EQUIPMENT_ITEM_LABELS[item]}
+                  </Choice>
+                ))}
+              </div>
+            )}
+          </Field>
+          <StepNav onBack={goBack} onNext={goNext} nextDisabled={!stepValid(5)} />
+        </SwipeContainer>
+      )}
+
+      {/* STEP 6: Muscoli carenti */}
+      {step === 6 && (
+        <SwipeContainer direction={slideDirection} onSwipeLeft={goNext} onSwipeRight={goBack} className="space-y-5">
+          <Field title={config.program_kind === 'program' ? 'Muscoli Carenti (richiami settimanali)' : 'Muscoli Carenti (target di oggi)'}>
+            <p className="text-xs text-slate-300">
+              {config.program_kind === 'program'
+                ? "Ogni carenza selezionata riceve più slot nello split di oggi e un richiamo negli altri giorni compatibili della settimana."
+                : "Ogni carenza selezionata riceve più slot nello split scelto: se i principali sono 3, indicando più carenze si ripartiscono (es. 1 a testa) invece di restare concentrati su un solo gruppo."}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {(Object.keys(MUSCLE_LABELS) as Muscle[]).map((muscle) => (
+                <Choice
+                  key={muscle}
+                  active={config.weak_points.includes(muscle)}
+                  onClick={() => toggleMuscle(muscle)}
+                >
+                  {MUSCLE_LABELS[muscle]}
+                </Choice>
+              ))}
+            </div>
+          </Field>
+          <StepNav onBack={goBack} onNext={goNext} nextDisabled={!stepValid(6)} />
+        </SwipeContainer>
+      )}
+
+      {/* STEP 7: Preferenze */}
+      {step === 7 && (
+        <SwipeContainer direction={slideDirection} onSwipeLeft={goNext} onSwipeRight={goBack} className="space-y-5">
+          <Field title="Preferenze Esercizi">
+            <Policy
+              title="Corpo libero"
+              value={config.preferences.bodyweight_policy}
+              onChange={(value) => setPolicy('bodyweight_policy', value)}
+            />
+            <Policy
+              title="Elastici"
+              value={config.preferences.elastic_policy}
+              onChange={(value) => setPolicy('elastic_policy', value)}
+            />
+            <button
+              className="mt-4 text-xs uppercase tracking-wider text-cyan-400"
+              onClick={() => setExercisePreferences((old) => !old)}
+            >
+              {exercisePreferences ? 'Chiudi avanzate' : '⚙️ Avanzate — esercizi preferiti/esclusi'}
+            </button>
+            {exercisePreferences && (
+              <div className="mt-3 max-h-80 space-y-2 overflow-y-auto">
+                {catalog
+                  .filter((exercise) => !exercise.roles.includes('warmup'))
+                  .map((exercise) => (
+                    <div
+                      key={exercise.id}
+                      className="grid grid-cols-[1fr_auto_auto] items-center gap-2 border-b border-edge py-2 text-sm text-white"
+                    >
+                      <span>{exercise.name}</span>
+                      <button
+                        className={
+                          config.preferences.preferred_exercise_ids.includes(exercise.id)
+                            ? 'text-cyan-400 font-bold'
+                            : 'text-slate-400'
+                        }
+                        onClick={() => toggleExercise('preferred_exercise_ids', exercise.id)}
+                      >
+                        Preferito
+                      </button>
+                      <button
+                        className={
+                          config.preferences.excluded_exercise_ids.includes(exercise.id)
+                            ? 'text-red-400 font-bold'
+                            : 'text-slate-400'
+                        }
+                        onClick={() => toggleExercise('excluded_exercise_ids', exercise.id)}
+                      >
+                        Escludi
+                      </button>
+                    </div>
+                  ))}
+              </div>
+            )}
+          </Field>
+          <StepNav onBack={goBack} onNext={goNext} nextDisabled={!stepValid(7)} />
+        </SwipeContainer>
+      )}
+
+      {/* STEP 8: Durata */}
+      {step === 8 && (
+        <SwipeContainer direction={slideDirection} onSwipeLeft={goNext} onSwipeRight={goBack} className="space-y-5">
+          <Field title="Durata Sessione (minuti)">
+            <div className="grid grid-cols-5 gap-2">
+              {DURATIONS.map((duration) => (
+                <Choice
+                  key={duration}
+                  active={config.duration_min === duration}
+                  onClick={() => patch('duration_min', duration)}
+                >
+                  {duration}m
+                </Choice>
+              ))}
+            </div>
+          </Field>
+          <StepNav onBack={goBack} onNext={goNext} nextDisabled={!stepValid(8)} nextLabel="Vai a Genera" />
+        </SwipeContainer>
+      )}
+
+      {/* STEP 9: Genera */}
+      {step === 9 && (
+        <SwipeContainer direction={slideDirection} onSwipeRight={goBack} className="space-y-5">
           {error && <p role="alert" className="text-red-400 text-sm">{error}</p>}
 
           <div className="flex gap-3 pt-2">
@@ -1027,13 +1001,51 @@ function WizardBuilder({
                 : 'Caricamento…'}
             </button>
           </div>
-          <button
-            disabled={!valid || !loadLocalAiSettings().deepseek_api_key.trim() || aiState === 'loading'}
-            onClick={() => { void generateWithAi() }}
-            className="w-full rounded-xl border border-cyan-500/40 bg-cyan-500/15 py-4 font-display font-bold uppercase text-cyan-200 shadow-md transition-transform active:scale-[0.98] disabled:opacity-40"
-          >
-            {aiState === 'loading' ? 'DeepSeek sta generando...' : 'Genera con DeepSeek usando questi parametri'}
-          </button>
+
+          {!aiNotesOpen ? (
+            <button
+              disabled={!valid || !loadLocalAiSettings().deepseek_api_key.trim() || aiState === 'loading'}
+              onClick={() => setAiNotesOpen(true)}
+              className="w-full rounded-xl border border-cyan-500/40 bg-cyan-500/15 py-4 font-display font-bold uppercase text-cyan-200 shadow-md transition-transform active:scale-[0.98] disabled:opacity-40"
+            >
+              Genera con DeepSeek
+            </button>
+          ) : (
+            <div className="rounded-xl border border-cyan-500/40 bg-cyan-500/10 p-4 space-y-3">
+              <p className="text-xs text-slate-300">
+                Spiega il tipo di allenamento che vuoi oggi o eventuali difficoltà di movimento: verrà inviato
+                all'LLM insieme a tutti i parametri già scelti.
+              </p>
+              <textarea
+                className="input min-h-28"
+                value={aiPrompt}
+                onChange={(event) => setAiPrompt(event.target.value)}
+                placeholder="Esempio: oggi ho poco tempo e un fastidio alla spalla destra, evita distensioni sopra la testa."
+              />
+              {!loadLocalAiSettings().deepseek_api_key.trim() && (
+                <p className="text-xs text-amber-300">
+                  Aggiungi prima la chiave API DeepSeek nella pagina Profilo.
+                </p>
+              )}
+              {aiError && <p className="text-xs text-red-400">{aiError}</p>}
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setAiNotesOpen(false)}
+                  disabled={aiState === 'loading'}
+                  className="w-1/3 rounded-xl glass-card py-3 font-display text-xs font-bold uppercase text-slate-300 disabled:opacity-40"
+                >
+                  Annulla
+                </button>
+                <button
+                  disabled={!valid || !loadLocalAiSettings().deepseek_api_key.trim() || aiState === 'loading'}
+                  onClick={() => { void generateWithAi() }}
+                  className="w-2/3 rounded-xl border border-cyan-500/40 bg-cyan-500/15 py-3 font-display text-xs font-bold uppercase text-cyan-200 shadow-md transition-transform active:scale-[0.98] disabled:opacity-40"
+                >
+                  {aiState === 'loading' ? 'DeepSeek sta generando...' : 'Invia a DeepSeek'}
+                </button>
+              </div>
+            </div>
+          )}
         </SwipeContainer>
       )}
     </div>
@@ -1282,6 +1294,38 @@ function Choice({ active, onClick, children }: { active: boolean; onClick: () =>
     >
       {children}
     </button>
+  )
+}
+
+function StepNav({
+  onBack,
+  onNext,
+  nextDisabled,
+  nextLabel = 'Continua',
+}: {
+  onBack?: () => void
+  onNext: () => void
+  nextDisabled?: boolean
+  nextLabel?: string
+}) {
+  return (
+    <div className="flex gap-3 pt-2">
+      {onBack && (
+        <button
+          onClick={onBack}
+          className="w-1/3 rounded-xl glass-card py-4 font-display font-bold uppercase text-slate-300"
+        >
+          Indietro
+        </button>
+      )}
+      <button
+        onClick={onNext}
+        disabled={nextDisabled}
+        className={`${onBack ? 'w-2/3' : 'w-full'} rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 py-4 font-display font-bold uppercase text-white shadow-lg glow-cyan transition-transform active:scale-[0.98] disabled:opacity-40`}
+      >
+        {nextLabel}
+      </button>
+    </div>
   )
 }
 

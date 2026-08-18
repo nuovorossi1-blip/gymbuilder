@@ -4,7 +4,7 @@
 > da qui. Va **aggiornato** a ogni sessione, non accodato all'infinito.
 > L'identità del progetto e il percorso di AI-OS stanno in `AIOS_PROJECT.json`.
 
-**Ultimo aggiornamento:** 2026-08-17 (sessione fix multipli Tabata/CrossFit/Android + Hybrid pianificato, vedi fondo file) - Codex
+**Ultimo aggiornamento:** 2026-08-18 (fix crash timer nativo in background + riorganizzazione wizard Genera a 9 step, vedi fondo file) - Claude (Sonnet 5)
 
 Etichette: `[FACT]` verificato nel codice · `[RICOSTRUITO]` dedotto da indizi ·
 `[IGNOTO]` non ricavabile dal repository
@@ -299,6 +299,7 @@ workflow APK richiede la correzione documentata nella sez. 10.
 | Con intensità "Alta" e poco tempo a disposizione, il recupero finiva identico a quello di intensità "Bassa" nello stesso scenario — il campo Intensità sembrava non avere alcun effetto | Non è un bug: quando il tempo è troppo poco per il recupero lungo richiesto da "Alta", l'adattamento al tempo lo comprime verso il minimo, esattamente come farebbe con qualunque altra intensità nello stesso vincolo. È l'effetto atteso di "adatta il tempo, non tagliare esercizi", solo che in quel caso specifico appiattisce la differenza fra intensità | Non è stato cambiato il motore: cambiato il test, che ora verifica l'effetto dell'intensità con un budget di tempo sufficiente a non farla comprimere. Da tenere a mente: l'intensità è un'indicazione, non una garanzia, quando il tempo è troppo poco |
 | In Condizionamento, i movimenti monostrutturali (es. "1 min" al vogatore) diventavano "5" ripetizioni nei formati EMOM/For Time dopo la riduzione/aumento delle reps | `reduxReps()` usava `parseInt("1 min")`, che in JavaScript non restituisce `NaN` ma `1` (legge le cifre iniziali e ignora il resto): la stringa veniva trattata come un numero valido e riscalata a un valore senza senso | Aggiunta una guardia esplicita `/^\d+$/.test(reps)` prima di qualunque trasformazione numerica: le reps a tempo restano intatte. Trovato eseguendo davvero il motore su tutti e 6 i formati prima di scrivere i test (non solo `tsc`/build), esattamente la lezione già in sez. 9 |
 | In Condizionamento, la `duration_min` finale dei formati "Rounds"/"Circuit"/"Intervals" era platealmente troppo corta (es. 5 minuti per 4 movimenti × 5 giri) | Il calcolo trattava ogni round come se durasse sempre 60 secondi (`rounds × 1 min`), formula presa in prestito da EMOM dove è vera per costruzione (`interval_sec` sempre 60) ma falsa per formati senza un `interval_sec` esplicito, dove un giro dura quanto il circuito reale richiede | `costruisciBlocco()` ora calcola e restituisce i minuti reali per formato (stima ~45s di lavoro a movimento + il recupero effettivo fra un esercizio e l'altro), invece di dedurli a ritroso da `rounds`/`interval_sec` al chiamante. Stessa lezione di sopra: il bug non sarebbe mai emerso da `tsc`/build, solo eseguendo il motore e leggendo i numeri prodotti |
+| L'app poteva ancora chiudersi durante l'allenamento (schermo spento, dopo un cambio di fase come lavoro→riposo) nonostante il fix precedente del 17/08 (`a125bd8`, try/catch su `onStartCommand`) | Quel fix intercetta solo le `RuntimeException` sincrone dentro `onStartCommand()`. Il ramo `deadline <= now` chiamava `stopTimer()` senza mai chiamare `startForeground()` — ma il servizio è avviato con `startForegroundService()`, che impone `startForeground()` entro pochi secondi *da ogni esito*. Se non arriva, Android lancia `ForegroundServiceDidNotStartInTimeException` *dopo* che `onStartCommand()` è già tornato: un crash a livello di sistema che nessun try/catch Java/JS può intercettare. Un deadline già scaduto arriva quando il tick React che lo calcola gira in ritardo (throttling in background/schermo spento) | Aggiunta `promoteToForegroundThenStop()`: il ramo del deadline scaduto ora chiama comunque `startForeground()` (con una notifica "a zero secondi") prima di fermare il servizio, rispettando il contratto Android in ogni ramo. Non riproducibile in questo Codespace (niente Android SDK): individuato per lettura del contratto `startForegroundService`, non da un log di crash reale — da confermare su un telefono vero |
 
 ---
 
@@ -786,3 +787,63 @@ Verifica di questa sessione: 227 test verdi, build production verde, lint senza 
 warning storico in `Runner.tsx`). I fix lato nativo Android (foreground service, vibrazione,
 notifiche) non sono verificabili in locale: manca un dispositivo/emulatore Android in questo
 ambiente, verificati solo per compilazione tramite la GitHub Action che ricompila l'APK a ogni push.
+
+## Aggiornamento stato — 2026-08-18: crash timer nativo in background (secondo fix)
+
+L'utente ha segnalato che l'app si chiude ancora durante l'allenamento (schermo spento, dopo un
+cambio fase come lavoro→riposo), nonostante il fix del 17/08 (`a125bd8`, try/catch su
+`onStartCommand`). Causa: quel fix intercetta solo le `RuntimeException` sincrone dentro
+`onStartCommand()`. Il ramo che gestiva un `deadline` già scaduto chiamava `stopTimer()` senza mai
+chiamare `startForeground()` — ma `WorkoutTimerPlugin` avvia questo servizio con
+`startForegroundService()`, che impone `startForeground()` entro pochi secondi *da ogni esito*,
+non solo da quello valido. Se non arriva, Android lancia
+`ForegroundServiceDidNotStartInTimeException` **dopo** che `onStartCommand()` è già tornato: un
+crash lanciato dal sistema, non dal codice del Service, che nessun try/catch Java o JS può
+intercettare. Un deadline già scaduto arriva quando il tick React che lo calcola
+(`Runner.tsx` → `publishBackgroundTimer`) viene eseguito in ritardo perché throttled da Chromium
+con l'app in background/schermo spento — il valore è corretto quando viene calcolato, ma può
+arrivare al lato nativo dopo essere già scaduto.
+
+Fix: `onStartCommand()` ora chiama sempre `startForeground()` — con una notifica "a zero secondi"
+quando il deadline è già scaduto, tramite il nuovo metodo `promoteToForegroundThenStop()` — prima
+di fermare il servizio, in ogni ramo raggiungibile da un avvio via `startForegroundService()`.
+Non cambia nulla nel percorso normale (deadline valido): notifica persistente con countdown e
+tap-per-tornare all'allenamento (`openWorkoutIntent()` → `MainActivity` → resume automatico su
+`/avvia` via `activeSession`) restano gli stessi. **Non riproducibile né verificabile in questo
+Codespace** (niente Android SDK, sez. 9/TODO): individuato per lettura del contratto Android per
+`startForegroundService`, non da un log di crash reale — resta da confermare su un telefono vero,
+vedi TODO.
+
+## Aggiornamento stato — 2026-08-18: riorganizzazione wizard Genera a 9 step
+
+Il wizard di `Genera` (`src/pages/Create.tsx`) passa da 2 a 9 step con gating in avanti (non si
+può passare allo step successivo se quello corrente non è valido; il ritorno indietro resta
+sempre libero): **1** Livello, **2** Cosa vuoi creare (Programma/Sessione + numero giorni), **3**
+Seduta di oggi (disciplina/e), **4** Split — o Timer Tabata, o Benchmark/Metodica CrossFit più
+Muscoli Target di Oggi per CrossFit/Hybrid, a seconda della disciplina scelta — **5** Attrezzi,
+**6** Muscoli carenti, **7** Preferenze (corpo libero/elastici + avanzate per preferiti/esclusi),
+**8** Durata, **9** Genera. Il Tabata salta direttamente dallo step 4 al 9 (non usa
+attrezzatura/carenze/preferenze/durata, come già in precedenza). Le note per l'LLM si aprono
+inline nello step 9 al tap su "Genera con DeepSeek", invece di un campo sempre visibile.
+
+Rimossa solo la modalità libera "Gruppi a Scelta" della sessione singola Bodybuilding/Forza
+(sceglievi i muscoli da zero, senza split): su richiesta esplicita dell'utente, che ha chiarito
+come i muscoli carenti già ripartiscano gli slot dentro lo split scelto (es. PPL Push + carenze
+spalle/braccia → invece di 3 petto: 1 petto, 2 spalle, 1 misto, 1 bicipiti, 1 tricipiti, con
+richiamo settimanale sugli altri giorni compatibili) — un secondo modo di scegliere i muscoli era
+ridondante. La sessione singola BB/Forza ora usa sempre split preimpostato + carenze. **Non
+toccato** invece il campo "Muscoli Target di Oggi (opzionale)" per CrossFit/Hybrid aggiunto nella
+sessione precedente (18/08, Codex): CrossFit/Hybrid non hanno un concetto di split (`split` resta
+sempre `null` per quei modi in `generateWeeklyProgram`), quindi quel target picker non è
+ridondante con le carenze nello stesso modo — resta l'unico modo di orientare un WOD full-body.
+
+Nessuna modifica al motore di generazione: la riorganizzazione è solo di `Create.tsx` (UI/gating),
+riapplicata sopra le modifiche della sessione precedente (spostati nello step 4 il campo
+"Metodica / Benchmark CrossFit" e il nuovo "Muscoli Target di Oggi" con lo stesso contenuto/copy
+già scritto da Codex, non riscritti da zero). 227 test verdi, `tsc`/`eslint` puliti, build
+produzione verde. Verificata a mano nel browser (Playwright headless, catalogo finto perché le
+credenziali Supabase reali risultano oscurate in questo ambiente): tutti e 9 gli step si aprono
+nell'ordine giusto con i titoli corretti, il gating dello step 3 blocca "Continua" senza
+discipline selezionate, la navigazione indietro dallo step 9 allo step 1 funziona, e il salto
+Tabata step 4→9 funziona. Non verificato invece il percorso di generazione vera (serve un
+catalogo reale) né il comportamento su dispositivo Android reale.
