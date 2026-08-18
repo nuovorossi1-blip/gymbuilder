@@ -24,6 +24,11 @@ jobs:
           cache: gradle
       - run: npm ci
       - run: npm run cap:sync
+      - name: Strip previous release APK from bundled web assets
+        # Vedi build-apk.yml: public/gymbuilder.apk finisce in dist/ (copia verbatim di
+        # public/ fatta da Vite) e poi negli asset Android via cap sync, incorporando la APK
+        # precedente dentro quella nuova a ogni release.
+        run: rm -f android/app/src/main/assets/public/gymbuilder.apk
       - name: Restore Android signing key
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}

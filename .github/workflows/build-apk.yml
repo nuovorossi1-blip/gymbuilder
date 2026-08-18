@@ -60,6 +60,15 @@ jobs:
       - name: Synchronize Capacitor Android
         run: npm run cap:sync
 
+      - name: Strip previous release APK from bundled web assets
+        # public/gymbuilder.apk (l'APK dell'ultima release, servito da Vercel) e' dentro
+        # public/, quindi "vite build" lo ricopia in dist/ e "cap sync" lo incorpora
+        # nell'app Android come asset - ogni build si porta dietro l'APK precedente, che si
+        # portava dietro quello ancora prima: da qui le build passate a 95MB+ e i download
+        # lentissimi. Va tolto dagli asset PRIMA di impacchettare la nuova APK, non da
+        # public/ (li' serve, e' quello che gli utenti scaricano).
+        run: rm -f android/app/src/main/assets/public/gymbuilder.apk
+
       - name: Compute build version
         id: version
         run: |
@@ -88,7 +97,7 @@ jobs:
             "versionCode": ${{ steps.version.outputs.code }},
             "apkUrl": "https://gymbuilder-lemon.vercel.app/gymbuilder.apk",
             "releaseUrl": "https://github.com/nuovorossi1-blip/gymbuilder/releases/latest",
-            "notes": "Build automatica dal commit ${{ github.sha }}.",
+            "notes": "Correzioni e miglioramenti.",
             "mandatory": false
           }
           EOF
