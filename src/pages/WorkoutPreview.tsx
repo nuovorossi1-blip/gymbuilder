@@ -189,13 +189,13 @@ export default function WorkoutPreview() {
             <h2 className="field-label !mb-0">
               {displayed.mode === 'crossfit' ? 'Forza/Skill' : displayed.mode === 'crossfit_hybrid' ? 'Forza + Cardio' : 'Allenamento'}
             </h2>
-            {principale.exercises.length > 1 && <span className="font-data text-[10px] text-slate2">tieni premuto per riordinare</span>}
+            {principale.exercises.length > 1 && <span className="font-data text-[10px] text-slate2">⠿ trascina per riordinare</span>}
           </div>
           <ReorderableList
             items={principale.exercises}
             getKey={exerciseKey}
             onReorder={(from, to) => reorderBlock('main', from, to)}
-            renderItem={(e, i) => (
+            renderItem={(e, i, handle) => (
               <>
                 <div className="flex items-baseline gap-3">
                   <span className="font-data text-[13px] text-slate2 w-4 shrink-0">{i + 1}</span>
@@ -211,6 +211,7 @@ export default function WorkoutPreview() {
                   <span className="font-data text-[9px] uppercase tracking-[0.12em] text-slate2 shrink-0">
                     {e.role === 'compound' ? 'base' : e.role === 'metcon' ? 'cardio' : 'isol.'}
                   </span>
+                  {handle}
                 </div>
                 {e.muscle && (
                   <p className="mt-1.5 pl-7 font-data text-[10px] uppercase tracking-[0.12em] text-slate2">
@@ -239,7 +240,7 @@ export default function WorkoutPreview() {
             items={metcon.exercises}
             getKey={exerciseKey}
             onReorder={(from, to) => reorderBlock('metcon', from, to)}
-            renderItem={(e, i) => (
+            renderItem={(e, i, handle) => (
               <>
                 <div className="flex items-baseline gap-3">
                   <span className="font-data text-[13px] text-slate2 w-4 shrink-0">{i + 1}</span>
@@ -249,6 +250,7 @@ export default function WorkoutPreview() {
                       {e.reps}{e.note ? <span className="text-slate2 text-[12px]"> · {e.note}</span> : null}
                     </p>
                   </div>
+                  {handle}
                 </div>
                 {e.instructions && (
                   <p className="mt-1.5 pl-7 text-[12px] text-slate2 leading-relaxed">{e.instructions}</p>
@@ -393,11 +395,16 @@ interface DragState {
 }
 
 /**
- * Lista riordinabile via tieni-premuto: pointerdown avvia un timer (soglia pressione lunga),
- * un movimento oltre soglia prima che scatti lo annulla (cosi' un tap o uno scroll normali non
- * attivano il drag). Attivato il drag, un elemento "fantasma" a position:fixed segue il dito,
- * mentre l'elemento reale (invisibile ma ancora nel flusso) si riordina dal vivo confrontando la
- * posizione Y del puntatore con il punto medio degli altri elementi.
+ * Lista riordinabile con una maniglia (⠿) dedicata invece del tieni-premuto sull'intera riga: la
+ * prima versione (pointerdown ovunque sulla riga + timer di pressione lunga) perdeva quasi sempre
+ * il gesto, perche' durante l'attesa la riga aveva ancora touch-action:pan-y e un minimo tremore
+ * verticale della mano faceva scattare lo scroll nativo della lista prima del timer, cancellando
+ * il puntatore (pointercancel) senza mai attivare il drag. La maniglia ha touch-action:none fin da
+ * subito (non solo a drag attivo), quindi il browser non ha mai occasione di intercettare il tocco
+ * come scroll: il resto della riga resta scrollabile normalmente. Presa la maniglia, un elemento
+ * "fantasma" a position:fixed segue il dito, mentre l'elemento reale (invisibile ma ancora nel
+ * flusso) si riordina dal vivo confrontando la posizione Y del puntatore con il punto medio degli
+ * altri elementi.
  */
 function ReorderableList<T>({
   items,
@@ -409,36 +416,24 @@ function ReorderableList<T>({
   items: T[]
   getKey: (item: T) => string
   onReorder: (from: number, to: number) => void
-  renderItem: (item: T, index: number) => ReactNode
+  renderItem: (item: T, index: number, handle: ReactNode) => ReactNode
   className?: string
 }) {
   const containerRef = useRef<HTMLOListElement>(null)
   const [drag, setDrag] = useState<DragState | null>(null)
-  const pressRef = useRef<{ key: string; index: number; x: number; y: number; timer: number } | null>(null)
 
-  function clearPress() {
-    if (pressRef.current) window.clearTimeout(pressRef.current.timer)
-    pressRef.current = null
-  }
-
-  function onItemPointerDown(key: string, index: number, event: PointerEvent<HTMLLIElement>) {
+  function onHandlePointerDown(key: string, index: number, event: PointerEvent<HTMLButtonElement>) {
     if (event.pointerType === 'mouse' && event.button !== 0) return
-    const el = event.currentTarget
-    const timer = window.setTimeout(() => {
-      pressRef.current = null
-      const rect = el.getBoundingClientRect()
-      try { el.setPointerCapture(event.pointerId) } catch { /* capture opzionale */ }
-      setDrag({ itemKey: key, index, pointerId: event.pointerId, startY: event.clientY, top: rect.top, left: rect.left, width: rect.width, translateY: 0 })
-      if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(12)
-    }, 420)
-    pressRef.current = { key, index, x: event.clientX, y: event.clientY, timer }
+    const li = event.currentTarget.closest('li')
+    if (!li) return
+    event.preventDefault()
+    const rect = li.getBoundingClientRect()
+    try { event.currentTarget.setPointerCapture(event.pointerId) } catch { /* capture opzionale */ }
+    setDrag({ itemKey: key, index, pointerId: event.pointerId, startY: event.clientY, top: rect.top, left: rect.left, width: rect.width, translateY: 0 })
+    if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(12)
   }
 
-  function onItemPointerMove(event: PointerEvent<HTMLLIElement>) {
-    if (pressRef.current && !drag) {
-      if (Math.abs(event.clientX - pressRef.current.x) > 8 || Math.abs(event.clientY - pressRef.current.y) > 8) clearPress()
-      return
-    }
+  function onHandlePointerMove(event: PointerEvent<HTMLButtonElement>) {
     if (!drag || event.pointerId !== drag.pointerId) return
     event.preventDefault()
     const translateY = event.clientY - drag.startY
@@ -458,8 +453,7 @@ function ReorderableList<T>({
     setDrag({ ...drag, translateY, index: nextIndex })
   }
 
-  function endDrag(event: PointerEvent<HTMLLIElement>) {
-    clearPress()
+  function endDrag(event: PointerEvent<HTMLButtonElement>) {
     if (drag && event.pointerId === drag.pointerId) setDrag(null)
   }
 
@@ -468,19 +462,24 @@ function ReorderableList<T>({
       {items.map((item, index) => {
         const key = getKey(item)
         const dragging = drag?.itemKey === key
-        return (
-          <li
-            key={key}
-            data-drag-key={key}
-            className={`slab !py-3.5 select-none ${dragging ? 'opacity-0' : ''}`}
-            style={{ touchAction: dragging ? 'none' : 'pan-y', WebkitUserSelect: 'none', WebkitTouchCallout: 'none' }}
+        const handle = (
+          <button
+            type="button"
+            aria-label="Trascina per riordinare"
+            className="shrink-0 -m-2 p-2 text-base leading-none text-slate2 active:text-white"
+            style={{ touchAction: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none' }}
             onContextMenu={(event) => event.preventDefault()}
-            onPointerDown={(event) => onItemPointerDown(key, index, event)}
-            onPointerMove={onItemPointerMove}
+            onPointerDown={(event) => onHandlePointerDown(key, index, event)}
+            onPointerMove={onHandlePointerMove}
             onPointerUp={endDrag}
             onPointerCancel={endDrag}
           >
-            {renderItem(item, index)}
+            ⠿
+          </button>
+        )
+        return (
+          <li key={key} data-drag-key={key} className={`slab !py-3.5 ${dragging ? 'opacity-0' : ''}`}>
+            {renderItem(item, index, handle)}
           </li>
         )
       })}
@@ -493,7 +492,7 @@ function ReorderableList<T>({
             boxShadow: '0 12px 32px rgba(0,0,0,0.45)',
           }}
         >
-          {renderItem(items[drag.index], drag.index)}
+          {renderItem(items[drag.index], drag.index, null)}
         </li>
       )}
     </ol>

@@ -4,6 +4,7 @@ import { loadLocalAiSettings, saveLocalAiSettings, type DeepSeekModel } from '..
 import { useSettings } from '../features/profile/useSettings'
 import { clearNativeCrashLog, isNativeDiagnosticsAvailable, readNativeCrashLog } from '../native/diagnostics'
 import { clearJsErrorLog, formatJsErrorLog, readJsErrorLog } from '../lib/jsErrorLog'
+import { loadTimerSettings, saveTimerSettings } from '../features/profile/timerSettings'
 import type { Sex } from '../types'
 
 const SEX_LABELS: Record<Sex, string> = {
@@ -34,6 +35,7 @@ export default function ProfilePage() {
   const [crashLogCopied, setCrashLogCopied] = useState(false)
   const [jsErrorLog, setJsErrorLog] = useState('')
   const [jsErrorLogCopied, setJsErrorLogCopied] = useState(false)
+  const [timerSettings, setTimerSettings] = useState(() => loadTimerSettings())
 
   useEffect(() => {
     if (!isNativeDiagnosticsAvailable()) return
@@ -117,6 +119,26 @@ export default function ProfilePage() {
             </select>
           </label>
         </div>
+      </section>
+
+      <section className="mt-8 rounded-2xl border border-edge p-4">
+        <h2 className="font-display text-lg font-bold uppercase text-white">Notifiche Timer</h2>
+        <p className="mt-2 text-sm leading-relaxed text-slate2">
+          Vale per tutti gli allenamenti: si imposta una volta sola qui, non va rifatto ogni volta.
+        </p>
+        <label className="mt-4 flex items-center justify-between gap-3 rounded-xl border border-edge bg-steel/50 p-3.5">
+          <span className="text-sm text-chalk">Vibrazione a fine round/recupero</span>
+          <input
+            type="checkbox"
+            className="h-5 w-5 accent-cyan-500"
+            checked={timerSettings.vibration}
+            onChange={(event) => {
+              const next = { ...timerSettings, vibration: event.target.checked }
+              setTimerSettings(next)
+              saveTimerSettings(next)
+            }}
+          />
+        </label>
       </section>
 
       <button className="btn mt-8" disabled={status === 'saving'} onClick={save}>

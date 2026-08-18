@@ -211,9 +211,21 @@ describe('Weekly Program Engine', () => {
     expect(bySplit.get('bro_legs')).toEqual([])
   })
 
-  it('Tabata resta complementare quando è combinato con altre discipline', () => {
+  it('Tabata si alterna con l’altra disciplina invece di restare confinato a un giorno solo', () => {
     const program = generateWeeklyProgram({ ...base, training_days: 6, selected_modes: ['bodybuilding', 'tabata'] })
-    expect(program.week.filter((session) => session.mode === 'tabata')).toHaveLength(1)
+    expect(program.week.filter((session) => session.mode === 'tabata')).toHaveLength(3)
+    expect(program.week.filter((session) => session.mode === 'bodybuilding')).toHaveLength(3)
+    const modes = program.week.map((session) => session.mode)
+    for (let i = 1; i < modes.length; i++) expect(modes[i]).not.toBe(modes[i - 1])
+  })
+
+  it('5 giorni BB + Tabata produce Push/TB/Pull/TB/Legs', () => {
+    const program = generateWeeklyProgram({ ...base, training_days: 5, selected_modes: ['bodybuilding', 'tabata'] })
+    expect(program.week.filter((session) => session.mode === 'bodybuilding')).toHaveLength(3)
+    expect(program.week.filter((session) => session.mode === 'tabata')).toHaveLength(2)
+    expect(program.week.filter((session) => session.mode === 'bodybuilding').map((session) => session.split).sort()).toEqual(['legs', 'pull', 'push'])
+    const modes = program.week.map((session) => session.mode)
+    for (let i = 1; i < modes.length; i++) expect(modes[i]).not.toBe(modes[i - 1])
   })
 
   it('permette di modificare modalità, split e giorno e rivalida la settimana', () => {

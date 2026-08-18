@@ -29,6 +29,8 @@ public class WorkoutTimerService extends Service {
     public static final String EXTRA_DEADLINE = "deadline";
     /** 'work' | 'rest' | 'other' - decide il colore del countdown custom (sez. buildCountdown). */
     public static final String EXTRA_PHASE = "phase";
+    /** Preferenza dell'app (Profilo), non del singolo allenamento: vedi timerSettings.ts lato JS. */
+    public static final String EXTRA_VIBRATE = "vibrate";
     private static final String CHANNEL_ACTIVE = "gymbuilder_workout_timer";
     private static final int NOTIFICATION_ID = 4201;
     private static final int COLOR_WORK = 0xFFFFD600;
@@ -38,6 +40,7 @@ public class WorkoutTimerService extends Service {
     private final Handler handler = new Handler(Looper.getMainLooper());
     private Runnable completion;
     private PowerManager.WakeLock wakeLock;
+    private boolean vibrateEnabled = true;
     // true dal momento in cui QUESTA istanza del Service ha soddisfatto il contratto
     // startForeground() dopo Context.startForegroundService(). Il Runner React riavvia il
     // timer a ogni cambio di fase/round (ogni 10-20s in un Tabata), spesso a schermo spento:
@@ -73,6 +76,7 @@ public class WorkoutTimerService extends Service {
             String safeLabel = label == null ? "Timer allenamento" : label;
             String phase = intent.getStringExtra(EXTRA_PHASE);
             String safePhase = phase == null ? "other" : phase;
+            vibrateEnabled = intent.getBooleanExtra(EXTRA_VIBRATE, true);
             if (deadline <= System.currentTimeMillis()) {
                 // Questo Service e' stato avviato con startForegroundService(): se non e' ancora
                 // in foreground, il sistema pretende startForeground() entro pochi secondi anche
@@ -199,7 +203,7 @@ public class WorkoutTimerService extends Service {
         // separata a ogni round, che su un Tabata (round ogni 10-30s) diventava uno spam continuo
         // di popup/vibrazioni sovrapposte a quelle della UI in-app. Il countdown persistente
         // (gia' aggiornato dal round successivo via updateTimer) resta l'unico avviso visivo.
-        vibrateLong();
+        if (vibrateEnabled) vibrateLong();
         // Non ferma il Service: la sessione prosegue col round successivo (updateTimer(), stesso
         // ServiceRecord). Si ferma solo su ACTION_STOP esplicito da JS a fine sessione vera.
     }

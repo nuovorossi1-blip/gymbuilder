@@ -132,11 +132,20 @@ function distributeModes(config: WeeklyProgramConfig): Record<PublicMode, number
     const bb = Math.ceil(config.training_days / 2)
     return { bodybuilding: bb, crossfit: config.training_days - bb } as Record<PublicMode, number>
   }
+  // Il tabata e' un circuito breve ad alta intensita': combinato con un'altra disciplina va
+  // intervallato fra le sue sedute (Push/TB/Pull/TB/Legs), non relegato a un'unica giornata a
+  // fine settimana. Circa meta' giorni a testa, come bodybuilding+crossfit qui sopra;
+  // orderForRecovery (sez. candidateScore) penalizza gia' due sedute della stessa modalita' di
+  // fila, quindi con questi conteggi l'alternanza viene fuori da sola.
+  if (modes.length === 2 && modes.includes('tabata')) {
+    const other = modes.find((mode) => mode !== 'tabata')!
+    const primary = Math.ceil(config.training_days / 2)
+    return { [other]: primary, tabata: config.training_days - primary } as Record<PublicMode, number>
+  }
   const counts = Object.fromEntries(modes.map((mode) => [mode, 1])) as Partial<Record<PublicMode, number>>
   let remaining = config.training_days - modes.length
   while (remaining-- > 0) {
     const candidate = modes
-      .filter((mode) => !(mode === 'tabata' && modes.length > 1 && (counts[mode] ?? 0) >= 1))
       .sort((a, b) => MODE_WEIGHT[config.goal][b] / ((counts[b] ?? 0) + 0.6) - MODE_WEIGHT[config.goal][a] / ((counts[a] ?? 0) + 0.6))[0] ?? modes[0]
     counts[candidate] = (counts[candidate] ?? 0) + 1
   }

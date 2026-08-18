@@ -1149,7 +1149,7 @@ function WeekView({
               }`}
             >
               <div className="text-[10px] uppercase">{DAY_LABELS[session.day].slice(0, 3)}</div>
-              <div className="text-xs font-bold truncate">{session.split ? SPLIT_LABELS[session.split] : 'WOD'}</div>
+              <div className="text-xs font-bold truncate">{session.split ? SPLIT_LABELS[session.split] : session.mode === 'tabata' ? 'Tabata' : 'WOD'}</div>
             </button>
           ))}
         </div>
