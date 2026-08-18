@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '../features/auth/AuthProvider'
 import { loadLocalAiSettings, saveLocalAiSettings, type DeepSeekModel } from '../features/profile/aiSettings'
 import { useSettings } from '../features/profile/useSettings'
+import { clearNativeCrashLog, isNativeDiagnosticsAvailable, readNativeCrashLog } from '../native/diagnostics'
 import type { Sex } from '../types'
 
 const SEX_LABELS: Record<Sex, string> = {
@@ -28,6 +29,13 @@ export default function ProfilePage() {
   })
   const [aiForm, setAiForm] = useState(() => loadLocalAiSettings())
   const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const [crashLog, setCrashLog] = useState('')
+  const [crashLogCopied, setCrashLogCopied] = useState(false)
+
+  useEffect(() => {
+    if (!isNativeDiagnosticsAvailable()) return
+    void readNativeCrashLog().then(setCrashLog)
+  }, [])
 
   useEffect(() => {
     if (!profile) return
@@ -110,6 +118,40 @@ export default function ProfilePage() {
       <p className={`mt-3 text-center text-sm ${status === 'error' ? 'text-amber2' : 'text-slate2'}`} role="status">
         {status === 'saved' ? 'Profilo salvato.' : status === 'error' ? 'Salvataggio non riuscito.' : ''}
       </p>
+      {isNativeDiagnosticsAvailable() && (
+        <section className="mt-8 rounded-2xl border border-edge p-4">
+          <h2 className="font-display text-lg font-bold uppercase text-white">Diagnostica crash</h2>
+          <p className="mt-2 text-sm leading-relaxed text-slate2">
+            {crashLog
+              ? "Registrati crash dell'app su questo dispositivo. Copiali e incollali in chat per farli analizzare."
+              : 'Nessun crash registrato su questo dispositivo.'}
+          </p>
+          {crashLog && (
+            <>
+              <textarea readOnly className="input mt-3 min-h-40 font-data text-xs" value={crashLog} />
+              <div className="mt-3 flex gap-2">
+                <button
+                  className="flex-1 rounded-xl border border-cyan-500/40 bg-cyan-500/15 py-2.5 font-data text-xs uppercase tracking-wider text-cyan-200"
+                  onClick={async () => {
+                    await navigator.clipboard.writeText(crashLog)
+                    setCrashLogCopied(true)
+                    setTimeout(() => setCrashLogCopied(false), 2000)
+                  }}
+                >
+                  {crashLogCopied ? 'Copiato!' : 'Copia'}
+                </button>
+                <button
+                  className="flex-1 rounded-xl border border-edge py-2.5 font-data text-xs uppercase tracking-wider text-slate2"
+                  onClick={async () => { await clearNativeCrashLog(); setCrashLog('') }}
+                >
+                  Cancella log
+                </button>
+              </div>
+            </>
+          )}
+        </section>
+      )}
+
       <button className="mt-8 w-full rounded-xl border border-edge py-3.5 font-data text-xs uppercase tracking-wider text-slate2" onClick={signOut}>
         Disconnetti
       </button>

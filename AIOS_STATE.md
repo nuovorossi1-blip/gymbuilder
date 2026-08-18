@@ -891,3 +891,28 @@ volta e che il Tabata non si chiuda più — vedi TODO.
 Sistemato anche il secret GitHub Actions `VERCEL_TOKEN` (era scaduto/non valido: lo step "Deploy
 APK to Vercel" falliva da almeno il 17/08, senza impatto reale sugli utenti perché il deploy vero
 passa dall'integrazione automatica GitHub→Vercel, ma lasciava una ✗ rossa ad ogni build).
+
+## Aggiornamento stato — 2026-08-18: il Tabata continua a chiudersi, aggiunta diagnostica crash reale
+
+L'utente ha installato 1.0.21 (i due fix sopra) e il crash si ripresenta **a ogni singolo giro**
+(non solo al primo), con il "richiede avvio più volte" ancora presente prima del primo giro.
+Nota positiva: il fix del resume funziona — riaprendo l'app dopo ogni crash riprende dal giro
+giusto (2°, poi 3°) invece di tornare sempre alla schermata iniziale, come confermato
+dall'utente. Terza ipotesi via lettura del codice senza log reale rischiava di essere un altro
+tentativo alla cieca: **invece di correggere ancora per ipotesi, aggiunta cattura del crash
+reale**.
+
+Nuovo `CrashLogger.java`: installa un `Thread.setDefaultUncaughtExceptionHandler` che scrive
+ogni eccezione fatale non gestita (incluse quelle lanciate dal sistema come
+`ForegroundServiceDidNotStartInTimeException`, che arrivano comunque come eccezione Java normale
+sul thread principale, catturabile da questo handler) su file, poi richiama l'handler precedente
+così il comportamento di chiusura resta quello standard. Nuovo `DiagnosticsPlugin.java` +
+`src/native/diagnostics.ts` espongono quel log alla WebView. Nuova sezione "Diagnostica crash" in
+Profilo (`ProfilePage.tsx`, visibile solo su Android nativo): mostra il testo del crash più
+recente con pulsanti Copia/Cancella, così l'utente può incollarlo qui in chat senza bisogno di
+adb o di un file manager.
+
+**Prossimo passo reale**: chiedere all'utente di riprodurre ancora il crash Tabata, poi aprire
+Profilo → Diagnostica crash e incollare il contenuto. Da lì si potrà correggere la causa vera
+invece di continuare per ipotesi. 227 test verdi, `tsc`/`eslint` puliti, build verde. Il logger
+stesso non è testabile in questo Codespace (niente Android SDK/dispositivo).
