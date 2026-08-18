@@ -847,3 +847,47 @@ nell'ordine giusto con i titoli corretti, il gating dello step 3 blocca "Continu
 discipline selezionate, la navigazione indietro dallo step 9 allo step 1 funziona, e il salto
 Tabata step 4→9 funziona. Non verificato invece il percorso di generazione vera (serve un
 catalogo reale) né il comportamento su dispositivo Android reale.
+
+## Aggiornamento stato — 2026-08-18: il fix del crash non bastava, permesso e resume Tabata
+
+L'utente ha installato la build 1.0.20 (commit `0d7dca3`, il fix `promoteToForegroundThenStop`
+sopra) e ha comunque riscontrato lo stesso pattern: al primo Tabata il permesso notifiche gli è
+stato chiesto 2-3 volte invece di una, e l'app si è chiusa comunque al primo passaggio
+lavoro→riposo; riaprendo torna sempre alla schermata "Avvia Tabata" invece di riprendere il round.
+Trovate e corrette due cause reali distinte, entrambe più probabili del bug già risolto:
+
+- **Permesso richiesto implicitamente in corsa con i round**: `requestTimerNotifications()`
+  lato JS non chiedeva mai davvero il permesso nativo (`if (isNativeWorkoutTimerAvailable())
+  return true`, un no-op ottimistico): la vera richiesta avveniva solo al primo
+  `WorkoutTimer.start()`, dentro il primo cambio di fase. Con un Tabata che cambia fase ogni
+  10-20s, se l'utente non rispondeva al dialogo di sistema abbastanza in fretta, i round
+  successivi arrivavano mentre la Promise del primo `start()` era ancora pendente:
+  `activeNativeTimer` (il guard anti-duplicati in `workoutTimer.ts`) restava `null` finché quella
+  Promise non si risolveva, quindi ogni round nel frattempo tentava un nuovo `start()`. Quando la
+  richiesta finiva per risolversi, poteva farlo con un `deadline` ormai di round precedenti,
+  quindi già scaduto — la stessa famiglia di crash del fix precedente, solo con una causa diversa
+  a monte. Aggiunto un nuovo metodo nativo `ensurePermission` (stessa guardia
+  `permissionRequestInFlight`/`permissionDenied` di `start()`, ma senza avviare alcun timer) e
+  `requestTimerNotifications()` ora lo chiama e lo attende *prima* del countdown iniziale: il
+  dialogo di sistema compare una sola volta, upfront, prima che qualunque round cominci.
+- **Il resume dopo crash non funzionava mai per un Tabata puro**: lo stato di avanzamento salvato
+  in `RUNNER_PROGRESS_KEY` viene ripristinato solo se `progress.iniziato === true`, ma quel flag
+  si imposta solo nella schermata di Riscaldamento (`setIniziato(true)` al tap su "Comincia") o
+  nella sezione principale a serie. Un Tabata puro (niente riscaldamento, niente esercizi
+  principali, tutto nel blocco Metcon) passa dritto alla schermata "Avvia Tabata" — il cui
+  handler non impostava mai `iniziato`. Risultato: il guard di ripristino restava sempre falso, e
+  ogni riapertura (dopo un crash o anche solo dopo aver chiuso l'app) mostrava di nuovo la
+  schermata iniziale invece di riprendere il round in corso, anche quando lo stato dettagliato
+  (round, fase, deadline) era salvato correttamente. Aggiunto `setIniziato(true)` anche in quel
+  handler.
+
+227 test verdi, `tsc`/`eslint` puliti (entrambi i fix sono minimi e mirati, nessuna modifica al
+motore). **Nessuno dei due è verificabile in questo Codespace** (niente Android SDK/dispositivo):
+individuati per lettura del codice a partire dalla sequenza esatta di sintomi riportata
+dall'utente (permesso chiesto più volte + crash al primo cambio fase + resume rotto), non da un
+log di crash reale. Resta da confermare su un telefono vero che il permesso compaia una sola
+volta e che il Tabata non si chiuda più — vedi TODO.
+
+Sistemato anche il secret GitHub Actions `VERCEL_TOKEN` (era scaduto/non valido: lo step "Deploy
+APK to Vercel" falliva da almeno il 17/08, senza impatto reale sugli utenti perché il deploy vero
+passa dall'integrazione automatica GitHub→Vercel, ma lasciava una ✗ rossa ad ogni build).

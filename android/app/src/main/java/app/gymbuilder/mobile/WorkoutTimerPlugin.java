@@ -27,6 +27,42 @@ public class WorkoutTimerPlugin extends Plugin {
     private boolean permissionRequestInFlight = false;
     private boolean permissionDenied = false;
 
+    // Chiesto esplicitamente prima del countdown iniziale (vedi requestTimerNotifications()
+    // lato JS), cosi' il dialogo di sistema per il permesso notifiche non compare a meta'
+    // del primo round: senza questo, start() lo richiedeva implicitamente al primo cambio
+    // di fase, in corsa con i round successivi (Tabata ne cambia uno ogni 10-20s), e la
+    // richiesta poteva restare "in flight" per piu' round consecutivi.
+    @PluginMethod
+    public void ensurePermission(PluginCall call) {
+        boolean needsPermission = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+            && getPermissionState("notifications") != PermissionState.GRANTED;
+        if (!needsPermission) {
+            JSObject result = new JSObject();
+            result.put("granted", true);
+            call.resolve(result);
+            return;
+        }
+        if (permissionDenied || permissionRequestInFlight) {
+            JSObject result = new JSObject();
+            result.put("granted", false);
+            call.resolve(result);
+            return;
+        }
+        permissionRequestInFlight = true;
+        requestPermissionForAlias("notifications", call, "ensurePermissionResult");
+    }
+
+    @PermissionCallback
+    private void ensurePermissionResult(PluginCall call) {
+        permissionRequestInFlight = false;
+        boolean granted = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU
+            || getPermissionState("notifications") == PermissionState.GRANTED;
+        if (!granted) permissionDenied = true;
+        JSObject result = new JSObject();
+        result.put("granted", granted);
+        call.resolve(result);
+    }
+
     @PluginMethod
     public void start(PluginCall call) {
         boolean needsPermission = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU

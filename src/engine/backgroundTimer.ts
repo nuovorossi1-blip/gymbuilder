@@ -1,5 +1,5 @@
 import type { TimerEventType } from './timer'
-import { isNativeWorkoutTimerAvailable, startNativeWorkoutTimer, stopNativeWorkoutTimer } from '../native/workoutTimer'
+import { ensureNativeTimerPermission, isNativeWorkoutTimerAvailable, startNativeWorkoutTimer, stopNativeWorkoutTimer } from '../native/workoutTimer'
 
 const DEFAULT_TITLE = 'GymBuilder'
 const RESUME_WORKOUT_HREF = '/?resume=workout'
@@ -20,9 +20,11 @@ export function timerTitle(label: string, remainingSec: number): string {
 }
 
 export async function requestTimerNotifications(): Promise<boolean> {
-  // Nell'APK il permesso POST_NOTIFICATIONS appartiene al plugin Android.
-  // Non avviare in parallelo anche il prompt Web Notification della WebView.
-  if (isNativeWorkoutTimerAvailable()) return true
+  // Nell'APK il permesso POST_NOTIFICATIONS appartiene al plugin Android: richiesto qui,
+  // prima del countdown iniziale, cosi' il dialogo di sistema compare una sola volta e non
+  // resta implicito a meta' del primo round (in corsa con i round successivi, specialmente
+  // brevi come nel Tabata). Non avviare in parallelo anche il prompt Web Notification.
+  if (isNativeWorkoutTimerAvailable()) return ensureNativeTimerPermission()
   if (typeof Notification === 'undefined') return false
   if (Notification.permission === 'granted') return true
   if (Notification.permission === 'denied') return false

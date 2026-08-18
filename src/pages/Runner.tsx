@@ -634,6 +634,12 @@ export default function Runner() {
           <button
             className="btn mt-auto !py-4 text-lg"
             onClick={() => void startWithCountdown(() => {
+              // Un Tabata/benchmark senza riscaldamento ne' esercizi principali non passa mai
+              // dal ramo che imposta `iniziato`: senza impostarlo anche qui, il ripristino
+              // dello stato salvato (sez. "Ripristino dello stato esatto di avanzamento" sopra,
+              // condizionato su progress.iniziato) non scatta mai, e ogni riapertura dopo un
+              // crash/uscita torna sempre a questa schermata invece di riprendere il round in corso.
+              if (!iniziato) { inizio.current = Date.now(); setIniziato(true) }
               if (formato === 'amrap') {
                 const duration = (metconBlock?.time_cap_min ?? 0) * 60
                 setMetconRimanente(duration); metconDeadline.current = Date.now() + duration * 1000
