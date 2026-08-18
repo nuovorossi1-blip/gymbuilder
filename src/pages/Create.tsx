@@ -588,124 +588,6 @@ function WizardBuilder({
       {step === 4 && (
         <SwipeContainer direction={slideDirection} onSwipeLeft={goNext} onSwipeRight={goBack} className="space-y-5">
           <>
-          {isTabata && (
-            <Field title="⏱️ Parametri Timer Tabata / Intervalli">
-              <div className="space-y-4 rounded-xl border border-amber-500/40 bg-amber-500/10 p-4">
-                {/* 1. Numero di Giri */}
-                <div>
-                  <label className="text-xs font-bold uppercase tracking-wider text-amber-300">
-                    1. Numero di Giri (Rounds): {config.tabata.rounds} giri
-                  </label>
-                  <div className="mt-2 flex flex-wrap items-center gap-2">
-                    {[8, 10, 12, 15, 20, 25, 30].map((r) => (
-                      <Choice
-                        key={r}
-                        active={config.tabata.rounds === r}
-                        onClick={() => patch('tabata', { ...config.tabata, rounds: r })}
-                      >
-                        {r} Giri
-                      </Choice>
-                    ))}
-                    <div className="flex items-center gap-1 ml-auto">
-                      <button
-                        type="button"
-                        onClick={() => patch('tabata', { ...config.tabata, rounds: Math.max(1, config.tabata.rounds - 1) })}
-                        className="px-2.5 py-1 rounded bg-steel border border-edge text-xs font-bold text-white active:scale-95"
-                      >
-                        -
-                      </button>
-                      <span className="text-xs font-data text-white w-6 text-center">{config.tabata.rounds}</span>
-                      <button
-                        type="button"
-                        onClick={() => patch('tabata', { ...config.tabata, rounds: config.tabata.rounds + 1 })}
-                        className="px-2.5 py-1 rounded bg-steel border border-edge text-xs font-bold text-white active:scale-95"
-                      >
-                        +
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* 2. Tempo di Allenamento / Lavoro */}
-                <div>
-                  <label className="text-xs font-bold uppercase tracking-wider text-amber-300">
-                    2. Tempo di Allenamento (Lavoro): {config.tabata.work_sec}s {Math.floor(config.tabata.work_sec / 60) > 0 ? `(${Math.floor(config.tabata.work_sec / 60)}m ${config.tabata.work_sec % 60}s)` : ''}
-                  </label>
-                  <div className="mt-2 flex flex-wrap items-center gap-2">
-                    {[15, 20, 30, 45, 60, 90, 120].map((sec) => (
-                      <Choice
-                        key={sec}
-                        active={config.tabata.work_sec === sec}
-                        onClick={() => patch('tabata', { ...config.tabata, work_sec: sec })}
-                      >
-                        {sec < 60 ? `${sec}s` : `${sec / 60}m`}
-                      </Choice>
-                    ))}
-                    <div className="flex items-center gap-1 ml-auto">
-                      <button
-                        type="button"
-                        onClick={() => patch('tabata', { ...config.tabata, work_sec: Math.max(5, config.tabata.work_sec - 5) })}
-                        className="px-2.5 py-1 rounded bg-steel border border-edge text-xs font-bold text-white active:scale-95"
-                      >
-                        -5s
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => patch('tabata', { ...config.tabata, work_sec: config.tabata.work_sec + 5 })}
-                        className="px-2.5 py-1 rounded bg-steel border border-edge text-xs font-bold text-white active:scale-95"
-                      >
-                        +5s
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* 3. Tempo di Recupero */}
-                <div>
-                  <label className="text-xs font-bold uppercase tracking-wider text-amber-300">
-                    3. Tempo di Recupero (Pausa): {config.tabata.rest_sec}s {Math.floor(config.tabata.rest_sec / 60) > 0 ? `(${Math.floor(config.tabata.rest_sec / 60)}m ${config.tabata.rest_sec % 60}s)` : ''}
-                  </label>
-                  <div className="mt-2 flex flex-wrap items-center gap-2">
-                    {[5, 10, 15, 30, 45, 60, 90].map((sec) => (
-                      <Choice
-                        key={sec}
-                        active={config.tabata.rest_sec === sec}
-                        onClick={() => patch('tabata', { ...config.tabata, rest_sec: sec })}
-                      >
-                        {sec < 60 ? `${sec}s` : `${sec / 60}m`}
-                      </Choice>
-                    ))}
-                    <div className="flex items-center gap-1 ml-auto">
-                      <button
-                        type="button"
-                        onClick={() => patch('tabata', { ...config.tabata, rest_sec: Math.max(5, config.tabata.rest_sec - 5) })}
-                        className="px-2.5 py-1 rounded bg-steel border border-edge text-xs font-bold text-white active:scale-95"
-                      >
-                        -5s
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => patch('tabata', { ...config.tabata, rest_sec: config.tabata.rest_sec + 5 })}
-                        className="px-2.5 py-1 rounded bg-steel border border-edge text-xs font-bold text-white active:scale-95"
-                      >
-                        +5s
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Riepilogo Calcolato Timer */}
-                <div className="rounded-lg border border-amber-500/40 bg-zinc-900/80 p-3 text-xs">
-                  <p className="font-bold text-amber-300">
-                    ⏱️ Riepilogo Timer: {config.tabata.rounds} Giri × ({config.tabata.work_sec}s Lavoro / {config.tabata.rest_sec}s Pausa)
-                  </p>
-                  <p className="mt-1 text-slate-300">
-                    Durata Totale Timer: <span className="font-bold text-white">{Math.floor((config.tabata.rounds * (config.tabata.work_sec + config.tabata.rest_sec)) / 60)}m {((config.tabata.rounds * (config.tabata.work_sec + config.tabata.rest_sec)) % 60)}s</span>
-                  </p>
-                </div>
-              </div>
-            </Field>
-          )}
           {!isTabataOnly && (
             <>
               {showBBSplitSystem && (
@@ -825,6 +707,124 @@ function WizardBuilder({
                 </Field>
               )}
             </>
+          )}
+          {isTabata && (
+            <Field title="⏱️ Parametri Timer Tabata / Intervalli">
+              <div className="space-y-4 rounded-xl border border-amber-500/40 bg-amber-500/10 p-4">
+                {/* 1. Numero di Giri */}
+                <div>
+                  <label className="text-xs font-bold uppercase tracking-wider text-amber-300">
+                    1. Numero di Giri (Rounds): {config.tabata.rounds} giri
+                  </label>
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    {[8, 10, 12, 15, 20, 25, 30].map((r) => (
+                      <Choice
+                        key={r}
+                        active={config.tabata.rounds === r}
+                        onClick={() => patch('tabata', { ...config.tabata, rounds: r })}
+                      >
+                        {r} Giri
+                      </Choice>
+                    ))}
+                    <div className="flex items-center gap-1 ml-auto">
+                      <button
+                        type="button"
+                        onClick={() => patch('tabata', { ...config.tabata, rounds: Math.max(1, config.tabata.rounds - 1) })}
+                        className="px-2.5 py-1 rounded bg-steel border border-edge text-xs font-bold text-white active:scale-95"
+                      >
+                        -
+                      </button>
+                      <span className="text-xs font-data text-white w-6 text-center">{config.tabata.rounds}</span>
+                      <button
+                        type="button"
+                        onClick={() => patch('tabata', { ...config.tabata, rounds: config.tabata.rounds + 1 })}
+                        className="px-2.5 py-1 rounded bg-steel border border-edge text-xs font-bold text-white active:scale-95"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. Tempo di Allenamento / Lavoro */}
+                <div>
+                  <label className="text-xs font-bold uppercase tracking-wider text-amber-300">
+                    2. Tempo di Allenamento (Lavoro): {config.tabata.work_sec}s {Math.floor(config.tabata.work_sec / 60) > 0 ? `(${Math.floor(config.tabata.work_sec / 60)}m ${config.tabata.work_sec % 60}s)` : ''}
+                  </label>
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    {[15, 20, 30, 45, 60, 90, 120].map((sec) => (
+                      <Choice
+                        key={sec}
+                        active={config.tabata.work_sec === sec}
+                        onClick={() => patch('tabata', { ...config.tabata, work_sec: sec })}
+                      >
+                        {sec < 60 ? `${sec}s` : `${sec / 60}m`}
+                      </Choice>
+                    ))}
+                    <div className="flex items-center gap-1 ml-auto">
+                      <button
+                        type="button"
+                        onClick={() => patch('tabata', { ...config.tabata, work_sec: Math.max(5, config.tabata.work_sec - 5) })}
+                        className="px-2.5 py-1 rounded bg-steel border border-edge text-xs font-bold text-white active:scale-95"
+                      >
+                        -5s
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => patch('tabata', { ...config.tabata, work_sec: config.tabata.work_sec + 5 })}
+                        className="px-2.5 py-1 rounded bg-steel border border-edge text-xs font-bold text-white active:scale-95"
+                      >
+                        +5s
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3. Tempo di Recupero */}
+                <div>
+                  <label className="text-xs font-bold uppercase tracking-wider text-amber-300">
+                    3. Tempo di Recupero (Pausa): {config.tabata.rest_sec}s {Math.floor(config.tabata.rest_sec / 60) > 0 ? `(${Math.floor(config.tabata.rest_sec / 60)}m ${config.tabata.rest_sec % 60}s)` : ''}
+                  </label>
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    {[5, 10, 15, 30, 45, 60, 90].map((sec) => (
+                      <Choice
+                        key={sec}
+                        active={config.tabata.rest_sec === sec}
+                        onClick={() => patch('tabata', { ...config.tabata, rest_sec: sec })}
+                      >
+                        {sec < 60 ? `${sec}s` : `${sec / 60}m`}
+                      </Choice>
+                    ))}
+                    <div className="flex items-center gap-1 ml-auto">
+                      <button
+                        type="button"
+                        onClick={() => patch('tabata', { ...config.tabata, rest_sec: Math.max(5, config.tabata.rest_sec - 5) })}
+                        className="px-2.5 py-1 rounded bg-steel border border-edge text-xs font-bold text-white active:scale-95"
+                      >
+                        -5s
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => patch('tabata', { ...config.tabata, rest_sec: config.tabata.rest_sec + 5 })}
+                        className="px-2.5 py-1 rounded bg-steel border border-edge text-xs font-bold text-white active:scale-95"
+                      >
+                        +5s
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Riepilogo Calcolato Timer */}
+                <div className="rounded-lg border border-amber-500/40 bg-zinc-900/80 p-3 text-xs">
+                  <p className="font-bold text-amber-300">
+                    ⏱️ Riepilogo Timer: {config.tabata.rounds} Giri × ({config.tabata.work_sec}s Lavoro / {config.tabata.rest_sec}s Pausa)
+                  </p>
+                  <p className="mt-1 text-slate-300">
+                    Durata Totale Timer: <span className="font-bold text-white">{Math.floor((config.tabata.rounds * (config.tabata.work_sec + config.tabata.rest_sec)) / 60)}m {((config.tabata.rounds * (config.tabata.work_sec + config.tabata.rest_sec)) % 60)}s</span>
+                  </p>
+                </div>
+              </div>
+            </Field>
           )}
           </>
           <StepNav onBack={goBack} onNext={goNext} nextDisabled={!stepValid(4)} />
