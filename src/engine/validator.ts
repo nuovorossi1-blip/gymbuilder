@@ -5,8 +5,10 @@ import type { Exercise, GeneratedWorkout, Muscle, Split, WorkoutGenerationConfig
 export interface ValidationResult { valid: boolean; errors: string[] }
 
 const SPLIT_PRIMARY_MUSCLES: Record<Split, Muscle[]> = {
-  push: ['chest', 'front_delts', 'lateral_delts', 'triceps'],
-  pull: ['back', 'rear_delts', 'biceps', 'forearms'],
+  // biceps in push e triceps in pull (sez. spec utente 19/08, "PPL Standard Biomeccanico a 6
+  // Slot"): entrambi gli arti si allenano ora in entrambe le sedute, con angoli complementari.
+  push: ['chest', 'front_delts', 'lateral_delts', 'triceps', 'biceps'],
+  pull: ['back', 'rear_delts', 'biceps', 'forearms', 'triceps'],
   legs: ['quads', 'hamstrings', 'glutes', 'adductors', 'calves'],
   upper: ['chest', 'back', 'front_delts', 'lateral_delts', 'rear_delts', 'biceps', 'triceps', 'forearms'],
   lower: ['quads', 'hamstrings', 'glutes', 'adductors', 'calves'],

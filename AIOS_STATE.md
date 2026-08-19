@@ -4,7 +4,7 @@
 > da qui. Va **aggiornato** a ogni sessione, non accodato all'infinito.
 > L'identità del progetto e il percorso di AI-OS stanno in `AIOS_PROJECT.json`.
 
-**Ultimo aggiornamento:** 2026-08-19 (fix reale: FST-7 sempre rigettato dal validatore, dip esclusi dal motore Push, ristrutturazione Push/Legs, tetto 2 spalle per carenze PPL, avvicinamento CBum — vedi fondo file) - Claude (Sonnet 5)
+**Ultimo aggiornamento:** 2026-08-19 (PPL Standard Biomeccanico a 6 Slot: Push/Pull/Legs ristrutturati con template fisso, bicipiti+tricipiti in entrambi Push e Pull — vedi fondo file) - Claude (Sonnet 5)
 
 Etichette: `[FACT]` verificato nel codice · `[RICOSTRUITO]` dedotto da indizi ·
 `[IGNOTO]` non ricavabile dal repository
@@ -1307,3 +1307,84 @@ Codespace — il wizard `Create.tsx` a 9 step richiede un utente Supabase autent
 disponibile qui (a differenza di `/avvia`, che bypassa l'auth solo per `Runner.tsx`). Prossimo
 passo suggerito in TODO.md: generare davvero FST-7/CBum dal wizard con un utente reale e
 controllare a occhio badge Avvicinamento, assenza di shoulder press in Push, 5°/6° slot Legs.
+
+## Aggiornamento stato — 2026-08-19 (pomeriggio): PPL Standard Biomeccanico a 6 Slot
+
+Richiesta utente (specifica dettagliata, con `PPLSlotConfig` d'esempio e default per esercizio):
+sostituire la composizione dinamica di Push/Pull/Legs con un template **fisso a 6 slot**, ognuno
+con un ruolo anatomico preciso (muscolo + angolo/capo biomeccanico) pensato per alternare
+distretti e creare un "cuscinetto di recupero attivo" fra un esercizio pesante e l'altro. Punto
+più rilevante della spec: **sia Push sia Pull allenano bicipiti E tricipiti**, con angoli
+complementari (capo lungo/allungamento su Push — es. Incline DB Curl, French Press —, capo
+corto/laterale-mediale/accorciamento su Pull — es. Preacher Curl, Pushdown). Chiarito con 4
+domande mirate prima di implementare (risposte tutte "consigliato"):
+1. Gli slot sono fissi per ruolo (muscolo+angolo), l'esercizio scelto viene dal pool compatibile
+   (attrezzatura/varietà) — il default della spec è la prima scelta preferita, non l'unica.
+2. **Inversione voluta** del fix di stamattina ("una casa sola per muscolo": bicipiti solo Pull,
+   tricipiti solo Push) — la nuova spec fa apposta il contrario.
+3. Le carenze settimanali continuano a poter sostituire lo slot più ridondante, come già faceva
+   `applicaPrioritaAssegnate`.
+4. Si applica SOLO al sistema PPL (push/pull/legs) — Upper/Lower, Full Body, Bro Split invariati.
+
+**Scoperta chiave**: il campo `focus_portion` (long_head/short_head/lateral_head/medial_head/
+brachialis, aggiunto il 19/08 mattina per la Lagging Muscle Engine) mappa ESATTAMENTE sugli
+angoli richiesti dalla spec — la migrazione di stamattina aveva già taggato `curl_inclinata_man`/
+`bayesian_curl`=long_head, `curl_panca_scott`/`preacher_curl_macchina`=short_head, `french_press`/
+`estensioni_sopra_testa`=long_head, `pushdown`=lateral_head: sono esattamente i default della
+nuova spec. Nessuna migrazione catalogo nuova necessaria, solo plumbing nel generatore.
+
+**Generatore** (`bodybuilding.ts`):
+- `SlotDef` guadagna `preferredPortion?: FocusPortion`: uno slot fisso di template (non una
+  carenza) può chiedere un capo specifico. La logica di selezione ora ha due rami — `isRichiamo`
+  (carenza, usa `cfg.priority_portions` con rotazione settimanale, esistente) ha sempre priorità
+  su `preferredPortion` (slot fisso di default) quando entrambi si applicano allo stesso slot.
+- `BASE_SLOTS.push` (6 fissi): 2× petto composto, alzate laterali, dip (tricipiti composto — già
+  ristrutturato stamattina), bicipiti isolamento (long_head), tricipiti isolamento (long_head).
+- `BASE_SLOTS.pull` (6 fissi): 3× dorso composto (verticale, orizzontale 45°, orizzontale basso —
+  il catalogo non distingue formalmente 45° da "basso", varietà garantita dall'esclusione
+  duplicati), rear delt (face pull), tricipiti isolamento (lateral_head), bicipiti isolamento
+  (short_head).
+- `BASE_SLOTS.legs` (6 fissi): 2× quad composto (squat + leg press/hack — niente più composto
+  femorali fisso), isolamento quad, isolamento femorali, glutei composto (hip thrust/stacco
+  rumeno, hinge — chiude la catena posteriore DOPO le isolamenti, non subito dopo i composti),
+  polpacci.
+- `EXTRA_SLOTS.push/pull/legs` svuotati (mai più consultati: la base è già a 6 slot, il target è
+  sempre 6). Avambracci non è più nel default di Pull (era nell'EXTRA_SLOTS di prima).
+- `SPLIT_MUSCLE_POOL.push` += biceps, `.pull` += triceps.
+- `ordinaSlot`: separati i rami `legs` (nuovo ordine) da `lower`/`bro_legs` (ordine invariato,
+  fuori scope) e `pull` da `bro_back`/`back_body` (idem) — per non alterare split non toccati
+  dalla spec pur condividendo la stessa funzione.
+
+**Bug reale scoperto durante l'implementazione (non nella spec)**: con Push/Pull sempre a 6 slot
+pieni, il protocollo Top Set & Back-Off (CBum) partiva da 6 esercizi base invece di 5 (il tetto
+esisteva solo per FST-7), producendo 24 voci tracciate (6×4) — sempre oltre qualunque budget di
+tempo ragionevole (validator.test.ts: 85 min stimati contro 69 max, sessione sempre invalida).
+Corretto estendendo lo stesso pattern di troncamento già usato per FST-7 (`target`/`slot` tagliati
+a `targetEsercizi('cbum_top_backoff')` = 5, sugli slot a priorità più alta dopo `ordinaSlot`) anche
+a `cbum_top_backoff`.
+
+**Validator/weeklyPlan**: `SPLIT_PRIMARY_MUSCLES.push` += biceps, `.pull` += triceps
+(`validator.ts`, altrimenti ogni sessione di default veniva rigettata: "bicipiti non appartiene a
+Push"). `splitAccogliePriorita` (`weeklyPlan.ts`, sistema `ppl`) invertito: bicipiti e tricipiti
+ora compatibili sia con Push sia con Pull (era l'opposto, fix esplicito di stamattina — invertito
+di proposito su richiesta utente, commento aggiornato per spiegare perché).
+
+**Punto 3 della spec ("Slot-Restricted Swap") già esistente, non serviva codice nuovo**:
+`findExerciseReplacements` (`replacement.ts`) filtra già le alternative per stesso
+`focus_portion` dell'esercizio originale quando noto (pass 1), con fallback progressivo solo se
+non ci sono abbastanza candidati (mai un vicolo cieco per l'utente) — costruito durante la
+Lagging Muscle Engine di stamattina. Verificato che si applica automaticamente anche ai nuovi
+slot fissi bicipiti/tricipiti di Push/Pull, senza bisogno di toccare `replacement.ts`.
+
+**Non toccato, per scelta esplicita**: `lower`/`bro_legs`/`bro_back`/`back_body` (fuori scope,
+solo sistema PPL); Pull non ha un vero equivalente del "dip a 3 muscoli" di Push — l'utente non
+ha dato un esempio concreto per Pull, quindi la struttura a 3 composti dorso resta così com'è
+invece di inventare uno slot non richiesto.
+
+**Verificato**: 252 test verdi (250 + 2 nuovi: default Push bicipiti/tricipiti long_head, tetto
+di 6 esercizi mai superato su Push/Pull/Legs anche con carenze al massimo), più 4 test esistenti
+riscritti con commenti che spiegano il cambio di comportamento voluto (non un bug). `tsc`/
+`eslint`/`npm run build` puliti.
+
+**Non verificato in un browser reale**: stesso limite già noto in questo Codespace (nessun utente
+Supabase autenticato disponibile per il wizard `Create.tsx`).

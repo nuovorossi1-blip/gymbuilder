@@ -180,13 +180,14 @@ function splitAccogliePriorita(system: SplitSystem, split: Split | null, muscle:
   if (system === 'ppl') {
     if (muscle === 'lateral_delts' || muscle === 'front_delts') return split === 'push' || split === 'upper'
     if (muscle === 'rear_delts') return split === 'pull' || split === 'upper'
-    // Un muscolo, una casa naturale (sez. feedback utente 19/08): prima tricipiti E bicipiti
-    // erano "compatibili" sia con Push sia con Pull, quindi ogni carenza braccia reclamava uno
-    // slot dedicato in ENTRAMBE le sessioni invece che in una sola. Bicipiti lavorano nelle
-    // tirate (Pull), tricipiti nelle spinte (Push): la seconda esposizione settimanale resta
-    // comunque garantita dal richiamo incrociato più sotto, non dalla doppia compatibilità qui.
-    if (muscle === 'biceps') return split === 'pull' || split === 'upper'
-    if (muscle === 'triceps') return split === 'push' || split === 'upper'
+    // Inversione voluta (sez. spec utente 19/08 pomeriggio, "PPL Standard Biomeccanico a 6
+    // Slot"): il fix di stamattina rendeva bicipiti/tricipiti compatibili con una sola sessione
+    // ciascuno per evitare carenze duplicate. Ora Push e Pull hanno ENTRAMBI uno slot fisso di
+    // bicipiti e uno di tricipiti nel template di default (angoli complementari — capo lungo in
+    // allungamento su Push, capo corto in accorciamento su Pull): una carenza dichiarata deve
+    // poter reclamare priorità in entrambe le sedute, non solo in una, perché il muscolo è già
+    // strutturalmente allenato in entrambe.
+    if (muscle === 'biceps' || muscle === 'triceps') return split === 'push' || split === 'pull' || split === 'upper'
   }
   if (system === 'upper_lower') return split === 'upper'
   if (system === 'front_back') {

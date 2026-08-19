@@ -72,6 +72,10 @@ interface SlotDef {
   preferredPatterns?: string[]
   /** Una carenza selezionata è obbligatoria nella sessione, non un bonus casuale. */
   weakPoint?: boolean
+  /** Standard PPL a 6 slot (sez. spec utente 19/08): angolo/capo di default per bicipiti e
+   *  tricipiti quando lo slot è fisso di template, non una carenza settimanale (che ha la sua
+   *  rotazione via cfg.priority_portions — quella vince sempre se lo slot diventa weakPoint). */
+  preferredPortion?: FocusPortion
 }
 
 /**
@@ -114,33 +118,52 @@ function patternCoerente(exercise: Exercise, muscle: Muscle): boolean {
  * decide quante serie e quanto recupero, non se questi 5 esistono.
  */
 const BASE_SLOTS: Record<Split, SlotDef[]> = {
-  // Niente shoulder press pesante fisso in terza posizione (sez. feedback utente 19/08): dopo
-  // 2 panche i deltoidi anteriori sono già affaticati come secondari, un altro composto pesante
-  // dedicato lì è ridondante e controproducente. Il 3° slot è alzate laterali (isolamento), il
-  // 4° è un composto tricipiti (dip: prende tricipiti/petto/deltoide anteriore insieme, unico
-  // "esercizio a più muscoli" del catalogo) al posto dello shoulder press. Un front_delts
-  // composto resta comunque disponibile SE dichiarato carenza (applicaPrioritaAssegnate).
+  // PPL Standard Biomeccanico a 6 Slot (sez. spec utente 19/08), sempre esattamente 6 esercizi
+  // per Push/Pull/Legs, mai di più: ogni slot ha un ruolo anatomico e un'angolazione fissi,
+  // l'esercizio scelto viene dal pool compatibile con quel ruolo (attrezzatura/varietà), non è
+  // bloccato all'esempio letterale della spec. Slot 1-2 composti primari, poi angoli
+  // complementari pensati per far "rifiatare" un distretto mentre se ne allena un altro
+  // (cuscinetto di recupero attivo intra-sessione).
+  //
+  // Push: niente shoulder press pesante fisso (dopo 2 panche i deltoidi anteriori sono già
+  // affaticati come secondari, un altro composto pesante lì è ridondante/controproducente — sez.
+  // feedback utente 19/08 mattina). Slot 3 alzate laterali, slot 4 il dip (tricipiti composto,
+  // allena anche petto/deltoide anteriore come secondari — l'unico "esercizio a più muscoli" del
+  // catalogo). Slot 5-6: bicipiti (capo lungo, allungamento — cuscinetto per i tricipiti dopo il
+  // dip) e tricipiti (capo lungo, allungamento) — sì, bicipiti E tricipiti anche in Push: la
+  // spec inverte di proposito il "una casa sola per muscolo" deciso stamattina, per allenare
+  // l'intero range del muscolo su due sedute con angoli complementari (Push lungo/Pull corto).
+  // Un front_delts composto resta disponibile SOLO se dichiarato carenza esplicitamente.
   push: [
     { muscle: 'chest', compound: true },
     { muscle: 'chest', compound: true },
     { muscle: 'lateral_delts', compound: false },
     { muscle: 'triceps', compound: true },
-    { muscle: 'triceps', compound: false },
+    { muscle: 'biceps', compound: false, preferredPortion: 'long_head' },
+    { muscle: 'triceps', compound: false, preferredPortion: 'long_head' },
   ],
+  // Pull: 3 composti dorso ad angoli diversi (verticale, orizzontale a 45°, orizzontale basso —
+  // il catalogo non distingue formalmente 45° da "basso": entrambi horizontal_pull, varietà
+  // garantita dall'esclusione dei duplicati già scelti), poi rear delt (face pull), tricipiti
+  // (capo laterale/mediale, accorciamento — cuscinetto per i bicipiti) e bicipiti (capo breve,
+  // accorciamento) a chiudere.
   pull: [
-    { muscle: 'back', compound: true },
-    { muscle: 'back', compound: true },
-    { muscle: 'back', compound: false },
+    { muscle: 'back', compound: true, preferredPatterns: ['vertical_pull'] },
+    { muscle: 'back', compound: true, preferredPatterns: ['horizontal_pull'] },
+    { muscle: 'back', compound: true, preferredPatterns: ['horizontal_pull'] },
     { muscle: 'rear_delts', compound: false },
-    { muscle: 'biceps', compound: false },
+    { muscle: 'triceps', compound: false, preferredPortion: 'lateral_head' },
+    { muscle: 'biceps', compound: false, preferredPortion: 'short_head' },
   ],
-  // sez. feedback utente 19/08: 2 composti (quad+femorali), 1 isolamento quad, 1 isolamento
-  // femorali, 1 polpacci fisso — adduttori/glutei restano come 6° slot extra, non fissi.
+  // Legs: i 2 composti sono ENTRAMBI quad-dominanti (squat + leg press/hack — la spec non vuole
+  // più un composto femorali fisso qui), poi isolamento quad, isolamento femorali, glutei
+  // (hip thrust/stacco rumeno, in chiusura della catena posteriore) e polpacci a chiudere.
   legs: [
     { muscle: 'quads', compound: true, preferredPatterns: ['squat'] },
-    { muscle: 'hamstrings', compound: true, preferredPatterns: ['hinge'] },
+    { muscle: 'quads', compound: true, preferredPatterns: ['squat'] },
     { muscle: 'quads', compound: false },
     { muscle: 'hamstrings', compound: false },
+    { muscle: 'glutes', compound: true, preferredPatterns: ['hinge'] },
     { muscle: 'calves', compound: false },
   ],
   upper: [
@@ -221,9 +244,12 @@ const BASE_SLOTS: Record<Split, SlotDef[]> = {
  * sempre la precedenza su un isolamento generico aggiuntivo.
  */
 const EXTRA_SLOTS: Record<Split, SlotDef[]> = {
-  push: [{ muscle: 'chest', compound: false }, { muscle: 'lateral_delts', compound: false }],
-  pull: [{ muscle: 'forearms', compound: false }, { muscle: 'biceps', compound: false }],
-  legs: [{ muscle: 'glutes', compound: false }, { muscle: 'adductors', compound: false }],
+  // Push/Pull/Legs: lo standard PPL a 6 slot (sez. spec utente 19/08) ha già 6 slot fissi in
+  // BASE_SLOTS, quindi questi non vengono mai consultati (il target è sempre 6 = baseSlot.length,
+  // il ciclo si ferma al primo giro). Lasciati vuoti invece di contenuto morto fuorviante.
+  push: [],
+  pull: [],
+  legs: [],
   upper: [{ muscle: 'lateral_delts', compound: false }, { muscle: 'chest', compound: false }],
   lower: [{ muscle: 'adductors', compound: false }, { muscle: 'calves', compound: false }],
   full_body: [{ muscle: 'hamstrings', compound: false }, { muscle: 'biceps', compound: false }],
@@ -243,8 +269,11 @@ const EXTRA_SLOTS: Record<Split, SlotDef[]> = {
  * candidati per mancanza di attrezzatura.
  */
 const SPLIT_MUSCLE_POOL: Record<Split, Muscle[]> = {
-  push: ['chest', 'front_delts', 'lateral_delts', 'triceps'],
-  pull: ['back', 'rear_delts', 'biceps'],
+  // biceps in push e triceps in pull (sez. spec utente 19/08, "PPL Standard Biomeccanico a 6
+  // Slot"): inversione voluta del "una casa sola per muscolo" deciso stamattina — entrambi gli
+  // arti si allenano sia in Push sia in Pull, con angoli complementari (preferredPortion).
+  push: ['chest', 'front_delts', 'lateral_delts', 'triceps', 'biceps'],
+  pull: ['back', 'rear_delts', 'biceps', 'triceps'],
   legs: ['quads', 'hamstrings', 'glutes', 'adductors', 'calves'],
   upper: ['chest', 'back', 'front_delts', 'lateral_delts', 'rear_delts', 'biceps', 'triceps', 'forearms'],
   lower: ['quads', 'hamstrings', 'glutes', 'adductors', 'calves'],
@@ -350,6 +379,18 @@ function ordinaSlot(split: Split, slots: SlotDef[]): SlotDef[] {
   const lowerBody = split === 'legs' || split === 'lower' || split === 'bro_legs'
   const rank = (slot: SlotDef): number => {
     if (slot.order !== undefined) return slot.order
+    if (split === 'legs') {
+      // PPL Standard Biomeccanico a 6 Slot (sez. spec utente 19/08): niente più composto
+      // femorali fisso qui (i 2 composti sono entrambi quad-dominanti), glutei (hip
+      // thrust/stacco rumeno) chiude la catena posteriore DOPO le due isolamenti, non subito
+      // dopo i composti come nel vecchio schema (ancora valido per lower/bro_legs sotto).
+      if (slot.compound && slot.muscle === 'quads') return 0
+      if (!slot.compound && slot.muscle === 'quads') return 1
+      if (!slot.compound && slot.muscle === 'hamstrings') return 2
+      if (slot.muscle === 'glutes') return 3
+      if (slot.muscle === 'calves') return 4
+      return 5
+    }
     if (lowerBody) {
       if (slot.compound && slot.muscle === 'quads') return 0
       if (slot.compound && slot.muscle === 'hamstrings') return 1
@@ -373,7 +414,20 @@ function ordinaSlot(split: Split, slots: SlotDef[]): SlotDef[] {
       if (slot.muscle === 'triceps') return 7
       return 8
     }
-    if (split === 'pull' || split === 'bro_back' || split === 'back_body') {
+    if (split === 'pull') {
+      // PPL Standard Biomeccanico a 6 Slot (sez. spec utente 19/08): 3 composti dorso (angoli
+      // diversi, ordine preservato dall'array — verticale, orizzontale 45°, orizzontale basso),
+      // poi rear delt, poi tricipiti (capo laterale/mediale, cuscinetto) PRIMA dei bicipiti
+      // (capo breve) — a differenza di bro_back/back_body sotto, che non hanno un tricipiti
+      // fisso e restano quindi sul vecchio ordine.
+      if (slot.compound && slot.muscle === 'back') return 0
+      if (slot.weakPoint && slot.muscle === 'rear_delts') return 1
+      if (slot.muscle === 'rear_delts') return 2
+      if (slot.muscle === 'triceps') return 3
+      if (slot.muscle === 'biceps') return 4
+      return 5
+    }
+    if (split === 'bro_back' || split === 'back_body') {
       if (slot.compound && (slot.muscle === 'back' || slot.muscle === 'hamstrings')) return 0
       if (slot.weakPoint && slot.muscle === 'rear_delts') return 1
       if (!slot.compound && slot.muscle === 'back') return 2
@@ -525,7 +579,15 @@ export function generaBodybuilding(
   // FST-7 vuole ESATTAMENTE 3 esercizi base (il 7° arriva a parte): a differenza degli altri
   // protocolli, qui il target non può salire per via dei 5 slot fissi dello split (baseSlot
   // ne ha sempre almeno 5), altrimenti il ciclo di completamento più sotto ne aggiunge fino a 5.
-  const target = cfg.protocol === 'fst7' ? 3 : Math.max(targetEsercizi(cfg.protocol), baseSlot.length)
+  // Top Set & Back-Off vuole al massimo 5 esercizi base: da quando Push/Pull/Legs hanno sempre
+  // 6 slot fissi (standard PPL a 6 slot, sez. spec utente 19/08 pomeriggio), senza questo tetto
+  // l'espansione CBum (x4 voci) partirebbe da 6 invece che da 5, sforando sempre il budget di
+  // tempo (24 voci tracciate, mai adattabili a una durata ragionevole).
+  const target = cfg.protocol === 'fst7'
+    ? 3
+    : cfg.protocol === 'cbum_top_backoff'
+      ? Math.min(targetEsercizi(cfg.protocol), baseSlot.length)
+      : Math.max(targetEsercizi(cfg.protocol), baseSlot.length)
 
   // 6. Sesto slot: prima le priorità assegnate dalla settimana, poi l'extra dello split.
   const extraSlot: SlotDef[] = []
@@ -535,11 +597,15 @@ export function generaBodybuilding(
       extraSlot.push(s)
     }
   }
-  // FST-7 vuole solo 3 esercizi base (il 7° arriva a parte, sez. protocollo sotto): tronca
-  // dopo l'ordinamento, così restano i 3 a priorità più alta (compound e carenze in testa),
-  // non i primi 3 dichiarati nello split.
+  // FST-7 vuole solo 3 esercizi base (il 7° arriva a parte, sez. protocollo sotto), CBum al
+  // massimo 5: tronca dopo l'ordinamento, così restano gli N a priorità più alta (compound e
+  // carenze in testa), non i primi N dichiarati nello split.
   const slotOrdinato = ordinaSlot(cfg.split, [...baseSlot, ...extraSlot])
-  const slot = cfg.protocol === 'fst7' ? slotOrdinato.slice(0, 3) : slotOrdinato
+  const slot = cfg.protocol === 'fst7'
+    ? slotOrdinato.slice(0, 3)
+    : cfg.protocol === 'cbum_top_backoff'
+      ? slotOrdinato.slice(0, targetEsercizi(cfg.protocol))
+      : slotOrdinato
 
   // 7. Selezione esercizi per slot
   const scelti: PrescribedExercise[] = []
@@ -582,6 +648,13 @@ export function generaBodybuilding(
       if (isRichiamo && PORZIONE_ROTABILE.has(m)) {
         const porzione: FocusPortion = cfg.priority_portions?.[m] ?? 'long_head'
         const conPorzione = candidati.filter((e) => e.focus_portion === porzione)
+        if (conPorzione.length > 0) candidati = conPorzione
+      } else if (s.preferredPortion && PORZIONE_ROTABILE.has(m)) {
+        // Standard PPL a 6 slot (sez. spec utente 19/08): gli slot fissi bicipiti/tricipiti di
+        // Push e Pull hanno un angolo di default (es. capo lungo in allungamento su Push, capo
+        // breve in accorciamento su Pull) per allenare l'intero range del muscolo nelle due
+        // sedute settimanali — non è una carenza, quindi non passa dal ramo sopra.
+        const conPorzione = candidati.filter((e) => e.focus_portion === s.preferredPortion)
         if (conPorzione.length > 0) candidati = conPorzione
       }
 

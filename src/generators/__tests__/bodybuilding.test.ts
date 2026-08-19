@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { generaBodybuilding } from '../bodybuilding'
 import { generateWeeklyProgram } from '../../engine/weeklyPlan'
 import { PRESET_EQUIPMENT } from '../equipment'
-import type { Exercise, Split, WeeklyProgramConfig } from '../../types'
+import type { Exercise, Muscle, Split, WeeklyProgramConfig } from '../../types'
 import catalogoReale from './fixtures/exercises.json'
 
 const catalogoBase = catalogoReale as unknown as Exercise[]
@@ -173,11 +173,14 @@ describe('generaBodybuilding — priorità assegnate dalla settimana', () => {
     // restano fuori da oggi (la settimana le richiama altrove, weeklyPlan.ts) invece di
     // sacrificare il petto.
     //
-    // Aggiornamento 19/08: le spalle (fronte/laterale/post.) non superano mai 2 esercizi in
-    // seduta — qui front_delts e lateral_delts occupano i 2 slot spalle disponibili, rear_delts
-    // (3ª carenza spalle nell'ordine dichiarato) resta fuori da oggi invece di scippare lo slot
-    // tricipiti (il tricipiti composto/dip qui non ha varianti isolamento per front_delts nel
-    // catalogo: senza l'eccezione MUSCOLI_SENZA_ISOLAMENTO front_delts sparirebbe silenziosamente).
+    // Aggiornamento 19/08 pomeriggio (PPL Standard Biomeccanico a 6 Slot): Push ha ora SEMPRE
+    // 6 slot fissi (niente più 6° slot "extra" libero), quindi front_delts non può più solo
+    // aggiungersi: deve sacrificare uno slot esistente. Le spalle (fronte/laterale/post.) non
+    // superano comunque mai 2 esercizi in seduta — qui front_delts e lateral_delts occupano i 2
+    // slot spalle disponibili, rear_delts (3ª carenza spalle) resta fuori da oggi. Il sacrificio
+    // colpisce il tricipiti PIÙ ridondante (il composto/dip: tricipiti compare 2 volte di
+    // default, contro l'unica copia di bicipiti) — bicipiti resta protetto per costruzione,
+    // esattamente quanto richiesto ("non devi rimuovere bicipiti per fare spazio ai deltoidi").
     const w = generaBodybuilding(catalogo, {
       split: 'push', goal: 'hypertrophy', experience: 'advanced', equipment: 'full_gym',
       duration_min: 60,
@@ -187,17 +190,19 @@ describe('generaBodybuilding — priorità assegnate dalla settimana', () => {
     const main = mainBlock(w).exercises
     expect(main.filter((exercise) => exercise.muscle === 'chest')).toHaveLength(2)
     expect(main.map((exercise) => exercise.muscle)).toEqual([
-      'chest', 'chest', 'lateral_delts', 'front_delts', 'triceps', 'triceps',
+      'chest', 'chest', 'lateral_delts', 'front_delts', 'biceps', 'triceps',
     ])
     expect(main.find((exercise) => exercise.muscle === 'front_delts')?.note).toBe('carenza')
     expect(main.find((exercise) => exercise.muscle === 'lateral_delts')?.note).toBe('carenza')
     // rear_delts era la 3ª carenza spalle dichiarata: scartata per il tetto di 2 spalle per
     // seduta, non promossa a scapito di un altro muscolo.
     expect(main.some((exercise) => exercise.muscle === 'rear_delts')).toBe(false)
-    // Tricipiti resta nella seduta perché fa già parte della struttura standard di Push (slot
-    // composto/dip + isolamento), ma non riceve il trattamento carenza: non ha reclamato slot.
-    expect(main.filter((exercise) => exercise.muscle === 'triceps').every((exercise) => exercise.note === undefined)).toBe(true)
-    expect(main.some((exercise) => exercise.muscle === 'biceps')).toBe(false)
+    // Bicipiti/tricipiti restano nella seduta perché fanno già parte della struttura standard
+    // di Push (nuovo standard PPL a 6 slot), ma non ricevono il trattamento carenza: le loro
+    // carenze dichiarate (4ª e 5ª nell'ordine, oltre il tetto di 3 per sessione) non hanno
+    // reclamato slot dedicati.
+    expect(main.find((exercise) => exercise.muscle === 'biceps')?.note).toBeUndefined()
+    expect(main.find((exercise) => exercise.muscle === 'triceps')?.note).toBeUndefined()
   })
 
   it('Push con laterali/bicipiti/tricipiti carenti non triplica il petto per fargli spazio', () => {
@@ -301,18 +306,35 @@ describe('generaBodybuilding — scenario critico sez. 28 della correzione', () 
       priority_muscles: [], excluded_exercises: [], seed: 5,
     })
     const main = mainBlock(w).exercises
-    // 2 composti (quad+femorali), 1 isolamento quad, 1 isolamento femorali, 1 polpacci fisso,
-    // 1 glutei come 6° slot extra — adduttori non più di default.
-    expect(main.map((exercise) => exercise.muscle)).toEqual(['quads', 'hamstrings', 'glutes', 'quads', 'hamstrings', 'calves'])
-    expect(main.map((exercise) => exercise.role)).toEqual(['compound', 'compound', 'isolation', 'isolation', 'isolation', 'isolation'])
+    // PPL Standard Biomeccanico a 6 Slot (sez. spec utente 19/08 pomeriggio): 2 composti
+    // ENTRAMBI quad-dominanti (squat + leg press/hack, niente più composto femorali fisso),
+    // isolamento quad, isolamento femorali, glutei (hip thrust/stacco rumeno, in chiusura della
+    // catena posteriore) e polpacci a chiudere. Adduttori non più di default.
+    expect(main.map((exercise) => exercise.muscle)).toEqual(['quads', 'quads', 'quads', 'hamstrings', 'glutes', 'calves'])
+    // Glutei (hip thrust/stacco rumeno) è un composto nel catalogo, non un isolamento: la
+    // spec lo chiama "ISOLATION_GLUTES_THRUST" solo per il ruolo anatomico, non per il tag
+    // compound/isolation reale dell'esercizio.
+    expect(main.map((exercise) => exercise.role)).toEqual(['compound', 'compound', 'isolation', 'isolation', 'compound', 'isolation'])
   })
 
-  it('Pull standard usa un esercizio avambracci senza trasformarlo in un muscolo dorso', () => {
+  it('Pull standard: 3 composti dorso ad angoli diversi, poi rear delt, tricipiti e bicipiti (sez. spec utente 19/08 pomeriggio)', () => {
+    // Prima del PPL Standard a 6 Slot, il 6° slot di Pull era avambracci (EXTRA_SLOTS): ora il
+    // template ha già 6 slot fissi (3 composti dorso + rear delt + tricipiti + bicipiti, sez.
+    // spec utente), niente più spazio libero per avambracci di default.
     const w = generaBodybuilding(catalogo, {
-      split: 'pull', goal: 'hypertrophy', experience: 'advanced', equipment: 'full_gym', duration_min: 60,
+      split: 'pull', goal: 'hypertrophy', experience: 'advanced', equipment: 'full_gym', duration_min: 75,
       priority_muscles: [], excluded_exercises: [], seed: 18,
     })
-    expect(mainBlock(w).exercises.map((exercise) => exercise.muscle)).toContain('forearms')
+    const main = mainBlock(w).exercises
+    expect(main.filter((exercise) => exercise.muscle === 'back' && exercise.role === 'compound')).toHaveLength(3)
+    expect(main.map((exercise) => exercise.muscle)).toEqual(['back', 'back', 'back', 'rear_delts', 'triceps', 'biceps'])
+    // Angoli complementari a Push (capo lungo/allungamento): qui capo laterale/mediale
+    // (tricipiti, pushdown) e capo breve/accorciamento (bicipiti, preacher/spider).
+    const catalogoById = new Map(catalogo.map((exercise) => [exercise.id, exercise]))
+    const triceps = main.find((exercise) => exercise.muscle === 'triceps')!
+    const biceps = main.find((exercise) => exercise.muscle === 'biceps')!
+    expect(catalogoById.get(triceps.exercise_id)?.focus_portion).toBe('lateral_head')
+    expect(catalogoById.get(biceps.exercise_id)?.focus_portion).toBe('short_head')
   })
 
   it('sposta sempre uno o due esercizi addome nel riscaldamento e non nel blocco principale', () => {
@@ -496,6 +518,39 @@ describe('generaBodybuilding — Push senza shoulder press fisso, dip come eserc
       const main = mainBlock(w).exercises
       expect(main[2].muscle).toBe('lateral_delts')
       expect(main.filter((exercise) => exercise.muscle === 'front_delts')).toHaveLength(0)
+    }
+  })
+})
+
+describe('generaBodybuilding — PPL Standard Biomeccanico a 6 Slot (sez. spec utente 19/08 pomeriggio)', () => {
+  it('Push standard allena anche bicipiti e tricipiti, capo lungo/allungamento — angolo complementare a Pull', () => {
+    const catalogoById = new Map(catalogo.map((exercise) => [exercise.id, exercise]))
+    const w = generaBodybuilding(catalogo, {
+      split: 'push', goal: 'hypertrophy', experience: 'advanced', equipment: 'full_gym',
+      duration_min: 75, priority_muscles: [], excluded_exercises: [], seed: 7,
+    })
+    const main = mainBlock(w).exercises
+    expect(main).toHaveLength(6)
+    const biceps = main.find((exercise) => exercise.muscle === 'biceps')!
+    const triceps = main.find((exercise) => exercise.muscle === 'triceps' && exercise.role === 'isolation')!
+    expect(catalogoById.get(biceps.exercise_id)?.focus_portion).toBe('long_head')
+    expect(catalogoById.get(triceps.exercise_id)?.focus_portion).toBe('long_head')
+  })
+
+  it('Push/Pull/Legs non superano mai 6 esercizi, anche con carenze dichiarate al massimo (3, sez. limite già in vigore)', () => {
+    const scenari: Array<{ split: Split; priority: Muscle[] }> = [
+      { split: 'push', priority: ['front_delts', 'rear_delts', 'lateral_delts'] },
+      { split: 'pull', priority: ['front_delts', 'lateral_delts', 'triceps'] },
+      { split: 'legs', priority: ['adductors', 'calves', 'glutes'] },
+    ]
+    for (const { split, priority } of scenari) {
+      for (let seed = 1; seed <= 10; seed++) {
+        const w = generaBodybuilding(catalogo, {
+          split, goal: 'hypertrophy', experience: 'advanced', equipment: 'full_gym',
+          duration_min: 75, priority_muscles: priority, excluded_exercises: [], seed,
+        })
+        expect(mainBlock(w).exercises.length).toBeLessThanOrEqual(6)
+      }
     }
   })
 })
