@@ -27,6 +27,12 @@ interface CatalogExerciseSnapshot {
   roles: string[]
   required_equipment: Exercise['required_equipment']
   metcon_safe: boolean
+  /** Quanto affatica il muscolo lavorato, 1-3 (sez. Lagging Muscle Engine): serve al modello
+   *  per non concatenare esercizi che stancano lo stesso muscolo, anche solo come secondario. */
+  local_fatigue: number
+  technical_complexity: number
+  /** Capo/porzione enfatizzato, solo su un sottoinsieme del catalogo (bicipiti/tricipiti). */
+  focus_portion?: Exercise['focus_portion']
 }
 
 type PlannerPatch = Partial<Pick<
@@ -58,6 +64,12 @@ Adatta il tuo ruolo alla disciplina scelta:
 - Tabata: rispetta esattamente lavoro, recupero, round e prescrizione selezionati.
 Se l'utente seleziona palestra completa, sfrutta in modo sensato l'attrezzatura completa; se seleziona un inventario limitato usa solo ciò che è disponibile.
 Usa esclusivamente exercise_id presenti nel catalogo fornito. Non usare esercizi esclusi e non inventare ID.
+Gestione del carico e ordine degli esercizi (Bodybuilding/Strength, vale anche per il blocco Strength di CrossFit Hybrid): l'ordine non è solo compound-prima-isolamenti, è gestione della fatica reale.
+- Ogni esercizio del catalogo ha local_fatigue (1-3, quanto affatica il muscolo lavorato) e secondary_muscles (i muscoli coinvolti indirettamente, non solo quello target). Non mettere in sequenza due esercizi che affaticano pesantemente lo stesso muscolo — anche solo come secondario dell'uno o dell'altro: es. non fare due esercizi petto seguiti subito da Dip, che coinvolgono il petto come secondario ed è già stanco. Alternale con un gruppo muscolare diverso in mezzo.
+- Se un muscolo è fra quelli carenti (muscoli_carenti) e compare come secondario in un esercizio successivo della sessione, anticipa un isolamento leggero e fresco su quel muscolo subito prima di quell'esercizio (priming): il muscolo arriva già attivato, si ricluta meglio, e se è carente si allena mentre è ancora fresco invece che dopo essere già stato tirato in causa indirettamente.
+- Non concatenare più di due esercizi ad alta fatica sistemica/locale senza intervallarli con un esercizio più leggero su un gruppo diverso: l'accumulo di fatica in una singola sessione non è sostenibile, alza lo stress percepito e compromette la progressione nelle sessioni successive.
+- Alcuni esercizi hanno focus_portion (bicipiti/tricipiti: quale capo lavorano di più). Se generi più sessioni nella stessa settimana con lo stesso muscolo carente, fai lavorare capi diversi in sessioni diverse invece di ripetere lo stesso angolo.
+- Se devi sostituire un esercizio (in chat o rigenerando), scegli un'alternativa con lo stesso muscolo primario, la stessa focus_portion se presente, e local_fatigue/technical_complexity comparabili: altrimenti si perde l'effort allenante dell'esercizio originale.
 Regole inderogabili sul numero di esercizi allenanti, senza contare il warm-up: Bodybuilding e CrossFit Hybrid almeno 6; Strength almeno 5; CrossFit Standard segue la struttura per componenti e non deve essere gonfiato per raggiungere sei esercizi; Tabata conserva esattamente il protocollo scelto.`
 
 const VALID_EXPERIENCE = new Set<Experience>(['beginner', 'intermediate', 'advanced'])
@@ -162,6 +174,9 @@ function toCatalogSnapshot(catalog: Exercise[]): CatalogExerciseSnapshot[] {
     roles: exercise.roles,
     required_equipment: exercise.required_equipment,
     metcon_safe: exercise.metcon_safe,
+    local_fatigue: exercise.local_fatigue,
+    technical_complexity: exercise.technical_complexity,
+    focus_portion: exercise.focus_portion ?? undefined,
   }))
 }
 

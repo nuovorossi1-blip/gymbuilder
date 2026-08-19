@@ -140,6 +140,28 @@ describe('generaBodybuilding — priorità assegnate dalla settimana', () => {
     expect(backExercises[0]?.note).toBe('richiamo carenza')
   })
 
+  it('con priority_portions assegnata, il richiamo bicipiti sceglie il capo richiesto', () => {
+    const w = generaBodybuilding(catalogo, {
+      split: 'push', goal: 'hypertrophy', experience: 'advanced', equipment: 'full_gym',
+      duration_min: 60, priority_muscles: ['biceps'], priority_portions: { biceps: 'brachialis' },
+      excluded_exercises: [], seed: 37,
+    })
+    const bicipiti = mainBlock(w).exercises.find((exercise) => exercise.muscle === 'biceps')
+    const catalogoById = new Map(catalogo.map((exercise) => [exercise.id, exercise]))
+    expect(catalogoById.get(bicipiti!.exercise_id)?.focus_portion).toBe('brachialis')
+  })
+
+  it('senza priority_portions (sessione singola), il richiamo bicipiti sceglie il capo lungo di default', () => {
+    const w = generaBodybuilding(catalogo, {
+      split: 'push', goal: 'hypertrophy', experience: 'advanced', equipment: 'full_gym',
+      duration_min: 60, priority_muscles: ['biceps'],
+      excluded_exercises: [], seed: 37,
+    })
+    const bicipiti = mainBlock(w).exercises.find((exercise) => exercise.muscle === 'biceps')
+    const catalogoById = new Map(catalogo.map((exercise) => [exercise.id, exercise]))
+    expect(catalogoById.get(bicipiti!.exercise_id)?.focus_portion).toBe('long_head')
+  })
+
   it('Push con spalle e braccia carenti usa un solo esercizio per ogni distretto', () => {
     const w = generaBodybuilding(catalogo, {
       split: 'push', goal: 'hypertrophy', experience: 'advanced', equipment: 'full_gym',

@@ -173,6 +173,22 @@ describe('Weekly Program Engine', () => {
     expect(bySplit.get('legs')?.priority_muscles).toEqual([])
   })
 
+  it('PPL con carenza bicipiti/tricipiti fa lavorare un capo diverso a Push e Pull', () => {
+    const program = generateWeeklyProgram({ ...base, training_days: 3, selected_modes: ['bodybuilding'], weak_points: ['biceps', 'triceps'] })
+    const bySplit = new Map(program.week.map((session) => [session.split, session]))
+    const push = bySplit.get('push')
+    const pull = bySplit.get('pull')
+    expect(push?.priority_portions?.biceps).toBeDefined()
+    expect(pull?.priority_portions?.biceps).toBeDefined()
+    expect(push?.priority_portions?.biceps).not.toBe(pull?.priority_portions?.biceps)
+    expect(push?.priority_portions?.triceps).toBeDefined()
+    expect(pull?.priority_portions?.triceps).toBeDefined()
+    expect(push?.priority_portions?.triceps).not.toBe(pull?.priority_portions?.triceps)
+    // Le spalle (lateral_delts) non hanno una rotazione per porzione: la granularità
+    // esiste già come Muscle distinti (front/lateral/rear_delts), non serve qui.
+    expect(push?.priority_portions?.lateral_delts).toBeUndefined()
+  })
+
   it('una carenza petto in PPL riceve seduta principale e richiamo settimanale', () => {
     const program = generateWeeklyProgram({
       ...base, training_days: 3, selected_modes: ['bodybuilding'], split_system: 'ppl', weak_points: ['chest'],

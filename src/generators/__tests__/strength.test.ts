@@ -23,6 +23,18 @@ describe('generaForza — struttura di base (poche alzate pesanti, non un Bodybu
     )).toBe(true)
   })
 
+  it('con priority_portions assegnata, il richiamo bicipiti sceglie il capo richiesto', () => {
+    const w = generaForza(catalogo, {
+      split: 'push', experience: 'advanced', equipment: 'full_gym', duration_min: 60,
+      priority_muscles: ['biceps'], priority_portions: { biceps: 'brachialis' },
+      excluded_exercises: [], seed: 9,
+    })
+    const bicipiti = mainBlock(w).exercises.find((exercise) => exercise.muscle === 'biceps')
+    expect(bicipiti?.note).toBe('richiamo')
+    const byId = new Map(catalogo.map((exercise) => [exercise.id, exercise]))
+    expect(byId.get(bicipiti!.exercise_id)?.focus_portion).toBe('brachialis')
+  })
+
   it('apre sempre con un fondamentale compound per ogni split', () => {
     for (const split of SPLIT_FORZA) {
       const w = generaForza(catalogo, {

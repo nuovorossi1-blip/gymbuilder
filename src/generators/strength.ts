@@ -18,14 +18,14 @@
  */
 
 import type {
-  Equipment, EquipmentItem, Exercise, Experience, GeneratedWorkout, Intensity, Muscle,
+  Equipment, EquipmentItem, Exercise, Experience, FocusPortion, GeneratedWorkout, Intensity, Muscle,
   PrescribedExercise, Split, WorkoutBlock,
 } from '../types'
 import { MUSCLE_LABELS, SPLIT_LABELS } from '../types'
 import { isExerciseAvailable } from './equipment'
 import { decidiRichiami } from './weakPoints'
 import { PESO_DEFAULT_KG, stimaCalorieEsercizio } from './calories'
-import { minutiBlocco, minutiEsercizio, portaCompoundInApertura, rimuoviDuplicati, rng, scegliRiscaldamento, vuotoVolume } from './shared'
+import { minutiBlocco, minutiEsercizio, PORZIONE_ROTABILE, portaCompoundInApertura, rimuoviDuplicati, riordinaPerSinergie, rng, scegliRiscaldamento, vuotoVolume } from './shared'
 
 /** Split compatibili con la Forza (sez. 15/71): niente Bro Split o Front/Back, convenzioni da ipertrofia. */
 export const SPLIT_FORZA: Split[] = ['push', 'pull', 'legs', 'upper', 'lower', 'full_body']
@@ -37,6 +37,9 @@ export interface StrengthConfig {
   available_equipment?: EquipmentItem[] | null
   duration_min: number
   priority_muscles: Muscle[]
+  /** Quale capo enfatizzare per una carenza bicipiti/tricipiti in questa seduta (sez. Lagging
+   *  Muscle Engine, stesso meccanismo di bodybuilding.ts). */
+  priority_portions?: Partial<Record<Muscle, FocusPortion>>
   target_muscles?: Muscle[]
   excluded_exercises: string[]
   preferred_exercises?: string[]
@@ -238,12 +241,19 @@ export function generaForza(catalogo: Exercise[], cfg: StrengthConfig): Generate
     let muscoloUsato: Muscle = s.muscle
 
     for (const m of musclesDaProvare) {
-      const candidati = allenamento
+      let candidati = allenamento
         .filter((e) => !usati.has(e.id))
         .filter((e) => e.primary_muscles.includes(m))
         .filter((e) => e.roles.includes(s.compound ? 'compound' : 'isolation'))
         .filter((e) => !(e.grip_fatigue >= 3 && faticaPresa >= 6))
         .filter((e) => !(faticaSistemica >= 8 && e.technical_complexity >= 3))
+
+      // Rotazione per porzione (sez. Lagging Muscle Engine): stesso meccanismo di bodybuilding.ts.
+      if (isRichiamo && PORZIONE_ROTABILE.has(m)) {
+        const porzione: FocusPortion = cfg.priority_portions?.[m] ?? 'long_head'
+        const conPorzione = candidati.filter((e) => e.focus_portion === porzione)
+        if (conPorzione.length > 0) candidati = conPorzione
+      }
 
       if (candidati.length === 0) {
         if (isRichiamo) break
@@ -301,6 +311,10 @@ export function generaForza(catalogo: Exercise[], cfg: StrengthConfig): Generate
       note: 'target muscolare di oggi', instructions: fallback.instructions || undefined,
     })
   }
+
+  // Sequenziamento per fatica/sinergie (sez. Lagging Muscle Engine, Step 5): stesso
+  // meccanismo di bodybuilding.ts, vedi shared.ts.
+  riordinaPerSinergie(scelti, new Map(allenamento.map((exercise) => [exercise.id, exercise])))
 
   const minutiRiscaldamento = cfg.duration_min >= 45 ? 9 : 6
   const budget = cfg.duration_min - minutiRiscaldamento

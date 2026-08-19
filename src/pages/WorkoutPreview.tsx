@@ -4,11 +4,11 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../features/auth/AuthProvider'
 import { useWorkout } from '../features/workout/WorkoutContext'
 import { aggiornaProgramma, salvaAllenamento } from '../lib/api'
-import { findExerciseReplacement } from '../engine/replacement'
+import { findExerciseReplacements, type ReplacementCandidate } from '../engine/replacement'
 import { recordExerciseFeedback } from '../engine/feedback'
 import {
-  EXPERIENCE_LABELS, GOAL_LABELS, MODE_LABELS, MUSCLE_LABELS, SPLIT_LABELS,
-  type ExerciseFeedbackReason, type GeneratedWorkout, type PrescribedExercise, type WeeklyProgram, type WeeklyProgramConfig,
+  EXPERIENCE_LABELS, GOAL_LABELS, isLaggingNote, MODE_LABELS, MUSCLE_LABELS, SPLIT_LABELS,
+  type Exercise, type ExerciseFeedbackReason, type Gear, type GeneratedWorkout, type PrescribedExercise, type WeeklyProgram, type WeeklyProgramConfig,
 } from '../types'
 
 export default function WorkoutPreview() {
@@ -18,6 +18,9 @@ export default function WorkoutPreview() {
   const [stato, setStato] = useState<'fermo' | 'salvo' | 'salvato' | 'errore'>('fermo')
   const [messaggio, setMessaggio] = useState<string | null>(null)
   const [feedbackTarget, setFeedbackTarget] = useState<{ block: number; exercise: number } | null>(null)
+  // Passo 2 dello swap: valorizzato solo dopo che l'utente ha scelto il motivo (avviaSostituzione),
+  // mostra la lista di alternative raggruppate per attrezzatura invece di applicare la prima trovata.
+  const [swapReason, setSwapReason] = useState<{ reason: ExerciseFeedbackReason; permanent: boolean } | null>(null)
   // Modifiche non ancora salvate (riordino via drag): finche' non si conferma, la lista mostrata
   // (displayed) riflette il riordino ma workout/weeklyProgram restano quelli confermati - da qui
   // il pulsante Salva/Annulla che compare solo quando c'e' un pendingWorkout.
@@ -85,28 +88,54 @@ export default function WorkoutPreview() {
     })
   }
 
-  function cambiaEsercizio(blockIndex: number, exerciseIndex: number, reason: ExerciseFeedbackReason, permanent: boolean) {
-    if (!workout || !generationConfig || !user) return
-    const current = displayed.blocks[blockIndex].exercises[exerciseIndex]
+  /** Passo 1 -> 2: il motivo è già una decisione reale (registra il feedback adattivo e
+   *  esclude temporaneamente l'esercizio), ma non applica ancora nulla — apre la lista di
+   *  alternative fra cui l'utente sceglie (sez. Smart Exercise Swap). */
+  function avviaSostituzione(reason: ExerciseFeedbackReason, permanent: boolean) {
+    if (!feedbackTarget || !user) return
+    const current = displayed.blocks[feedbackTarget.block].exercises[feedbackTarget.exercise]
     const original = catalog.find((exercise) => exercise.id === current.exercise_id)
     if (!original) return
     rejectExercise(original.id)
-    const adaptive = recordExerciseFeedback(user.id, original, reason, permanent)
+    recordExerciseFeedback(user.id, original, reason, permanent)
+    setSwapReason({ reason, permanent })
+  }
+
+  /** Candidati per il passo 2, raggruppabili per attrezzatura in UI: stessa logica di prima
+   *  (motivo, attrezzatura disponibile, esclusi, apprendimento adattivo) ma restituisce la
+   *  lista intera (findExerciseReplacements) invece di applicare subito il primo risultato. */
+  function candidatiSostituzione(): ReplacementCandidate[] {
+    if (!feedbackTarget || !generationConfig || !swapReason || !user) return []
+    const current = displayed.blocks[feedbackTarget.block].exercises[feedbackTarget.exercise]
+    const original = catalog.find((exercise) => exercise.id === current.exercise_id)
+    if (!original) return []
+    const { reason } = swapReason
     const available = reason === 'unavailable'
       ? generationConfig.equipment.available.filter((item) => !original.required_equipment.includes(item))
       : generationConfig.equipment.available
     const equipment = { ...generationConfig.equipment, available }
     const used = new Set(displayed.blocks.flatMap((block) => block.exercises.map((exercise) => exercise.exercise_id)))
-    const replacement = findExerciseReplacement(current, catalog, equipment, {
+    const adaptive = recordExerciseFeedback(user.id, original, reason, swapReason.permanent)
+    return findExerciseReplacements(current, catalog, equipment, {
       excludedExerciseIds: generationConfig.preferences.excluded_exercise_ids,
       bodyweightPolicy: generationConfig.preferences.bodyweight_policy,
       elasticPolicy: generationConfig.preferences.elastic_policy,
     }, used, { reason, rejectedIds: new Set([...rejectedExerciseIds, original.id]), adaptivePreferences: adaptive, experience: generationConfig.experience, preferredIds: new Set(generationConfig.preferences.preferred_exercise_ids), split: generationConfig.current_day })
-    if (!replacement) {
-      setFeedbackTarget(null)
-      setMessaggio('Nessuna alternativa compatibile disponibile.')
-      return
-    }
+  }
+
+  /** Passo 2: applica l'alternativa scelta dall'utente. Serie/ripetizioni/recupero non
+   *  cambiano — restano quelle già prescritte, solo l'identità dell'esercizio cambia. */
+  function applicaSostituzione(replacement: Exercise) {
+    if (!feedbackTarget || !generationConfig || !swapReason) return
+    const { block: blockIndex, exercise: exerciseIndex } = feedbackTarget
+    const { reason, permanent } = swapReason
+    const current = displayed.blocks[blockIndex].exercises[exerciseIndex]
+    const original = catalog.find((exercise) => exercise.id === current.exercise_id)
+    if (!original) return
+    const available = reason === 'unavailable'
+      ? generationConfig.equipment.available.filter((item) => !original.required_equipment.includes(item))
+      : generationConfig.equipment.available
+    const equipment = { ...generationConfig.equipment, available }
     const blocks = displayed.blocks.map((block, index) => index !== blockIndex ? block : {
       ...block, exercises: block.exercises.map((exercise, itemIndex) => itemIndex !== exerciseIndex ? exercise : {
         ...exercise, exercise_id: replacement.id, name: replacement.name,
@@ -117,7 +146,13 @@ export default function WorkoutPreview() {
     setGenerationConfig({ ...generationConfig, equipment, preferences: { ...generationConfig.preferences, excluded_exercise_ids: excluded } })
     void persistWorkout({ ...displayed, blocks }, { equipment, preferences: { ...generationConfig.preferences, excluded_exercise_ids: excluded } })
     setFeedbackTarget(null)
+    setSwapReason(null)
     setMessaggio(reason === 'discomfort' ? `${current.name} sostituito con ${replacement.name}. Se il dolore persiste, interrompi l’esercizio e valuta un professionista qualificato.` : `${current.name} sostituito con ${replacement.name}. Il resto del workout non è cambiato.`)
+  }
+
+  function annullaSostituzione() {
+    setFeedbackTarget(null)
+    setSwapReason(null)
   }
 
   async function salva() {
@@ -213,9 +248,14 @@ export default function WorkoutPreview() {
                   </span>
                   {handle}
                 </div>
-                {e.muscle && (
-                  <p className="mt-1.5 pl-7 font-data text-[10px] uppercase tracking-[0.12em] text-slate2">
-                    {MUSCLE_LABELS[e.muscle]}
+                {(e.muscle || isLaggingNote(e.note)) && (
+                  <p className="mt-1.5 pl-7 flex items-center gap-2 font-data text-[10px] uppercase tracking-[0.12em] text-slate2">
+                    {e.muscle && <span>{MUSCLE_LABELS[e.muscle]}</span>}
+                    {isLaggingNote(e.note) && (
+                      <span className="rounded-full border border-amber2/40 bg-amber2/15 px-2 py-0.5 text-amber2">
+                        {e.note?.includes('richiamo') ? 'Richiamo 3x · carenza' : 'Carenza'}
+                      </span>
+                    )}
                   </p>
                 )}
                 {e.instructions && (
@@ -268,7 +308,21 @@ export default function WorkoutPreview() {
           {messaggio}
         </p>
       )}
-      {feedbackTarget ? <FeedbackPanel exerciseName={displayed.blocks[feedbackTarget.block].exercises[feedbackTarget.exercise].name} onCancel={() => setFeedbackTarget(null)} onSubmit={(reason, permanent) => cambiaEsercizio(feedbackTarget.block, feedbackTarget.exercise, reason, permanent)} /> : null}
+      {feedbackTarget && !swapReason ? (
+        <FeedbackPanel
+          exerciseName={displayed.blocks[feedbackTarget.block].exercises[feedbackTarget.exercise].name}
+          onCancel={annullaSostituzione}
+          onSubmit={avviaSostituzione}
+        />
+      ) : null}
+      {feedbackTarget && swapReason ? (
+        <SwapPicker
+          exerciseName={displayed.blocks[feedbackTarget.block].exercises[feedbackTarget.exercise].name}
+          candidates={candidatiSostituzione()}
+          onCancel={annullaSostituzione}
+          onPick={applicaSostituzione}
+        />
+      ) : null}
 
       {/* Azioni */}
       <div className="mt-8 space-y-2.5">
@@ -357,6 +411,69 @@ function FeedbackPanel({ exerciseName, onCancel, onSubmit }: { exerciseName: str
   const [reason, setReason] = useState<ExerciseFeedbackReason>('dislike')
   const [permanent, setPermanent] = useState(false)
   return <div className="fixed inset-0 z-40 grid items-end bg-black/70 p-4 sm:items-center"><section role="dialog" aria-modal="true" aria-labelledby="feedback-title" className="mx-auto w-full max-w-md rounded-2xl border border-edge bg-ink p-5"><p className="eyebrow">{exerciseName}</p><h2 id="feedback-title" className="mt-2 font-display text-xl font-bold uppercase">Perché vuoi sostituirlo?</h2><div className="mt-4 space-y-2">{FEEDBACK_REASONS.map((item) => <label key={item.value} className="flex items-center gap-3 rounded-xl border border-edge p-3 text-sm"><input type="radio" name="feedback-reason" checked={reason === item.value} onChange={() => setReason(item.value)} />{item.label}</label>)}</div><label className="mt-4 flex items-start gap-3 text-sm text-slate2"><input className="mt-1" type="checkbox" checked={permanent} onChange={(event) => setPermanent(event.target.checked)} /><span>Non mostrarlo più nelle prossime generazioni.</span></label>{reason === 'discomfort' ? <p className="mt-3 text-xs text-amber2">Non è una diagnosi: se il dolore persiste, interrompi l’esercizio e valuta un professionista qualificato.</p> : null}<div className="mt-5 grid grid-cols-2 gap-2"><button className="rounded-xl border border-edge py-3 text-sm" onClick={onCancel}>Annulla</button><button className="rounded-xl bg-chalk py-3 text-sm font-semibold text-ink" onClick={() => onSubmit(reason, permanent)}>Sostituisci</button></div></section></div>
+}
+
+/** Raggruppa le alternative per attrezzatura (sez. Smart Exercise Swap): l'utente vede solo
+ *  quello che ha davvero in palestra, non un punteggio astratto. Kettlebell/cardio non compaiono
+ *  qui: le alternative bicipiti/tricipiti/spalle che alimentano questo picker non li usano mai. */
+const SWAP_EQUIPMENT_GROUPS: { label: string; gear: Gear[] }[] = [
+  { label: 'Manubri & Panca', gear: ['dumbbell', 'barbell'] },
+  { label: 'Corpo Libero & Sbarra', gear: ['bodyweight'] },
+  { label: 'Cavi & Elastici', gear: ['cable'] },
+  { label: 'Macchine & Guidati', gear: ['machine'] },
+]
+
+function SwapPicker({ exerciseName, candidates, onCancel, onPick }: {
+  exerciseName: string
+  candidates: ReplacementCandidate[]
+  onCancel: () => void
+  onPick: (exercise: Exercise) => void
+}) {
+  const groups = SWAP_EQUIPMENT_GROUPS
+    .map((group) => ({ ...group, items: candidates.filter(({ exercise }) => group.gear.includes(exercise.equipment)) }))
+    .filter((group) => group.items.length > 0)
+  const restanti = candidates.filter(({ exercise }) => !SWAP_EQUIPMENT_GROUPS.some((group) => group.gear.includes(exercise.equipment)))
+
+  return (
+    <div className="fixed inset-0 z-40 grid items-end bg-black/70 p-4 sm:items-center">
+      <section role="dialog" aria-modal="true" aria-labelledby="swap-title" className="mx-auto w-full max-w-md max-h-[80vh] overflow-y-auto rounded-2xl border border-edge bg-ink p-5">
+        <p className="eyebrow">{exerciseName}</p>
+        <h2 id="swap-title" className="mt-2 font-display text-xl font-bold uppercase">Con cosa la sostituisci?</h2>
+        {candidates.length === 0 ? (
+          <p className="mt-4 text-sm text-slate2">Nessuna alternativa compatibile disponibile con questa attrezzatura.</p>
+        ) : (
+          <div className="mt-4 space-y-4">
+            {groups.map((group) => (
+              <div key={group.label}>
+                <p className="field-label">{group.label}</p>
+                <div className="space-y-2">
+                  {group.items.map(({ exercise }) => (
+                    <button key={exercise.id} className="slab w-full !py-3" onClick={() => onPick(exercise)}>
+                      <p className="text-[14px] font-medium">{exercise.name}</p>
+                      {exercise.focus_portion && <p className="mt-0.5 font-data text-[10px] uppercase tracking-[0.1em] text-slate2">stesso angolo di lavoro</p>}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+            {restanti.length > 0 && (
+              <div>
+                <p className="field-label">Altro</p>
+                <div className="space-y-2">
+                  {restanti.map(({ exercise }) => (
+                    <button key={exercise.id} className="slab w-full !py-3" onClick={() => onPick(exercise)}>
+                      <p className="text-[14px] font-medium">{exercise.name}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+        <button className="mt-5 w-full rounded-xl border border-edge py-3 text-sm" onClick={onCancel}>Annulla</button>
+      </section>
+    </div>
+  )
 }
 
 function formattaRec(sec: number): string {

@@ -4,7 +4,7 @@
 > da qui. Va **aggiornato** a ogni sessione, non accodato all'infinito.
 > L'identità del progetto e il percorso di AI-OS stanno in `AIOS_PROJECT.json`.
 
-**Ultimo aggiornamento:** 2026-08-19 (aggiunta regola CLAUDE.md per l'aggiornamento memoria + restyling banner notifica timer, vedi fondo file) - Claude (Sonnet 5)
+**Ultimo aggiornamento:** 2026-08-19 (Lagging Muscle Engine: focus_portion, swap navigabile, rotazione settimanale, sequenziamento fatica/sinergie, parità DeepSeek — vedi fondo file) - Claude (Sonnet 5)
 
 Etichette: `[FACT]` verificato nel codice · `[RICOSTRUITO]` dedotto da indizi ·
 `[IGNOTO]` non ricavabile dal repository
@@ -1006,3 +1006,87 @@ notifica Android in background quando si usa "Sono qui" mentre l'app è in backg
 funzionare, dato che `selezionaEsercizio` fa uscire `fase` da `recupero`, quindi l'effetto che
 pubblica lo stato in background smette di mostrare un countdown, come già succede oggi entrando
 in "Serie in corso" — ma non testato su device reale).
+
+## Aggiornamento stato — 2026-08-19: Lagging Muscle Engine (focus_portion, swap navigabile, rotazione settimanale, sequenziamento fatica/sinergie, parità DeepSeek)
+
+Richiesta utente (due feature: "Lagging Muscle Engine" e "Smart Exercise Swap", con spec
+dettagliata stile PPL/BroSplit generico). **Prima di implementare, verificato che gran parte del
+richiesto esisteva già in produzione**, in forma più sofisticata della spec: `weakPoints.ts`
+calcola volume settimanale reale dai workout completati e decide i richiami (non uno schema
+fisso); `bodybuilding.ts` (`applicaPrioritaAssegnate`) già riserva slot carenza e taglia gli
+slot non prioritari per restare a 6 esercizi (compensazione volume); `replacement.ts`
+(`findExerciseReplacements`, plurale) già fa scoring per muscolo/pattern/attrezzo/fatica con
+apprendimento adattivo, ma non era esposta in UI — `WorkoutPreview.tsx` chiamava solo la
+versione singolare e applicava automaticamente il primo risultato. Piano concordato con
+l'utente (via plan mode, poi esteso in conversazione): estendere questi moduli, non ricostruirli.
+Piano completo in `/home/codespace/.claude/plans/synchronous-cooking-engelbart.md` (locale alla
+sessione, non nel repo).
+
+**Gap reale colmato — 6 step, tutti implementati:**
+
+1. **`focus_portion`** (`src/types/index.ts`): nuovo tipo `'long_head'|'short_head'|'brachialis'|
+   'lateral_head'|'medial_head'`, campo opzionale su `Exercise` (non NOT NULL: ha senso solo per
+   bicipiti/tricipiti, non per l'intero catalogo). Migrazione
+   `supabase/migrations/20260819120000_exercise_focus_portion.sql` tagga ~15 esercizi reali
+   (curl/estensioni/dip) seguendo la logica biomeccanica descritta dall'utente. Fixture di test
+   aggiornata con gli stessi tag + 5 righe mancanti da una migrazione precedente mai
+   risincronizzata (`bayesian_curl`, `preacher_curl_macchina`, `curl_inclinata_man`,
+   `pushdown_unilaterale`, `estensione_tricipiti_cavo_alto`) — la fixture resta comunque stale
+   rispetto a Supabase per altri ~50 esercizi non toccati da questo lavoro, problema preesistente
+   segnalato ma non risolto qui.
+2. **Swap navigabile** (`replacement.ts` + `WorkoutPreview.tsx`): `findExerciseReplacements`
+   ora filtra/pesa per `focus_portion` con fallback a 4 passaggi (mai fallisce per mancanza di
+   tag). La modale "Sostituisci" è diventata due passi — motivo poi lista di alternative
+   raggruppate per attrezzo (Manubri&Panca/Corpo Libero&Sbarra/Cavi&Elastici/Macchine&Guidati) —
+   invece di applicare automaticamente la prima trovata. `sets`/`reps`/`rest_sec` erano già
+   preservati dallo swap esistente, nessuna modifica necessaria lì.
+3. **Rotazione settimanale per porzione** (`weeklyPlan.ts`): nuovo campo `WeeklySession.
+   priority_portions`, additivo — non tocca `priority_muscles`, quindi gli 8+ test con array
+   esatti in `weeklyProgram.test.ts` restano intatti. Bicipiti/tricipiti ruotano long_head→
+   short_head→brachialis (o lateral/medial per tricipiti) fra le sedute della settimana che li
+   richiamano. Sessione singola: nessuna settimana su cui ruotare, default fisso `long_head` in
+   `bodybuilding.ts`/`strength.ts`.
+4. **Badge visivo**: `note` (`'carenza'`/`'richiamo carenza'`/`'richiamo'`) non era mai mostrato
+   nel blocco principale — nuovo helper `isLaggingNote` in `types/index.ts` (riconosce le note
+   leggermente diverse fra bodybuilding.ts e strength.ts), badge ambra aggiunto in
+   `WorkoutPreview.tsx` e in `Runner.tsx` (schermata "Serie in corso").
+5. **Sequenziamento fatica/sinergie** (`shared.ts`, nuova `riordinaPerSinergie`, chiamata da
+   `bodybuilding.ts` e `strength.ts` dopo la selezione esercizi): usa `secondary_muscles` e
+   `local_fatigue` (già esistenti, mai letti da `ordinaSlot`). Due passaggi — priming (anticipa
+   un isolamento carente subito prima del primo esercizio, anche precedente nell'ordine di
+   partenza, che lo coinvolge come secondario) e anti-concatenazione (evita due slot consecutivi
+   che condividono un muscolo ad alta fatica, ma **solo** quando il secondo lo coinvolge come
+   secondario — mai quando condividono semplicemente lo stesso muscolo primario, che è accumulo
+   di volume intenzionale, es. Bro Split). **Mai sui compound** (tier 0): il loro ordine è già
+   deciso da `faticaSort`/identità dello split.
+   **Trovata e corretta una regressione durante l'implementazione**: la prima versione
+   dell'anti-concatenazione scattava anche su isolamenti con lo stesso muscolo primario,
+   rompendo "sessione Bro Petto usa 2 compound e 3 isolamenti tutti per il petto" (3 isolamenti
+   petto consecutivi sono voluti, non un bug) — corretto restringendo il trigger al solo caso
+   secondario-su-primario. Verificato con test sintetici dedicati in un nuovo describe block di
+   `shared.test.ts` (7 test) oltre alla suite generatori esistente.
+   **Fix minimo incluso**: `adattaAlTempo` in `bodybuilding.ts` confrontava `note === 'richiamo'`
+   (stringa di strength.ts) invece di riconoscere anche `'carenza'`/`'richiamo carenza'`
+   (bodybuilding.ts): i richiami carenza di bodybuilding non venivano mai deprioritizzati nel
+   taglio per budget di tempo. Ora usa `isLaggingNote`.
+6. **Parità con DeepSeek** (`lib/deepseek.ts`): `CatalogExerciseSnapshot`/`toCatalogSnapshot`
+   arricchiti con `local_fatigue`, `technical_complexity`, `focus_portion`.
+   `PROFESSIONAL_WORKOUT_SYSTEM_PROMPT` ha nuove regole esplicite (stesso principio dello step 5
+   in prosa): non concatenare esercizi ad alta fatica sullo stesso muscolo anche secondario,
+   priming sulle carenze, non più di due esercizi pesanti di fila, sostituzione che preserva
+   `focus_portion`/`local_fatigue`.
+
+**Verificato**: 240 test verdi (229 esistenti + 11 nuovi/estesi), `tsc`/`eslint` puliti,
+`npm run build` verde. Badge "Carenza" verificato in un browser reale via Playwright headless
+(stessa tecnica già usata in questa sessione per il Runner) — screenshot conferma lo stile
+corretto, nessun errore console. **Non verificabile in browser**: il nuovo swap navigabile in
+`WorkoutPreview.tsx` — a differenza di `/avvia`, quella rotta non ha un bypass per l'autenticazione
+e richiede un utente Supabase reale, non disponibile in questo Codespace. Verificato solo con
+`tsc`/`eslint` e lettura attenta della macchina a stati (motivo → lista raggruppata → applica).
+
+**Prossimo passo**: verificare manualmente in produzione (utente autenticato) che "Sostituisci"
+mostri davvero i 4 gruppi per attrezzo e che scegliere un'alternativa aggiorni la scheda; generare
+un programma settimanale con carenza bicipiti/tricipiti e controllare che sedute diverse
+propongano davvero porzioni diverse; generare via DeepSeek con una carenza selezionata e valutare
+a occhio se l'ordine rispetta le nuove regole (non verificabile in automatico, dipende da una
+risposta reale del modello esterno).

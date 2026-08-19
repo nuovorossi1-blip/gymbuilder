@@ -41,7 +41,7 @@ export function findExerciseReplacements(
   const metabolic = current.role === 'metcon'
   const bodybuildingMetcon = metabolic && (current.note === 'isolamento' || current.note === 'bodybuilding leggero')
 
-  const filterCandidates = (ignoreRejected = false, ignoreSplit = false): Exercise[] => {
+  const filterCandidates = (ignoreRejected = false, ignoreSplit = false, ignorePortion = false): Exercise[] => {
     return catalog.filter((exercise) => {
       if (exercise.id === original.id || usedIds.has(exercise.id)) return false
       if (!ignoreRejected && options.rejectedIds?.has(exercise.id)) return false
@@ -65,22 +65,32 @@ export function findExerciseReplacements(
       if (metabolic) return exercise.exercise_types.includes('conditioning') && exercise.metcon_safe
       const sameMuscle = exercise.primary_muscles.some((muscle) => original.primary_muscles.includes(muscle))
       if (!sameMuscle) return false
+      // Stesso capo/porzione (sez. Smart Exercise Swap): non far perdere l'angolo
+      // di lavoro dell'esercizio originale quando è noto, a meno che non ci
+      // siano abbastanza alternative con lo stesso focus_portion (fallback sotto).
+      if (!ignorePortion && original.focus_portion && exercise.focus_portion !== original.focus_portion) return false
       if (reason === 'discomfort') return true
       return exercise.exercise_types.includes(expectedType)
     })
   }
 
-  // Pass 1: Strict matching with all rejected IDs & split rules respected
-  let candidates = filterCandidates(false, false)
+  // Pass 1: Strict matching with all rejected IDs, split rules & focus_portion respected
+  let candidates = filterCandidates(false, false, false)
 
   // Pass 2: Fallback — ignore temporary rejected IDs if options are exhausted
   if (candidates.length === 0) {
-    candidates = filterCandidates(true, false)
+    candidates = filterCandidates(true, false, false)
   }
 
-  // Pass 3: Fallback — relax split rules keeping same target muscle
+  // Pass 3: Fallback — relax split rules keeping same target muscle and focus_portion
   if (candidates.length === 0) {
-    candidates = filterCandidates(true, true)
+    candidates = filterCandidates(true, true, false)
+  }
+
+  // Pass 4: Fallback — nessun esercizio tagga ancora quel focus_portion, si
+  // torna al solo muscolo condiviso (comportamento identico a prima di questa feature).
+  if (candidates.length === 0) {
+    candidates = filterCandidates(true, true, true)
   }
 
   const score = (exercise: Exercise): number => {
@@ -91,6 +101,7 @@ export function findExerciseReplacements(
     value += samePattern ? -60 : 12
     value += sameType ? -25 : 20
     value -= exercise.primary_muscles.filter((muscle) => original.primary_muscles.includes(muscle)).length * 15
+    if (original.focus_portion) value += exercise.focus_portion === original.focus_portion ? -20 : 10
     value += Math.abs(exercise.systemic_fatigue - original.systemic_fatigue) * 4
     value += Math.abs(exercise.local_fatigue - original.local_fatigue) * 3
     value += Math.abs(exercise.technical_complexity - original.technical_complexity) * 2

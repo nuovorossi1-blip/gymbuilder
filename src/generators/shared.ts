@@ -5,7 +5,78 @@
  * Le regole di programmazione (slot, split, fatica) restano in ciascun motore.
  */
 
-import type { Exercise, Experience, Intensity, Muscle, PrescribedExercise } from '../types'
+import { isLaggingNote, type Exercise, type Experience, type Intensity, type Muscle, type PrescribedExercise } from '../types'
+
+/** Muscoli con una vera sotto-struttura a capi, per cui ha senso far ruotare il focus_portion
+ *  (sez. Lagging Muscle Engine): condiviso fra bodybuilding.ts e strength.ts. */
+export const PORZIONE_ROTABILE = new Set<Muscle>(['biceps', 'triceps'])
+
+/** Tier di priorità per il riordino sotto: più basso viene prima. Limita gli scambi a slot
+ *  con lo stesso "peso" nella sessione, senza toccare la struttura macro (compound in
+ *  apertura, identità dello split) già garantita a monte. */
+function tierEsercizio(p: PrescribedExercise): number {
+  if (p.role === 'compound') return 0
+  if (isLaggingNote(p.note)) return 1
+  return 2
+}
+
+const FATICA_LOCALE_ALTA = 2
+
+/**
+ * Rifinisce (non ricostruisce) l'ordine già deciso dal motore: evita di mettere in sequenza
+ * due esercizi che affaticano pesantemente lo stesso muscolo — anche solo come secondario
+ * dell'uno o dell'altro — e anticipa un isolamento su un muscolo carente subito prima del
+ * primo esercizio successivo che lo coinvolge come muscolo secondario (priming), così lo si
+ * allena fresco invece che dopo che è già stato tirato in causa indirettamente (sez. "Alzate
+ * Laterali prima delle Dip" discussa con l'utente). Scambia solo esercizi con lo stesso tier
+ * di priorità: non altera mai la macro-struttura (compound in apertura, identità dello split)
+ * che i test dei generatori già verificano.
+ */
+export function riordinaPerSinergie(scelti: PrescribedExercise[], catalogById: Map<string, Exercise>): void {
+  const exFor = (p: PrescribedExercise) => catalogById.get(p.exercise_id)
+
+  // Mai sui compound (tier 0): il loro ordine è già deciso apposta (faticaSort, identità
+  // dello split) da chi ha costruito la sessione — questo passaggio rifinisce solo gli
+  // accessori/richiami, dove oggi non esiste nessuna logica di sinergia muscolare. Il
+  // bersaglio (l'esercizio che coinvolge il muscolo carente come secondario) può trovarsi
+  // sia prima sia dopo la carenza nell'ordine di partenza: ordinaSlot (bodybuilding.ts) non
+  // ha un rango dedicato per ogni accessorio, quindi non è garantito che la carenza sia già
+  // davanti.
+  const carenze = scelti.filter((p) => isLaggingNote(p.note) && p.muscle && tierEsercizio(p) !== 0)
+  for (const carenza of carenze) {
+    const i = scelti.indexOf(carenza)
+    let bersaglio = -1
+    for (let j = 0; j < scelti.length; j++) {
+      if (j === i) continue
+      const ex = exFor(scelti[j])
+      if (ex?.secondary_muscles.includes(carenza.muscle!) && tierEsercizio(scelti[j]) !== 0) { bersaglio = j; break }
+    }
+    if (bersaglio < 0 || bersaglio === i + 1) continue
+    scelti.splice(i, 1)
+    scelti.splice(bersaglio > i ? bersaglio - 1 : bersaglio, 0, carenza)
+  }
+
+  // Scatta solo quando il secondo esercizio coinvolge come SECONDARIO ciò che il primo ha
+  // appena lavorato come PRIMARIO (es. Dip dopo due esercizi petto: il petto è già stanco
+  // anche se l'esercizio "conta" come tricipiti). Due esercizi che condividono lo stesso
+  // muscolo primario (es. tre isolamenti petto in un Bro Split) sono accumulo di volume
+  // intenzionale, non il problema che questo passaggio deve risolvere.
+  for (let i = 0; i < scelti.length - 1; i++) {
+    if (tierEsercizio(scelti[i]) === 0 || tierEsercizio(scelti[i + 1]) === 0) continue
+    const a = exFor(scelti[i]); const b = exFor(scelti[i + 1])
+    if (!a || !b) continue
+    if (!(b.secondary_muscles.includes(a.primary_muscles[0]) && Math.max(a.local_fatigue, b.local_fatigue) >= FATICA_LOCALE_ALTA)) continue
+    for (let k = i + 2; k < scelti.length; k++) {
+      if (tierEsercizio(scelti[k]) !== tierEsercizio(scelti[i + 1])) continue
+      const ex = exFor(scelti[k])
+      if (!ex) continue
+      const muscoli = [...ex.primary_muscles, ...ex.secondary_muscles]
+      if (muscoli.includes(a.primary_muscles[0])) continue
+      ;[scelti[i + 1], scelti[k]] = [scelti[k], scelti[i + 1]]
+      break
+    }
+  }
+}
 
 /** Generatore pseudocasuale con seme: stessa configurazione + stesso seme = stesso allenamento. */
 export function rng(seed: number) {

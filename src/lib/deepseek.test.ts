@@ -9,4 +9,12 @@ describe('DeepSeek workout prompt', () => {
     expect(PROFESSIONAL_WORKOUT_SYSTEM_PROMPT).toContain('attrezzatura completa')
     expect(PROFESSIONAL_WORKOUT_SYSTEM_PROMPT).toContain('Strength: agisci come strength coach')
   })
+
+  it('spiega gestione del carico, priming sulle carenze e sostituzione senza perdere l\'effort (sez. Lagging Muscle Engine)', () => {
+    expect(PROFESSIONAL_WORKOUT_SYSTEM_PROMPT).toContain('local_fatigue')
+    expect(PROFESSIONAL_WORKOUT_SYSTEM_PROMPT).toContain('secondary_muscles')
+    expect(PROFESSIONAL_WORKOUT_SYSTEM_PROMPT).toContain('priming')
+    expect(PROFESSIONAL_WORKOUT_SYSTEM_PROMPT).toContain('focus_portion')
+    expect(PROFESSIONAL_WORKOUT_SYSTEM_PROMPT).toContain('non è sostenibile')
+  })
 })

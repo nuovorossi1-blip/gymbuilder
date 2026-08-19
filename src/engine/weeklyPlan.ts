@@ -1,4 +1,13 @@
-import { METCON_FORMAT_LABELS, MODE_LABELS, MUSCLE_LABELS, SPLIT_LABELS, type Exercise, type GeneratedWorkout, type Goal, type MetconFormat, type Muscle, type PublicMode, type RecoveryProfile, type Split, type SplitSystem, type Weekday, type WeeklyProgram, type WeeklyProgramConfig, type WeeklyProgramWarning, type WeeklySession } from '../types'
+import { METCON_FORMAT_LABELS, MODE_LABELS, MUSCLE_LABELS, SPLIT_LABELS, type Exercise, type FocusPortion, type GeneratedWorkout, type Goal, type MetconFormat, type Muscle, type PublicMode, type RecoveryProfile, type Split, type SplitSystem, type Weekday, type WeeklyProgram, type WeeklyProgramConfig, type WeeklyProgramWarning, type WeeklySession } from '../types'
+
+/** Rotazione delle porzioni per i muscoli con una vera sotto-struttura a capi (sez. Lagging
+ *  Muscle Engine): ogni seduta della settimana che richiama lo stesso muscolo carente lavora
+ *  un angolo diverso, invece di ripetere lo stesso stimolo — stesso principio già usato per
+ *  ruotare le spalle fra Upper A/B, esteso da muscolo a porzione. */
+const PORTION_ROTATION: Partial<Record<Muscle, FocusPortion[]>> = {
+  biceps: ['long_head', 'short_head', 'brachialis'],
+  triceps: ['long_head', 'lateral_head', 'medial_head'],
+}
 
 type ScheduledMetconFormat = Exclude<MetconFormat, 'circuit' | 'tabata'>
 
@@ -232,6 +241,21 @@ function assegnaPrioritaSettimanali(
       if (candidate) candidate.priority_muscles = [...candidate.priority_muscles, muscle]
     }
   }
+
+  // Rotazione per porzione (sez. Lagging Muscle Engine): a parità di muscolo carente, ogni
+  // seduta della settimana che lo tocca lavora un capo diverso, nell'ordine in cui le sedute
+  // compaiono qui (che è anche l'ordine dei giorni della settimana). Solo bicipiti/tricipiti
+  // hanno una rotazione definita: per gli altri muscoli non si assegna nessuna porzione.
+  for (const [muscle, portions] of Object.entries(PORTION_ROTATION) as [Muscle, FocusPortion[]][]) {
+    let esposizione = 0
+    for (const session of assigned) {
+      if (!session.priority_muscles.includes(muscle)) continue
+      const portion = portions[esposizione % portions.length]
+      session.priority_portions = { ...session.priority_portions, [muscle]: portion }
+      esposizione++
+    }
+  }
+
   return assigned
 }
 

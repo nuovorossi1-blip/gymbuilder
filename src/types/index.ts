@@ -34,6 +34,14 @@ export type Muscle =
   | 'chest' | 'back' | 'front_delts' | 'lateral_delts' | 'rear_delts'
   | 'biceps' | 'triceps' | 'forearms' | 'quads' | 'hamstrings' | 'glutes' | 'adductors' | 'calves' | 'core'
 
+/**
+ * Porzione/capo di un muscolo che ha una vera sotto-struttura biomeccanica
+ * (oggi solo bicipiti e tricipiti: per le spalle la granularità esiste già
+ * come Muscle distinti — front/lateral/rear_delts). Usato per lo swap
+ * "stesso angolo di lavoro" e per la rotazione settimanale delle carenze.
+ */
+export type FocusPortion = 'long_head' | 'short_head' | 'brachialis' | 'lateral_head' | 'medial_head'
+
 export type Split =
   | 'push' | 'pull' | 'legs' | 'upper' | 'lower' | 'full_body'
   | 'bro_chest' | 'bro_back' | 'bro_shoulders' | 'bro_arms' | 'bro_legs'
@@ -65,6 +73,8 @@ export interface Exercise {
   workout_roles: WorkoutRole[]
   primary_muscles: Muscle[]
   secondary_muscles: Muscle[]
+  /** Solo su un sottoinsieme del catalogo (bicipiti/tricipiti): quale capo lavora di più. */
+  focus_portion?: FocusPortion | null
   equipment: Gear
   movement_pattern: string
   min_experience: Experience
@@ -260,6 +270,10 @@ export interface WeeklySession {
   recovery_profile: RecoveryProfile
   /** Carenze assegnate a questa seduta dal programma, non tutte quelle globali. */
   priority_muscles: Muscle[]
+  /** Quale porzione (capo) enfatizzare per una carenza in questa seduta, quando il
+   *  muscolo ha una vera sotto-struttura (bicipiti/tricipiti): ruota fra le sedute
+   *  della settimana così ogni richiamo lavora un angolo diverso. */
+  priority_portions?: Partial<Record<Muscle, FocusPortion>>
   /** Target espliciti scelti dall'utente per una seduta singola guidata per gruppi muscolari. */
   custom_target_muscles?: Muscle[]
   /** Muscoli da non ricaricare con esercizi medio-pesanti il giorno successivo. */
@@ -531,6 +545,13 @@ export const MUSCLE_LABELS: Record<Muscle, string> = {
   adductors: 'Adduttori · interno coscia',
   calves: 'Polpacci',
   core: 'Core',
+}
+
+/** Riconosce le note che il motore assegna agli esercizi "richiamo carenza"
+ *  (bodybuilding.ts usa 'carenza'/'richiamo carenza', strength.ts usa 'richiamo'):
+ *  serve solo a mostrare un badge in UI, non alla logica di generazione. */
+export function isLaggingNote(note?: string): boolean {
+  return !!note && (note.includes('carenza') || note.includes('richiamo'))
 }
 
 export const DURATIONS = [30, 45, 60, 75, 90] as const

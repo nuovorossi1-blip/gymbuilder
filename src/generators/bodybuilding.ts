@@ -26,13 +26,13 @@
  */
 
 import type {
-  Equipment, EquipmentItem, Exercise, Experience, GeneratedWorkout, Goal, Intensity, Muscle,
+  Equipment, EquipmentItem, Exercise, Experience, FocusPortion, GeneratedWorkout, Goal, Intensity, Muscle,
   PrescribedExercise, Split, WorkoutBlock,
 } from '../types'
-import { SPLIT_LABELS } from '../types'
+import { isLaggingNote, SPLIT_LABELS } from '../types'
 import { isExerciseAvailable } from './equipment'
 import { PESO_DEFAULT_KG, stimaCalorieEsercizio } from './calories'
-import { minutiBlocco, minutiEsercizio, portaCompoundInApertura, rimuoviDuplicati, rng, scegliRiscaldamento } from './shared'
+import { minutiBlocco, minutiEsercizio, PORZIONE_ROTABILE, portaCompoundInApertura, rimuoviDuplicati, riordinaPerSinergie, rng, scegliRiscaldamento } from './shared'
 
 export interface GenerationConfig {
   split: Split
@@ -42,6 +42,9 @@ export interface GenerationConfig {
   available_equipment?: EquipmentItem[] | null
   duration_min: number
   priority_muscles: Muscle[]
+  /** Quale capo enfatizzare per una carenza bicipiti/tricipiti in questa seduta (weeklyPlan.ts
+   *  la ruota fra le sedute della settimana). Assente in sessione singola: si usa 'long_head'. */
+  priority_portions?: Partial<Record<Muscle, FocusPortion>>
   target_muscles?: Muscle[]
   excluded_exercises: string[]
   /** Esercizi preferiti dall'utente (sez. 33/10 della correzione): priorità, non obbligo. */
@@ -450,7 +453,7 @@ export function generaBodybuilding(
     let muscoloUsato: Muscle = s.muscle
 
     for (const m of musclesDaProvare) {
-      const candidati = allenamento
+      let candidati = allenamento
         .filter((e) => !usati.has(e.id))
         .filter((e) => e.primary_muscles.includes(m))
         .filter((e) => patternCoerente(e, m))
@@ -460,6 +463,17 @@ export function generaBodybuilding(
         .filter((e) => !(e.grip_fatigue >= 3 && faticaPresa >= 6))
         // Niente movimenti tecnici quando la stanchezza rende la tecnica inaffidabile (sez. 33)
         .filter((e) => !(faticaSistemica >= 8 && e.technical_complexity >= 3))
+
+      // Rotazione per porzione (sez. Lagging Muscle Engine): un richiamo bicipiti/tricipiti
+      // preferisce il capo assegnato a questa seduta (weeklyPlan.ts la ruota fra le sedute
+      // della settimana; senza programma settimanale, sez. sessione singola, si usa 'long_head'
+      // come primo colpo, il più efficace in singola esposizione). Se nessun esercizio del pool
+      // ha ancora quel tag, si torna al pool intero: mai far fallire lo slot per questo.
+      if (isRichiamo && PORZIONE_ROTABILE.has(m)) {
+        const porzione: FocusPortion = cfg.priority_portions?.[m] ?? 'long_head'
+        const conPorzione = candidati.filter((e) => e.focus_portion === porzione)
+        if (conPorzione.length > 0) candidati = conPorzione
+      }
 
       if (candidati.length === 0) {
         // Solo per lo slot base si prova un muscolo sostituto dello stesso split;
@@ -534,6 +548,10 @@ export function generaBodybuilding(
       instructions: fallback.instructions || undefined,
     })
   }
+
+  // 7b. Sequenziamento per fatica/sinergie (sez. Lagging Muscle Engine, Step 5): rifinisce
+  // l'ordine appena costruito, non lo ricostruisce — vedi shared.ts.
+  riordinaPerSinergie(scelti, new Map(allenamento.map((exercise) => [exercise.id, exercise])))
 
   // 8. Adattamento al tempo: si riducono prima i recuperi, poi le serie
   // (mai sotto il minimo) senza eliminare slot (sez. 3, 23).
@@ -610,12 +628,16 @@ function adattaAlTempo(scelti: PrescribedExercise[], budgetMin: number): void {
   }
 
   // Fase 2: una serie in meno sugli slot non-compound e i richiami, poi i compound.
+  // isLaggingNote riconosce 'carenza'/'richiamo carenza' (note di bodybuilding.ts) oltre a
+  // 'richiamo' (note di strength.ts): prima di questo il confronto letterale con 'richiamo'
+  // non scattava mai qui, quindi i richiami carenza di bodybuilding erano trattati come un
+  // isolamento qualsiasi invece che come i primi da tagliare a corto di tempo.
   iter = 0
   while (sforo() > 0 && iter++ < 50) {
     const riducibile = [...scelti]
       .sort((a, b) => {
-        const pa = a.note === 'richiamo' ? 0 : a.role === 'isolation' ? 1 : 2
-        const pb = b.note === 'richiamo' ? 0 : b.role === 'isolation' ? 1 : 2
+        const pa = isLaggingNote(a.note) ? 0 : a.role === 'isolation' ? 1 : 2
+        const pb = isLaggingNote(b.note) ? 0 : b.role === 'isolation' ? 1 : 2
         return pa - pb
       })
       .find((e) => e.sets > serieMinime(e.role === 'compound'))

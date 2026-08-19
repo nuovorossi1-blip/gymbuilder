@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../features/auth/AuthProvider'
 import { useWorkout } from '../features/workout/WorkoutContext'
 import { registraCompletato } from '../lib/api'
-import { FORMATO_A_GIRI, FORMATO_A_INTERVALLI, MUSCLE_LABELS, type PrescribedExercise } from '../types'
+import { FORMATO_A_GIRI, FORMATO_A_INTERVALLI, isLaggingNote, MUSCLE_LABELS, type PrescribedExercise } from '../types'
 import { metconInstruction, metconSubtitle } from '../engine/metconInstructions'
 import { loadAudioSettings, saveAudioSettings, TimerAudio, type AudioTimerSettings, type TimerSound } from '../engine/audio'
 import { startupCountdownCue, type TimerEventType, type TimerPhase } from '../engine/timer'
@@ -1064,9 +1064,14 @@ export default function Runner() {
       <h1 className="mt-9 font-display font-extrabold uppercase leading-[0.95] tracking-tight text-[2.1rem]">
         {es.name}
       </h1>
-      {es.muscle && (
-        <p className="mt-2 font-data text-[11px] uppercase tracking-[0.14em] text-slate2">
-          {MUSCLE_LABELS[es.muscle]}
+      {(es.muscle || isLaggingNote(es.note)) && (
+        <p className="mt-2 flex items-center gap-2 font-data text-[11px] uppercase tracking-[0.14em] text-slate2">
+          {es.muscle && <span>{MUSCLE_LABELS[es.muscle]}</span>}
+          {isLaggingNote(es.note) && (
+            <span className="rounded-full border border-amber2/40 bg-amber2/15 px-2 py-0.5 text-amber2">
+              {es.note?.includes('richiamo') ? 'Richiamo 3x · carenza' : 'Carenza'}
+            </span>
+          )}
         </p>
       )}
       {es.instructions && <p className="mt-2 text-[13px] text-slate2 leading-relaxed">{es.instructions}</p>}

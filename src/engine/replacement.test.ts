@@ -115,6 +115,35 @@ describe('Exercise Feedback & Replacement Engine', () => {
     expect(replacement.systemic_fatigue).toBeLessThanOrEqual(1)
   })
 
+  it('con focus_portion nota, preferisce un\'alternativa con lo stesso capo', () => {
+    // curl_panca_scott = short_head; fra le alternative bicipiti c'è anche
+    // curl_martello (brachialis) e curl_inclinata_man (long_head): deve
+    // scegliere preacher_curl_macchina o curl_cavo, entrambi short_head.
+    const current = prescribed('curl_panca_scott', 'isolation')
+    const replacement = findExerciseReplacement(
+      current, catalog,
+      { ...equipment, available: [...equipment.available] }, preferences,
+      new Set(['curl_panca_scott']),
+      { reason: 'dislike', experience: 'advanced' },
+    )!
+    expect(replacement.focus_portion).toBe('short_head')
+  })
+
+  it('senza alternative con lo stesso focus_portion, torna al solo muscolo condiviso', () => {
+    // Nessun altro esercizio del catalogo di test condivide focus_portion 'medial_head'
+    // per i tricipiti oltre a dip_panca/dip_parallele/piegamenti_diamante stessi:
+    // rifiutandoli tutti, deve comunque trovare un'alternativa tricipiti (fallback Pass 4).
+    const current = prescribed('dip_panca', 'isolation')
+    const replacement = findExerciseReplacement(
+      current, catalog,
+      { ...equipment, available: [...equipment.available] }, preferences,
+      new Set(['dip_panca']),
+      { reason: 'dislike', experience: 'advanced', rejectedIds: new Set(['dip_parallele', 'piegamenti_diamante']) },
+    )!
+    expect(replacement).toBeDefined()
+    expect(replacement.primary_muscles).toContain('triceps')
+  })
+
   it('gestisce sostituzioni multiple sequenziali sullo stesso slot senza bloccarsi', () => {
     const original = prescribed('panca_piana')
     const rep1 = findExerciseReplacement(original, catalog, { ...equipment, available: [...equipment.available] }, preferences, new Set([original.exercise_id]), { reason: 'dislike', rejectedIds: new Set([original.exercise_id]), split: 'push' })
