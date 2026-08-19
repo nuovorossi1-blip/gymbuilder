@@ -948,3 +948,15 @@ residuo a `notification_timer_label`/`phaseTitle`). **Prossimo passo**: verifica
 reale, dopo la prossima build APK via GitHub Actions, che il banner appaia come nel riferimento
 sia a schermo acceso (banner in alto) sia su lock screen, e che i colori/badge cambino
 correttamente fra lavoro e riposo.
+
+**Chiarimento aggiunto in `CLAUDE.md` nella stessa sessione**: l'utente ha chiesto esplicitamente
+che l'app si aggiorni da sola a ogni modifica, come regola obbligatoria. Verificato che il
+meccanismo **esiste già** e non richiede nulla di nuovo: `build-apk.yml` si attiva a ogni push su
+`main` (non al solo commit locale), bumpa `versionCode`/`versionName`, builda un APK debug,
+aggiorna `public/gymbuilder.apk` + `public/version.json` e pubblica su Vercel da solo — senza
+bisogno di tag `android-v*` (quello serve solo per la release firmata "ufficiale", un passo
+separato). Il tag `android-v*` menzionato nella risposta precedente della chat non era quindi
+necessario per l'aggiornamento automatico standard. Il pezzo mancante era solo **il push**: il
+commit precedente di questa sessione (banner timer) era rimasto solo locale. Aggiunta la regola
+in `CLAUDE.md` per fare sempre `git push origin main` dopo ogni commit, senza chiederlo, salvo
+richiesta esplicita contraria dell'utente.
