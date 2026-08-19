@@ -6,7 +6,7 @@ import { findExerciseReplacement, findExerciseReplacements } from './replacement
 
 const catalog = (fixture as ExerciseRecord[]).map(normalizeExercise)
 const equipment = { preset: 'full_gym' as const, available: ['barbell', 'dumbbells', 'machines', 'cable', 'pullup_bar', 'bench'] as const }
-const preferences = { excludedExerciseIds: [], bodyweightPolicy: 'always' as const, elasticPolicy: 'never' as const }
+const preferences = { excludedExerciseIds: [] }
 const prescribed = (id: string, role: PrescribedExercise['role'] = 'compound'): PrescribedExercise => {
   const exercise = catalog.find((item) => item.id === id)!
   return { exercise_id: id, name: exercise.name, role, muscle: exercise.primary_muscles[0], sets: 4, reps: '6-8', rest_sec: 120 }

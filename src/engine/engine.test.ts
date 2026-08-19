@@ -5,7 +5,7 @@ import { generaBodybuilding } from '../generators/bodybuilding'
 import { isExerciseAvailable } from '../generators/equipment'
 import { estimateActiveCalories } from '../generators/calories'
 import { proposeWeeklyPlan } from './weeklyPlan'
-import { isExerciseAllowed, preferencePlacementForMode } from './preferences'
+import { isExerciseAllowed } from './preferences'
 import { nextTimerSecond, type IntervalTimerState } from './timer'
 import type { ExerciseRecord } from '../types'
 
@@ -36,26 +36,10 @@ describe('Workout Engine master specification', () => {
     expect(isExerciseAvailable(row, 'full_gym', ['barbell', 'dumbbells'])).toBe(false)
   })
 
-  it('corpo libero solo finisher blocca Push-up normale ma lo consente come finisher', () => {
+  it('corpo libero/elastici non hanno più una policy sempre/mai globale (sez. feedback utente 19/08): escludeva esercizi utili (es. dip) anche con l\'attrezzatura richiesta disponibile davvero. Solo l\'esclusione esplicita per singolo esercizio resta', () => {
     const pushup = catalog.find((exercise) => exercise.equipment === 'bodyweight' && exercise.movement_pattern === 'horizontal_push')!
-    const preferences = { excludedExerciseIds: [], bodyweightPolicy: 'finisher_only' as const, elasticPolicy: 'always' as const }
-    expect(isExerciseAllowed(pushup, preferences, 'primary')).toBe(false)
-    expect(isExerciseAllowed(pushup, preferences, 'normal')).toBe(false)
-    expect(isExerciseAllowed(pushup, preferences, 'finisher')).toBe(true)
-  })
-
-  it('CrossFit e Hybrid trattano il Metcon come contesto finisher per le policy bodyweight', () => {
-    expect(preferencePlacementForMode('crossfit')).toBe('finisher')
-    expect(preferencePlacementForMode('crossfit_hybrid')).toBe('finisher')
-    expect(preferencePlacementForMode('tabata')).toBe('finisher')
-    expect(preferencePlacementForMode('bodybuilding')).toBe('normal')
-  })
-
-  it('required_equipment mancante non rompe il filtro preferenze legacy', () => {
-    const pushup = { ...catalog.find((exercise) => exercise.equipment === 'bodyweight' && exercise.movement_pattern === 'horizontal_push')!, required_equipment: undefined as unknown as [] }
-    const preferences = { excludedExerciseIds: [], bodyweightPolicy: 'finisher_only' as const, elasticPolicy: 'never' as const }
-    expect(() => isExerciseAllowed(pushup, preferences, 'finisher')).not.toThrow()
-    expect(isExerciseAllowed(pushup, preferences, 'finisher')).toBe(true)
+    expect(isExerciseAllowed(pushup, { excludedExerciseIds: [] })).toBe(true)
+    expect(isExerciseAllowed(pushup, { excludedExerciseIds: [pushup.id] })).toBe(false)
   })
 
   it('timer Tabata alterna lavoro, riposo, round e fine', () => {

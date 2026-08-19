@@ -10,7 +10,6 @@ export type SplitSystem = 'ppl' | 'upper_lower' | 'bro_split' | 'front_back'
 /** Protocollo di esecuzione Bodybuilding: 'standard' è il motore a slot di sempre.
  *  'fst7' e 'cbum_top_backoff' sono varianti di prescrizione sullo stesso motore. */
 export type BodybuildingProtocol = 'standard' | 'fst7' | 'cbum_top_backoff'
-export type ExercisePolicy = 'always' | 'finisher_only' | 'never'
 export type ExerciseFeedbackReason = 'dislike' | 'unavailable' | 'too_hard' | 'too_easy' | 'discomfort' | 'prefer_other'
 export type Weekday = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday'
 
@@ -189,8 +188,6 @@ export interface UserProfile {
 export interface ExercisePreference {
   excluded_exercise_ids: string[]
   preferred_exercise_ids: string[]
-  bodyweight_policy: ExercisePolicy
-  elastic_policy: ExercisePolicy
 }
 
 export interface AdaptiveExercisePreference {
@@ -426,11 +423,6 @@ export const BODYBUILDING_PROTOCOL_LABELS: Record<BodybuildingProtocol, string> 
   cbum_top_backoff: 'Top Set & Back-Off (CBum)',
 }
 
-export const EXERCISE_POLICY_LABELS: Record<ExercisePolicy, string> = {
-  always: 'Sempre consentito',
-  finisher_only: 'Solo finisher',
-  never: 'Mai',
-}
 
 export const METCON_FORMAT_LABELS: Record<MetconFormat, string> = {
   amrap: 'AMRAP',

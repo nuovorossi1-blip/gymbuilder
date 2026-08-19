@@ -304,8 +304,7 @@ export async function suggestWorkoutConfigWithDeepSeek(
               `Sei un master allenatore specializzato in ${input.config.selected_modes.join(' + ')}. ` +
               `Oggi voglio allenare come target principali: ${(input.config.single_session_target_muscles ?? []).join(', ') || 'quelli previsti dallo split selezionato'}. ` +
               `Muscoli carenti da richiamare senza snaturare lo split: ${input.config.weak_points.join(', ') || 'nessuno'}. ` +
-              `Livello ${input.config.experience}; elastici ${input.config.preferences.elastic_policy}; ` +
-              `corpo libero ${input.config.preferences.bodyweight_policy}; attrezzatura ${input.config.equipment.preset}. ` +
+              `Livello ${input.config.experience}; attrezzatura ${input.config.equipment.preset}. ` +
               `Genera la sessione con la metodica selezionata e non usare altri muscoli come target primari.`,
             configurazione_corrente: input.config,
             obiettivo: 'Suggerisci solo i campi da modificare per generare un workout o programma migliore con il motore esistente.',
@@ -356,8 +355,6 @@ export async function generateWorkoutsWithDeepSeek(
               protocollo_tabata: input.config.tabata,
               esercizi_preferiti: input.config.preferences.preferred_exercise_ids,
               esercizi_esclusi: input.config.preferences.excluded_exercise_ids,
-              policy_corpo_libero: input.config.preferences.bodyweight_policy,
-              policy_elastici: input.config.preferences.elastic_policy,
             },
             configurazione: input.config,
             sessioni_da_compilare: input.program.week.map((session) => ({

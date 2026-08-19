@@ -362,9 +362,6 @@ export function validateWeeklyProgram(week: WeeklySession[], config: WeeklyProgr
   }
   if (crossFitOnly && week.length >= 4) warnings.push({ code: 'limited_recovery', message: 'Programma CrossFit ad alta frequenza: il motore alternerà forza, tecnica, intensità e durata dei WOD per gestire il recupero.', day_ids: week.map((item) => item.id) })
   if (config.training_days >= 6 && config.selected_modes.filter((mode) => mode !== 'tabata').length >= 3) warnings.push({ code: 'limited_recovery', message: 'Settimana ad alta densità: monitora recupero, sonno e qualità tecnica.', day_ids: week.map((item) => item.id) })
-  const cardioModes = config.selected_modes.some((mode) => mode === 'crossfit' || mode === 'crossfit_hybrid' || mode === 'tabata')
-  const conditioningGear: string[] = ['kettlebells', 'dumbbells', 'row_erg', 'ski_erg', 'assault_bike', 'treadmill', 'jump_rope']
-  if (cardioModes && config.preferences.bodyweight_policy === 'never' && !config.equipment.available.some((item) => conditioningGear.includes(item))) warnings.push({ code: 'mode_density', message: 'Le modalità metaboliche hanno poche alternative: abilita almeno un attrezzo cardio, manubri o kettlebell.', day_ids: week.filter((item) => item.mode === 'crossfit' || item.mode === 'crossfit_hybrid' || item.mode === 'tabata').map((item) => item.id) })
   const merged = new Map<WeeklyProgramWarning['code'], WeeklyProgramWarning>()
   for (const warning of warnings) {
     const existing = merged.get(warning.code)

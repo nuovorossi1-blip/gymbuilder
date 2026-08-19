@@ -118,8 +118,6 @@ export default function WorkoutPreview() {
     const adaptive = recordExerciseFeedback(user.id, original, reason, swapReason.permanent)
     return findExerciseReplacements(current, catalog, equipment, {
       excludedExerciseIds: generationConfig.preferences.excluded_exercise_ids,
-      bodyweightPolicy: generationConfig.preferences.bodyweight_policy,
-      elasticPolicy: generationConfig.preferences.elastic_policy,
     }, used, { reason, rejectedIds: new Set([...rejectedExerciseIds, original.id]), adaptivePreferences: adaptive, experience: generationConfig.experience, preferredIds: new Set(generationConfig.preferences.preferred_exercise_ids), split: generationConfig.current_day })
   }
 

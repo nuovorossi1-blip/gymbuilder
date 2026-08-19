@@ -9,7 +9,7 @@ const base: WeeklyProgramConfig = {
   experience: 'advanced', duration_min: 60,
   equipment: { preset: 'full_gym', available: PRESET_EQUIPMENT.full_gym },
   weak_points: ['lateral_delts', 'biceps', 'triceps'],
-  preferences: { excluded_exercise_ids: ['row_erg'], preferred_exercise_ids: [], bodyweight_policy: 'finisher_only', elastic_policy: 'never' },
+  preferences: { excluded_exercise_ids: ['row_erg'], preferred_exercise_ids: [] },
   intensity: 'medium', crossfit_format: 'amrap',
   single_session_split: 'push', hybrid_balance: 'bb_dominant',
   tabata: { work_sec: 20, rest_sec: 10, rounds: 8, prescription: 'time' },

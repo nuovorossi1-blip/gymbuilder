@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { filterExercisesByPreferences, preferencePlacementForMode } from '../engine/preferences'
+import { filterExercisesByPreferences } from '../engine/preferences'
 import { adaptiveExcludedIds } from '../engine/feedback'
 import { applyAutomaticProgramming, applyWorkoutRecovery, generateWeeklyProgram, selectProgramMode, updateWeeklySession } from '../engine/weeklyPlan'
 import { adaptPrescriptionForProfile, resolveEffectiveWeakPoints } from '../engine/biomechanics'
@@ -19,10 +19,10 @@ import type { WeeklyTrainingState } from '../generators/weakPoints'
 import { aggiornaProgramma, caricaCatalogo, salvaProgramma, situazioneSettimanaleUtente } from '../lib/api'
 import { generateWorkoutsWithDeepSeek } from '../lib/deepseek'
 import {
-  BODYBUILDING_PROTOCOL_LABELS, CROSSFIT_BENCHMARK_HINTS, CROSSFIT_BENCHMARK_LABELS, DURATIONS, EQUIPMENT_ITEM_LABELS, EQUIPMENT_LABELS, EXERCISE_POLICY_LABELS,
+  BODYBUILDING_PROTOCOL_LABELS, CROSSFIT_BENCHMARK_HINTS, CROSSFIT_BENCHMARK_LABELS, DURATIONS, EQUIPMENT_ITEM_LABELS, EQUIPMENT_LABELS,
   METCON_FORMAT_HINTS, METCON_FORMAT_LABELS, MODE_LABELS, MUSCLE_LABELS, PUBLIC_MODES, SPLIT_LABELS,
   SPLIT_SYSTEM_LABELS, type BodybuildingProtocol, type Equipment, type EquipmentItem, type Exercise,
-  type ExercisePolicy, type Muscle,
+  type Muscle,
   type CrossFitBenchmark, type PublicMode, type Split, type SplitSystem, type Weekday, type WeeklyProgram,
   type WeeklyProgramConfig, type WeeklySession, type WorkoutGenerationConfig,
 } from '../types'
@@ -39,7 +39,7 @@ const DEFAULT_CONFIG: WeeklyProgramConfig = {
   single_session_split: 'push', hybrid_balance: 'bb_dominant',
   strength_method: '5x5', hybrid_method: 'full_body_functional', hybrid_format: 'amrap',
   equipment: { preset: 'full_gym', available: PRESET_EQUIPMENT.full_gym }, weak_points: [],
-  preferences: { excluded_exercise_ids: [], preferred_exercise_ids: [], bodyweight_policy: 'always', elastic_policy: 'always' },
+  preferences: { excluded_exercise_ids: [], preferred_exercise_ids: [] },
   intensity: 'medium', crossfit_format: 'amrap', crossfit_benchmark: 'custom',
   tabata: { work_sec: 20, rest_sec: 10, rounds: 8, prescription: 'time' },
 }
@@ -194,11 +194,7 @@ export default function Create() {
     const global = sourceProgram.config
     const adaptiveExcluded = user ? adaptiveExcludedIds(user.id, catalog) : []
     const excluded = [...new Set([...global.preferences.excluded_exercise_ids, ...adaptiveExcluded])]
-    const usableCatalog = filterExercisesByPreferences(catalog, {
-      excludedExerciseIds: excluded,
-      bodyweightPolicy: global.preferences.bodyweight_policy,
-      elasticPolicy: global.preferences.elastic_policy,
-    }, preferencePlacementForMode(session.mode))
+    const usableCatalog = filterExercisesByPreferences(catalog, { excludedExerciseIds: excluded })
     const dayCatalog = session.fatigue_avoid_muscles?.length
       ? usableCatalog.filter((exercise) => exercise.systemic_fatigue <= 1 || !exercise.primary_muscles.some((muscle) => session.fatigue_avoid_muscles?.includes(muscle)))
       : usableCatalog
@@ -250,11 +246,7 @@ export default function Create() {
       const skeletonProgram = generateWeeklyProgram(normalizedConfig)
       const adaptiveExcluded = user ? adaptiveExcludedIds(user.id, catalog) : []
       const excluded = [...new Set([...normalizedConfig.preferences.excluded_exercise_ids, ...adaptiveExcluded])]
-      const preferredCatalog = filterExercisesByPreferences(catalog, {
-        excludedExerciseIds: excluded,
-        bodyweightPolicy: normalizedConfig.preferences.bodyweight_policy,
-        elasticPolicy: normalizedConfig.preferences.elastic_policy,
-      }, 'normal')
+      const preferredCatalog = filterExercisesByPreferences(catalog, { excludedExerciseIds: excluded })
       const usableCatalog = preferredCatalog.filter((exercise) => isExerciseAvailable(
         exercise,
         normalizedConfig.equipment.preset,
@@ -401,9 +393,6 @@ function WizardBuilder({
         ? config.weak_points.filter((item) => item !== muscle)
         : [...config.weak_points, muscle]
     )
-
-  const setPolicy = (key: 'bodyweight_policy' | 'elastic_policy', value: ExercisePolicy) =>
-    patch('preferences', { ...config.preferences, [key]: value })
 
   const toggleExercise = (key: 'preferred_exercise_ids' | 'excluded_exercise_ids', id: string) => {
     const current = config.preferences[key]
@@ -947,16 +936,13 @@ function WizardBuilder({
       {step === 7 && (
         <SwipeContainer direction={slideDirection} onSwipeLeft={goNext} onSwipeRight={goBack} className="space-y-5">
           <Field title="Preferenze Esercizi">
-            <Policy
-              title="Corpo libero"
-              value={config.preferences.bodyweight_policy}
-              onChange={(value) => setPolicy('bodyweight_policy', value)}
-            />
-            <Policy
-              title="Elastici"
-              value={config.preferences.elastic_policy}
-              onChange={(value) => setPolicy('elastic_policy', value)}
-            />
+            <p className="text-xs text-slate-300">
+              Il generatore sceglie liberamente fra corpo libero, elastici e pesi in base
+              all'attrezzatura che hai indicato: se un esercizio specifico non ti convince, puoi
+              sempre sostituirlo con un'alternativa equivalente direttamente nella scheda
+              (pulsante "Sostituisci"). Qui puoi solo escludere un esercizio del tutto o
+              segnalarne uno preferito.
+            </p>
             <button
               className="mt-4 text-xs uppercase tracking-wider text-cyan-400"
               onClick={() => setExercisePreferences((old) => !old)}
@@ -1376,25 +1362,3 @@ function StepNav({
   )
 }
 
-function Policy({
-  title,
-  value,
-  onChange,
-}: {
-  title: string
-  value: ExercisePolicy
-  onChange: (value: ExercisePolicy) => void
-}) {
-  return (
-    <div className="mt-3">
-      <p className="mb-2 text-sm text-slate-300">{title}</p>
-      <div className="grid grid-cols-3 gap-2">
-        {(Object.keys(EXERCISE_POLICY_LABELS) as ExercisePolicy[]).map((policy) => (
-          <Choice key={policy} active={value === policy} onClick={() => onChange(policy)}>
-            {EXERCISE_POLICY_LABELS[policy]}
-          </Choice>
-        ))}
-      </div>
-    </div>
-  )
-}

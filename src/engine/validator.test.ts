@@ -14,7 +14,7 @@ function pushConfig(weakPoints: WorkoutGenerationConfig['weak_points']): Workout
     program_kind: 'single_session', mode: 'bodybuilding', goal: 'hypertrophy',
     training_days: 1, current_day: 'push', experience: 'advanced', duration_min: 60,
     equipment: { preset: 'full_gym', available: PRESET_EQUIPMENT.full_gym }, weak_points: weakPoints,
-    preferences: { excluded_exercise_ids: [], preferred_exercise_ids: [], bodyweight_policy: 'always', elastic_policy: 'always' },
+    preferences: { excluded_exercise_ids: [], preferred_exercise_ids: [] },
     intensity: 'medium',
   }
 }
@@ -62,7 +62,7 @@ describe('validateWorkout — coerenza dello split', () => {
       training_days: 1, current_day: null, experience: 'advanced', duration_min: 60,
       equipment: { preset: 'full_gym', available: PRESET_EQUIPMENT.full_gym },
       weak_points: ['lateral_delts', 'biceps'], target_muscles: targets,
-      preferences: { excluded_exercise_ids: [], preferred_exercise_ids: [], bodyweight_policy: 'always', elastic_policy: 'always' },
+      preferences: { excluded_exercise_ids: [], preferred_exercise_ids: [] },
       intensity: 'medium',
     }
     const result = validateWorkout(workout, config, catalog)
@@ -83,7 +83,7 @@ describe('validateWorkout — coerenza dello split', () => {
       training_days: 1, current_day: null, experience: 'advanced', duration_min: 60,
       equipment: { preset: 'full_gym', available: PRESET_EQUIPMENT.full_gym },
       weak_points: [], crossfit_benchmark: 'grace',
-      preferences: { excluded_exercise_ids: [], preferred_exercise_ids: [], bodyweight_policy: 'always', elastic_policy: 'always' },
+      preferences: { excluded_exercise_ids: [], preferred_exercise_ids: [] },
       intensity: 'medium',
     }
     const result = validateWorkout(workout, config, catalog)

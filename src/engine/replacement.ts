@@ -49,7 +49,6 @@ export function findExerciseReplacements(
   const original = catalog.find((exercise) => exercise.id === current.exercise_id)
   if (!original) return []
   const reason = options.reason ?? 'dislike'
-  const placement = current.note?.toLowerCase().includes('finisher') ? 'finisher' : current.role === 'compound' ? 'primary' : 'normal'
   const expectedType = current.role === 'compound' ? 'compound' : current.role === 'isolation' ? 'isolation' : 'conditioning'
   const metabolic = current.role === 'metcon'
   const bodybuildingMetcon = metabolic && (current.note === 'isolamento' || current.note === 'bodybuilding leggero')
@@ -62,7 +61,7 @@ export function findExerciseReplacements(
       const splitPatterns = options.split ? SPLIT_PATTERNS[options.split] : undefined
       if (!ignoreSplit && splitPatterns && current.note !== 'carenza' && !splitPatterns.has(exercise.movement_pattern)) return false
 
-      if (!isExerciseAvailable(exercise, equipment.preset, equipment.available) || !isExerciseAllowed(exercise, preferences, placement)) return false
+      if (!isExerciseAvailable(exercise, equipment.preset, equipment.available) || !isExerciseAllowed(exercise, preferences)) return false
       if (options.experience && EXPERIENCE_RANK[exercise.min_experience] > EXPERIENCE_RANK[options.experience]) return false
       if (options.adaptivePreferences?.[exercise.id]?.permanently_excluded) return false
       // Vincolo di protocollo (sez. FST-7): l'utente non può sostituire il blocco da 7 serie

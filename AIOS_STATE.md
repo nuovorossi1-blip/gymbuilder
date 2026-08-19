@@ -4,7 +4,7 @@
 > da qui. Va **aggiornato** a ogni sessione, non accodato all'infinito.
 > L'identità del progetto e il percorso di AI-OS stanno in `AIOS_PROJECT.json`.
 
-**Ultimo aggiornamento:** 2026-08-19 (PPL Standard Biomeccanico a 6 Slot: Push/Pull/Legs ristrutturati con template fisso, bicipiti+tricipiti in entrambi Push e Pull — vedi fondo file) - Claude (Sonnet 5)
+**Ultimo aggiornamento:** 2026-08-19 (rimossa la policy sempre/mai su corpo libero/elastici: escludeva esercizi utili come i dip anche con attrezzatura disponibile — vedi fondo file) - Claude (Sonnet 5)
 
 Etichette: `[FACT]` verificato nel codice · `[RICOSTRUITO]` dedotto da indizi ·
 `[IGNOTO]` non ricavabile dal repository
@@ -1388,3 +1388,52 @@ riscritti con commenti che spiegano il cambio di comportamento voluto (non un bu
 
 **Non verificato in un browser reale**: stesso limite già noto in questo Codespace (nessun utente
 Supabase autenticato disponibile per il wizard `Create.tsx`).
+
+## Aggiornamento stato — 2026-08-19 (sera): rimossa la policy sempre/mai su corpo libero/elastici
+
+Bug segnalato dall'utente, mid-turn durante il lavoro sul PPL Standard a 6 Slot: la scelta
+"corpo libero: sempre/mai/solo finisher" ed "elastici: sempre/mai/solo finisher" (Create.tsx
+Step 7) escludeva esercizi utili come i dip **anche quando l'attrezzatura richiesta era
+disponibile davvero** — `isExerciseAllowed` applicava questo filtro globale IN AGGIUNTA a
+`isExerciseAvailable` (che già verifica se l'utente ha `parallel_bars`/`resistance_bands` in
+inventario), rendendoli ridondanti quando concordi ma silenziosamente distruttivi quando in
+conflitto (es. utente ha le parallele nell'inventario ma `bodyweight_policy: 'never'`: il dip
+spariva comunque). Richiesta esplicita: rimuovere del tutto questa sezione; tenere solo
+"preferenza esercizio" (avanzate, dichiarazione esplicita "voglio questo esercizio") ed
+"esclusione esercizio" (dichiarazione esplicita "mai questo esercizio") — già esistenti in
+Create.tsx Step 7 — e affidarsi allo swap "Sostituisci" nella scheda (già raggruppato per
+attrezzo: Manubri&Panca/Corpo Libero&Sbarra/Cavi&Elastici/Macchine&Guidati, `WorkoutPreview.tsx`
+`SWAP_EQUIPMENT_GROUPS`, già esistente) per lasciare all'utente la scelta fra alternative a pari
+effort (es. trazioni alla sbarra ↔ lat machine ↔ trazioni assistite con elastico).
+
+**Rimosso interamente** (nessun backward-compat shim, il campo era davvero morto):
+- `ExercisePolicy` type e `EXERCISE_POLICY_LABELS` (`types/index.ts`).
+- `bodyweight_policy`/`elastic_policy` da `ExercisePreference` (`types/index.ts`) — i programmi
+  già salvati su Supabase (config jsonb) portano ancora questi campi extra nel JSON: innocuo,
+  ignorati a runtime, nessuna migrazione necessaria.
+- `bodyweightPolicy`/`elasticPolicy`/il parametro `placement` da `RuntimePreferences`/
+  `isExerciseAllowed`/`filterExercisesByPreferences` (`engine/preferences.ts`) — la funzione ora
+  controlla solo `excludedExerciseIds`. `ExercisePlacement`/`preferencePlacementForMode` rimossi
+  con loro: servivano solo a decidere la policy 'finisher_only', ora inutile.
+- `placement` da `findExerciseReplacements` (`engine/replacement.ts`), passato a
+  `isExerciseAllowed`.
+- Sezione UI "Corpo libero"/"Elastici" e componente `Policy` in Create.tsx Step 7, sostituiti da
+  una nota che spiega il nuovo comportamento (swap nella scheda). `setPolicy` rimosso.
+- Riferimenti in `WorkoutPreview.tsx` (swap), `weeklyPlan.ts` (warning `mode_density` legato a
+  `bodyweight_policy === 'never'`: la precondizione non può più verificarsi, corpo libero non è
+  più disattivabile), `deepseek.ts` (prompt DeepSeek, sia planner sia generazione diretta).
+
+**Cosa NON è cambiato**: `isExerciseAvailable` (`equipment.ts`) resta l'unico filtro di
+disponibilità reale, basato sull'inventario attrezzatura dichiarato dall'utente
+(`parallel_bars`, `resistance_bands`, ecc.) — è quello corretto e resta intatto. Lo swap
+"Sostituisci" già raggruppava per attrezzo e già rispettava `focus_portion` per le alternative
+(Lagging Muscle Engine, stessa mattina): nessun codice nuovo necessario lì, solo la rimozione
+del filtro ridondante a monte.
+
+**Verificato**: 250 test verdi (rimossi 3 test sulla policy ormai inesistente in
+`engine.test.ts`, sostituiti con 1 test sulla sola esclusione esplicita; aggiornati i fixture di
+preferenze in `weeklyProgram.test.ts`/`validator.test.ts`/`replacement.test.ts`/
+`bodybuilding.test.ts` che dichiaravano `bodyweight_policy`/`elastic_policy`), `tsc`/`eslint`/
+`npm run build` puliti.
+
+**Non verificato in un browser reale**: stesso limite già noto in questo Codespace.
