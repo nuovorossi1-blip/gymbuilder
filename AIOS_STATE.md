@@ -960,3 +960,49 @@ necessario per l'aggiornamento automatico standard. Il pezzo mancante era solo *
 commit precedente di questa sessione (banner timer) era rimasto solo locale. Aggiunta la regola
 in `CLAUDE.md` per fare sempre `git push origin main` dopo ogni commit, senza chiederlo, salvo
 richiesta esplicita contraria dell'utente.
+
+## Aggiornamento stato — 2026-08-19: correzione manuale esercizio/serie + tempo totale allenamento in `Runner.tsx`
+
+Richiesta utente: durante l'allenamento deve poter vedere a che esercizio/serie è arrivato e
+quanti ne restano; se il timer perde il filo (es. dimenticato di avviarlo mentre si era già
+passati all'esercizio successivo) deve poter scegliere lui l'esercizio/serie corretti; deve
+esserci un tempo totale stimato dell'allenamento, separato dal timer di recupero, che scorre
+dall'avvio vero (dopo il conto alla rovescia) e resta visibile sia sull'esercizio corrente sia
+quando si guardano gli esercizi rimanenti.
+
+**Aggiunto in `src/pages/Runner.tsx`**:
+- `WorkoutClock`: componente che mostra `mm:ss / ~N min` (la stima è `GeneratedWorkout.duration_min`,
+  mai un tetto che chiude l'allenamento da solo), tick ogni secondo leggendo `inizio.current`
+  (il ref esistente, non nuovo stato). Mostrato in "Serie in corso", "Recupero" e nella nuova
+  schermata "Sono qui".
+- Schermata "Sono qui" (`mostraElenco`, guardia messa prima dei rami `sezione === 'metcon'` e
+  `fase.tipo === 'recupero'`): elenco di tutti gli esercizi del blocco principale, esercizi
+  precedenti barrati "✓ fatto", esercizio corrente con bordo ambra, un chip "Serie N" per ogni
+  serie di ogni esercizio. Toccare un chip chiama `selezionaEsercizio(iEs, serie)`, che imposta
+  `fase = { tipo:'serie', iEs, serie }`, toglie la pausa e chiude la schermata — riporta
+  l'utente esattamente dove dice di essere, senza toccare timer di recupero/metcon (che restano
+  quello che erano, dato che si esce sempre dallo stato 'recupero' quando si sceglie una serie).
+  **Scope**: solo blocco principale (esercizi/serie), non il Metcon — la richiesta dell'utente
+  descriveva esplicitamente esercizi in sequenza con serie, non round Metcon.
+- Link di ingresso: "Non sei qui?" nella barra sotto il progresso in "Serie in corso", "Non è
+  la serie giusta? Correggi" in fondo a "Recupero".
+
+**Verificato in un browser reale** (non solo `tsc`/`eslint`/test, per una volta possibile: la
+Runner non richiede login se c'è già un workout in `localStorage['gymbuilder:allenamento']`).
+Avviato `npm run dev` con le `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` pubbliche già note (le
+stesse del workflow CI), pilotato con Playwright headless (Chromium della cache
+`~/.cache/ms-playwright`, non nei `devDependencies` del progetto: usato solo per questa verifica
+manuale, non aggiunto al repo). Confermato via screenshot e testo pagina: l'orologio scorre
+(0:00 → 0:02 → 0:03), la schermata "Sono qui" mostra "Esercizio 1 di 2 · ne restano 1" con i
+chip corretti, selezionare "Serie 1" del secondo esercizio porta davvero lì (titolo cambiato in
+"Alzate laterali"), e dopo aver completato quella serie il Recupero mostra correttamente "serie
+2 di 2". Nessun errore console. 229 test verdi, `tsc`/`eslint` puliti (1 warning preesistente
+non legato a queste modifiche), `npm run build` verde.
+
+**Non verificato**: comportamento su un allenamento reale con riscaldamento (il workout di test
+non ne aveva, quindi è entrato dritto in "Serie in corso" invece di passare dalla schermata
+"Comincia" — comportamento preesistente, non toccato da questa modifica) e la coerenza con la
+notifica Android in background quando si usa "Sono qui" mentre l'app è in background (dovrebbe
+funzionare, dato che `selezionaEsercizio` fa uscire `fase` da `recupero`, quindi l'effetto che
+pubblica lo stato in background smette di mostrare un countdown, come già succede oggi entrando
+in "Serie in corso" — ma non testato su device reale).

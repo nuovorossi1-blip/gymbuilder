@@ -86,6 +86,9 @@ export default function Runner() {
   const [note, setNote] = useState('')
   const [salvataggio, setSalvataggio] = useState<'fermo' | 'salvo' | 'errore'>('fermo')
   const [, setRunnerHydrated] = useState(false)
+  // "Sono qui": correzione manuale dell'esercizio/serie in corso, per quando il timer perde il
+  // filo (es. dimenticato di avviarlo mentre si era già passati all'esercizio successivo).
+  const [mostraElenco, setMostraElenco] = useState(false)
 
   // Previene lo standby dello schermo durante l'allenamento (Screen Wake Lock API)
   useEffect(() => {
@@ -498,6 +501,14 @@ export default function Runner() {
     }
   }
 
+  /** Sposta manualmente l'allenamento sulla serie indicata dall'utente, per riallinearlo
+   *  quando il timer non corrisponde più a dove si è arrivati davvero. */
+  function selezionaEsercizio(iEs: number, serie: number) {
+    setFase({ tipo: 'serie', iEs, serie })
+    setInPausa(false)
+    setMostraElenco(false)
+  }
+
   async function concludi() {
     if (!user || !workout) return
     setSalvataggio('salvo')
@@ -607,6 +618,58 @@ export default function Runner() {
         >
           Comincia
         </button>
+      </div>
+    )
+  }
+
+  // — Sono qui: correzione manuale di esercizio/serie —
+  if (mostraElenco) {
+    return (
+      <div className="px-5 pt-12 pb-8 min-h-dvh flex flex-col">
+        <div className="flex items-center justify-between">
+          <button className="font-data text-[11px] uppercase tracking-[0.14em] text-slate2" onClick={() => setMostraElenco(false)}>← Indietro</button>
+          <p className="eyebrow">Sono qui</p>
+          <span className="w-14" aria-hidden />
+        </div>
+        <p className="mt-3 text-[13px] text-slate2 leading-relaxed">
+          Se il timer ha perso il filo — per esempio non l'hai avviato e hai già fatto una serie —
+          tocca la serie a cui sei arrivato davvero.
+        </p>
+        <div className="mt-5">
+          <WorkoutClock inizioRef={inizio} estimateMin={workout?.duration_min} />
+        </div>
+        <p className="mt-6 font-data text-[11px] uppercase tracking-[0.14em] text-slate2">
+          Esercizio {fase.iEs + 1} di {esercizi.length} · ne restano {Math.max(0, esercizi.length - fase.iEs - 1)}
+        </p>
+        <ul className="mt-3 space-y-3">
+          {esercizi.map((e, i) => {
+            const completato = i < fase.iEs
+            const corrente = i === fase.iEs
+            return (
+              <li key={i} className={`slab !py-3.5 ${corrente ? '!border-amber2' : ''}`}>
+                <div className="flex items-baseline justify-between gap-3">
+                  <p className={`text-[15px] font-medium ${completato ? 'text-slate2 line-through decoration-slate2/50' : ''}`}>{e.name}</p>
+                  {completato && <span className="font-data text-[11px] text-emerald-400 whitespace-nowrap">✓ fatto</span>}
+                </div>
+                <p className="mt-1 font-data text-[12px] text-slate2">{e.reps} ripetizioni</p>
+                <div className="mt-2.5 flex flex-wrap gap-1.5">
+                  {Array.from({ length: e.sets }, (_, s) => s + 1).map((serie) => {
+                    const attiva = corrente && fase.tipo === 'serie' && fase.serie === serie
+                    return (
+                      <button
+                        key={serie}
+                        className={`chip !py-1.5 !px-3 text-[12px] ${attiva ? 'chip-on' : ''}`}
+                        onClick={() => selezionaEsercizio(i, serie)}
+                      >
+                        Serie {serie}
+                      </button>
+                    )
+                  })}
+                </div>
+              </li>
+            )
+          })}
+        </ul>
       </div>
     )
   }
@@ -940,6 +1003,7 @@ export default function Runner() {
           <p className="eyebrow">Recupero</p>
           <button className="font-data text-[11px] uppercase tracking-[0.14em] text-red-300" onClick={interrompiAllenamento}>Stop</button>
         </div>
+        <WorkoutClock inizioRef={inizio} estimateMin={workout?.duration_min} className="mt-4" />
         <p className="mt-8 text-center font-data text-[5.5rem] leading-none tabular-nums text-amber2">
           {String(Math.floor(rimanente / 60))}:{String(rimanente % 60).padStart(2, '0')}
         </p>
@@ -960,6 +1024,12 @@ export default function Runner() {
           >
             {inPausa ? 'Riprendi' : 'Pausa'}
           </button>
+          <button
+            className="w-full py-2 font-data text-[11px] uppercase tracking-[0.14em] text-slate2 underline decoration-dotted"
+            onClick={() => setMostraElenco(true)}
+          >
+            Non è la serie giusta? Correggi
+          </button>
         </div>
       </div>
     )
@@ -979,6 +1049,16 @@ export default function Runner() {
         {esercizi.map((_, i) => (
           <span key={i} className={`h-[3px] flex-1 rounded-full ${i < fase.iEs ? 'bg-chalk' : i === fase.iEs ? 'bg-amber2' : 'bg-edge'}`} />
         ))}
+      </div>
+
+      <div className="mt-3 flex items-center justify-between gap-3">
+        <WorkoutClock inizioRef={inizio} estimateMin={workout?.duration_min} className="flex-1" />
+        <button
+          className="whitespace-nowrap font-data text-[10px] uppercase tracking-[0.12em] text-slate2 underline decoration-dotted"
+          onClick={() => setMostraElenco(true)}
+        >
+          Non sei qui?
+        </button>
       </div>
 
       <h1 className="mt-9 font-display font-extrabold uppercase leading-[0.95] tracking-tight text-[2.1rem]">
@@ -1015,6 +1095,31 @@ export default function Runner() {
           Serie completata
         </button>
       </div>
+    </div>
+  )
+}
+
+/** Tempo totale trascorso dall'inizio vero dell'allenamento (dopo il conto alla rovescia),
+ *  indipendente dal timer di recupero/intervallo. `duration_min` è solo la stima del motore
+ *  di generazione (sez. tipo GeneratedWorkout): qui serve solo a dare un riferimento, non è un
+ *  tetto che chiude l'allenamento da solo. */
+function WorkoutClock({ inizioRef, estimateMin, className = '' }: { inizioRef: { current: number }; estimateMin?: number; className?: string }) {
+  const [elapsed, setElapsed] = useState(() => Math.max(0, Math.floor((Date.now() - inizioRef.current) / 1000)))
+  useEffect(() => {
+    const tick = () => setElapsed(Math.max(0, Math.floor((Date.now() - inizioRef.current) / 1000)))
+    tick()
+    const id = window.setInterval(tick, 1000)
+    return () => window.clearInterval(id)
+  }, [inizioRef])
+  const min = Math.floor(elapsed / 60)
+  const sec = elapsed % 60
+  const oltreStima = !!estimateMin && elapsed > estimateMin * 60
+  return (
+    <div className={`flex items-center justify-between rounded-xl border border-edge bg-steel/60 px-3.5 py-2 ${className}`}>
+      <span className="font-data text-[10px] uppercase tracking-[0.12em] text-slate2">Tempo allenamento</span>
+      <span className={`font-data text-[13px] tabular-nums ${oltreStima ? 'text-amber2' : 'text-chalk'}`}>
+        {min}:{String(sec).padStart(2, '0')}{estimateMin ? ` / ~${estimateMin} min` : ''}
+      </span>
     </div>
   )
 }

@@ -7,6 +7,7 @@
 - [x] Aggiungere nel Profilo una configurazione locale DeepSeek (chiave API + modello) senza dipendere subito da nuove tabelle Supabase.
 - [x] Esporre in `Genera` un percorso `Genera con DeepSeek` che suggerisca una configurazione prima della generazione del motore interno.
 - [ ] Valutare una Edge Function / proxy server per DeepSeek, cosi la chiave API non viaggia direttamente dal browser nelle richieste web.
+- [ ] Verificare su telefono reale la nuova schermata "Sono qui" e il tempo totale allenamento in Runner.tsx (19/08): funziona in browser desktop (Playwright), non ancora testato su Android reale ne' con un allenamento che ha anche il riscaldamento.
 
 - [x] Introdurre un `ActiveSessionStore` persistente separato dal solo `Runner`, con `sessionId`, workout attivo, step corrente, deadline reali, stato pausa e ownership della sessione.
 - [x] Fare di `/avvia` una vera route di resume: se esiste una sessione attiva la riprende, se esiste solo il workout chiede se ripartire da capo, se non esiste nulla mostra stato vuoto.
