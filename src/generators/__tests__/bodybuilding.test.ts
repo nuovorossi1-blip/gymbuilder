@@ -164,7 +164,7 @@ describe('generaBodybuilding — priorità assegnate dalla settimana', () => {
     expect(catalogoById.get(bicipiti!.exercise_id)?.focus_portion).toBe('long_head')
   })
 
-  it('Push con 5 carenze spalle/braccia non riduce mai il petto sotto la dotazione standard', () => {
+  it('Push con 5 carenze spalle/braccia non riduce mai il petto sotto la dotazione standard, e non toglie tricipiti/dip per una 3ª carenza spalle', () => {
     // Comportamento corretto il 19/08 (feedback utente): prima, dichiarare tante carenze in una
     // volta faceva scendere il petto (il muscolo identitario di Push) da 2 a 1 esercizio per
     // fargli spazio — "un solo esercizio per ogni distretto" era il comportamento di allora,
@@ -172,6 +172,12 @@ describe('generaBodybuilding — priorità assegnate dalla settimana', () => {
     // carenze. Ora al massimo 3 carenze ricevono uno slot dedicato per sessione; le altre
     // restano fuori da oggi (la settimana le richiama altrove, weeklyPlan.ts) invece di
     // sacrificare il petto.
+    //
+    // Aggiornamento 19/08: le spalle (fronte/laterale/post.) non superano mai 2 esercizi in
+    // seduta — qui front_delts e lateral_delts occupano i 2 slot spalle disponibili, rear_delts
+    // (3ª carenza spalle nell'ordine dichiarato) resta fuori da oggi invece di scippare lo slot
+    // tricipiti (il tricipiti composto/dip qui non ha varianti isolamento per front_delts nel
+    // catalogo: senza l'eccezione MUSCOLI_SENZA_ISOLAMENTO front_delts sparirebbe silenziosamente).
     const w = generaBodybuilding(catalogo, {
       split: 'push', goal: 'hypertrophy', experience: 'advanced', equipment: 'full_gym',
       duration_min: 60,
@@ -181,17 +187,16 @@ describe('generaBodybuilding — priorità assegnate dalla settimana', () => {
     const main = mainBlock(w).exercises
     expect(main.filter((exercise) => exercise.muscle === 'chest')).toHaveLength(2)
     expect(main.map((exercise) => exercise.muscle)).toEqual([
-      'chest', 'chest', 'front_delts', 'lateral_delts', 'rear_delts', 'triceps',
+      'chest', 'chest', 'lateral_delts', 'front_delts', 'triceps', 'triceps',
     ])
     expect(main.find((exercise) => exercise.muscle === 'front_delts')?.note).toBe('carenza')
     expect(main.find((exercise) => exercise.muscle === 'lateral_delts')?.note).toBe('carenza')
-    // rear_delts non è nel pool naturale di Push (SPLIT_MUSCLE_POOL): è un richiamo incrociato
-    // vero e proprio, non una carenza nativa dello split — nota diversa apposta.
-    expect(main.find((exercise) => exercise.muscle === 'rear_delts')?.note).toBe('richiamo carenza')
-    // Tricipiti resta nella seduta perché fa già parte della struttura standard di Push, ma non
-    // riceve il trattamento carenza: la quinta carenza dichiarata (dopo il taglio a 3) non ha
-    // reclamato il suo slot.
-    expect(main.find((exercise) => exercise.muscle === 'triceps')?.note).toBeUndefined()
+    // rear_delts era la 3ª carenza spalle dichiarata: scartata per il tetto di 2 spalle per
+    // seduta, non promossa a scapito di un altro muscolo.
+    expect(main.some((exercise) => exercise.muscle === 'rear_delts')).toBe(false)
+    // Tricipiti resta nella seduta perché fa già parte della struttura standard di Push (slot
+    // composto/dip + isolamento), ma non riceve il trattamento carenza: non ha reclamato slot.
+    expect(main.filter((exercise) => exercise.muscle === 'triceps').every((exercise) => exercise.note === undefined)).toBe(true)
     expect(main.some((exercise) => exercise.muscle === 'biceps')).toBe(false)
   })
 
@@ -290,13 +295,15 @@ describe('generaBodybuilding — scenario critico sez. 28 della correzione', () 
     expect(muscles.filter((muscle) => muscle === 'back').length).toBeGreaterThanOrEqual(1)
   })
 
-  it('Legs senza carenze esterne mantiene quad compound, posterior chain, isolamenti e polpacci', () => {
+  it('Legs senza carenze esterne mantiene quad compound, posterior chain, isolamenti, polpacci e glutei (sez. feedback utente 19/08)', () => {
     const w = generaBodybuilding(catalogo, {
       split: 'legs', goal: 'hypertrophy', experience: 'advanced', equipment: 'full_gym', duration_min: 60,
       priority_muscles: [], excluded_exercises: [], seed: 5,
     })
     const main = mainBlock(w).exercises
-    expect(main.map((exercise) => exercise.muscle)).toEqual(['quads', 'hamstrings', 'quads', 'hamstrings', 'calves', 'adductors'])
+    // 2 composti (quad+femorali), 1 isolamento quad, 1 isolamento femorali, 1 polpacci fisso,
+    // 1 glutei come 6° slot extra — adduttori non più di default.
+    expect(main.map((exercise) => exercise.muscle)).toEqual(['quads', 'hamstrings', 'glutes', 'quads', 'hamstrings', 'calves'])
     expect(main.map((exercise) => exercise.role)).toEqual(['compound', 'compound', 'isolation', 'isolation', 'isolation', 'isolation'])
   })
 
@@ -334,16 +341,27 @@ describe('generaBodybuilding — scenario critico sez. 28 della correzione', () 
     }
   })
 
-  it('Push alterna la fatica: due press petto, press spalle, poi accessori', () => {
+  it('Push: due press petto, poi alzate laterali — mai uno shoulder press pesante come 3° (sez. feedback utente 19/08)', () => {
     const w = generaBodybuilding(catalogo, {
       split: 'push', goal: 'hypertrophy', experience: 'advanced', equipment: 'full_gym', duration_min: 75,
       priority_muscles: ['biceps'], excluded_exercises: [], seed: 12,
     })
     const main = mainBlock(w).exercises
-    expect(main.slice(0, 3).map((exercise) => [exercise.muscle, exercise.role])).toEqual([
-      ['chest', 'compound'], ['chest', 'compound'], ['front_delts', 'compound'],
+    // Dopo 2 panche i deltoidi anteriori sono già affaticati come secondari: un altro composto
+    // pesante dedicato lì era ridondante e controproducente ("shoulder press come 3° esercizio
+    // non serve, non è utile ed è controproducente"). Il 3° slot è ora alzate laterali
+    // (isolamento), il 4° un composto tricipiti che allena anche petto e deltoide anteriore
+    // (dip), non più uno shoulder press fisso.
+    expect(main.slice(0, 4).map((exercise) => [exercise.muscle, exercise.role])).toEqual([
+      ['chest', 'compound'], ['chest', 'compound'], ['lateral_delts', 'isolation'], ['triceps', 'compound'],
     ])
-    expect(main.findIndex((exercise) => exercise.muscle === 'biceps')).toBeLessThan(main.findIndex((exercise) => exercise.muscle === 'triceps'))
+    // Il tricipiti composto (dip, 4° slot) fa parte della struttura standard di Push — viene
+    // prima dei bicipiti (richiamo incrociato) per costruzione, non è un caso da testare qui.
+    // Ciò che conta è che la carenza bicipiti resti comunque davanti al tricipiti ISOLAMENTO
+    // (l'accessorio finale, non lo slot strutturale), come da priorità "richiami prima degli
+    // accessori extra".
+    expect(main.findIndex((exercise) => exercise.muscle === 'biceps'))
+      .toBeLessThan(main.findIndex((exercise) => exercise.muscle === 'triceps' && exercise.role === 'isolation'))
   })
 
   it('Pull avanzato con carenze braccia/deltoidi e preferiti resta un Pull coerente, non un accorpamento di tutti i muscoli carenti', () => {
@@ -451,6 +469,37 @@ describe('generaBodybuilding — scenario critico sez. 28 della correzione', () 
   })
 })
 
+describe('generaBodybuilding — Push senza shoulder press fisso, dip come esercizio a più muscoli (sez. feedback utente 19/08)', () => {
+  it('il dip (dip_parallele/dip_panca) è raggiungibile come slot tricipiti composto: prima escluso da un pattern troppo stretto', () => {
+    // dip_parallele ha movement_pattern 'horizontal_push' (petto/deltoide anteriore secondari,
+    // esattamente l'esercizio "a più muscoli" descritto dall'utente), ma PATTERN_PER_MUSCOLO.
+    // triceps accettava solo 'elbow_extension': l'esercizio non poteva mai essere scelto, per
+    // nessuno slot. Su tanti seed diversi il motore deve pescarlo almeno qualche volta.
+    const scelti = new Set<string>()
+    for (let seed = 1; seed <= 40; seed++) {
+      const w = generaBodybuilding(catalogo, {
+        split: 'push', goal: 'hypertrophy', experience: 'advanced', equipment: 'full_gym',
+        duration_min: 75, priority_muscles: [], excluded_exercises: [], seed,
+      })
+      const dip = mainBlock(w).exercises.find((exercise) => exercise.muscle === 'triceps' && exercise.role === 'compound')
+      if (dip) scelti.add(dip.exercise_id)
+    }
+    expect(scelti.has('dip_parallele')).toBe(true)
+  })
+
+  it('nessuna seduta Push standard genera più uno shoulder press pesante fisso in terza posizione', () => {
+    for (let seed = 1; seed <= 20; seed++) {
+      const w = generaBodybuilding(catalogo, {
+        split: 'push', goal: 'hypertrophy', experience: 'advanced', equipment: 'full_gym',
+        duration_min: 75, priority_muscles: [], excluded_exercises: [], seed,
+      })
+      const main = mainBlock(w).exercises
+      expect(main[2].muscle).toBe('lateral_delts')
+      expect(main.filter((exercise) => exercise.muscle === 'front_delts')).toHaveLength(0)
+    }
+  })
+})
+
 describe('generaBodybuilding — esercizi preferiti (sez. 10, 33)', () => {
   it('un esercizio preferito compatibile viene scelto più spesso del suo equivalente non preferito', () => {
     let conPreferito = 0
@@ -546,19 +595,28 @@ describe('generaBodybuilding — protocollo FST-7 (Hany Rambod)', () => {
 })
 
 describe('generaBodybuilding — protocollo Top Set & Back-Off (stile CBum)', () => {
-  it('ogni esercizio diventa una coppia Top Set (1x6-8 @ RIR0) + Back-Off (1x10-12) consecutiva', () => {
+  it('ogni esercizio diventa un gruppo di 4 serie: 2x Avvicinamento a carico crescente + Top Set (1x6-8 @ RIR0) + Back-Off (1x10-12)', () => {
+    // sez. feedback utente 19/08 ("devi dire avvicinamento"): il vero protocollo CBum precede
+    // sempre la serie a cedimento con serie di riscaldamento specifico a carico crescente.
     const w = generaBodybuilding(catalogo, {
       split: 'push', goal: 'hypertrophy', experience: 'advanced', equipment: 'full_gym',
-      duration_min: 60, priority_muscles: [], excluded_exercises: [], seed: 7,
+      duration_min: 90, priority_muscles: [], excluded_exercises: [], seed: 7,
       protocol: 'cbum_top_backoff',
     })
     const exercises = mainBlock(w).exercises
-    expect(exercises.length % 2).toBe(0)
-    expect(exercises.length).toBeGreaterThanOrEqual(8) // 4-5 esercizi -> 8-10 voci
-    for (let i = 0; i < exercises.length; i += 2) {
-      const topSet = exercises[i]
-      const backOff = exercises[i + 1]
-      expect(topSet.exercise_id).toBe(backOff.exercise_id)
+    expect(exercises.length % 4).toBe(0)
+    expect(exercises.length).toBeGreaterThanOrEqual(16) // 4-5 esercizi -> 16-20 voci
+    for (let i = 0; i < exercises.length; i += 4) {
+      const [avvicinamento1, avvicinamento2, topSet, backOff] = exercises.slice(i, i + 4)
+      expect(avvicinamento1.exercise_id).toBe(topSet.exercise_id)
+      expect(avvicinamento2.exercise_id).toBe(topSet.exercise_id)
+      expect(backOff.exercise_id).toBe(topSet.exercise_id)
+      expect(avvicinamento1.note).toBe('avvicinamento')
+      expect(avvicinamento1.sets).toBe(1)
+      expect(avvicinamento1.reps).toBe('12-15')
+      expect(avvicinamento2.note).toBe('avvicinamento')
+      expect(avvicinamento2.sets).toBe(1)
+      expect(avvicinamento2.reps).toBe('8-10')
       expect(topSet.note).toBe('top_set')
       expect(topSet.sets).toBe(1)
       expect(topSet.reps).toBe('6-8')

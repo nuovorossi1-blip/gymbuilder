@@ -231,6 +231,9 @@ export interface WorkoutGenerationConfig {
   workout_format?: MetconFormat
   crossfit_benchmark?: CrossFitBenchmark
   tabata?: { work_sec: number; rest_sec: number; rounds: number; prescription: 'time' | 'reps' }
+  /** Solo bodybuilding: FST-7 e Top Set & Back-Off hanno un numero di esercizi
+   *  atteso diverso dallo standard — il validatore deve saperlo per non rigettarli. */
+  protocol?: BodybuildingProtocol
 }
 
 /** Preferenze globali condivise da tutte le sessioni della settimana. */

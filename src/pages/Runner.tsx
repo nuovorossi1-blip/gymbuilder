@@ -1079,12 +1079,17 @@ export default function Runner() {
       <h1 className="mt-9 font-display font-extrabold uppercase leading-[0.95] tracking-tight text-[2.1rem]">
         {es.name}
       </h1>
-      {(es.muscle || isLaggingNote(es.note) || es.note === 'top_set' || es.note === 'back_off' || es.note === 'fst7_finisher') && (
+      {(es.muscle || isLaggingNote(es.note) || es.note === 'avvicinamento' || es.note === 'top_set' || es.note === 'back_off' || es.note === 'fst7_finisher') && (
         <p className="mt-2 flex flex-wrap items-center gap-2 font-data text-[11px] uppercase tracking-[0.14em] text-slate2">
           {es.muscle && <span>{MUSCLE_LABELS[es.muscle]}</span>}
           {isLaggingNote(es.note) && (
             <span className="rounded-full border border-amber2/40 bg-amber2/15 px-2 py-0.5 text-amber2">
               {es.note?.includes('richiamo') ? 'Richiamo 3x · carenza' : 'Carenza'}
+            </span>
+          )}
+          {es.note === 'avvicinamento' && (
+            <span className="rounded-full border border-slate2/40 bg-slate2/15 px-2 py-0.5 text-slate2">
+              Avvicinamento · carico crescente
             </span>
           )}
           {es.note === 'top_set' && (

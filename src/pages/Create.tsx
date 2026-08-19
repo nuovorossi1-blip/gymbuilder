@@ -140,6 +140,7 @@ export default function Create() {
       workout_format: session.mode === 'crossfit' ? global.crossfit_format : undefined,
       crossfit_benchmark: session.mode === 'crossfit' ? global.crossfit_benchmark : undefined,
       tabata: session.mode === 'tabata' ? global.tabata : undefined,
+      protocol: session.mode === 'bodybuilding' ? global.protocol : undefined,
     }
   }
 

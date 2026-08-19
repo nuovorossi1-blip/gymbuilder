@@ -98,16 +98,19 @@ export function minutiBlocco(esercizi: { sets: number; rest_sec: number }[]): nu
 }
 
 /** Rimuove eventuali duplicati (sez. 22): non dovrebbero capitare, ma è una rete di sicurezza.
- *  Top Set/Back-Off (protocollo CBum) sono lo stesso esercizio ripetuto di proposito in due
- *  serie consecutive: contano come chiavi diverse, altrimenti questa rete di sicurezza
- *  cancellerebbe il Top Set tenendo solo il Back-Off. */
+ *  Avvicinamento/Top Set/Back-Off (protocollo CBum) sono lo stesso esercizio ripetuto di
+ *  proposito in più serie consecutive con la stessa nota (due serie di avvicinamento hanno
+ *  entrambe note 'avvicinamento'): questa rete di sicurezza li ignora del tutto invece di
+ *  provare a distinguerli per chiave, altrimenti cancellerebbe una delle due serie identiche
+ *  di proposito. */
+const NOTE_SERIE_MULTIPLE = new Set(['avvicinamento', 'top_set', 'back_off'])
 export function rimuoviDuplicati(scelti: PrescribedExercise[]): void {
-  const chiave = (p: PrescribedExercise) => (p.note === 'top_set' || p.note === 'back_off') ? `${p.exercise_id}:${p.note}` : p.exercise_id
   const visti = new Set<string>()
   for (let i = scelti.length - 1; i >= 0; i--) {
-    const k = chiave(scelti[i])
-    if (visti.has(k)) scelti.splice(i, 1)
-    else visti.add(k)
+    const p = scelti[i]
+    if (p.note && NOTE_SERIE_MULTIPLE.has(p.note)) continue
+    if (visti.has(p.exercise_id)) scelti.splice(i, 1)
+    else visti.add(p.exercise_id)
   }
 }
 

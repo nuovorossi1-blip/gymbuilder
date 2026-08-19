@@ -87,7 +87,11 @@ const PATTERN_PER_MUSCOLO: Partial<Record<Muscle, string[]>> = {
   lateral_delts: ['lateral_raise'],
   rear_delts: ['rear_delt'],
   biceps: ['elbow_flexion'],
-  triceps: ['elbow_extension'],
+  // 'horizontal_push' ammette i dip (dip_parallele, catalogo): tricipiti primario, petto e
+  // deltoide anteriore secondari — l'unico esercizio "a più muscoli" del catalogo Push. Senza
+  // questo pattern il filtro lo escludeva sempre, per qualunque slot (sez. feedback utente
+  // 19/08: "le dip prendono frontali, petto e tricipiti", volute come esercizio intermedio).
+  triceps: ['elbow_extension', 'horizontal_push'],
   forearms: ['wrist_flexion', 'wrist_extension', 'carry'],
   // Il catalogo storico classifica Leg Extension e Leg Curl entrambi come
   // knee_flexion: lo accettiamo qui finché la migration catalogo li separa.
@@ -110,11 +114,17 @@ function patternCoerente(exercise: Exercise, muscle: Muscle): boolean {
  * decide quante serie e quanto recupero, non se questi 5 esistono.
  */
 const BASE_SLOTS: Record<Split, SlotDef[]> = {
+  // Niente shoulder press pesante fisso in terza posizione (sez. feedback utente 19/08): dopo
+  // 2 panche i deltoidi anteriori sono già affaticati come secondari, un altro composto pesante
+  // dedicato lì è ridondante e controproducente. Il 3° slot è alzate laterali (isolamento), il
+  // 4° è un composto tricipiti (dip: prende tricipiti/petto/deltoide anteriore insieme, unico
+  // "esercizio a più muscoli" del catalogo) al posto dello shoulder press. Un front_delts
+  // composto resta comunque disponibile SE dichiarato carenza (applicaPrioritaAssegnate).
   push: [
     { muscle: 'chest', compound: true },
     { muscle: 'chest', compound: true },
-    { muscle: 'front_delts', compound: true },
     { muscle: 'lateral_delts', compound: false },
+    { muscle: 'triceps', compound: true },
     { muscle: 'triceps', compound: false },
   ],
   pull: [
@@ -124,12 +134,14 @@ const BASE_SLOTS: Record<Split, SlotDef[]> = {
     { muscle: 'rear_delts', compound: false },
     { muscle: 'biceps', compound: false },
   ],
+  // sez. feedback utente 19/08: 2 composti (quad+femorali), 1 isolamento quad, 1 isolamento
+  // femorali, 1 polpacci fisso — adduttori/glutei restano come 6° slot extra, non fissi.
   legs: [
     { muscle: 'quads', compound: true, preferredPatterns: ['squat'] },
     { muscle: 'hamstrings', compound: true, preferredPatterns: ['hinge'] },
     { muscle: 'quads', compound: false },
     { muscle: 'hamstrings', compound: false },
-    { muscle: 'adductors', compound: false },
+    { muscle: 'calves', compound: false },
   ],
   upper: [
     { muscle: 'chest', compound: true },
@@ -209,9 +221,9 @@ const BASE_SLOTS: Record<Split, SlotDef[]> = {
  * sempre la precedenza su un isolamento generico aggiuntivo.
  */
 const EXTRA_SLOTS: Record<Split, SlotDef[]> = {
-  push: [{ muscle: 'chest', compound: false }, { muscle: 'triceps', compound: false }],
+  push: [{ muscle: 'chest', compound: false }, { muscle: 'lateral_delts', compound: false }],
   pull: [{ muscle: 'forearms', compound: false }, { muscle: 'biceps', compound: false }],
-  legs: [{ muscle: 'calves', compound: false }, { muscle: 'adductors', compound: false }],
+  legs: [{ muscle: 'glutes', compound: false }, { muscle: 'adductors', compound: false }],
   upper: [{ muscle: 'lateral_delts', compound: false }, { muscle: 'chest', compound: false }],
   lower: [{ muscle: 'adductors', compound: false }, { muscle: 'calves', compound: false }],
   full_body: [{ muscle: 'hamstrings', compound: false }, { muscle: 'biceps', compound: false }],
@@ -293,12 +305,19 @@ function prescrizioneFst7Base(compound: boolean, exp: Experience, intensity: Int
   return risultato
 }
 
-/** Top Set (1x6-8 @ RIR0) + Back-Off (1x10-12 @ RIR0), stile CBum: il carico non è
- *  calcolabile qui (nessun peso registrato in nessuna parte dell'app, sez. verifica
- *  con l'utente) — il -15/20% resta un'indicazione testuale mostrata in UI. */
+/** Avvicinamento (2x carico crescente) + Top Set (1x6-8 @ RIR0) + Back-Off (1x10-12 @ RIR0),
+ *  stile CBum: il carico non è calcolabile qui (nessun peso registrato in nessuna parte
+ *  dell'app, sez. verifica con l'utente) — resta un'indicazione testuale mostrata in UI.
+ *  L'avvicinamento (sez. feedback utente 19/08, "devi dire avvicinamento") sono le serie di
+ *  riscaldamento specifico a carico crescente che nel vero protocollo CBum precedono sempre
+ *  la serie a cedimento: senza, il Top Set partiva a freddo. */
 function prescrizioneCbum(intensity: Intensity = 'medium') {
   const fattoreRecupero = { low: 0.75, medium: 1, high: 1.25 }[intensity]
   return {
+    avvicinamento: [
+      { sets: 1, reps: '12-15', rest: Math.round(60 * fattoreRecupero) },
+      { sets: 1, reps: '8-10', rest: Math.round(90 * fattoreRecupero) },
+    ],
     topSet: { sets: 1, reps: '6-8', rest: Math.round(180 * fattoreRecupero) },
     backOff: { sets: 1, reps: '10-12', rest: Math.round(150 * fattoreRecupero) },
   }
@@ -314,6 +333,13 @@ const MAX_COMPOUND_PESANTI = 2
 
 const SHOULDER_MUSCLES: Muscle[] = ['front_delts', 'lateral_delts', 'rear_delts']
 const COMPOUND_CAPABLE_MUSCLES = new Set<Muscle>(['chest', 'back', 'front_delts', 'quads', 'hamstrings', 'glutes'])
+/** Il catalogo non ha NESSUN esercizio di isolamento per i deltoidi anteriori (solo military
+ *  press/shoulder press/thruster, tutti composti): forzare una carenza front_delts a isolamento
+ *  (come farebbe normalmente il tetto "massimo 2 composti" sotto) produce uno slot senza
+ *  candidati, silenziosamente sostituito da un ripiego casuale a valle. Scoperto generando
+ *  davvero l'output dopo aver rimosso lo shoulder press fisso da Push (sez. feedback utente
+ *  19/08): senza questa eccezione una carenza front_delts spariva sempre. */
+const MUSCOLI_SENZA_ISOLAMENTO = new Set<Muscle>(['front_delts'])
 
 /**
  * Ordine di esecuzione, separato dalla scelta casuale della variante.
@@ -335,14 +361,17 @@ function ordinaSlot(split: Split, slots: SlotDef[]): SlotDef[] {
     }
     if (split === 'push') {
       if (slot.compound && slot.muscle === 'chest') return 0
-      if (slot.weakPoint && slot.muscle === 'lateral_delts') return 1
-      if (slot.compound && slot.muscle === 'front_delts') return 1
-      if (!slot.compound && slot.muscle === 'chest') return 2
-      if (slot.muscle === 'lateral_delts') return 3
-      if (slot.muscle === 'rear_delts') return 4
-      if (slot.muscle === 'biceps') return 5
-      if (slot.muscle === 'triceps') return 6
-      return 7
+      // Una carenza spalle (fronte/laterale/post.) va lavorata a freschi, sez. Lagging Muscle
+      // Engine — vale anche per un front_delts composto aggiunto SOLO se dichiarato carenza
+      // (il default push non lo ha più fisso, sez. feedback utente 19/08).
+      if (slot.weakPoint && SHOULDER_MUSCLES.includes(slot.muscle)) return 1
+      if (!slot.compound && slot.muscle === 'lateral_delts') return 2
+      if (slot.compound && slot.muscle === 'triceps') return 3
+      if (!slot.compound && slot.muscle === 'chest') return 4
+      if (slot.muscle === 'rear_delts') return 5
+      if (slot.muscle === 'biceps') return 6
+      if (slot.muscle === 'triceps') return 7
+      return 8
     }
     if (split === 'pull' || split === 'bro_back' || split === 'back_body') {
       if (slot.compound && (slot.muscle === 'back' || slot.muscle === 'hamstrings')) return 0
@@ -396,9 +425,16 @@ function applicaPrioritaAssegnate(base: SlotDef[], priority: Muscle[]): { slots:
   const missing = requirements.filter((muscle) => !represented.has(muscle))
   const identitario = base[0]?.muscle
   for (const muscle of missing) {
+    // Le spalle (fronte/laterale/post.) non superano mai 2 esercizi in una seduta (sez.
+    // feedback utente 19/08: "non devi rimuovere bicipiti per fare spazio ai deltoidi se già ci
+    // sono 2 esercizi di deltoidi") — una 3ª carenza spalle resta fuori da oggi invece di
+    // sacrificare un muscolo non ridondante come i bicipiti. Il richiamo settimanale
+    // (weeklyPlan.ts) può comunque darle spazio in un altro giorno compatibile.
+    if (SHOULDER_MUSCLES.includes(muscle) && slots.filter((slot) => SHOULDER_MUSCLES.includes(slot.muscle)).length >= 2) continue
     if (slots.length < 6) {
       const compoundCount = slots.filter((slot) => slot.compound).length
-      slots.push({ muscle, compound: compoundCount < 2 && COMPOUND_CAPABLE_MUSCLES.has(muscle), weakPoint: true })
+      const compound = (MUSCOLI_SENZA_ISOLAMENTO.has(muscle) || compoundCount < 2) && COMPOUND_CAPABLE_MUSCLES.has(muscle)
+      slots.push({ muscle, compound, weakPoint: true })
       continue
     }
     const conteggio = new Map<Muscle, number>()
@@ -430,7 +466,8 @@ function applicaPrioritaAssegnate(base: SlotDef[], priority: Muscle[]): { slots:
     // come chiesto) solo se il muscolo carente lo supporta davvero: bicipiti/tricipiti/deltoidi
     // non hanno varianti "composte" nel catalogo, quindi uno slot composto per loro resterebbe
     // vuoto (nessun candidato) invece di ripiegare su un isolamento.
-    slots[bersaglio.index] = { muscle, compound: bersaglio.slot.compound && COMPOUND_CAPABLE_MUSCLES.has(muscle), weakPoint: true }
+    const compound = (MUSCOLI_SENZA_ISOLAMENTO.has(muscle) || bersaglio.slot.compound) && COMPOUND_CAPABLE_MUSCLES.has(muscle)
+    slots[bersaglio.index] = { muscle, compound, weakPoint: true }
   }
   return { slots, requirements }
 }
@@ -656,13 +693,17 @@ export function generaBodybuilding(
     }
   }
 
-  // 7d. Protocollo Top Set & Back-Off (stile CBum): ogni esercizio scelto sopra diventa due
-  // serie tracciate separate — Top Set a cedimento (1x6-8 @ RIR0) e Back-Off (1x10-12 @ RIR0)
-  // subito dopo. Il carico del Back-Off non è calcolabile (nessun peso registrato da nessuna
-  // parte dell'app): resta un'indicazione testuale mostrata in UI (WorkoutPreview/Runner).
+  // 7d. Protocollo Top Set & Back-Off (stile CBum): ogni esercizio scelto sopra diventa quattro
+  // serie tracciate separate — 2x Avvicinamento a carico crescente, poi Top Set a cedimento
+  // (1x6-8 @ RIR0) e Back-Off (1x10-12 @ RIR0) subito dopo. Il carico non è calcolabile (nessun
+  // peso registrato da nessuna parte dell'app): resta un'indicazione testuale mostrata in UI
+  // (WorkoutPreview/Runner).
+  const cbumBaseCount = scelti.length
   if (cfg.protocol === 'cbum_top_backoff') {
     const cbum = prescrizioneCbum(cfg.intensity)
     const espansi = scelti.flatMap((voce): PrescribedExercise[] => [
+      { ...voce, sets: cbum.avvicinamento[0].sets, reps: cbum.avvicinamento[0].reps, rest_sec: cbum.avvicinamento[0].rest, note: 'avvicinamento' },
+      { ...voce, sets: cbum.avvicinamento[1].sets, reps: cbum.avvicinamento[1].reps, rest_sec: cbum.avvicinamento[1].rest, note: 'avvicinamento' },
       { ...voce, sets: cbum.topSet.sets, reps: cbum.topSet.reps, rest_sec: cbum.topSet.rest, note: 'top_set' },
       { ...voce, sets: cbum.backOff.sets, reps: cbum.backOff.reps, rest_sec: cbum.backOff.rest, note: 'back_off' },
     ])
@@ -683,10 +724,11 @@ export function generaBodybuilding(
   const preserveWeakPointLead = (customTargets.length > 0 && scelti[0]?.note === 'carenza') ||
     (cfg.protocol === 'fst7' && cfg.fst7_preloading)
   if (!preserveWeakPointLead && !portaCompoundInApertura(scelti)) warnings.push('Nessun esercizio multiarticolare disponibile con questa attrezzatura.')
-  // FST-7 (3 base + 1 finisher) e Top Set & Back-Off (4-5 esercizi, raddoppiati in coppie) non
-  // seguono il minimo di 6 esercizi dello split standard: il conteggio atteso è diverso per
-  // costruzione, non un segnale di attrezzatura insufficiente.
-  const minimoAtteso = cfg.protocol === 'fst7' ? 4 : cfg.protocol === 'cbum_top_backoff' ? 8 : 6
+  // FST-7 (3 base + 1 finisher) e Top Set & Back-Off (4-5 esercizi, moltiplicati x4: 2
+  // avvicinamento + top set + back-off) non seguono il minimo di 6 esercizi dello split
+  // standard: il conteggio atteso è diverso per costruzione, non un segnale di attrezzatura
+  // insufficiente. cbumBaseCount è il numero di esercizi scelti PRIMA dell'espansione.
+  const minimoAtteso = cfg.protocol === 'fst7' ? 4 : cfg.protocol === 'cbum_top_backoff' ? cbumBaseCount * 4 : 6
   if (scelti.length < minimoAtteso) {
     warnings.push(
       `Con questa attrezzatura escono solo ${scelti.length} esercizi. ` +

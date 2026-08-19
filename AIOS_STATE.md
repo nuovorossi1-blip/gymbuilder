@@ -4,7 +4,7 @@
 > da qui. Va **aggiornato** a ogni sessione, non accodato all'infinito.
 > L'identità del progetto e il percorso di AI-OS stanno in `AIOS_PROJECT.json`.
 
-**Ultimo aggiornamento:** 2026-08-19 (fix reale: le carenze affollavano Push/Pull svuotando il muscolo identitario dello split — vedi fondo file) - Claude (Sonnet 5)
+**Ultimo aggiornamento:** 2026-08-19 (fix reale: FST-7 sempre rigettato dal validatore, dip esclusi dal motore Push, ristrutturazione Push/Legs, tetto 2 spalle per carenze PPL, avvicinamento CBum — vedi fondo file) - Claude (Sonnet 5)
 
 Etichette: `[FACT]` verificato nel codice · `[RICOSTRUITO]` dedotto da indizi ·
 `[IGNOTO]` non ricavabile dal repository
@@ -1211,3 +1211,99 @@ esplicitamente corretto).
 
 **Non verificato su un allenamento reale generato dall'app** (solo unit test + script diretto):
 prossimo passo suggerito in TODO.md.
+
+## Aggiornamento stato — 2026-08-19: FST-7 sempre rigettato, dip esclusi dal motore, ristrutturazione Push/Legs, tetto spalle nelle carenze PPL, avvicinamento CBum
+
+Feedback utente (messaggio unico, denso, tradotto e verificato punto per punto prima di
+toccare codice): "FST-7 non vedo nulla" (poi chiarito: seduta generata vuota/con errore); nel
+CBum manca "l'avvicinamento" prima del Top Set; nel PPL le carenze deltoidi non devono togliere
+i bicipiti quando ci sono già 2 esercizi spalle; in Push, dopo 2 panche uno shoulder press
+pesante come 3° esercizio è "non serve, non è utile, controproducente" — il 3° deve essere
+alzate laterali, con un dip come esercizio intermedio "a più muscoli" (tricipiti+petto+deltoide
+anteriore); Legs: 2 composti quad/femorali, 1 isolamento quad, 1 isolamento femorali, 1
+polpacci, 1 glutei. Il protocollo 3-6-9 resta esplicitamente rimandato su richiesta dell'utente
+(nessuna modifica). Pull lasciato invariato: l'utente non ha dato un esempio concreto di
+"esercizio a più muscoli" per Pull come il dip per Push (a differenza di Push, qui il
+complaint riguardava solo il tetto carenze, non la struttura di default) — se ne vuole uno,
+serve un esempio concreto prima di inventare una struttura non richiesta.
+
+**Bug reale #1 — causa vera di "FST-7 non vedo nulla" (seduta vuota/con errore)**:
+`WorkoutGenerationConfig` (types/index.ts) non ha mai avuto un campo `protocol`, quindi
+`Create.tsx` (`buildGenerationConfig`) non lo passava mai al validatore. `validator.ts`
+impone un minimo fisso di 6 esercizi per ogni sessione bodybuilding, ma FST-7 ne produce
+apposta solo 4 (3 base + finisher): la sessione veniva **sempre** rigettata come non valida.
+Corretto aggiungendo `protocol?: BodybuildingProtocol` a `WorkoutGenerationConfig`, passandolo
+da `Create.tsx` (solo per `session.mode === 'bodybuilding'`), e rendendo il minimo del
+validatore consapevole del protocollo (`4` per `fst7`, altrimenti `6`). Riprodotto e coperto da
+un nuovo test in `validator.test.ts` che genera una seduta FST-7 vera e verifica sia che il
+generatore produca 4 esercizi sia che il validatore li accetti.
+
+**Bug reale #2 — i dip erano esclusi dal motore per qualunque slot**: `dip_parallele`
+(catalogo: tricipiti primario, petto+deltoide anteriore secondari — l'unico esercizio "a più
+muscoli" del catalogo Push, esattamente quello descritto dall'utente) ha
+`movement_pattern: 'horizontal_push'`, ma `PATTERN_PER_MUSCOLO.triceps` in `bodybuilding.ts`
+accettava solo `'elbow_extension'`: l'esercizio non poteva mai essere scelto, indipendentemente
+dalla struttura degli slot. Corretto aggiungendo `'horizontal_push'` ai pattern ammessi per
+tricipiti (verificato: nessun altro esercizio del catalogo ha primary_muscles=triceps con quel
+pattern, quindi l'aggiunta è mirata, non allarga il pool oltre i dip).
+
+**Ristrutturazione Push** (`BASE_SLOTS.push`, `EXTRA_SLOTS.push`, `ordinaSlot` ramo push):
+rimosso lo shoulder press pesante fisso come 3° slot (front_delts composto non è più nella
+struttura di default). Nuovo ordine: 2× petto composto, alzate laterali (isolamento, 3°), dip
+(tricipiti composto — allena anche petto/deltoide anteriore come secondari, 4°), tricipiti
+isolamento (5°), 6° slot extra = petto isolamento o alzate laterali extra. Un front_delts
+composto resta comunque disponibile SE dichiarato carenza esplicitamente (non più di default).
+
+**Bug reale #3, scoperto verificando l'output reale dopo la ristrutturazione Push**: una
+carenza front_delts dichiarata spariva silenziosamente, sostituita da un ripiego casuale. Causa:
+`applicaPrioritaAssegnate` forza a isolamento (`compound: compoundCount < 2 && ...`) un nuovo
+slot carenza quando la seduta ha già ≥2 composti — e Push ne ha sempre almeno 3 di default (2
+petto + 1 dip) dopo la ristrutturazione. Il catalogo però **non ha nessun esercizio di
+isolamento per i deltoidi anteriori** (solo military press/shoulder press/thruster, tutti
+composti): lo slot isolamento forzato restava senza candidati. Corretto con
+`MUSCOLI_SENZA_ISOLAMENTO = new Set(['front_delts'])`: per questo muscolo lo slot resta sempre
+composto, sia nel ramo append sia nel ramo sostituzione di `applicaPrioritaAssegnate`.
+
+**Tetto 2 esercizi spalle nelle carenze PPL** (`applicaPrioritaAssegnate`): sez. feedback
+utente, "non devi rimuovere bicipiti per fare spazio ai deltoidi se già ci sono 2 esercizi di
+deltoidi". Prima, con 3+ carenze spalle dichiarate (fronte/laterale/post.), la 3ª scippava lo
+slot a un muscolo non ridondante come i bicipiti (unico slot sacrificabile rimasto non-
+identitario). Corretto: appena `SHOULDER_MUSCLES` (front/lateral/rear delts) raggiunge 2
+esercizi in seduta, una carenza spalle aggiuntiva resta fuori da oggi (la settimana la richiama
+altrove, weeklyPlan.ts) invece di sacrificare un altro slot. Vale sia nel ramo append sia nel
+ramo sostituzione.
+
+**Ristrutturazione Legs** (`BASE_SLOTS.legs`, `EXTRA_SLOTS.legs`): 5° slot fisso ora è polpacci
+(prima adduttori); 6° slot extra ora è glutei+adduttori (prima calves+adduttori, ridondante col
+5° già fisso). 2 composti (quad+femorali) e 2 isolamenti (quad+femorali) restano invariati.
+`lower`/`bro_legs` non toccati: l'utente ha parlato esplicitamente solo di "legs" in PPL.
+
+**Avvicinamento CBum** (`prescrizioneCbum`, blocco 7d di `bodybuilding.ts`): sez. feedback
+utente, "nel cbum devi dire avvicinamento". Il vero protocollo Top Set & Back-Off (stile CBum)
+precede sempre la serie a cedimento con serie di riscaldamento specifico a carico crescente.
+Ogni esercizio scelto ora diventa **4** voci tracciate consecutive (prima 2): Avvicinamento
+1×12-15 (recupero breve), Avvicinamento 1×8-10, Top Set 1×6-8 @ RIR0, Back-Off 1×10-12 — tutte
+sullo stesso `exercise_id`. Carico non calcolabile (nessun peso registrato da nessuna parte
+dell'app, invariante già noto): resta un'indicazione testuale. Effetti a catena sistemati:
+- `rimuoviDuplicati` (shared.ts) e il controllo duplicati di `validator.ts` riconoscevano solo
+  `top_set`/`back_off` come coppia legittima; estesi a `avvicinamento`. `rimuoviDuplicati`
+  semplificata: le note multi-serie (avvicinamento/top_set/back_off) non vengono più valutate
+  affatto per la dedup (prima si tentava una chiave `id:note`, che avrebbe comunque collassato
+  le due serie di avvicinamento identiche fra loro, stessa nota).
+- `minimoAtteso` per `cbum_top_backoff` in `bodybuilding.ts` non è più una soglia fissa (`8`,
+  pensata per 2 voci/esercizio): ora è `cbumBaseCount * 4`, calcolato sul numero di esercizi
+  scelti PRIMA dell'espansione.
+- Badge "Avvicinamento · carico crescente" aggiunto in `WorkoutPreview.tsx` e `Runner.tsx`,
+  stesso meccanismo dei badge Top Set/Back-Off/FST-7 esistenti.
+
+**Verificato**: 250 test verdi (247 + 1 nuovo test validatore FST-7 che riproduce esattamente il
+bug segnalato dall'utente e verifica il fix, + 2 nuovi test generatore: dip_parallele
+raggiungibile su 40 seed, nessuno shoulder press fisso su 20 seed), `tsc`/`eslint`/
+`npm run build` puliti. Tre test esistenti aggiornati con commenti che spiegano il cambio di
+comportamento voluto (ordine Push, struttura Legs, conteggio voci CBum).
+
+**Non verificato in un browser reale**: stesso limite già documentato per FST-7/CBum in questo
+Codespace — il wizard `Create.tsx` a 9 step richiede un utente Supabase autenticato, non
+disponibile qui (a differenza di `/avvia`, che bypassa l'auth solo per `Runner.tsx`). Prossimo
+passo suggerito in TODO.md: generare davvero FST-7/CBum dal wizard con un utente reale e
+controllare a occhio badge Avvicinamento, assenza di shoulder press in Push, 5°/6° slot Legs.

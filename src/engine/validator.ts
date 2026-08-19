@@ -43,10 +43,10 @@ export function validateWorkout(
       errors.push(`${exercise.name} richiede attrezzatura non disponibile.`)
     }
     if (config.preferences.excluded_exercise_ids.includes(exercise.id)) errors.push(`${exercise.name} è esplicitamente escluso.`)
-    // Top Set + Back-Off (protocollo CBum) sono lo STESSO esercizio ripetuto di proposito
-    // in due serie consecutive con note diverse: non è il duplicato accidentale che questo
-    // controllo vuole intercettare.
-    const isTopBackoffPair = item.note === 'top_set' || item.note === 'back_off'
+    // Avvicinamento + Top Set + Back-Off (protocollo CBum) sono lo STESSO esercizio ripetuto
+    // di proposito in più serie consecutive con note diverse: non è il duplicato accidentale
+    // che questo controllo vuole intercettare.
+    const isTopBackoffPair = item.note === 'avvicinamento' || item.note === 'top_set' || item.note === 'back_off'
     if (ids.has(exercise.id) && item.role !== 'warmup' && !isTopBackoffPair) errors.push(`${exercise.name} è duplicato.`)
     if (!isTopBackoffPair) ids.add(exercise.id)
   }
@@ -56,7 +56,16 @@ export function validateWorkout(
   // WOD costruito liberamente non si applica.
   const isFixedBenchmarkSession = workout.mode === 'crossfit' && !!config.crossfit_benchmark && config.crossfit_benchmark !== 'custom'
   if (workout.mode !== 'tabata') {
-    const minimum = workout.mode === 'strength' ? 5 : workout.mode === 'crossfit' ? 3 : 6
+    // FST-7 fa apposta solo 3 esercizi base + 1 finisher (4 totali): il minimo generico di 6
+    // pensato per una sessione bodybuilding standard rigetterebbe SEMPRE una scheda FST-7
+    // valida, come confermato dall'utente ("scheda vuota/con errore" quando selezionava FST-7).
+    const minimum = workout.mode === 'strength'
+      ? 5
+      : workout.mode === 'crossfit'
+        ? 3
+        : workout.mode === 'bodybuilding' && config.protocol === 'fst7'
+          ? 4
+          : 6
     if (!isFixedBenchmarkSession && trainingExercises.length < minimum) {
       errors.push(`La sessione ${workout.mode} deve contenere almeno ${minimum} esercizi allenanti (riscaldamento escluso).`)
     }
