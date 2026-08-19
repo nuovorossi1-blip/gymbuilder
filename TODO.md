@@ -29,6 +29,7 @@
 - [ ] Valutare se serve un vero foreground service Android con notifica persistente nativa per timer/background, invece del solo comportamento PWA/web.
 - [ ] Applicare `supabase/migrations/20260806170000_profiles_contract_and_rls.sql` al Supabase di produzione e verificare logout/login.
 - [ ] Applicare `supabase/migrations/20260806123000_saved_workout_generation_config.sql` al remoto.
+- [ ] Applicare `supabase/migrations/20260819120000_exercise_focus_portion.sql` al Supabase di produzione (19/08): senza questa, `focus_portion` resta sempre vuoto in produzione — il codice ha fallback ovunque quindi non rompe nulla, ma il Lagging Muscle Engine (swap per stesso capo, rotazione settimanale) non ha alcun effetto reale finché non è applicata.
 - [ ] Verificare con account reale registrazione, modifica profilo, generazione, cambio esercizio, salvataggio e completamento.
 - [ ] Aggiungere adapter nativi per `HealthDataProvider`; non promettere compatibilità universale.
 - [ ] Persistenza server-side dell'intero `WeeklyProgram` per sincronizzare la settimana fra dispositivi; oggi è sessionStorage.
