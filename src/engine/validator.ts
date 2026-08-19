@@ -43,8 +43,12 @@ export function validateWorkout(
       errors.push(`${exercise.name} richiede attrezzatura non disponibile.`)
     }
     if (config.preferences.excluded_exercise_ids.includes(exercise.id)) errors.push(`${exercise.name} è esplicitamente escluso.`)
-    if (ids.has(exercise.id) && item.role !== 'warmup') errors.push(`${exercise.name} è duplicato.`)
-    ids.add(exercise.id)
+    // Top Set + Back-Off (protocollo CBum) sono lo STESSO esercizio ripetuto di proposito
+    // in due serie consecutive con note diverse: non è il duplicato accidentale che questo
+    // controllo vuole intercettare.
+    const isTopBackoffPair = item.note === 'top_set' || item.note === 'back_off'
+    if (ids.has(exercise.id) && item.role !== 'warmup' && !isTopBackoffPair) errors.push(`${exercise.name} è duplicato.`)
+    if (!isTopBackoffPair) ids.add(exercise.id)
   }
   // Un benchmark CrossFit fisso (Cindy/Fran/Grace/Helen) è per definizione un allenamento
   // completo con un numero di movimenti ufficiale (anche solo 1, es. Grace): niente Forza/Skill

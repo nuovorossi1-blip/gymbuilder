@@ -19,6 +19,19 @@ export interface ReplacementCandidate {
   score: number
 }
 
+/**
+ * Vincolo di protocollo FST-7 (Hany Rambod): il blocco da 7 serie non può
+ * essere un multiarticolare a pesi liberi complessi — deve isolare senza
+ * richiedere stabilizzazione, per restare eseguibile a cedimento metabolico
+ * su 7 serie di fila. Solo cavi, macchine o isolamenti puri.
+ */
+export function isFst7FinisherEligible(exercise: Exercise): boolean {
+  // roles (non exercise_types) e' il campo che il resto del motore Bodybuilding usa già
+  // per compound/isolation (bodybuilding.ts), quindi coerente anche sui record non ancora
+  // passati da normalizeExercise().
+  return exercise.equipment === 'cable' || exercise.equipment === 'machine' || exercise.roles.includes('isolation')
+}
+
 const SPLIT_PATTERNS: Partial<Record<Split, Set<string>>> = {
   push: new Set(['horizontal_push', 'vertical_push', 'lateral_raise', 'elbow_extension', 'elbow_flexion']),
   pull: new Set(['horizontal_pull', 'vertical_pull', 'rear_delt', 'elbow_flexion', 'elbow_extension']),
@@ -52,6 +65,9 @@ export function findExerciseReplacements(
       if (!isExerciseAvailable(exercise, equipment.preset, equipment.available) || !isExerciseAllowed(exercise, preferences, placement)) return false
       if (options.experience && EXPERIENCE_RANK[exercise.min_experience] > EXPERIENCE_RANK[options.experience]) return false
       if (options.adaptivePreferences?.[exercise.id]?.permanently_excluded) return false
+      // Vincolo di protocollo (sez. FST-7): l'utente non può sostituire il blocco da 7 serie
+      // con un bilanciere pesante, a prescindere dal motivo dello swap.
+      if (current.note === 'fst7_finisher' && !isFst7FinisherEligible(exercise)) return false
 
       if (bodybuildingMetcon) {
         return (

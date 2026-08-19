@@ -4,7 +4,7 @@
 > da qui. Va **aggiornato** a ogni sessione, non accodato all'infinito.
 > L'identità del progetto e il percorso di AI-OS stanno in `AIOS_PROJECT.json`.
 
-**Ultimo aggiornamento:** 2026-08-19 (Lagging Muscle Engine: focus_portion, swap navigabile, rotazione settimanale, sequenziamento fatica/sinergie, parità DeepSeek — vedi fondo file) - Claude (Sonnet 5)
+**Ultimo aggiornamento:** 2026-08-19 (protocolli avanzati Bodybuilding FST-7 e Top Set & Back-Off/CBum — vedi fondo file) - Claude (Sonnet 5)
 
 Etichette: `[FACT]` verificato nel codice · `[RICOSTRUITO]` dedotto da indizi ·
 `[IGNOTO]` non ricavabile dal repository
@@ -1095,3 +1095,61 @@ risposta reale del modello esterno).
 MCP Supabase (progetto `geqhxhgrameaugawmaej`) su richiesta esplicita dell'utente. Verificato via
 query diretta: 15 righe taggate correttamente (6 bicipiti, 9 tricipiti). `focus_portion` è quindi
 già attivo in produzione, non solo nel codice.
+
+## Aggiornamento stato — 2026-08-19: protocolli Bodybuilding avanzati FST-7 e Top Set & Back-Off (stile CBum)
+
+Richiesta utente: tre protocolli avanzati Bodybuilding (3-6-9 Density Tri-Set, FST-7, Top Set &
+Back-Off/CBum). Dopo esplorazione e due chiarimenti con l'utente: **il 3-6-9 è rimandato** (serve
+un vero motore a circuito che oggi non esiste — il Runner esegue solo sequenze flat, mai stazioni
+interlacciate per round — e un carve-out più ampio nel validatore); **il logging automatico CBum
+("+2.5kg se chiudi 8 rep pulite") è rimandato su richiesta esplicita** — verificato che l'app non
+registra MAI reps/peso reali da nessuna parte (Runner.tsx: "Serie completata" non cattura nulla;
+nessun campo simile in nessun tipo o tabella Supabase). Implementati invece **FST-7 e Top Set &
+Back-Off**, che si incastrano nel motore Runner esistente senza un nuovo sistema di esecuzione.
+
+**Dati**: `WeeklyProgramConfig.protocol?: 'standard'|'fst7'|'cbum_top_backoff'` +
+`fst7_preloading?: boolean` (`types/index.ts`), additivo — nessuna migrazione, persistito
+wholesale come jsonb in `training_programs.config` (`api.ts`).
+
+**Generatore** (`bodybuilding.ts`): `GenerationConfig` guadagna `protocol`/`fst7_preloading`.
+FST-7: tronca gli slot a 3 esercizi base (8-12 rep, 90-120s recupero — prescrizione dedicata,
+non quella legata all'obiettivo), poi aggiunge un finisher a parte (`sets:7, reps:'10-12',
+rest_sec:30, note:'fst7_finisher'`, filtrato per cavi/macchine/isolamento tramite
+`isFst7FinisherEligible` in `replacement.ts`, riusata anche dallo swap). CBum: 4-5 esercizi
+selezionati con la logica a slot esistente, poi ciascuno **espanso in due voci consecutive**
+sullo stesso `exercise_id` — Top Set (`1x6-8 rest:180`) e Back-Off (`1x10-12 rest:150`), entrambe
+scalate da `intensity` come il resto del motore. Il carico del Back-Off (-15/20%) resta
+un'indicazione testuale in UI, non un numero calcolato — nessun peso registrato da nessuna parte.
+
+**Bug reali trovati e corretti durante l'implementazione** (non nella spec, scoperti generando
+davvero l'output):
+- `target` per FST-7 non teneva conto del troncamento a 3 slot (restava legato a
+  `baseSlot.length`, sempre ≥5): il ciclo di completamento aggiungeva comunque esercizi fino a 5.
+  Corretto forzando `target = 3` quando `protocol === 'fst7'`.
+- `rimuoviDuplicati` (shared.ts) e `validator.ts:46` rifiutano/cancellano ID esercizio ripetuti:
+  un Top Set + Back-Off dello stesso esercizio veniva trattato come duplicato accidentale — il
+  validatore bloccava OGNI sessione CBum generata (`Create.tsx` la respinge con un errore secco
+  se `validateWorkout` fallisce). Corretto in entrambi i punti riconoscendo `note === 'top_set'/
+  'back_off'` come coppia legittima, non un duplicato.
+- `portaCompoundInApertura` avrebbe scavalcato il finisher FST-7 in preloading (lo sposta sempre
+  in testa un compound se non è già lì): aggiunta stessa eccezione già usata per le carenze.
+- Il warning "solo N esercizi, attrezzatura insufficiente" usava una soglia fissa di 6, sempre
+  sbagliata per FST-7 (4 attesi) e CBum (8-10 attesi dopo l'espansione).
+
+**UI**: selettore "Protocollo di Allenamento" in Create.tsx Step 4 (stesso pattern chip di
+"Sistema Split Bodybuilding"), toggle Pre-Loading solo per FST-7. Badge Top Set/Back-Off/FST-7 in
+`WorkoutPreview.tsx` e `Runner.tsx` (stesso meccanismo del badge Carenza). Messaggio alternato
+FST-7 nella schermata Recupero di Runner.tsx: serie dispari appena completata → "Posa ·
+Contrazione isometrica (10s)" + promemoria acqua; serie pari → "Allungamento fasciale passivo
+(10s)" — deciso da `fase.serie % 2` sull'esercizio con `note === 'fst7_finisher'`.
+
+**Verificato**: 246 test verdi (240 + 6 nuovi/estesi: generatore FST-7/CBum su tutti gli split,
+filtro swap finisher, carve-out validatore), `tsc`/`eslint`/`npm run build` puliti. Verificato in
+un browser reale (Playwright via `/avvia`, bypassa l'auth): badge Top Set/Back-Off/FST-7 con
+contatore serie live, messaggio alternato che cambia correttamente fra serie dispari e pari,
+nessun errore console.
+
+**Non fatto, esplicitamente rimandato su richiesta dell'utente**: protocollo 3-6-9 Density
+Tri-Set (serve un motore a circuito nuovo); logging automatico CBum (serve una tabella di log
+reps/peso e un input in Runner, oggi assenti ovunque nell'app) — il badge/target CBum resta
+puramente informativo, senza rilevare cosa l'utente fa davvero.

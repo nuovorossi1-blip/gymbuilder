@@ -1008,6 +1008,21 @@ export default function Runner() {
           {String(Math.floor(rimanente / 60))}:{String(rimanente % 60).padStart(2, '0')}
         </p>
 
+        {/* FST-7: 30-45s fra le 7 serie non è tempo morto — alterna posa/contrazione e
+            allungamento fasciale, seguendo la serie appena completata (fase.serie). */}
+        {es.note === 'fst7_finisher' && (
+          <div className={`slab mt-8 text-center ${fase.serie % 2 === 1 ? '!border-fuchsia-400/40' : '!border-cyan-400/40'}`}>
+            {fase.serie % 2 === 1 ? (
+              <>
+                <p className="text-[15px] font-medium">Posa · Contrazione isometrica massimale (10s)</p>
+                <p className="mt-1 font-data text-[12px] text-slate2">Bevi un sorso d'acqua o elettroliti</p>
+              </>
+            ) : (
+              <p className="text-[15px] font-medium">Allungamento fasciale passivo (10s)</p>
+            )}
+          </div>
+        )}
+
         <div className="slab mt-12">
           <p className="eyebrow mb-2">Poi tocca a</p>
           <p className="text-[16px] font-medium">{prossimo.name}</p>
@@ -1064,12 +1079,27 @@ export default function Runner() {
       <h1 className="mt-9 font-display font-extrabold uppercase leading-[0.95] tracking-tight text-[2.1rem]">
         {es.name}
       </h1>
-      {(es.muscle || isLaggingNote(es.note)) && (
-        <p className="mt-2 flex items-center gap-2 font-data text-[11px] uppercase tracking-[0.14em] text-slate2">
+      {(es.muscle || isLaggingNote(es.note) || es.note === 'top_set' || es.note === 'back_off' || es.note === 'fst7_finisher') && (
+        <p className="mt-2 flex flex-wrap items-center gap-2 font-data text-[11px] uppercase tracking-[0.14em] text-slate2">
           {es.muscle && <span>{MUSCLE_LABELS[es.muscle]}</span>}
           {isLaggingNote(es.note) && (
             <span className="rounded-full border border-amber2/40 bg-amber2/15 px-2 py-0.5 text-amber2">
               {es.note?.includes('richiamo') ? 'Richiamo 3x · carenza' : 'Carenza'}
+            </span>
+          )}
+          {es.note === 'top_set' && (
+            <span className="rounded-full border border-emerald-400/40 bg-emerald-400/15 px-2 py-0.5 text-emerald-300">
+              Top Set · 6-8 rep @ RIR 0
+            </span>
+          )}
+          {es.note === 'back_off' && (
+            <span className="rounded-full border border-cyan-400/40 bg-cyan-400/15 px-2 py-0.5 text-cyan-300">
+              Back-Off · 10-12 rep (-15/20% peso)
+            </span>
+          )}
+          {es.note === 'fst7_finisher' && (
+            <span className="rounded-full border border-fuchsia-400/40 bg-fuchsia-400/15 px-2 py-0.5 text-fuchsia-300">
+              FST-7 · serie {fase.serie}/7
             </span>
           )}
         </p>

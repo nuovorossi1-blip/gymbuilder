@@ -19,9 +19,9 @@ import type { WeeklyTrainingState } from '../generators/weakPoints'
 import { aggiornaProgramma, caricaCatalogo, salvaProgramma, situazioneSettimanaleUtente } from '../lib/api'
 import { generateWorkoutsWithDeepSeek } from '../lib/deepseek'
 import {
-  CROSSFIT_BENCHMARK_HINTS, CROSSFIT_BENCHMARK_LABELS, DURATIONS, EQUIPMENT_ITEM_LABELS, EQUIPMENT_LABELS, EXERCISE_POLICY_LABELS,
+  BODYBUILDING_PROTOCOL_LABELS, CROSSFIT_BENCHMARK_HINTS, CROSSFIT_BENCHMARK_LABELS, DURATIONS, EQUIPMENT_ITEM_LABELS, EQUIPMENT_LABELS, EXERCISE_POLICY_LABELS,
   METCON_FORMAT_HINTS, METCON_FORMAT_LABELS, MODE_LABELS, MUSCLE_LABELS, PUBLIC_MODES, SPLIT_LABELS,
-  SPLIT_SYSTEM_LABELS, type Equipment, type EquipmentItem, type Exercise,
+  SPLIT_SYSTEM_LABELS, type BodybuildingProtocol, type Equipment, type EquipmentItem, type Exercise,
   type ExercisePolicy, type Muscle,
   type CrossFitBenchmark, type PublicMode, type Split, type SplitSystem, type Weekday, type WeeklyProgram,
   type WeeklyProgramConfig, type WeeklySession, type WorkoutGenerationConfig,
@@ -232,7 +232,7 @@ export default function Create() {
           ? generaForza(dayCatalog, { ...common, priority_muscles: todayPriorities, priority_portions: todayPortions, target_muscles: todayTargets, split, method: global.strength_method, weekly_volume: weeklyState?.volume, last_trained_at: weeklyState?.last_trained_at })
           : session.mode === 'tabata'
             ? generaTabata(dayCatalog, { ...common, ...global.tabata })
-            : generaBodybuilding(dayCatalog, { ...common, priority_muscles: todayPriorities, priority_portions: todayPortions, target_muscles: todayTargets, split, goal: 'hypertrophy', weekly_volume: weeklyState?.volume, last_trained_at: weeklyState?.last_trained_at })
+            : generaBodybuilding(dayCatalog, { ...common, priority_muscles: todayPriorities, priority_portions: todayPortions, target_muscles: todayTargets, split, goal: 'hypertrophy', weekly_volume: weeklyState?.volume, last_trained_at: weeklyState?.last_trained_at, protocol: global.protocol, fst7_preloading: global.fst7_preloading })
     finalizeWorkout(session, sourceProgram, workout)
   }
 
@@ -425,6 +425,8 @@ function WizardBuilder({
 
   const showBBSplitSystem = !isTabataOnly && config.program_kind === 'program' && config.selected_modes.includes('bodybuilding')
   const showSingleSplit = !isTabataOnly && config.program_kind === 'single_session' && (config.selected_modes.includes('bodybuilding') || config.selected_modes.includes('strength'))
+  /** Protocollo Bodybuilding: indipendente da program/single_session, come lo split di Forza non lo è — qui basta la disciplina scelta. */
+  const showBodybuildingProtocol = !isTabataOnly && config.selected_modes.includes('bodybuilding')
   const showCrossfitBenchmark = !isTabataOnly && config.selected_modes.includes('crossfit')
   const showCrossfitTarget = !isTabataOnly && config.program_kind === 'single_session' && (config.selected_modes.includes('crossfit') || config.selected_modes.includes('crossfit_hybrid'))
   const hasSplitContent = showBBSplitSystem || showSingleSplit || showCrossfitBenchmark || showCrossfitTarget
@@ -622,6 +624,37 @@ function WizardBuilder({
                       </Choice>
                     ))}
                   </div>
+                </Field>
+              )}
+
+              {showBodybuildingProtocol && (
+                <Field title="Protocollo di Allenamento">
+                  <Grid>
+                    {(Object.keys(BODYBUILDING_PROTOCOL_LABELS) as BodybuildingProtocol[]).map((protocol) => (
+                      <Choice
+                        key={protocol}
+                        active={(config.protocol ?? 'standard') === protocol}
+                        onClick={() => patch('protocol', protocol)}
+                      >
+                        {BODYBUILDING_PROTOCOL_LABELS[protocol]}
+                      </Choice>
+                    ))}
+                  </Grid>
+                </Field>
+              )}
+
+              {showBodybuildingProtocol && config.protocol === 'fst7' && (
+                <Field title="Pre-Loading">
+                  <p className="mb-2 text-[13px] text-slate2">
+                    Sposta il blocco da 7 serie come primo esercizio della sessione (mind-muscle
+                    connection a freddo), invece che a chiusura.
+                  </p>
+                  <Choice
+                    active={!!config.fst7_preloading}
+                    onClick={() => patch('fst7_preloading', !config.fst7_preloading)}
+                  >
+                    {config.fst7_preloading ? 'Pre-Loading attivo' : 'Pre-Loading disattivo'}
+                  </Choice>
                 </Field>
               )}
 

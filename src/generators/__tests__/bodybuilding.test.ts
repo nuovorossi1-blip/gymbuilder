@@ -451,3 +451,69 @@ describe('generaBodybuilding — riscaldamento contestuale (sez. 5)', () => {
     expect(idsLegs).not.toEqual(idsPush)
   })
 })
+
+describe('generaBodybuilding — protocollo FST-7 (Hany Rambod)', () => {
+  it('produce esattamente 3 esercizi base + 1 finisher da 7 serie, in coda di default', () => {
+    for (const split of TUTTI_GLI_SPLIT) {
+      const w = generaBodybuilding(catalogo, {
+        split, goal: 'hypertrophy', experience: 'advanced', equipment: 'full_gym',
+        duration_min: 60, priority_muscles: [], excluded_exercises: [], seed: 7, protocol: 'fst7',
+      })
+      const exercises = mainBlock(w).exercises
+      expect(exercises).toHaveLength(4)
+      expect(exercises.slice(0, 3).every((e) => e.note !== 'fst7_finisher')).toBe(true)
+      const finisher = exercises[3]
+      expect(finisher.note).toBe('fst7_finisher')
+      expect(finisher.sets).toBe(7)
+      expect(finisher.reps).toBe('10-12')
+      expect(finisher.rest_sec).toBe(30)
+    }
+  })
+
+  it('il finisher è sempre cavo, macchina o isolamento — mai un bilanciere pesante', () => {
+    const byId = new Map(catalogo.map((e) => [e.id, e]))
+    for (const split of TUTTI_GLI_SPLIT) {
+      const w = generaBodybuilding(catalogo, {
+        split, goal: 'hypertrophy', experience: 'advanced', equipment: 'full_gym',
+        duration_min: 60, priority_muscles: [], excluded_exercises: [], seed: 3, protocol: 'fst7',
+      })
+      const finisher = mainBlock(w).exercises.find((e) => e.note === 'fst7_finisher')
+      if (!finisher) continue // attrezzatura/catalogo possono non offrire un candidato per ogni split
+      const exercise = byId.get(finisher.exercise_id)!
+      expect(exercise.equipment === 'cable' || exercise.equipment === 'machine' || exercise.roles.includes('isolation')).toBe(true)
+    }
+  })
+
+  it('fst7_preloading sposta il finisher in testa alla sessione', () => {
+    const w = generaBodybuilding(catalogo, {
+      split: 'push', goal: 'hypertrophy', experience: 'advanced', equipment: 'full_gym',
+      duration_min: 60, priority_muscles: [], excluded_exercises: [], seed: 7,
+      protocol: 'fst7', fst7_preloading: true,
+    })
+    expect(mainBlock(w).exercises[0]?.note).toBe('fst7_finisher')
+  })
+})
+
+describe('generaBodybuilding — protocollo Top Set & Back-Off (stile CBum)', () => {
+  it('ogni esercizio diventa una coppia Top Set (1x6-8 @ RIR0) + Back-Off (1x10-12) consecutiva', () => {
+    const w = generaBodybuilding(catalogo, {
+      split: 'push', goal: 'hypertrophy', experience: 'advanced', equipment: 'full_gym',
+      duration_min: 60, priority_muscles: [], excluded_exercises: [], seed: 7,
+      protocol: 'cbum_top_backoff',
+    })
+    const exercises = mainBlock(w).exercises
+    expect(exercises.length % 2).toBe(0)
+    expect(exercises.length).toBeGreaterThanOrEqual(8) // 4-5 esercizi -> 8-10 voci
+    for (let i = 0; i < exercises.length; i += 2) {
+      const topSet = exercises[i]
+      const backOff = exercises[i + 1]
+      expect(topSet.exercise_id).toBe(backOff.exercise_id)
+      expect(topSet.note).toBe('top_set')
+      expect(topSet.sets).toBe(1)
+      expect(topSet.reps).toBe('6-8')
+      expect(backOff.note).toBe('back_off')
+      expect(backOff.sets).toBe(1)
+      expect(backOff.reps).toBe('10-12')
+    }
+  })
+})

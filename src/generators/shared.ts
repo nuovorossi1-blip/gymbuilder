@@ -97,12 +97,17 @@ export function minutiBlocco(esercizi: { sets: number; rest_sec: number }[]): nu
   return esercizi.reduce((t, e) => t + minutiEsercizio(e), 0)
 }
 
-/** Rimuove eventuali duplicati (sez. 22): non dovrebbero capitare, ma è una rete di sicurezza. */
+/** Rimuove eventuali duplicati (sez. 22): non dovrebbero capitare, ma è una rete di sicurezza.
+ *  Top Set/Back-Off (protocollo CBum) sono lo stesso esercizio ripetuto di proposito in due
+ *  serie consecutive: contano come chiavi diverse, altrimenti questa rete di sicurezza
+ *  cancellerebbe il Top Set tenendo solo il Back-Off. */
 export function rimuoviDuplicati(scelti: PrescribedExercise[]): void {
+  const chiave = (p: PrescribedExercise) => (p.note === 'top_set' || p.note === 'back_off') ? `${p.exercise_id}:${p.note}` : p.exercise_id
   const visti = new Set<string>()
   for (let i = scelti.length - 1; i >= 0; i--) {
-    if (visti.has(scelti[i].exercise_id)) scelti.splice(i, 1)
-    else visti.add(scelti[i].exercise_id)
+    const k = chiave(scelti[i])
+    if (visti.has(k)) scelti.splice(i, 1)
+    else visti.add(k)
   }
 }
 

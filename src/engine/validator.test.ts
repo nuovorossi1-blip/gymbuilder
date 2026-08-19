@@ -90,4 +90,17 @@ describe('validateWorkout — coerenza dello split', () => {
     expect(result.valid).toBe(true)
     expect(result.errors).toEqual([])
   })
+
+  it('Top Set & Back-Off (protocollo CBum) non viene rifiutato per esercizio duplicato', () => {
+    // La stessa alzata compare due volte di proposito (Top Set + Back-Off): senza il
+    // carve-out in validator.ts, il controllo duplicati bloccherebbe ogni sessione CBum.
+    const workout = generaBodybuilding(catalog, {
+      split: 'push', goal: 'hypertrophy', experience: 'advanced', equipment: 'full_gym',
+      duration_min: 60, priority_muscles: [], excluded_exercises: [], seed: 4,
+      protocol: 'cbum_top_backoff',
+    })
+    const result = validateWorkout(workout, pushConfig([]), catalog)
+    expect(result.valid).toBe(true)
+    expect(result.errors).toEqual([])
+  })
 })

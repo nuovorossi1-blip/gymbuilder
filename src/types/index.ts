@@ -7,6 +7,9 @@ export type Mode = 'bodybuilding' | 'strength' | 'crossfit' | 'crossfit_hybrid' 
 export type PublicMode = Exclude<Mode, 'conditioning'>
 export type Sex = 'female' | 'male' | 'other' | 'unspecified'
 export type SplitSystem = 'ppl' | 'upper_lower' | 'bro_split' | 'front_back'
+/** Protocollo di esecuzione Bodybuilding: 'standard' è il motore a slot di sempre.
+ *  'fst7' e 'cbum_top_backoff' sono varianti di prescrizione sullo stesso motore. */
+export type BodybuildingProtocol = 'standard' | 'fst7' | 'cbum_top_backoff'
 export type ExercisePolicy = 'always' | 'finisher_only' | 'never'
 export type ExerciseFeedbackReason = 'dislike' | 'unavailable' | 'too_hard' | 'too_easy' | 'discomfort' | 'prefer_other'
 export type Weekday = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday'
@@ -246,6 +249,10 @@ export interface WeeklyProgramConfig {
   /** Rapporto fra giornate BB e HY nei programmi che usano entrambe. */
   hybrid_balance?: 'bb_dominant' | 'balanced' | 'hy_dominant'
   strength_method?: '5x5' | '3x5' | 'max_strength' | 'strength_accessories'
+  /** Protocollo Bodybuilding, applicato a tutte le sedute BB del programma/sessione. */
+  protocol?: BodybuildingProtocol
+  /** Solo per protocol 'fst7': sposta il blocco da 7 serie come primo esercizio della sessione. */
+  fst7_preloading?: boolean
   hybrid_method?: 'upper_conditioning' | 'lower_conditioning' | 'full_body_functional' | 'specialization'
   hybrid_format?: Extract<MetconFormat, 'amrap' | 'emom' | 'for_time' | 'intervals'>
   experience: Experience
@@ -408,6 +415,12 @@ export const SPLIT_SYSTEM_LABELS: Record<SplitSystem, string> = {
   upper_lower: 'Upper / Lower',
   bro_split: 'Bro Split',
   front_back: 'Front / Back',
+}
+
+export const BODYBUILDING_PROTOCOL_LABELS: Record<BodybuildingProtocol, string> = {
+  standard: 'Standard',
+  fst7: 'FST-7 (Hany Rambod)',
+  cbum_top_backoff: 'Top Set & Back-Off (CBum)',
 }
 
 export const EXERCISE_POLICY_LABELS: Record<ExercisePolicy, string> = {

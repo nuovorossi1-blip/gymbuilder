@@ -144,6 +144,21 @@ describe('Exercise Feedback & Replacement Engine', () => {
     expect(replacement.primary_muscles).toContain('triceps')
   })
 
+  it('il finisher FST-7 si sostituisce solo con cavi/macchine/isolamenti, mai un bilanciere pesante', () => {
+    const current = { ...prescribed('panca_piana', 'isolation'), note: 'fst7_finisher', sets: 7, reps: '10-12' }
+    const alternative = findExerciseReplacements(
+      current, catalog,
+      { ...equipment, available: [...equipment.available] }, preferences,
+      new Set(['panca_piana']),
+      { reason: 'dislike', experience: 'advanced' },
+    )
+    expect(alternative.length).toBeGreaterThan(0)
+    for (const { exercise } of alternative) {
+      expect(exercise.equipment === 'cable' || exercise.equipment === 'machine' || exercise.roles.includes('isolation')).toBe(true)
+      expect(exercise.equipment).not.toBe('barbell')
+    }
+  })
+
   it('gestisce sostituzioni multiple sequenziali sullo stesso slot senza bloccarsi', () => {
     const original = prescribed('panca_piana')
     const rep1 = findExerciseReplacement(original, catalog, { ...equipment, available: [...equipment.available] }, preferences, new Set([original.exercise_id]), { reason: 'dislike', rejectedIds: new Set([original.exercise_id]), split: 'push' })

@@ -248,12 +248,27 @@ export default function WorkoutPreview() {
                   </span>
                   {handle}
                 </div>
-                {(e.muscle || isLaggingNote(e.note)) && (
-                  <p className="mt-1.5 pl-7 flex items-center gap-2 font-data text-[10px] uppercase tracking-[0.12em] text-slate2">
+                {(e.muscle || isLaggingNote(e.note) || e.note === 'top_set' || e.note === 'back_off' || e.note === 'fst7_finisher') && (
+                  <p className="mt-1.5 pl-7 flex flex-wrap items-center gap-2 font-data text-[10px] uppercase tracking-[0.12em] text-slate2">
                     {e.muscle && <span>{MUSCLE_LABELS[e.muscle]}</span>}
                     {isLaggingNote(e.note) && (
                       <span className="rounded-full border border-amber2/40 bg-amber2/15 px-2 py-0.5 text-amber2">
                         {e.note?.includes('richiamo') ? 'Richiamo 3x · carenza' : 'Carenza'}
+                      </span>
+                    )}
+                    {e.note === 'top_set' && (
+                      <span className="rounded-full border border-emerald-400/40 bg-emerald-400/15 px-2 py-0.5 text-emerald-300">
+                        Top Set · 6-8 rep @ RIR 0
+                      </span>
+                    )}
+                    {e.note === 'back_off' && (
+                      <span className="rounded-full border border-cyan-400/40 bg-cyan-400/15 px-2 py-0.5 text-cyan-300">
+                        Back-Off · 10-12 rep (-15/20% peso)
+                      </span>
+                    )}
+                    {e.note === 'fst7_finisher' && (
+                      <span className="rounded-full border border-fuchsia-400/40 bg-fuchsia-400/15 px-2 py-0.5 text-fuchsia-300">
+                        FST-7 · 7 serie @ 30s
                       </span>
                     )}
                   </p>

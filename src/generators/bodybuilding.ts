@@ -26,11 +26,12 @@
  */
 
 import type {
-  Equipment, EquipmentItem, Exercise, Experience, FocusPortion, GeneratedWorkout, Goal, Intensity, Muscle,
+  BodybuildingProtocol, Equipment, EquipmentItem, Exercise, Experience, FocusPortion, GeneratedWorkout, Goal, Intensity, Muscle,
   PrescribedExercise, Split, WorkoutBlock,
 } from '../types'
 import { isLaggingNote, SPLIT_LABELS } from '../types'
 import { isExerciseAvailable } from './equipment'
+import { isFst7FinisherEligible } from '../engine/replacement'
 import { PESO_DEFAULT_KG, stimaCalorieEsercizio } from './calories'
 import { minutiBlocco, minutiEsercizio, PORZIONE_ROTABILE, portaCompoundInApertura, rimuoviDuplicati, riordinaPerSinergie, rng, scegliRiscaldamento } from './shared'
 
@@ -57,6 +58,10 @@ export interface GenerationConfig {
   /** Per la stima delle calorie attive (sez. 60); senza valore si usa una media adulta dichiarata. */
   weight_kg?: number | null
   seed?: number
+  /** Protocollo di esecuzione: 'standard' (default) usa la prescrizione legata all'obiettivo. */
+  protocol?: BodybuildingProtocol
+  /** Solo per protocol 'fst7': il blocco da 7 serie apre la sessione invece di chiuderla. */
+  fst7_preloading?: boolean
 }
 
 interface SlotDef {
@@ -269,9 +274,34 @@ function serieMinime(compound: boolean): number {
 
 const RANK_EXP: Record<Experience, number> = { beginner: 1, intermediate: 2, advanced: 3 }
 
-/** Quanti esercizi principali punta ad avere la sessione: massimo sei. */
-function targetEsercizi(): number {
+/** Quanti esercizi principali punta ad avere la sessione: 6 di default, 3 per
+ *  FST-7 (il 7° arriva a parte come finisher, non conta qui), 5 per il basso
+ *  volume di Top Set & Back-Off. */
+function targetEsercizi(protocol?: BodybuildingProtocol): number {
+  if (protocol === 'fst7') return 3
+  if (protocol === 'cbum_top_backoff') return 5
   return 6
+}
+
+/** Base FST-7 (sez. protocollo): 8-12 rep fisse, non la prescrizione standard
+ *  legata all'obiettivo — il protocollo prescrive il rep range, non lo split. */
+function prescrizioneFst7Base(compound: boolean, exp: Experience, intensity: Intensity = 'medium') {
+  const base = compound ? { sets: 4, reps: '8-12', rest: 105 } : { sets: 3, reps: '8-12', rest: 90 }
+  const fattoreRecupero = { low: 0.75, medium: 1, high: 1.25 }[intensity]
+  const risultato = { ...base, rest: Math.round(base.rest * fattoreRecupero) }
+  if (exp === 'beginner' && compound) return { ...risultato, sets: Math.max(3, risultato.sets - 1) }
+  return risultato
+}
+
+/** Top Set (1x6-8 @ RIR0) + Back-Off (1x10-12 @ RIR0), stile CBum: il carico non è
+ *  calcolabile qui (nessun peso registrato in nessuna parte dell'app, sez. verifica
+ *  con l'utente) — il -15/20% resta un'indicazione testuale mostrata in UI. */
+function prescrizioneCbum(intensity: Intensity = 'medium') {
+  const fattoreRecupero = { low: 0.75, medium: 1, high: 1.25 }[intensity]
+  return {
+    topSet: { sets: 1, reps: '6-8', rest: Math.round(180 * fattoreRecupero) },
+    backOff: { sets: 1, reps: '10-12', rest: Math.round(150 * fattoreRecupero) },
+  }
 }
 
 /**
@@ -419,7 +449,10 @@ export function generaBodybuilding(
     ? { slots: buildCustomTargetSlots(customTargets, priorities), requirements: customTargets }
     : applicaPrioritaAssegnate(base, priorities)
   const baseSlot = structured.slots
-  const target = Math.max(targetEsercizi(), baseSlot.length)
+  // FST-7 vuole ESATTAMENTE 3 esercizi base (il 7° arriva a parte): a differenza degli altri
+  // protocolli, qui il target non può salire per via dei 5 slot fissi dello split (baseSlot
+  // ne ha sempre almeno 5), altrimenti il ciclo di completamento più sotto ne aggiunge fino a 5.
+  const target = cfg.protocol === 'fst7' ? 3 : Math.max(targetEsercizi(cfg.protocol), baseSlot.length)
 
   // 6. Sesto slot: prima le priorità assegnate dalla settimana, poi l'extra dello split.
   const extraSlot: SlotDef[] = []
@@ -429,7 +462,11 @@ export function generaBodybuilding(
       extraSlot.push(s)
     }
   }
-  const slot = ordinaSlot(cfg.split, [...baseSlot, ...extraSlot])
+  // FST-7 vuole solo 3 esercizi base (il 7° arriva a parte, sez. protocollo sotto): tronca
+  // dopo l'ordinamento, così restano i 3 a priorità più alta (compound e carenze in testa),
+  // non i primi 3 dichiarati nello split.
+  const slotOrdinato = ordinaSlot(cfg.split, [...baseSlot, ...extraSlot])
+  const slot = cfg.protocol === 'fst7' ? slotOrdinato.slice(0, 3) : slotOrdinato
 
   // 7. Selezione esercizi per slot
   const scelti: PrescribedExercise[] = []
@@ -510,7 +547,9 @@ export function generaBodybuilding(
 
     if (!scelto) continue // nessun esercizio disponibile per questo slot con questa attrezzatura
 
-    const p = prescrizione(cfg.goal, s.compound, cfg.experience, cfg.intensity)
+    const p = cfg.protocol === 'fst7'
+      ? prescrizioneFst7Base(s.compound, cfg.experience, cfg.intensity)
+      : prescrizione(cfg.goal, s.compound, cfg.experience, cfg.intensity)
     const voce: PrescribedExercise = {
       exercise_id: scelto.id,
       name: scelto.name,
@@ -532,7 +571,7 @@ export function generaBodybuilding(
 
   // Se uno slot molto specifico non è disponibile, completa comunque il
   // minimo con un isolamento sicuro e coerente con i muscoli dello split.
-  while (scelti.length < 6) {
+  while (scelti.length < Math.min(target, 6)) {
     const fallback = allenamento.find((exercise) =>
       !usati.has(exercise.id) && exercise.roles.includes('isolation') &&
       exercise.technical_complexity <= 2 &&
@@ -553,6 +592,48 @@ export function generaBodybuilding(
   // l'ordine appena costruito, non lo ricostruisce — vedi shared.ts.
   riordinaPerSinergie(scelti, new Map(allenamento.map((exercise) => [exercise.id, exercise])))
 
+  // 7c. Protocollo FST-7 (Hany Rambod): un 4° esercizio, esattamente 7 serie x 10-12 rep,
+  // recupero fisso 30s, solo cavi/macchine/isolamenti puri (mai un bilanciere pesante — sez.
+  // isFst7FinisherEligible). In coda di default; in testa se fst7_preloading (mind-muscle
+  // connection su muscolo carente, prima che la sessione affatichi altro).
+  if (cfg.protocol === 'fst7') {
+    const muscoloIdentitario = base[0]?.muscle ?? pool[0]
+    const candidatiFinisher = allenamento
+      .filter((e) => !usati.has(e.id) && isFst7FinisherEligible(e))
+      .filter((e) => e.primary_muscles.includes(muscoloIdentitario))
+    const poolFinisher = candidatiFinisher.length > 0
+      ? candidatiFinisher
+      : allenamento.filter((e) => !usati.has(e.id) && isFst7FinisherEligible(e) && e.primary_muscles.some((m) => pool.includes(m)))
+    const finisher = poolFinisher[Math.floor(random() * poolFinisher.length)]
+    if (finisher) {
+      usati.add(finisher.id)
+      const voceFinisher: PrescribedExercise = {
+        exercise_id: finisher.id, name: finisher.name, role: 'isolation',
+        muscle: finisher.primary_muscles.find((m) => pool.includes(m)) ?? finisher.primary_muscles[0] ?? null,
+        sets: 7, reps: '10-12', rest_sec: 30, note: 'fst7_finisher',
+        instructions: finisher.instructions || undefined,
+      }
+      if (cfg.fst7_preloading) scelti.unshift(voceFinisher)
+      else scelti.push(voceFinisher)
+    } else {
+      warnings.push('Nessun esercizio a cavi/macchine/isolamento disponibile per il blocco FST-7 da 7 serie con questa attrezzatura.')
+    }
+  }
+
+  // 7d. Protocollo Top Set & Back-Off (stile CBum): ogni esercizio scelto sopra diventa due
+  // serie tracciate separate — Top Set a cedimento (1x6-8 @ RIR0) e Back-Off (1x10-12 @ RIR0)
+  // subito dopo. Il carico del Back-Off non è calcolabile (nessun peso registrato da nessuna
+  // parte dell'app): resta un'indicazione testuale mostrata in UI (WorkoutPreview/Runner).
+  if (cfg.protocol === 'cbum_top_backoff') {
+    const cbum = prescrizioneCbum(cfg.intensity)
+    const espansi = scelti.flatMap((voce): PrescribedExercise[] => [
+      { ...voce, sets: cbum.topSet.sets, reps: cbum.topSet.reps, rest_sec: cbum.topSet.rest, note: 'top_set' },
+      { ...voce, sets: cbum.backOff.sets, reps: cbum.backOff.reps, rest_sec: cbum.backOff.rest, note: 'back_off' },
+    ])
+    scelti.length = 0
+    scelti.push(...espansi)
+  }
+
   // 8. Adattamento al tempo: si riducono prima i recuperi, poi le serie
   // (mai sotto il minimo) senza eliminare slot (sez. 3, 23).
   const minutiRiscaldamento = cfg.duration_min >= 45 ? 9 : 6
@@ -561,9 +642,16 @@ export function generaBodybuilding(
 
   // 9. Validatore di sicurezza finale (sez. 22, 40): corregge, non si limita a segnalare.
   rimuoviDuplicati(scelti)
-  const preserveWeakPointLead = customTargets.length > 0 && scelti[0]?.note === 'carenza'
+  // Il preloading FST-7 vuole di proposito il blocco da 7 serie in apertura (mind-muscle
+  // connection a freddo): non va scavalcato dal compound come farebbe di norma.
+  const preserveWeakPointLead = (customTargets.length > 0 && scelti[0]?.note === 'carenza') ||
+    (cfg.protocol === 'fst7' && cfg.fst7_preloading)
   if (!preserveWeakPointLead && !portaCompoundInApertura(scelti)) warnings.push('Nessun esercizio multiarticolare disponibile con questa attrezzatura.')
-  if (scelti.length < 6) {
+  // FST-7 (3 base + 1 finisher) e Top Set & Back-Off (4-5 esercizi, raddoppiati in coppie) non
+  // seguono il minimo di 6 esercizi dello split standard: il conteggio atteso è diverso per
+  // costruzione, non un segnale di attrezzatura insufficiente.
+  const minimoAtteso = cfg.protocol === 'fst7' ? 4 : cfg.protocol === 'cbum_top_backoff' ? 8 : 6
+  if (scelti.length < minimoAtteso) {
     warnings.push(
       `Con questa attrezzatura escono solo ${scelti.length} esercizi. ` +
         `Aggiungendo attrezzi nel profilo la sessione diventa più completa.`
@@ -640,6 +728,9 @@ function adattaAlTempo(scelti: PrescribedExercise[], budgetMin: number): void {
         const pb = isLaggingNote(b.note) ? 0 : b.role === 'isolation' ? 1 : 2
         return pa - pb
       })
+      // Il blocco FST-7 è esattamente 7 serie per contratto di protocollo: non va
+      // eroso dal budget di tempo come un normale isolamento in eccesso.
+      .filter((e) => e.note !== 'fst7_finisher')
       .find((e) => e.sets > serieMinime(e.role === 'compound'))
     if (!riducibile) break
     riducibile.sets -= 1
