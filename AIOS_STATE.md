@@ -1090,3 +1090,8 @@ un programma settimanale con carenza bicipiti/tricipiti e controllare che sedute
 propongano davvero porzioni diverse; generare via DeepSeek con una carenza selezionata e valutare
 a occhio se l'ordine rispetta le nuove regole (non verificabile in automatico, dipende da una
 risposta reale del modello esterno).
+
+**Migrazione applicata**: `20260819120000_exercise_focus_portion.sql` eseguita in produzione via
+MCP Supabase (progetto `geqhxhgrameaugawmaej`) su richiesta esplicita dell'utente. Verificato via
+query diretta: 15 righe taggate correttamente (6 bicipiti, 9 tricipiti). `focus_portion` è quindi
+già attivo in produzione, non solo nel codice.
