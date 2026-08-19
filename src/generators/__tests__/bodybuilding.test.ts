@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { generaBodybuilding } from '../bodybuilding'
-import type { Exercise, Split } from '../../types'
+import { generateWeeklyProgram } from '../../engine/weeklyPlan'
+import { PRESET_EQUIPMENT } from '../equipment'
+import type { Exercise, Split, WeeklyProgramConfig } from '../../types'
 import catalogoReale from './fixtures/exercises.json'
 
 const catalogoBase = catalogoReale as unknown as Exercise[]
@@ -162,19 +164,35 @@ describe('generaBodybuilding — priorità assegnate dalla settimana', () => {
     expect(catalogoById.get(bicipiti!.exercise_id)?.focus_portion).toBe('long_head')
   })
 
-  it('Push con spalle e braccia carenti usa un solo esercizio per ogni distretto', () => {
+  it('Push con 5 carenze spalle/braccia non riduce mai il petto sotto la dotazione standard', () => {
+    // Comportamento corretto il 19/08 (feedback utente): prima, dichiarare tante carenze in una
+    // volta faceva scendere il petto (il muscolo identitario di Push) da 2 a 1 esercizio per
+    // fargli spazio — "un solo esercizio per ogni distretto" era il comportamento di allora,
+    // esplicitamente sbagliato: lo standard dello split deve restare la base, mai smontato dalle
+    // carenze. Ora al massimo 3 carenze ricevono uno slot dedicato per sessione; le altre
+    // restano fuori da oggi (la settimana le richiama altrove, weeklyPlan.ts) invece di
+    // sacrificare il petto.
     const w = generaBodybuilding(catalogo, {
       split: 'push', goal: 'hypertrophy', experience: 'advanced', equipment: 'full_gym',
       duration_min: 60,
       priority_muscles: ['front_delts', 'lateral_delts', 'rear_delts', 'biceps', 'triceps'],
       excluded_exercises: [], seed: 31,
     })
-    expect(mainBlock(w).exercises.map((exercise) => exercise.muscle)).toEqual([
-      'chest', 'front_delts', 'lateral_delts', 'rear_delts', 'biceps', 'triceps',
+    const main = mainBlock(w).exercises
+    expect(main.filter((exercise) => exercise.muscle === 'chest')).toHaveLength(2)
+    expect(main.map((exercise) => exercise.muscle)).toEqual([
+      'chest', 'chest', 'front_delts', 'lateral_delts', 'rear_delts', 'triceps',
     ])
-    expect(mainBlock(w).exercises.map((exercise) => exercise.role)).toEqual([
-      'compound', 'compound', 'isolation', 'isolation', 'isolation', 'isolation',
-    ])
+    expect(main.find((exercise) => exercise.muscle === 'front_delts')?.note).toBe('carenza')
+    expect(main.find((exercise) => exercise.muscle === 'lateral_delts')?.note).toBe('carenza')
+    // rear_delts non è nel pool naturale di Push (SPLIT_MUSCLE_POOL): è un richiamo incrociato
+    // vero e proprio, non una carenza nativa dello split — nota diversa apposta.
+    expect(main.find((exercise) => exercise.muscle === 'rear_delts')?.note).toBe('richiamo carenza')
+    // Tricipiti resta nella seduta perché fa già parte della struttura standard di Push, ma non
+    // riceve il trattamento carenza: la quinta carenza dichiarata (dopo il taglio a 3) non ha
+    // reclamato il suo slot.
+    expect(main.find((exercise) => exercise.muscle === 'triceps')?.note).toBeUndefined()
+    expect(main.some((exercise) => exercise.muscle === 'biceps')).toBe(false)
   })
 
   it('Push con laterali/bicipiti/tricipiti carenti non triplica il petto per fargli spazio', () => {
@@ -188,6 +206,39 @@ describe('generaBodybuilding — priorità assegnate dalla settimana', () => {
     expect(main.map((exercise) => exercise.muscle)).toEqual(expect.arrayContaining(['lateral_delts', 'biceps', 'triceps']))
     const laterali = main.find((exercise) => exercise.muscle === 'lateral_delts')
     expect(laterali?.note).toBe('carenza')
+  })
+
+  it('PPL settimanale reale: 5 carenze spalle/braccia non svuotano petto o dorso in nessuna seduta', () => {
+    // Scenario segnalato dall'utente il 19/08: pianificazione PPL con tutti i deltoidi +
+    // bicipiti + tricipiti come carenze finiva per riempire Push (o Pull) quasi solo di
+    // spalle/braccia, lasciando il petto (o il dorso) a un solo esercizio. Verifica end-to-end
+    // (generateWeeklyProgram + generaBodybuilding insieme, non solo il generatore isolato).
+    const config: WeeklyProgramConfig = {
+      program_kind: 'program', duration_weeks: 4,
+      training_days: 3, selected_modes: ['bodybuilding'], goal: 'hypertrophy', split_system: 'ppl',
+      experience: 'advanced', duration_min: 60,
+      equipment: { preset: 'full_gym', available: PRESET_EQUIPMENT.full_gym },
+      weak_points: ['front_delts', 'lateral_delts', 'rear_delts', 'biceps', 'triceps'],
+      preferences: { excluded_exercise_ids: [], preferred_exercise_ids: [], bodyweight_policy: 'finisher_only', elastic_policy: 'never' },
+      intensity: 'medium', crossfit_format: 'amrap',
+      single_session_split: 'push', hybrid_balance: 'bb_dominant',
+      tabata: { work_sec: 20, rest_sec: 10, rounds: 8, prescription: 'time' },
+    }
+    const program = generateWeeklyProgram(config)
+    for (const session of program.week) {
+      const w = generaBodybuilding(catalogo, {
+        split: session.split!, goal: 'hypertrophy', experience: 'advanced', equipment: 'full_gym',
+        duration_min: 60, priority_muscles: session.priority_muscles, priority_portions: session.priority_portions,
+        excluded_exercises: [], seed: 7,
+      })
+      const main = mainBlock(w).exercises
+      const identitario = session.split === 'push' ? 'chest' : session.split === 'pull' ? 'back' : null
+      if (identitario) {
+        // Almeno 2 esercizi per il muscolo identitario dello split, come nella struttura
+        // standard senza carenze — mai ridotto a 1 per fare spazio alle carenze.
+        expect(main.filter((exercise) => exercise.muscle === identitario).length).toBeGreaterThanOrEqual(2)
+      }
+    }
   })
 
   it('Push 60 minuti riserva gli slot alle carenze prima di raddoppiare il petto', () => {

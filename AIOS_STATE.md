@@ -4,7 +4,7 @@
 > da qui. Va **aggiornato** a ogni sessione, non accodato all'infinito.
 > L'identità del progetto e il percorso di AI-OS stanno in `AIOS_PROJECT.json`.
 
-**Ultimo aggiornamento:** 2026-08-19 (protocolli avanzati Bodybuilding FST-7 e Top Set & Back-Off/CBum — vedi fondo file) - Claude (Sonnet 5)
+**Ultimo aggiornamento:** 2026-08-19 (fix reale: le carenze affollavano Push/Pull svuotando il muscolo identitario dello split — vedi fondo file) - Claude (Sonnet 5)
 
 Etichette: `[FACT]` verificato nel codice · `[RICOSTRUITO]` dedotto da indizi ·
 `[IGNOTO]` non ricavabile dal repository
@@ -1153,3 +1153,61 @@ nessun errore console.
 Tri-Set (serve un motore a circuito nuovo); logging automatico CBum (serve una tabella di log
 reps/peso e un input in Runner, oggi assenti ovunque nell'app) — il badge/target CBum resta
 puramente informativo, senza rilevare cosa l'utente fa davvero.
+
+## Aggiornamento stato — 2026-08-19: fix reale — le carenze affollavano Push/Pull svuotando petto/dorso
+
+Bug segnalato dall'utente: pianificando un PPL con carenze deltoidi+bicipiti+tricipiti, il
+sistema affollava Push (o Pull) di esercizi spalle/braccia fino a ridurre il petto (o il dorso,
+il muscolo identitario dello split) a **un solo esercizio invece dei 2 standard**. Riprodotto e
+confermato con uno script diretto prima di toccare codice. **Non era un'impressione: era un
+comportamento già deliberatamente testato come "corretto"** da una sessione precedente (test
+"usa un solo esercizio per ogni distretto") — l'utente ha corretto quella scelta di design.
+
+**Causa reale, due parti**:
+1. `weeklyPlan.ts` (`splitAccogliePriorita`, sistema 'ppl'): bicipiti e tricipiti erano
+   "compatibili" sia con Push sia con Pull contemporaneamente (non solo con la loro sessione
+   biomeccanica naturale — tricipiti spinge, bicipiti tira), quindi ogni carenza braccia
+   reclamava uno slot dedicato in ENTRAMBE le sessioni. Corretto: tricipiti nativo solo di Push,
+   bicipiti nativo solo di Pull (la seconda esposizione settimanale resta comunque garantita dal
+   richiamo incrociato esistente, non dalla doppia compatibilità).
+2. `bodybuilding.ts` (`applicaPrioritaAssegnate`, riscritta): con molte carenze dichiarate,
+   tagliava slot al muscolo identitario dello split per farle stare, fino a ridurlo a 1 copia.
+   Nuova logica su richiesta esplicita dell'utente ("si deve sempre partire dallo standard per
+   poi modificarlo"):
+   - **Mai duplicare** un muscolo già coperto dalla struttura standard: si tagga lo slot
+     esistente, non se ne aggiunge un secondo.
+   - **Sostituisce, non allunga**: una carenza assente dallo split rimpiazza uno slot esistente
+     invece di far crescere la sessione oltre 6 (prima: append poi taglio a valle).
+   - **Sacrifica prima la ridondanza**: fra gli slot sostituibili si preferisce chi ha più copie
+     (es. una delle 2 panche petto) — mai l'identitario finché esiste un'alternativa reale.
+   - **Massimo 3 carenze dedicate per sessione, sempre** (prima: fino a 6 se l'utente ne
+     dichiarava molte). Le carenze in eccesso restano fuori da oggi: la settimana le richiama
+     in un altro giorno compatibile, invece di sovraccaricare questa sessione.
+   - Conserva il ruolo (composto/isolamento) dello slot sostituito, MA solo se il muscolo
+     carente lo supporta davvero (bicipiti/tricipiti/deltoidi non hanno varianti composte nel
+     catalogo — altrimenti lo slot restava vuoto, nessun candidato trovato).
+
+**Due bug secondari trovati e corretti mentre si verificava il fix con l'output reale** (non
+nella richiesta iniziale):
+- La sostituzione poteva creare uno slot "bicipiti composto" (inesistente nel catalogo): lo slot
+  restava vuoto e un fallback casuale lo riempiva con un duplicato a sorpresa. Corretto
+  vincolando `compound` a `COMPOUND_CAPABLE_MUSCLES` anche nel percorso di sostituzione.
+- Nel caso mono-muscolo (Bro Petto, dove l'identitario è l'unico muscolo esistente e quindi
+  l'unica alternativa possibile), l'ordine naturale degli slot faceva sacrificare i 2 compound
+  per primi, lasciando la sessione priva di un compound in apertura — violando l'invariante
+  "apre sempre con un compound" verificato altrove nel motore. Corretto con una preferenza
+  esplicita a sacrificare un isolamento prima di un compound, **ma solo in quel caso limite**:
+  nel caso normale (più muscoli distinti disponibili) non c'è motivo di preferire isolamento a
+  compound, e applicarlo ovunque faceva sparire tricipiti da un altro test legittimo.
+
+**Verificato**: 247 test verdi (246 + 1 nuovo test end-to-end che genera l'intero programma
+settimanale PPL con 5 carenze e verifica che petto/dorso restino sempre ≥2 in ogni seduta),
+`tsc`/`eslint`/`npm run build` puliti. Riprodotto lo scenario esatto dell'utente con uno script
+diretto (generateWeeklyProgram + generaBodybuilding insieme): Push ora mantiene la sua struttura
+piena (2 compound + 1 isolamento petto) più 3 carenze ben distribuite, Pull idem con dorso —
+invece di 1 solo esercizio petto sommerso da spalle/braccia. Tre test esistenti aggiornati con
+commenti che spiegano il cambio di comportamento (erano scritti per il vecchio design, ora
+esplicitamente corretto).
+
+**Non verificato su un allenamento reale generato dall'app** (solo unit test + script diretto):
+prossimo passo suggerito in TODO.md.

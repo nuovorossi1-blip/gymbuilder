@@ -370,10 +370,23 @@ function requisitiCarenze(priority: Muscle[]): Muscle[] {
   return [...new Set(priority)]
 }
 
-/** Mantiene almeno tre slot identitari e riserva le priorità assegnate, senza superare sei esercizi. */
+/**
+ * Riserva le priorità assegnate senza mai duplicare un muscolo già coperto dallo split (sez.
+ * feedback utente 19/08: "se c'è già un esercizio di default che colpisce la carenza non ne
+ * mette un altro simile") e senza mai ridurre il muscolo identitario dello split (petto per
+ * Push, dorso per Pull, ecc.) sotto la sua dotazione standard — lo standard resta sempre la
+ * base, le carenze lo integrano senza smontarlo. Una carenza assente dallo split SOSTITUISCE
+ * uno slot esistente invece di allungare la sessione oltre sei esercizi: si sacrifica prima un
+ * muscolo ripetuto più volte (ridondante), MAI l'identitario finché esiste un'alternativa (anche
+ * a costo di lasciare fuori la carenza in eccesso — la settimana la richiama altrove), e si
+ * conserva il ruolo (composto/isolamento) dello slot sostituito.
+ */
 function applicaPrioritaAssegnate(base: SlotDef[], priority: Muscle[]): { slots: SlotDef[]; requirements: Muscle[] } {
-  const maxReq = priority.length > 3 ? Math.min(6, priority.length) : 3
-  const requirements = requisitiCarenze(priority).slice(0, maxReq)
+  // Massimo 3 carenze dedicate per sessione, sempre — anche quando l'utente ne dichiara di più
+  // (sez. feedback utente 19/08): concentrarne 4-5 in un solo giorno è esattamente il problema
+  // segnalato. Le carenze in eccesso restano fuori da oggi: la settimana le richiama altrove
+  // (weeklyPlan.ts), invece di sovraccaricare questa sessione.
+  const requirements = requisitiCarenze(priority).slice(0, 3)
   const slots = base.map((slot) => ({ ...slot }))
   const represented = new Set<Muscle>()
   for (const requirement of requirements) {
@@ -381,20 +394,43 @@ function applicaPrioritaAssegnate(base: SlotDef[], priority: Muscle[]): { slots:
     if (existing) { existing.weakPoint = true; represented.add(requirement) }
   }
   const missing = requirements.filter((muscle) => !represented.has(muscle))
-  // Muscolo identitario dello split (dorso per Pull, petto per Push, ecc.): con abbastanza
-  // carenze mancanti il taglio qui sotto poteva svuotarlo del tutto (visto in produzione: un Pull
-  // senza un solo esercizio dorso). Finché resta un'alternativa, si preferisce togliere altro.
   const identitario = base[0]?.muscle
-  while (slots.length + missing.length > 6 && slots.length > 3) {
-    const candidati = slots.map((slot, index) => ({ slot, index })).reverse().filter(({ slot }) => !slot.weakPoint)
-    const ultimaCopiaIdentitaria = (muscle: Muscle) => slots.filter((slot) => slot.muscle === muscle).length <= 1
-    const removable = candidati.find(({ slot }) => slot.muscle !== identitario || !ultimaCopiaIdentitaria(slot.muscle)) ?? candidati[0]
-    if (!removable) break
-    slots.splice(removable.index, 1)
-  }
   for (const muscle of missing) {
-    const compoundCount = slots.filter((slot) => slot.compound).length
-    slots.push({ muscle, compound: compoundCount < 2 && COMPOUND_CAPABLE_MUSCLES.has(muscle), weakPoint: true })
+    if (slots.length < 6) {
+      const compoundCount = slots.filter((slot) => slot.compound).length
+      slots.push({ muscle, compound: compoundCount < 2 && COMPOUND_CAPABLE_MUSCLES.has(muscle), weakPoint: true })
+      continue
+    }
+    const conteggio = new Map<Muscle, number>()
+    for (const slot of slots) conteggio.set(slot.muscle, (conteggio.get(slot.muscle) ?? 0) + 1)
+    const sacrificabili = slots
+      .map((slot, index) => ({ slot, index, copie: conteggio.get(slot.muscle) ?? 1 }))
+      .filter(({ slot }) => !slot.weakPoint)
+    // L'identitario si tocca solo come ultima risorsa, quando è l'unico muscolo rimasto non
+    // ancora carenza (split mono-muscolo come Bro Petto): altrimenti resta sempre alla sua
+    // dotazione standard, per quanto affollata sia la sessione di carenze.
+    const nonIdentitario = sacrificabili.filter(({ slot }) => slot.muscle !== identitario)
+    const soloIdentitarioResta = nonIdentitario.length === 0
+    const candidati = (soloIdentitarioResta ? sacrificabili : nonIdentitario).sort((a, b) => {
+      if (a.copie !== b.copie) return b.copie - a.copie
+      // Il tie-break composto/isolamento conta solo quando non resta altro che l'identitario
+      // (Bro Petto): la sessione apre sempre con un compound anche lì (sez. 3, 21), senza questa
+      // preferenza l'ordine naturale degli slot (compound prima nella struttura base) faceva
+      // sacrificare proprio i compound per primi. Nel caso normale (più muscoli distinti in
+      // gioco) non c'è invece motivo di preferire un isolamento a un compound qualsiasi: conta
+      // solo la ridondanza già valutata sopra.
+      return soloIdentitarioResta ? (a.slot.compound ? 1 : 0) - (b.slot.compound ? 1 : 0) : 0
+    })
+    const bersaglio = candidati[0]
+    // Nessuno slot sacrificabile: questa carenza in eccesso resta fuori da oggi, non smonta lo
+    // split. Il richiamo settimanale (weeklyPlan.ts) può comunque darle spazio in un altro
+    // giorno compatibile.
+    if (!bersaglio) continue
+    // Conserva il ruolo dello slot sostituito (composto per composto, isolamento per isolamento,
+    // come chiesto) solo se il muscolo carente lo supporta davvero: bicipiti/tricipiti/deltoidi
+    // non hanno varianti "composte" nel catalogo, quindi uno slot composto per loro resterebbe
+    // vuoto (nessun candidato) invece di ripiegare su un isolamento.
+    slots[bersaglio.index] = { muscle, compound: bersaglio.slot.compound && COMPOUND_CAPABLE_MUSCLES.has(muscle), weakPoint: true }
   }
   return { slots, requirements }
 }

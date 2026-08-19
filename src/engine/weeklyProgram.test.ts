@@ -168,8 +168,14 @@ describe('Weekly Program Engine', () => {
   it('PPL assegna spalle e braccia a Push/Pull, mai a Legs', () => {
     const program = generateWeeklyProgram({ ...base, training_days: 3, selected_modes: ['bodybuilding'], weak_points: ['lateral_delts', 'rear_delts', 'biceps', 'triceps'] })
     const bySplit = new Map(program.week.map((session) => [session.split, session]))
-    expect(bySplit.get('push')?.priority_muscles).toEqual(['lateral_delts', 'biceps', 'triceps', 'rear_delts'])
-    expect(bySplit.get('pull')?.priority_muscles).toEqual(['rear_delts', 'biceps', 'triceps', 'lateral_delts'])
+    // Bicipiti e tricipiti hanno una sola casa nativa in PPL da quando sono stati corretti
+    // (sez. feedback utente 19/08: prima erano "compatibili" sia con Push sia con Pull, quindi
+    // ogni carenza braccia reclamava uno slot dedicato in ENTRAMBE le sessioni). Tricipiti nativo
+    // di Push, bicipiti nativo di Pull: compaiono comunque in entrambe (il richiamo incrociato
+    // garantisce sempre 2 esposizioni settimanali), ma i primi due della lista sono ora quelli
+    // nativi di quella sessione, non un ordine arbitrario.
+    expect(bySplit.get('push')?.priority_muscles).toEqual(['lateral_delts', 'triceps', 'rear_delts', 'biceps'])
+    expect(bySplit.get('pull')?.priority_muscles).toEqual(['rear_delts', 'biceps', 'lateral_delts', 'triceps'])
     expect(bySplit.get('legs')?.priority_muscles).toEqual([])
   })
 

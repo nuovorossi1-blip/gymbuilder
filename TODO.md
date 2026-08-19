@@ -1,5 +1,6 @@
 # Todo
 
+- [ ] Verificare su un allenamento reale generato dall'app (non solo script/test) il fix del 19/08 alle carenze in PPL: pianificare una settimana con più deltoidi+bicipiti+tricipiti come carenze e controllare a occhio che Push/Pull mantengano petto/dorso pieni invece di affollarsi di spalle/braccia.
 - [x] Separare davvero `Intermedio` da `Principiante` nelle etichette e nel wizard di generazione.
 - [x] Correggere la sessione singola Bodybuilding a gruppi personalizzati: niente piu compound petto se il petto non e selezionato.
 - [x] Limitare la seduta custom a massimo 6 esercizi, pesando di piu i gruppi muscolari carenti inclusi nella selezione.
