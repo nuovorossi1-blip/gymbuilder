@@ -4,7 +4,7 @@
 > da qui. Va **aggiornato** a ogni sessione, non accodato all'infinito.
 > L'identità del progetto e il percorso di AI-OS stanno in `AIOS_PROJECT.json`.
 
-**Ultimo aggiornamento:** 2026-08-19 (rimossa la policy sempre/mai su corpo libero/elastici: escludeva esercizi utili come i dip anche con attrezzatura disponibile — vedi fondo file) - Claude (Sonnet 5)
+**Ultimo aggiornamento:** 2026-08-19 (bug reale grave: Create.tsx sostituiva l'intero split settimanale con le sole carenze — niente più petto in Push — vedi fondo file) - Claude (Sonnet 5)
 
 Etichette: `[FACT]` verificato nel codice · `[RICOSTRUITO]` dedotto da indizi ·
 `[IGNOTO]` non ricavabile dal repository
@@ -1437,3 +1437,68 @@ preferenze in `weeklyProgram.test.ts`/`validator.test.ts`/`replacement.test.ts`/
 `npm run build` puliti.
 
 **Non verificato in un browser reale**: stesso limite già noto in questo Codespace.
+
+## Aggiornamento stato — 2026-08-19 (notte): bug reale grave in Create.tsx — le carenze sostituivano interamente lo split settimanale
+
+Segnalato dall'utente testando in produzione (PPL 5 giorni, carenze alzate laterali+bicipiti+
+tricipiti, protocollo CBum): "la prima sessione è Spinta e mi porta le alzate laterali, non mi
+porta esercizi di spinta" + "la dinamica di CBum non cambia dal PPL, prima era diversa ed era
+corretta". Riprodotto esattamente con uno script diretto prima di correggere.
+
+**Causa reale (bug pre-esistente, non introdotto oggi — presente almeno dal commit `6425c3e`,
+17/08, "fix: separate BB targets from weak points")**: in `Create.tsx` (`generateDay`),
+`todayTargets` (che alimenta `target_muscles` in TUTTI i generatori: bodybuilding, forza,
+crossfit, hybrid) era `session.priority_muscles` per qualunque programma **non**
+`single_session` — le stesse carenze già passate correttamente a `priority_muscles`/
+`todayPriorities`. Con `target_muscles` non vuoto, `generaBodybuilding` imbocca
+`buildCustomTargetSlots` (pensato SOLO per la sessione singola a gruppi scelti esplicitamente
+dall'utente) invece di `BASE_SLOTS`/`applicaPrioritaAssegnate`: la seduta viene ricostruita da
+zero usando SOLO i muscoli in `target_muscles`, niente più petto/dorso. Il bug era già presente
+da giorni ma è diventato molto più visibile oggi pomeriggio: da quando bicipiti/tricipiti sono
+compatibili sia con Push sia con Pull (PPL Standard a 6 Slot), quasi ogni seduta della settimana
+ha `session.priority_muscles` non vuoto, quindi il bug scatta quasi sempre invece che solo
+occasionalmente.
+
+**Riprodotto con script diretto** (`generateWeeklyProgram` + `generaBodybuilding`, PPL 5 giorni,
+carenze `['lateral_delts','biceps','triceps']`, protocollo CBum): con `target_muscles:
+priority_muscles` (bug) Push diventa `alzate_laterali, curl_inclinata_man, estensione_tricipiti,
+alzate_laterali_elastico` — zero petto, alzate laterali duplicate (il riempimento generico di
+`buildCustomTargetSlots` ripete i target quando sono troppo pochi per 6 slot). Con
+`target_muscles: []` (fix) Push torna quella corretta: 2 panca, alzate laterali, dip, bicipiti —
+tutti con avvicinamento/top set/back off del protocollo CBum regolarmente presenti. Questo
+spiega **anche** il secondo report ("CBum non cambia dal PPL"): la sessione degenerata del bug,
+dominata da isolamenti carenza, "sembra sempre uguale" a prescindere dal protocollo — non è che
+CBum non applicasse le sue serie, è che la selezione degli esercizi sotto era già rotta.
+
+**Fix**: `todayTargets` in `Create.tsx` è ora sempre `[]` per un programma non `single_session`
+(commento esteso sul posto che spiega perché). Aggiunto un test in `bodybuilding.test.ts` che
+blocca il caso specifico (target_muscles=priority_muscles → petto sparisce) e uno che aggiorna
+il test end-to-end esistente per passare esplicitamente `target_muscles: []`, come fa ora
+davvero `Create.tsx`.
+
+**Tre richieste UX nello stesso messaggio, tutte implementate**:
+- Tasto "Indietro" mancante SOLO nello step 1 del wizard (tutti gli altri step 2-9 lo avevano
+  già, verificato leggendo `StepNav`): ora step 1 torna alla Home (`navigate('/')`), sia via
+  bottone sia via swipe. Lo swipe-per-tornare-indietro (`onSwipeRight={goBack}`, convenzione già
+  usata identica in tutti gli altri step) NON è stato invertito verso sinistra come letteralmente
+  chiesto ("swipe verso sinistra"): avrebbe reso lo step 1 incoerente con gli altri 8 step, che
+  usano tutti swipe-destra-per-tornare-indietro. Da confermare con l'utente se vuole davvero
+  invertire la direzione ovunque.
+- "Se scelgo programma settimanale, la pagina dopo non deve chiedermelo di nuovo": la Home
+  (`HomeDashboard.tsx`) già passa `program_kind` come query param (`/crea?program_kind=...&
+  fresh=1`) quando l'utente sceglie da lì, ma lo step 2 del wizard (la stessa domanda) veniva
+  comunque mostrato. Aggiunto `skipKindStep` (vero solo quando si arriva fresh da Home con
+  `program_kind` esplicito in URL): `stepAfter`/`stepBefore` saltano lo step 2 in entrambe le
+  direzioni solo in quel caso — un ingresso diretto sull'URL senza quel parametro può ancora
+  scegliere.
+
+**Verificato**: 251 test verdi (250 + 1 nuovo test mirato sul bug target_muscles), `tsc`/
+`eslint`/`npm run build` puliti.
+
+**Non verificato in un browser reale**: l'utente ha offerto credenziali di produzione per un
+test live, ma non ho un tool di automazione browser disponibile in questo ambiente (nessun
+Playwright installato nel progetto, nessun tool MCP di navigazione nella lista strumenti di
+questa sessione) — non ho tentato un test live per non rischiare di usare le credenziali senza
+poterle davvero sfruttare. Prossimo passo: l'utente deve riverificare in produzione dopo il
+deploy di questo fix, in particolare se il report "CBum non cambia dal PPL" è davvero risolto
+o se c'è dell'altro.

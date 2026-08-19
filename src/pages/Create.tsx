@@ -56,6 +56,11 @@ export default function Create() {
 
   const initialKind = searchParams.get('program_kind') === 'single_session' ? 'single_session' : 'program'
   const freshEntry = searchParams.get('fresh') === '1'
+  // L'utente ha già scelto "Programma Settimanale" o "Sessione Singola" nella Home (sez.
+  // feedback utente 19/08 sera: "la pagina successiva non mi deve chiedere di nuovo"): lo step
+  // 2 del wizard, che ripropone la stessa scelta, va saltato solo in questo caso — un ingresso
+  // diretto sull'URL senza quel parametro deve poterla ancora fare.
+  const skipKindStep = freshEntry && searchParams.has('program_kind')
   const [builderInitial, setBuilderInitial] = useState<WeeklyProgramConfig>(() =>
     weeklyProgram && !freshEntry
       ? weeklyProgram.config
@@ -210,9 +215,19 @@ export default function Create() {
       weight_kg: profile?.weight_kg ?? null,
       seed: Date.now() % 100000,
     }
+    // Bug reale segnalato dall'utente (19/08 sera): per un programma settimanale normale (non
+    // single_session) questo era erroneamente `session.priority_muscles` — le stesse carenze
+    // già passate correttamente a `priority_muscles`/`todayPriorities` sotto. Risultato: con
+    // qualunque carenza dichiarata compatibile con la seduta di oggi, `target_muscles` smetteva
+    // di essere vuoto e faceva scattare il percorso "gruppi scelti" (buildCustomTargetSlots in
+    // bodybuilding.ts, o l'equivalente negli altri generatori), che sostituisce INTERAMENTE lo
+    // split standard con solo i muscoli carenti — niente più petto in Push, niente più dorso in
+    // Pull. `target_muscles` ha senso solo per la sessione singola a gruppi scelti esplicitamente
+    // dall'utente (single_session_target_muscles): un programma settimanale usa sempre lo split
+    // standard, le carenze vanno solo in `priority_muscles` (richiamo, non sostituzione).
     const todayTargets = global.program_kind === 'single_session'
       ? (global.single_session_target_muscles?.length ? global.single_session_target_muscles : [])
-      : session.priority_muscles
+      : []
     const todayPriorities = global.program_kind === 'single_session' ? global.weak_points : session.priority_muscles
     // Assente in sessione singola (nessuna settimana su cui far ruotare la porzione): i
     // generatori usano 'long_head' come default in quel caso (sez. Lagging Muscle Engine).
@@ -314,6 +329,7 @@ export default function Create() {
           error={error}
           initial={builderInitial}
           initialStep={builderStep}
+          skipKindStep={skipKindStep}
           onCreate={createProgram}
           onCreateWithAi={createProgramWithAi}
         />
@@ -340,6 +356,7 @@ function WizardBuilder({
   error,
   initial,
   initialStep,
+  skipKindStep,
   onCreate,
   onCreateWithAi,
 }: {
@@ -347,9 +364,11 @@ function WizardBuilder({
   error: string | null
   initial: WeeklyProgramConfig
   initialStep: number
+  skipKindStep: boolean
   onCreate: (config: WeeklyProgramConfig) => void | Promise<void>
   onCreateWithAi: (config: WeeklyProgramConfig, prompt: string) => void | Promise<void>
 }) {
+  const navigate = useNavigate()
   const [step, setStep] = useState<number>(initialStep)
   const [config, setConfig] = useState(initial)
   const [slideDirection, setSlideDirection] = useState<'left' | 'right'>('left')
@@ -405,8 +424,11 @@ function WizardBuilder({
   // Il Tabata puro ha una prescrizione fissa: dopo il timer si salta direttamente a Genera,
   // senza chiedere attrezzatura/muscoli carenti/preferenze/durata che non usa. Combinato con
   // un'altra disciplina, invece, quegli step restano necessari per configurarla.
-  const stepAfter = (n: number) => (isTabataOnly && n === 4 ? 9 : Math.min(TOTAL_STEPS, n + 1))
-  const stepBefore = (n: number) => (isTabataOnly && n === 9 ? 4 : Math.max(1, n - 1))
+  // Step 2 chiede "Programma Settimanale o Sessione Singola": se l'utente l'ha già scelto in
+  // Home (skipKindStep), va saltato in entrambe le direzioni — non riproposto avanti, non
+  // riattraversato tornando indietro da step 3.
+  const stepAfter = (n: number) => (isTabataOnly && n === 4 ? 9 : skipKindStep && n === 1 ? 3 : Math.min(TOTAL_STEPS, n + 1))
+  const stepBefore = (n: number) => (isTabataOnly && n === 9 ? 4 : skipKindStep && n === 3 ? 1 : Math.max(1, n - 1))
 
   const stepValid = (n: number): boolean => {
     if (n === 3) return modesValid
@@ -465,7 +487,7 @@ function WizardBuilder({
 
       {/* STEP 1: Livello */}
       {step === 1 && (
-        <SwipeContainer direction={slideDirection} onSwipeLeft={goNext} className="space-y-5">
+        <SwipeContainer direction={slideDirection} onSwipeLeft={goNext} onSwipeRight={() => navigate('/')} className="space-y-5">
           <Field title="Livello di Esperienza">
             <Grid>
               {([
@@ -482,7 +504,9 @@ function WizardBuilder({
               ))}
             </Grid>
           </Field>
-          <StepNav onNext={goNext} nextDisabled={!stepValid(1)} />
+          {/* Primo step del wizard: "indietro" torna alla Home, non a un altro step (sez.
+              feedback utente 19/08 sera: "tasto indietro a ogni slot"). */}
+          <StepNav onBack={() => navigate('/')} onNext={goNext} nextDisabled={!stepValid(1)} />
         </SwipeContainer>
       )}
 

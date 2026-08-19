@@ -238,7 +238,9 @@ describe('generaBodybuilding — priorità assegnate dalla settimana', () => {
     for (const session of program.week) {
       const w = generaBodybuilding(catalogo, {
         split: session.split!, goal: 'hypertrophy', experience: 'advanced', equipment: 'full_gym',
-        duration_min: 60, priority_muscles: session.priority_muscles, priority_portions: session.priority_portions,
+        // target_muscles: [] esplicito — è il campo che Create.tsx deve passare per un
+        // programma settimanale normale (sez. sotto: bug reale trovato il 19/08 sera).
+        duration_min: 60, priority_muscles: session.priority_muscles, target_muscles: [], priority_portions: session.priority_portions,
         excluded_exercises: [], seed: 7,
       })
       const main = mainBlock(w).exercises
@@ -249,6 +251,29 @@ describe('generaBodybuilding — priorità assegnate dalla settimana', () => {
         expect(main.filter((exercise) => exercise.muscle === identitario).length).toBeGreaterThanOrEqual(2)
       }
     }
+  })
+
+  it('Bug reale trovato il 19/08 sera: Create.tsx passava session.priority_muscles anche a target_muscles per un programma settimanale normale, sostituendo interamente Push con le sole carenze (niente petto)', () => {
+    // Segnalato dall'utente: PPL 5 giorni, carenze alzate laterali+bicipiti+tricipiti — "la
+    // prima sessione è spinta e mi porta le alzate laterali, e non mi porta esercizi di
+    // spinta". Causa reale: `todayTargets` in Create.tsx (buildGenerationConfig/generateDay)
+    // era `session.priority_muscles` per QUALUNQUE programma non single_session, invece di []
+    // — le stesse carenze finivano sia in priority_muscles (corretto, richiamo) sia in
+    // target_muscles (sbagliato, sostituzione integrale dello split). Con target_muscles non
+    // vuoto scatta `buildCustomTargetSlots`, che ignora BASE_SLOTS/applicaPrioritaAssegnate e
+    // costruisce la seduta SOLO con i muscoli in target_muscles — qui niente petto. Corretto in
+    // Create.tsx: `todayTargets` è ora sempre `[]` per un programma non single_session. Questo
+    // test blocca il caso specifico: se qualcuno reintroduce quell'errore chiamando il
+    // generatore con target_muscles uguale a priority_muscles, la seduta perde il petto.
+    const w = generaBodybuilding(catalogo, {
+      split: 'push', goal: 'hypertrophy', experience: 'advanced', equipment: 'full_gym',
+      duration_min: 75, priority_muscles: ['lateral_delts', 'biceps', 'triceps'],
+      target_muscles: [], // <- come deve essere passato: SEMPRE vuoto per un programma normale
+      excluded_exercises: [], seed: 1,
+    })
+    const main = mainBlock(w).exercises
+    expect(main.filter((exercise) => exercise.muscle === 'chest').length).toBeGreaterThanOrEqual(2)
+    expect(main[0].muscle).toBe('chest')
   })
 
   it('Push 60 minuti riserva gli slot alle carenze prima di raddoppiare il petto', () => {
