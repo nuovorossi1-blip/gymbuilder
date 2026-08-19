@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Sfondo "card" arrotondato della notifica timer, stile riferimento (banner scuro con bordo sottile). -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="#F00B0F19" />
+    <corners android:radius="24dp" />
+    <stroke android:width="1dp" android:color="#26FFFFFF" />
+</shape>

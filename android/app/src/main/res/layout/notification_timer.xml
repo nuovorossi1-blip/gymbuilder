@@ -1,54 +1,66 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Notifica custom del timer: sfondo nero pieno, countdown grande colorato per fase
-     (giallo = lavoro, blu = riposo). RemoteViews non supporta i temi dell'app, quindi i colori
-     sono qui hardcoded invece che in colors.xml, unico punto in cui servono. -->
+<!-- Notifica custom del timer, stile "banner" (card scura arrotondata, badge icona colorato per
+     fase, countdown grande, pillola col testo fase/giro sotto). RemoteViews non supporta i temi
+     dell'app, quindi i colori sono qui hardcoded invece che in colors.xml, unico punto in cui
+     servono. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="horizontal"
     android:gravity="center_vertical"
-    android:background="#000000"
-    android:paddingStart="20dp"
+    android:background="@drawable/notification_card_bg"
+    android:paddingStart="16dp"
     android:paddingEnd="20dp"
-    android:paddingTop="18dp"
-    android:paddingBottom="18dp">
+    android:paddingTop="14dp"
+    android:paddingBottom="14dp">
+
+    <FrameLayout
+        android:id="@+id/notification_timer_icon_badge"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:background="@drawable/notification_icon_bg_work">
+
+        <ImageView
+            android:id="@+id/notification_timer_icon"
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:layout_gravity="center"
+            android:src="@android:drawable/ic_lock_idle_alarm" />
+    </FrameLayout>
 
     <LinearLayout
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="1"
-        android:orientation="vertical">
+        android:layout_marginStart="14dp"
+        android:orientation="vertical"
+        android:gravity="center_vertical">
 
-        <TextView
-            android:id="@+id/notification_timer_label"
+        <Chronometer
+            android:id="@+id/notification_timer_chronometer"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textColor="#FFFFFF"
-            android:textSize="13sp"
+            android:textSize="34sp"
             android:textStyle="bold"
-            android:letterSpacing="0.08"
-            android:singleLine="true"
-            android:ellipsize="end" />
+            android:fontFamily="monospace"
+            android:letterSpacing="0.02" />
 
         <TextView
             android:id="@+id/notification_timer_title"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="2dp"
-            android:textColor="#B0B0B0"
-            android:textSize="12sp"
+            android:layout_marginTop="6dp"
+            android:background="@drawable/notification_badge_bg"
+            android:paddingStart="10dp"
+            android:paddingEnd="10dp"
+            android:paddingTop="3dp"
+            android:paddingBottom="3dp"
+            android:textColor="#CBD5E1"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.04"
             android:singleLine="true"
             android:ellipsize="end" />
     </LinearLayout>
-
-    <Chronometer
-        android:id="@+id/notification_timer_chronometer"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="12dp"
-        android:textSize="40sp"
-        android:textStyle="bold"
-        android:fontFamily="monospace"
-        android:gravity="end" />
 
 </LinearLayout>

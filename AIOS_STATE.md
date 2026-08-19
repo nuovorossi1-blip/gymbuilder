@@ -4,7 +4,7 @@
 > da qui. Va **aggiornato** a ogni sessione, non accodato all'infinito.
 > L'identità del progetto e il percorso di AI-OS stanno in `AIOS_PROJECT.json`.
 
-**Ultimo aggiornamento:** 2026-08-18 (fix crash timer nativo in background + riorganizzazione wizard Genera a 9 step, vedi fondo file) - Claude (Sonnet 5)
+**Ultimo aggiornamento:** 2026-08-19 (aggiunta regola CLAUDE.md per l'aggiornamento memoria + restyling banner notifica timer, vedi fondo file) - Claude (Sonnet 5)
 
 Etichette: `[FACT]` verificato nel codice · `[RICOSTRUITO]` dedotto da indizi ·
 `[IGNOTO]` non ricavabile dal repository
@@ -916,3 +916,35 @@ adb o di un file manager.
 Profilo → Diagnostica crash e incollare il contenuto. Da lì si potrà correggere la causa vera
 invece di continuare per ipotesi. 227 test verdi, `tsc`/`eslint` puliti, build verde. Il logger
 stesso non è testabile in questo Codespace (niente Android SDK/dispositivo).
+
+## Aggiornamento stato — 2026-08-19: regola di aggiornamento memoria esplicita + restyling banner notifica timer
+
+**Nuovo `CLAUDE.md`** in root: rende vincolante, per qualsiasi sessione Claude Code aperta su
+questo repo (non solo via `/handoff`), la regola di "salvataggio automatico" già presente nel
+protocollo AI-OS centrale — aggiornare `AIOS_STATE.md` (e `TODO.md` se pertinente) prima di
+dichiarare concluso un lavoro, poi commit insieme al codice. Prima esisteva solo nel repo
+esterno `ai-os` e nella sezione `SALVATAGGIO AUTOMATICO` di `AIOS_PROTOCOL.md`: valeva solo se
+qualcuno la faceva leggere all'AI. Ora è caricata automaticamente all'apertura di questa cartella
+in Claude Code.
+
+**Restyling banner notifica timer Android** (`WorkoutTimerService.java` +
+`res/layout/notification_timer.xml` + nuovi drawable `notification_card_bg`,
+`notification_icon_bg_{work,rest,other}`, `notification_badge_bg`), su richiesta esplicita
+dell'utente con mockup HTML di riferimento (card scura arrotondata, badge icona colorato per
+fase, countdown grande centrato, pillola col testo fase/giro sotto invece della vecchia riga di
+testo separata in alto a sinistra). Colore lavoro cambiato da giallo puro (`#FFD600`) ad ambra
+(`#F59E0B`) per aderire al riferimento; riposo resta blu (`#40C4FF`).
+
+Rimossa la TextView `notification_timer_label` (fase in maiuscolo, es. "LAVORO") perché
+ridondante col testo già passato da JS nella pillola (es. "Lavoro · Giro 1/15", da
+`Runner.tsx`); di conseguenza rimosso anche `phaseTitle()` in Java, non più usato.
+`buildCountdownViews()` ha cambiato firma (un solo testo — `badgeText` — invece di
+`exerciseLabel`+`topLabel`); lo stato "completato" ora mostra "Completato" nella pillola invece
+del vecchio "COMPLETATO" in alto.
+
+**Non verificabile in questo Codespace** (niente Android SDK/dispositivo, vedi sopra): solo XML
+validati con `xmllint` (ben formati) e coerenza letta a mano nel Java (nessun riferimento
+residuo a `notification_timer_label`/`phaseTitle`). **Prossimo passo**: verificare sul telefono
+reale, dopo la prossima build APK via GitHub Actions, che il banner appaia come nel riferimento
+sia a schermo acceso (banner in alto) sia su lock screen, e che i colori/badge cambino
+correttamente fra lavoro e riposo.

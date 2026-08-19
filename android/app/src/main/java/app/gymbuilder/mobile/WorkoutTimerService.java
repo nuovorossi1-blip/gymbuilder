@@ -33,7 +33,7 @@ public class WorkoutTimerService extends Service {
     public static final String EXTRA_VIBRATE = "vibrate";
     private static final String CHANNEL_ACTIVE = "gymbuilder_workout_timer";
     private static final int NOTIFICATION_ID = 4201;
-    private static final int COLOR_WORK = 0xFFFFD600;
+    private static final int COLOR_WORK = 0xFFF59E0B;
     private static final int COLOR_REST = 0xFF40C4FF;
     private static final int COLOR_OTHER = Color.WHITE;
 
@@ -154,14 +154,14 @@ public class WorkoutTimerService extends Service {
     }
 
     /**
-     * Notifica completamente custom (sfondo nero, countdown grande) invece dello stile di
-     * sistema: giallo durante il lavoro, blu durante il riposo, cosi' la fase si riconosce anche
-     * senza leggere il testo. Il Chronometer di RemoteViews e' un widget nativo che l'OS aggiorna
-     * da solo ogni secondo: nessun notify() ripetuto lato nostro, quindi nessun rischio di
-     * spam/flicker di notifiche durante round brevi come nel Tabata.
+     * Notifica completamente custom (card scura arrotondata, badge icona, countdown grande)
+     * invece dello stile di sistema: ambra durante il lavoro, blu durante il riposo, cosi' la
+     * fase si riconosce anche senza leggere il testo. Il Chronometer di RemoteViews e' un widget
+     * nativo che l'OS aggiorna da solo ogni secondo: nessun notify() ripetuto lato nostro, quindi
+     * nessun rischio di spam/flicker di notifiche durante round brevi come nel Tabata.
      */
     private Notification buildCountdown(String label, long deadline, String phase) {
-        RemoteViews content = buildCountdownViews(label, phaseTitle(phase), phase);
+        RemoteViews content = buildCountdownViews(label, phase);
         long base = SystemClock.elapsedRealtime() + (deadline - System.currentTimeMillis());
         content.setChronometer(R.id.notification_timer_chronometer, base, null, true);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
@@ -187,25 +187,26 @@ public class WorkoutTimerService extends Service {
             .build();
     }
 
-    /** exerciseLabel: testo secondario (nome esercizio/round, da JS). topLabel: testo in alto in grassetto (fase). */
-    private RemoteViews buildCountdownViews(String exerciseLabel, String topLabel, String phase) {
+    /** badgeText: pillola sotto il countdown (fase/round, es. "Lavoro · Giro 1/15", da JS). */
+    private RemoteViews buildCountdownViews(String badgeText, String phase) {
         RemoteViews views = new RemoteViews(getPackageName(), R.layout.notification_timer);
-        views.setTextViewText(R.id.notification_timer_label, topLabel);
-        views.setTextViewText(R.id.notification_timer_title, exerciseLabel);
+        views.setTextViewText(R.id.notification_timer_title, badgeText);
         views.setTextColor(R.id.notification_timer_chronometer, phaseColor(phase));
+        views.setInt(R.id.notification_timer_icon_badge, "setBackgroundResource", phaseIconBackground(phase));
+        views.setInt(R.id.notification_timer_icon, "setColorFilter", phaseColor(phase));
         return views;
-    }
-
-    private static String phaseTitle(String phase) {
-        if ("work".equals(phase)) return "LAVORO";
-        if ("rest".equals(phase)) return "RIPOSO";
-        return "TIMER ATTIVO";
     }
 
     private static int phaseColor(String phase) {
         if ("work".equals(phase)) return COLOR_WORK;
         if ("rest".equals(phase)) return COLOR_REST;
         return COLOR_OTHER;
+    }
+
+    private static int phaseIconBackground(String phase) {
+        if ("work".equals(phase)) return R.drawable.notification_icon_bg_work;
+        if ("rest".equals(phase)) return R.drawable.notification_icon_bg_rest;
+        return R.drawable.notification_icon_bg_other;
     }
 
     /**
@@ -218,7 +219,7 @@ public class WorkoutTimerService extends Service {
     private void completeTimer() {
         releaseWakeLock();
         if (vibrateEnabled) vibrateLong();
-        RemoteViews frozen = buildCountdownViews(lastLabel, "COMPLETATO", lastPhase);
+        RemoteViews frozen = buildCountdownViews("Completato", lastPhase);
         frozen.setChronometer(R.id.notification_timer_chronometer, SystemClock.elapsedRealtime(), null, false);
         NotificationManager manager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
         manager.notify(NOTIFICATION_ID, notificationFrom(frozen));
