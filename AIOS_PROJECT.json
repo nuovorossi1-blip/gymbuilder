@@ -59,8 +59,8 @@
   ],
 
   "last_session": {
-    "model": "Codex",
-    "date": "2026-08-06",
-    "summary": "Phase 2-7 completate e Phase 8 verificata sui requisiti disponibili. Sei commit pubblicati su main fino a e3a824c; deployment Vercel di produzione Ready, dominio HTTP 200 e variabili Supabase presenti. 112 test e build verdi, lint senza errori. Migrazioni Phase 2/5 ancora bloccate dai permessi Supabase; verifica autenticata richiede un account di test."
+    "model": "Claude Sonnet 5",
+    "date": "2026-08-21",
+    "summary": "Corretto un residuo del bug dip Push (19/08): lo slot tricipiti composto sceglieva ancora a caso fra dip_parallele e dip_panca; ora vincolato al solo dip_parallele con max 3 serie (SlotDef.maxSets, nuovo campo). Aggiunto pulsante 'Torna alla Settimana' dopo il salvataggio di una giornata dentro un programma multi-giorno (prima si perdeva la settimana). 251/251 test verdi, tsc/eslint/build puliti. Consegnato via PR draft #30 su branch claude/gymbuilder-user-testing-v8r1j7, non ancora mergiato su main: produzione non ancora aggiornata."
   }
 }

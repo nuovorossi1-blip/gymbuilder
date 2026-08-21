@@ -517,21 +517,20 @@ describe('generaBodybuilding — scenario critico sez. 28 della correzione', () 
 })
 
 describe('generaBodybuilding — Push senza shoulder press fisso, dip come esercizio a più muscoli (sez. feedback utente 19/08)', () => {
-  it('il dip (dip_parallele/dip_panca) è raggiungibile come slot tricipiti composto: prima escluso da un pattern troppo stretto', () => {
+  it('il dip tricipiti composto in Push è sempre dip_parallele (mai dip_panca) e ha al massimo 3 serie', () => {
     // dip_parallele ha movement_pattern 'horizontal_push' (petto/deltoide anteriore secondari,
-    // esattamente l'esercizio "a più muscoli" descritto dall'utente), ma PATTERN_PER_MUSCOLO.
-    // triceps accettava solo 'elbow_extension': l'esercizio non poteva mai essere scelto, per
-    // nessuno slot. Su tanti seed diversi il motore deve pescarlo almeno qualche volta.
-    const scelti = new Set<string>()
+    // esattamente l'esercizio "a più muscoli" descritto dall'utente); dip_panca non allena petto
+    // né deltoide anteriore, quindi non è mai la scelta corretta per questo slot. Le 4 serie
+    // standard erano eccessive per uno slot pensato come recupero attivo dopo due panche pesanti.
     for (let seed = 1; seed <= 40; seed++) {
       const w = generaBodybuilding(catalogo, {
         split: 'push', goal: 'hypertrophy', experience: 'advanced', equipment: 'full_gym',
         duration_min: 75, priority_muscles: [], excluded_exercises: [], seed,
       })
       const dip = mainBlock(w).exercises.find((exercise) => exercise.muscle === 'triceps' && exercise.role === 'compound')
-      if (dip) scelti.add(dip.exercise_id)
+      expect(dip?.exercise_id).toBe('dip_parallele')
+      expect(dip?.sets).toBeLessThanOrEqual(3)
     }
-    expect(scelti.has('dip_parallele')).toBe(true)
   })
 
   it('nessuna seduta Push standard genera più uno shoulder press pesante fisso in terza posizione', () => {

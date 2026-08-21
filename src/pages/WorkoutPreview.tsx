@@ -168,6 +168,14 @@ export default function WorkoutPreview() {
 
   return (
     <div className="px-5 pt-12 pb-8">
+      {weeklyProgram && weeklyProgram.config.program_kind === 'program' && weeklyProgram.week.length > 1 && (
+        <button
+          onClick={() => naviga('/crea')}
+          className="mb-3 inline-flex items-center gap-1.5 text-[13px] font-bold uppercase text-cyan-300 hover:text-white"
+        >
+          ← Torna alla Settimana
+        </button>
+      )}
       <p className="eyebrow mb-2">{EXPERIENCE_LABELS[displayed.experience]} · {GOAL_LABELS[displayed.goal]}</p>
       <h1 className="font-display font-extrabold uppercase leading-[0.9] tracking-tight text-[2.4rem]">
         {displayed.split ? SPLIT_LABELS[displayed.split] : MODE_LABELS[displayed.mode]}
@@ -399,9 +407,21 @@ export default function WorkoutPreview() {
               </p>
             </div>
             <div className="space-y-2 pt-2">
+              {weeklyProgram && weeklyProgram.config.program_kind === 'program' && weeklyProgram.week.length > 1 && (
+                <button
+                  onClick={() => naviga('/crea')}
+                  className="w-full rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 py-3.5 font-display text-sm font-bold uppercase text-white shadow-lg glow-cyan"
+                >
+                  📅 Torna alla Settimana
+                </button>
+              )}
               <button
                 onClick={() => naviga('/salvati')}
-                className="w-full rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 py-3.5 font-display text-sm font-bold uppercase text-white shadow-lg glow-emerald"
+                className={`w-full rounded-xl py-3.5 font-display text-sm font-bold uppercase text-white shadow-lg ${
+                  weeklyProgram && weeklyProgram.config.program_kind === 'program' && weeklyProgram.week.length > 1
+                    ? 'glass-card !text-slate-300 hover:!text-white'
+                    : 'bg-gradient-to-r from-emerald-500 to-teal-600 glow-emerald'
+                }`}
               >
                 📂 Vai alla Libreria Salvati
               </button>
