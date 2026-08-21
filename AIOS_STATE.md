@@ -4,7 +4,7 @@
 > da qui. Va **aggiornato** a ogni sessione, non accodato all'infinito.
 > L'identità del progetto e il percorso di AI-OS stanno in `AIOS_PROJECT.json`.
 
-**Ultimo aggiornamento:** 2026-08-21 (Pezzo 2 del piano: tracciamento del peso usato per qualsiasi esercizio, con precompilazione dall'ultima volta — vedi fondo file) - Claude (Sonnet 5)
+**Ultimo aggiornamento:** 2026-08-21 (rimosso lo step "Livello di Esperienza" dal wizard e la relativa etichetta in schermata — l'app presuppone che l'utente sappia già allenarsi — vedi fondo file) - Claude (Sonnet 5)
 
 Etichette: `[FACT]` verificato nel codice · `[RICOSTRUITO]` dedotto da indizi ·
 `[IGNOTO]` non ricavabile dal repository
@@ -2048,3 +2048,56 @@ provarlo con un allenamento vero prima di fidarsene del tutto. Prossimo passo pe
 un allenamento normale, controllare che il campo peso compaia sotto il nome dell'esercizio,
 scrivere un numero, finire l'allenamento, e la volta successiva con lo stesso esercizio
 controllare che il peso sia già scritto. Consegnato **direttamente su `main`**.
+
+## Aggiornamento stato — 2026-08-21 (continua): rimosso lo step "Livello di Esperienza" — l'app presuppone competenza
+
+**Contesto**: richiesta diretta di Rossi, non collegata al piano in 3 pezzi di prima. Motivazione
+sua: "questa applicazione serve per chi già conosce le metodiche di allenamento... non serve che
+l'utente sia intermedio o avanzato, esperto, perché deve già sapersi allenare. Servono più che
+altro come tracciamento e creazione di programmi di allenamento."
+
+**Cosa è stato fatto**:
+- Rimosso interamente lo Step 1 del wizard ("Livello di Esperienza": Intermedio/Avanzato) —
+  **rinumerato l'intero wizard da 9 a 8 step**, uno per uno, verificato con `grep` che la
+  sequenza finale `step === 1..8` sia completa senza buchi né duplicati.
+- `TOTAL_STEPS` 9→8, `STEP_TITLES` rinumerate, `stepTitle` (caso speciale "Split") da
+  `step===4` a `step===3`, `stepAfter`/`stepBefore` rinumerate (incluso il caso Tabata puro,
+  da `n===4→9` a `n===3→8`).
+- **La logica di `skipKindStep` è cambiata di natura**: prima saltava lo step "Cosa vuoi
+  creare" tramite un salto dentro `stepAfter`/`stepBefore` (l'utente vedeva comunque Livello
+  per primo, poi il salto scattava al secondo step). Con Livello rimosso, "Cosa vuoi creare" è
+  diventato il nuovo Step 1 — il salto ora è nello **step iniziale stesso**
+  (`useState(skipKindStep ? 2 : 1)`), non più un salto a metà: chi arriva da Home con
+  `program_kind` già scelto non vede mai lo Step 1, parte già dallo Step 2. Aggiunta anche la
+  gestione simmetrica all'indietro: lo Step 2 ora ha `onBack` condizionale
+  (`skipKindStep ? torna alla Home : goBack`), altrimenti tornare indietro da lì avrebbe
+  provato a mostrare uno Step 1 che per quell'utente non è mai esistito.
+- `onEditConfig` (dalla vista settimanale, "modifica configurazione") puntava a
+  `setBuilderStep(4)` (Split, vecchia numerazione) — corretto a `3` (Split, nuova numerazione).
+- `DEFAULT_CONFIG.experience`: da `'beginner'` a `'advanced'` — l'utente non lo sceglie più, ma
+  il campo resta nel tipo/nei generatori (usato per `min_experience` nel filtro catalogo):
+  impostato fisso al valore che sblocca tutto il catalogo, coerente col principio "l'utente sa
+  già allenarsi", senza dover riscrivere i generatori che ancora lo usano internamente.
+- Tolta l'etichetta "Intermedio"/"Avanzato" mostrata in cima a `WorkoutPreview.tsx` (quella nel
+  primo screenshot mandato da Rossi in questa sessione) — resta solo l'obiettivo (es. "Massa").
+- `tsc`/`eslint`/`npm run build` puliti, 317/317 test verdi (invariato: nessun test unitario
+  copre direttamente questo wizard, `tsc` è stato il controllo principale su una rinumerazione
+  di questa portata).
+
+**Cosa c'è ancora da fare**: nessun seguito diretto di questa modifica. Resta ancora aperto il
+terzo pezzo del piano precedente — Density 3-6-9 dentro il programma settimanale multi-giorno.
+
+**Dove deve arrivare il progetto**: coerente con quanto Rossi ha chiarito oggi — GymBuilder non
+è un'app per insegnare ad allenarsi, è uno strumento di generazione e tracciamento per chi sa già
+farlo. Vale la pena ricordarselo per scelte di design future (evitare di aggiungere altre
+richieste tipo "quanto sei esperto" o guide per principianti).
+
+**Cosa deve aspettarsi l'utente**: **verificato solo con `tsc`/build, non ancora in un browser o
+dispositivo reale** — e qui la rinumerazione di un intero wizard è il tipo di modifica dove un
+errore di battitura in un numero passa inosservato a `tsc` ma rompe la navigazione a runtime.
+Prossimo passo per Rossi, con più attenzione del solito: aprire il wizard da zero (non da un
+link con `program_kind` già impostato) e controllare che il primo step sia "Cosa vuoi creare"
+(non più Livello), che si arrivi fino in fondo a "Genera" senza step mancanti o duplicati, e che
+il tasto Indietro funzioni in ogni punto — in particolare partendo dalla Home con
+"Programma Settimanale" già scelto lì, dove ora il salto avviene diversamente da prima.
+Consegnato **direttamente su `main`**.

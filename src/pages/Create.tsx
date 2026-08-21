@@ -36,7 +36,7 @@ const STRENGTH_SPLITS: Split[] = ['push', 'pull', 'legs', 'upper', 'lower', 'ful
 const DEFAULT_CONFIG: WeeklyProgramConfig = {
   program_kind: 'program', duration_weeks: 4,
   training_days: 5, selected_modes: ['bodybuilding'], goal: 'hypertrophy',
-  split_system: 'ppl', experience: 'beginner', duration_min: 60,
+  split_system: 'ppl', experience: 'advanced', duration_min: 60,
   single_session_split: 'push', hybrid_balance: 'bb_dominant',
   strength_method: '5x5', hybrid_method: 'full_body_functional', hybrid_format: 'amrap',
   equipment: { preset: 'full_gym', available: PRESET_EQUIPMENT.full_gym }, weak_points: [],
@@ -80,7 +80,10 @@ export default function Create() {
           program_kind: initialKind,
         }
   )
-  const [builderStep, setBuilderStep] = useState<number>(1)
+  // Se l'utente ha già scelto Programma Settimanale/Sessione Singola in Home (skipKindStep), il
+  // wizard parte direttamente dallo Step 2 ("Seduta di oggi"), saltando lo Step 1 per intero —
+  // non solo "non richiesto di nuovo", proprio mai mostrato.
+  const [builderStep, setBuilderStep] = useState<number>(skipKindStep ? 2 : 1)
   const freshResetDone = useRef(false)
 
   useEffect(() => {
@@ -360,7 +363,7 @@ export default function Create() {
           }}
           onEditConfig={() => {
             setBuilderInitial(weeklyProgram.config)
-            setBuilderStep(4)
+            setBuilderStep(3)
             setWeeklyProgram(null)
           }}
         />
@@ -379,17 +382,16 @@ export default function Create() {
   )
 }
 
-const TOTAL_STEPS = 9
+const TOTAL_STEPS = 8
 const STEP_TITLES: Record<number, string> = {
-  1: 'Livello',
-  2: 'Cosa vuoi creare',
-  3: 'Seduta di oggi',
-  4: 'Split',
-  5: 'Attrezzi',
-  6: 'Muscoli carenti',
-  7: 'Preferenze',
-  8: 'Durata',
-  9: 'Genera',
+  1: 'Cosa vuoi creare',
+  2: 'Seduta di oggi',
+  3: 'Split',
+  4: 'Attrezzi',
+  5: 'Muscoli carenti',
+  6: 'Preferenze',
+  7: 'Durata',
+  8: 'Genera',
 }
 
 function WizardBuilder({
@@ -465,14 +467,14 @@ function WizardBuilder({
   // Il Tabata puro ha una prescrizione fissa: dopo il timer si salta direttamente a Genera,
   // senza chiedere attrezzatura/muscoli carenti/preferenze/durata che non usa. Combinato con
   // un'altra disciplina, invece, quegli step restano necessari per configurarla.
-  // Step 2 chiede "Programma Settimanale o Sessione Singola": se l'utente l'ha già scelto in
-  // Home (skipKindStep), va saltato in entrambe le direzioni — non riproposto avanti, non
-  // riattraversato tornando indietro da step 3.
-  const stepAfter = (n: number) => (isTabataOnly && n === 4 ? 9 : skipKindStep && n === 1 ? 3 : Math.min(TOTAL_STEPS, n + 1))
-  const stepBefore = (n: number) => (isTabataOnly && n === 9 ? 4 : skipKindStep && n === 3 ? 1 : Math.max(1, n - 1))
+  // "Programma Settimanale o Sessione Singola" (Step 1): se l'utente l'ha già scelto in Home
+  // (skipKindStep), il wizard parte direttamente dallo Step 2 (vedi builderStep più sotto) —
+  // non è più stepAfter/stepBefore a saltarlo, semplicemente non lo si visita mai.
+  const stepAfter = (n: number) => (isTabataOnly && n === 3 ? 8 : Math.min(TOTAL_STEPS, n + 1))
+  const stepBefore = (n: number) => (isTabataOnly && n === 8 ? 3 : Math.max(1, n - 1))
 
   const stepValid = (n: number): boolean => {
-    if (n === 3) return modesValid
+    if (n === 2) return modesValid
     return true
   }
 
@@ -510,7 +512,7 @@ function WizardBuilder({
     }
   }
 
-  const stepTitle = step === 4 ? (isTabataOnly ? 'Timer Tabata' : isTabata ? 'Split & Timer Tabata' : 'Split') : STEP_TITLES[step]
+  const stepTitle = step === 3 ? (isTabataOnly ? 'Timer Tabata' : isTabata ? 'Split & Timer Tabata' : 'Split') : STEP_TITLES[step]
 
   return (
     <div className="space-y-6">
@@ -526,34 +528,9 @@ function WizardBuilder({
         </div>
       </header>
 
-      {/* STEP 1: Livello */}
+      {/* STEP 1: Cosa vuoi creare */}
       {step === 1 && (
         <SwipeContainer direction={slideDirection} onSwipeLeft={goNext} onSwipeRight={() => navigate('/')} className="space-y-5">
-          <Field title="Livello di Esperienza">
-            <Grid>
-              {([
-                ['beginner', 'Intermedio · include Principiante'],
-                ['advanced', 'Avanzato · include Esperto'],
-              ] as const).map(([experience, label]) => (
-                <Choice
-                  key={experience}
-                  active={config.experience === experience}
-                  onClick={() => patch('experience', experience)}
-                >
-                  {label}
-                </Choice>
-              ))}
-            </Grid>
-          </Field>
-          {/* Primo step del wizard: "indietro" torna alla Home, non a un altro step (sez.
-              feedback utente 19/08 sera: "tasto indietro a ogni slot"). */}
-          <StepNav onBack={() => navigate('/')} onNext={goNext} nextDisabled={!stepValid(1)} />
-        </SwipeContainer>
-      )}
-
-      {/* STEP 2: Cosa vuoi creare */}
-      {step === 2 && (
-        <SwipeContainer direction={slideDirection} onSwipeLeft={goNext} onSwipeRight={goBack} className="space-y-5">
           <Field title="Cosa vuoi creare?">
             <Grid>
               <Choice
@@ -590,13 +567,21 @@ function WizardBuilder({
             </Field>
           )}
 
-          <StepNav onBack={goBack} onNext={goNext} nextDisabled={!stepValid(2)} />
+          {/* Primo step del wizard (Livello/Esperienza rimosso il 21/08 su richiesta di
+              Rossi: l'app presuppone che l'utente sappia già allenarsi, non serve chiederlo):
+              "indietro" torna alla Home, non a un altro step. */}
+          <StepNav onBack={() => navigate('/')} onNext={goNext} nextDisabled={!stepValid(1)} />
         </SwipeContainer>
       )}
 
-      {/* STEP 3: Seduta di oggi — tipologia di allenamento */}
-      {step === 3 && (
-        <SwipeContainer direction={slideDirection} onSwipeLeft={goNext} onSwipeRight={goBack} className="space-y-5">
+      {/* STEP 2: Seduta di oggi — tipologia di allenamento */}
+      {step === 2 && (
+        <SwipeContainer
+          direction={slideDirection}
+          onSwipeLeft={goNext}
+          onSwipeRight={skipKindStep ? () => navigate('/') : goBack}
+          className="space-y-5"
+        >
           <Field title={config.program_kind === 'program' ? 'Discipline della settimana (max 2)' : 'Tipo di sessione'}>
             <div className="grid grid-cols-2 gap-2.5">
               {PUBLIC_MODES.map((mode) => (
@@ -640,12 +625,12 @@ function WizardBuilder({
             )}
           </Field>
 
-          <StepNav onBack={goBack} onNext={goNext} nextDisabled={!stepValid(3)} />
+          <StepNav onBack={skipKindStep ? () => navigate('/') : goBack} onNext={goNext} nextDisabled={!stepValid(2)} />
         </SwipeContainer>
       )}
 
       {/* STEP 4: Split (o parametri speciali CrossFit/Tabata) */}
-      {step === 4 && (
+      {step === 3 && (
         <SwipeContainer direction={slideDirection} onSwipeLeft={goNext} onSwipeRight={goBack} className="space-y-5">
           <>
           {!isTabataOnly && (
@@ -918,12 +903,12 @@ function WizardBuilder({
             </Field>
           )}
           </>
-          <StepNav onBack={goBack} onNext={goNext} nextDisabled={!stepValid(4)} />
+          <StepNav onBack={goBack} onNext={goNext} nextDisabled={!stepValid(3)} />
         </SwipeContainer>
       )}
 
       {/* STEP 5: Attrezzatura */}
-      {step === 5 && (
+      {step === 4 && (
         <SwipeContainer direction={slideDirection} onSwipeLeft={goNext} onSwipeRight={goBack} className="space-y-5">
           <Field title="Attrezzatura Disponibile">
             <Grid>
@@ -968,12 +953,12 @@ function WizardBuilder({
               </div>
             )}
           </Field>
-          <StepNav onBack={goBack} onNext={goNext} nextDisabled={!stepValid(5)} />
+          <StepNav onBack={goBack} onNext={goNext} nextDisabled={!stepValid(4)} />
         </SwipeContainer>
       )}
 
       {/* STEP 6: Muscoli carenti */}
-      {step === 6 && (
+      {step === 5 && (
         <SwipeContainer direction={slideDirection} onSwipeLeft={goNext} onSwipeRight={goBack} className="space-y-5">
           <Field title={config.program_kind === 'program' ? 'Muscoli Carenti (richiami settimanali)' : 'Muscoli Carenti (target di oggi)'}>
             <p className="text-xs text-slate-300">
@@ -993,12 +978,12 @@ function WizardBuilder({
               ))}
             </div>
           </Field>
-          <StepNav onBack={goBack} onNext={goNext} nextDisabled={!stepValid(6)} />
+          <StepNav onBack={goBack} onNext={goNext} nextDisabled={!stepValid(5)} />
         </SwipeContainer>
       )}
 
       {/* STEP 7: Preferenze */}
-      {step === 7 && (
+      {step === 6 && (
         <SwipeContainer direction={slideDirection} onSwipeLeft={goNext} onSwipeRight={goBack} className="space-y-5">
           <Field title="Preferenze Esercizi">
             <p className="text-xs text-slate-300">
@@ -1049,12 +1034,12 @@ function WizardBuilder({
               </div>
             )}
           </Field>
-          <StepNav onBack={goBack} onNext={goNext} nextDisabled={!stepValid(7)} />
+          <StepNav onBack={goBack} onNext={goNext} nextDisabled={!stepValid(6)} />
         </SwipeContainer>
       )}
 
       {/* STEP 8: Durata */}
-      {step === 8 && (
+      {step === 7 && (
         <SwipeContainer direction={slideDirection} onSwipeLeft={goNext} onSwipeRight={goBack} className="space-y-5">
           <Field title="Durata Sessione (minuti)">
             <div className="grid grid-cols-5 gap-2">
@@ -1069,12 +1054,12 @@ function WizardBuilder({
               ))}
             </div>
           </Field>
-          <StepNav onBack={goBack} onNext={goNext} nextDisabled={!stepValid(8)} nextLabel="Vai a Genera" />
+          <StepNav onBack={goBack} onNext={goNext} nextDisabled={!stepValid(7)} nextLabel="Vai a Genera" />
         </SwipeContainer>
       )}
 
       {/* STEP 9: Genera */}
-      {step === 9 && (
+      {step === 8 && (
         <SwipeContainer direction={slideDirection} onSwipeRight={goBack} className="space-y-5">
           {error && <p role="alert" className="text-red-400 text-sm">{error}</p>}
 

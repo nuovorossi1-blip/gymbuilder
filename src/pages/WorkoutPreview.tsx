@@ -7,7 +7,7 @@ import { aggiornaProgramma, salvaAllenamento } from '../lib/api'
 import { findExerciseReplacements, type ReplacementCandidate } from '../engine/replacement'
 import { recordExerciseFeedback } from '../engine/feedback'
 import {
-  EXPERIENCE_LABELS, GOAL_LABELS, isLaggingNote, MODE_LABELS, MUSCLE_LABELS, SPLIT_LABELS,
+  GOAL_LABELS, isLaggingNote, MODE_LABELS, MUSCLE_LABELS, SPLIT_LABELS,
   type Exercise, type ExerciseFeedbackReason, type Gear, type GeneratedWorkout, type PrescribedExercise, type WeeklyProgram, type WeeklyProgramConfig,
 } from '../types'
 
@@ -168,7 +168,7 @@ export default function WorkoutPreview() {
 
   return (
     <div className="px-5 pt-12 pb-8">
-      <p className="eyebrow mb-2">{EXPERIENCE_LABELS[displayed.experience]} · {GOAL_LABELS[displayed.goal]}</p>
+      <p className="eyebrow mb-2">{GOAL_LABELS[displayed.goal]}</p>
       <h1 className="font-display font-extrabold uppercase leading-[0.9] tracking-tight text-[2.4rem]">
         {displayed.split ? SPLIT_LABELS[displayed.split] : MODE_LABELS[displayed.mode]}
       </h1>
