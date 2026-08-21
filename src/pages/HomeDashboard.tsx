@@ -277,6 +277,19 @@ export default function HomeDashboard() {
         </div>
       </section>
 
+      {/* Density Tri-Set 3-6-9 (21/08, ancora la prima volta che compare in interfaccia) */}
+      <button
+        onClick={() => navigate('/density-369/scegli')}
+        className="w-full flex items-center justify-between rounded-xl glass-card border border-purple-500/30 p-4 text-left hover:border-purple-500/60 transition-colors"
+      >
+        <div>
+          <div className="text-[11px] font-bold uppercase tracking-wider text-purple-300 mb-0.5">Nuovo</div>
+          <div className="font-display font-bold text-white">Density Tri-Set 3-6-9</div>
+          <div className="text-xs text-slate-400">Push/Pull/Legs a circuito, forza → ipertrofia → metabolico</div>
+        </div>
+        <span className="text-purple-300 text-lg">▶</span>
+      </button>
+
       {/* Quick Access: Saved Workouts */}
       <section className="space-y-3">
         <div className="flex items-center justify-between">

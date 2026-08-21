@@ -4,7 +4,7 @@
 > da qui. Va **aggiornato** a ogni sessione, non accodato all'infinito.
 > L'identità del progetto e il percorso di AI-OS stanno in `AIOS_PROJECT.json`.
 
-**Ultimo aggiornamento:** 2026-08-21 (Density 3-6-9 Fase 2 — motore di esecuzione dal vivo, isolato da Runner.tsx su richiesta esplicita dell'utente dopo discussione sul rischio — vedi fondo file) - Claude (Sonnet 5)
+**Ultimo aggiornamento:** 2026-08-21 (Density 3-6-9 Fase 3 — punto d'ingresso reale in Home + guida delle 4 regole — vedi fondo file) - Claude (Sonnet 5)
 
 Etichette: `[FACT]` verificato nel codice · `[RICOSTRUITO]` dedotto da indizi ·
 `[IGNOTO]` non ricavabile dal repository
@@ -1771,3 +1771,36 @@ riaprendo lo schermo e che l'app non crashi. Consegnato **direttamente su `main`
 pagina non è raggiungibile da nessun punto dell'interfaccia esistente (serve l'URL diretto),
 quindi il rischio per chi usa l'app normalmente oggi è zero — il rischio è solo per chi va a
 provare deliberatamente `/density-369`.
+
+## Aggiornamento stato — 2026-08-21 (continua): Density 3-6-9 Fase 3 — punto d'ingresso in Home + guida delle 4 regole
+
+**Problemi rilevati**: nessun bug, seguito diretto di Fase 2 su richiesta di Rossi ("procedi fino
+al deploy"). Fino a questo punto `/density-369` esisteva ma era raggiungibile solo scrivendo
+l'indirizzo a mano — nessun utente vero l'avrebbe mai trovato.
+
+**Cosa è stato fatto**: nuova pagina `src/pages/Density369Scegli.tsx` (route
+`/density-369/scegli`) — sceglie lo split (Push/Pull/Legs) e mostra le 4 regole operative della
+sez. 5 della spec originale di Rossi (Autoregolazione dei Carichi, Buffer RIR, Doppia
+Progressione, Logistica Salva-Postazione) prima di avviare la sessione vera. Aggiunta una card
+su `HomeDashboard.tsx` ("Nuovo — Density Tri-Set 3-6-9") che porta lì. Modifica a
+`HomeDashboard.tsx` minima e non distruttiva: un blocco JSX in più, nessuna riga esistente
+toccata. 279/279 test verdi (invariato, nessuna logica nuova da testare — solo UI di
+navigazione), `tsc`/`eslint`/`npm run build` puliti.
+
+**Cosa c'è ancora da fare**: le voci rimaste in TODO.md — arricchimento catalogo (~14
+esercizi), altri split oltre a PPL, messaggio chiaro quando l'attrezzatura è "solo corpo
+libero" (oggi fallisce silenziosamente restituendo null), il limite `ActiveTimerState.href`, e
+soprattutto — resta la voce più importante di tutte — **la verifica su un telefono Android vero
+con schermo bloccato durante un riposo lungo, non ancora fatta da nessuno**.
+
+**Dove deve arrivare il progetto**: con questo la funzione Density 3-6-9 è ora completa end-to-end
+dal punto di vista del codice — si trova dalla Home, si sceglie lo split, si vede la guida, si
+allena, si salva. Manca solo la verifica umana su dispositivo reale prima di potersi fidare per
+un allenamento vero, e l'arricchimento del catalogo per più varietà.
+
+**Cosa deve aspettarsi l'utente**: apri l'app, sulla Home vedi la nuova card viola "Density
+Tri-Set 3-6-9" — toccala, scegli uno split, leggi le regole, premi lo split e parte. Stesso
+avviso già scritto per la Fase 2: **non ancora provato su un telefono vero**, in particolare col
+timer in background durante un riposo lungo. Consegnato **direttamente su `main`**: la card è ora
+visibile a chiunque apra l'app, quindi — a differenza delle fasi precedenti — questa modifica SI
+vede subito da chiunque usi GymBuilder normalmente, non solo da chi cerca l'URL apposta.
