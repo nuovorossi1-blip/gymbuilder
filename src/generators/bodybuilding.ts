@@ -76,6 +76,9 @@ interface SlotDef {
    *  tricipiti quando lo slot è fisso di template, non una carenza settimanale (che ha la sua
    *  rotazione via cfg.priority_portions — quella vince sempre se lo slot diventa weakPoint). */
   preferredPortion?: FocusPortion
+  /** Tetto opzionale alle serie prescritte per questo slot (es. dip in Push: recupero attivo,
+   *  non serve spingerlo come un composto pesante standard). */
+  maxSets?: number
 }
 
 /**
@@ -138,7 +141,7 @@ const BASE_SLOTS: Record<Split, SlotDef[]> = {
     { muscle: 'chest', compound: true },
     { muscle: 'chest', compound: true },
     { muscle: 'lateral_delts', compound: false },
-    { muscle: 'triceps', compound: true },
+    { muscle: 'triceps', compound: true, preferredPatterns: ['horizontal_push'], maxSets: 3 },
     { muscle: 'biceps', compound: false, preferredPortion: 'long_head' },
     { muscle: 'triceps', compound: false, preferredPortion: 'long_head' },
   ],
@@ -693,9 +696,10 @@ export function generaBodybuilding(
 
     if (!scelto) continue // nessun esercizio disponibile per questo slot con questa attrezzatura
 
-    const p = cfg.protocol === 'fst7'
+    const pBase = cfg.protocol === 'fst7'
       ? prescrizioneFst7Base(s.compound, cfg.experience, cfg.intensity)
       : prescrizione(cfg.goal, s.compound, cfg.experience, cfg.intensity)
+    const p = s.maxSets && cfg.protocol !== 'fst7' ? { ...pBase, sets: Math.min(pBase.sets, s.maxSets) } : pBase
     const voce: PrescribedExercise = {
       exercise_id: scelto.id,
       name: scelto.name,

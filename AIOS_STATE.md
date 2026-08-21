@@ -4,7 +4,7 @@
 > da qui. Va **aggiornato** a ogni sessione, non accodato all'infinito.
 > L'identità del progetto e il percorso di AI-OS stanno in `AIOS_PROJECT.json`.
 
-**Ultimo aggiornamento:** 2026-08-19 (bug reale grave: Create.tsx sostituiva l'intero split settimanale con le sole carenze — niente più petto in Push — vedi fondo file) - Claude (Sonnet 5)
+**Ultimo aggiornamento:** 2026-08-21 (dip Push vincolato a dip_parallele, non più casuale + tasto "Torna alla Settimana" dopo il salvataggio — vedi fondo file) - Claude (Sonnet 5)
 
 Etichette: `[FACT]` verificato nel codice · `[RICOSTRUITO]` dedotto da indizi ·
 `[IGNOTO]` non ricavabile dal repository
@@ -297,6 +297,8 @@ workflow APK richiede la correzione documentata nella sez. 10.
 | Il tetto ai "compound pesanti" (max 2 a sessione, sez. 24/77 della correzione) non scattava mai nei test | La soglia era tarata su una scala di fatica 1-10 ("systemic_fatigue >= 7"), ma il catalogo reale usa una scala 1-3. Nessun esercizio raggiungeva mai la soglia | Soglia corretta a 3 (il valore massimo reale nel catalogo). Lezione: quando si tara una soglia su un campo numerico, controllare il range effettivo dei dati prima di scegliere il numero, non assumerlo dalla specifica in astratto |
 | `AIOS_PROJECT.json`/`AIOS_STATE.md` dicevano che il collegamento automatico GitHub→Vercel non era attivo | La nota risale alla Fase 1 e non è mai stata riverificata nelle sessioni successive: è rimasta come vera per inerzia. In realtà il progetto Vercel *era* collegato a GitHub (dominio `gymbuilder-git-main-...` generato automaticamente, deployment innescato da solo dopo un push su `main`) | Verificato guardando l'elenco dei deployment su Vercel dopo un push reale: il nuovo commit compare come "Latest"/"Current" entro un minuto. Nota corretta in questo file. Lezione: una nota "problema aperto" scritta in una sessione va riverificata prima di darla per scontata nelle successive, non solo copiata avanti |
 | Con intensità "Alta" e poco tempo a disposizione, il recupero finiva identico a quello di intensità "Bassa" nello stesso scenario — il campo Intensità sembrava non avere alcun effetto | Non è un bug: quando il tempo è troppo poco per il recupero lungo richiesto da "Alta", l'adattamento al tempo lo comprime verso il minimo, esattamente come farebbe con qualunque altra intensità nello stesso vincolo. È l'effetto atteso di "adatta il tempo, non tagliare esercizi", solo che in quel caso specifico appiattisce la differenza fra intensità | Non è stato cambiato il motore: cambiato il test, che ora verifica l'effetto dell'intensità con un budget di tempo sufficiente a non farla comprimere. Da tenere a mente: l'intensità è un'indicazione, non una garanzia, quando il tempo è troppo poco |
+| Il dip di Push tornava a essere scelto a caso fra `dip_parallele` (corretto: allena anche petto/deltoide anteriore) e `dip_panca` (che non lo fa), nonostante il fix del 19/08 mattina | Il fix del 19/08 aveva ammesso `horizontal_push` a livello di intero muscolo tricipiti, non del singolo slot: entrambi gli esercizi passavano il filtro e la scelta finale restava un sorteggio fra i primi candidati | Aggiunto `preferredPatterns: ['horizontal_push']` sullo slot 4 di `BASE_SLOTS.push`: nel catalogo solo `dip_parallele` ha quel pattern esatto, quindi lo slot ora sceglie sempre e solo lui. Aggiunto anche `maxSets: 3` sullo stesso slot (prima 4) |
+| Salvando una giornata dentro un programma settimanale multi-giorno, non c'era modo di tornare alla settimana in corso | Il modal "Allenamento Salvato!" aveva solo due uscite (Libreria, Home), nessuna verso `weeklyProgram` | Aggiunto un pulsante "Torna alla Settimana" (in cima alla pagina e nel modal), visibile solo quando `weeklyProgram.config.program_kind === 'program'` e `week.length > 1` |
 | In Condizionamento, i movimenti monostrutturali (es. "1 min" al vogatore) diventavano "5" ripetizioni nei formati EMOM/For Time dopo la riduzione/aumento delle reps | `reduxReps()` usava `parseInt("1 min")`, che in JavaScript non restituisce `NaN` ma `1` (legge le cifre iniziali e ignora il resto): la stringa veniva trattata come un numero valido e riscalata a un valore senza senso | Aggiunta una guardia esplicita `/^\d+$/.test(reps)` prima di qualunque trasformazione numerica: le reps a tempo restano intatte. Trovato eseguendo davvero il motore su tutti e 6 i formati prima di scrivere i test (non solo `tsc`/build), esattamente la lezione già in sez. 9 |
 | In Condizionamento, la `duration_min` finale dei formati "Rounds"/"Circuit"/"Intervals" era platealmente troppo corta (es. 5 minuti per 4 movimenti × 5 giri) | Il calcolo trattava ogni round come se durasse sempre 60 secondi (`rounds × 1 min`), formula presa in prestito da EMOM dove è vera per costruzione (`interval_sec` sempre 60) ma falsa per formati senza un `interval_sec` esplicito, dove un giro dura quanto il circuito reale richiede | `costruisciBlocco()` ora calcola e restituisce i minuti reali per formato (stima ~45s di lavoro a movimento + il recupero effettivo fra un esercizio e l'altro), invece di dedurli a ritroso da `rounds`/`interval_sec` al chiamante. Stessa lezione di sopra: il bug non sarebbe mai emerso da `tsc`/build, solo eseguendo il motore e leggendo i numeri prodotti |
 | L'app poteva ancora chiudersi durante l'allenamento (schermo spento, dopo un cambio di fase come lavoro→riposo) nonostante il fix precedente del 17/08 (`a125bd8`, try/catch su `onStartCommand`) | Quel fix intercetta solo le `RuntimeException` sincrone dentro `onStartCommand()`. Il ramo `deadline <= now` chiamava `stopTimer()` senza mai chiamare `startForeground()` — ma il servizio è avviato con `startForegroundService()`, che impone `startForeground()` entro pochi secondi *da ogni esito*. Se non arriva, Android lancia `ForegroundServiceDidNotStartInTimeException` *dopo* che `onStartCommand()` è già tornato: un crash a livello di sistema che nessun try/catch Java/JS può intercettare. Un deadline già scaduto arriva quando il tick React che lo calcola gira in ritardo (throttling in background/schermo spento) | Aggiunta `promoteToForegroundThenStop()`: il ramo del deadline scaduto ora chiama comunque `startForeground()` (con una notifica "a zero secondi") prima di fermare il servizio, rispettando il contratto Android in ogni ramo. Non riproducibile in questo Codespace (niente Android SDK): individuato per lettura del contratto `startForegroundService`, non da un log di crash reale — da confermare su un telefono vero |
@@ -1502,3 +1504,55 @@ questa sessione) — non ho tentato un test live per non rischiare di usare le c
 poterle davvero sfruttare. Prossimo passo: l'utente deve riverificare in produzione dopo il
 deploy di questo fix, in particolare se il report "CBum non cambia dal PPL" è davvero risolto
 o se c'è dell'altro.
+
+## Aggiornamento stato — 2026-08-21: dip Push vincolato a dip_parallele (non più casuale) + tasto "Torna alla Settimana" dopo il salvataggio
+
+Due bug segnalati da Rossi in chat (non da script di riproduzione, testati direttamente in produzione/uso reale).
+
+**Bug reale #1 — il dip di Push era ancora casuale nonostante il fix del 19/08 mattina**: quel fix
+aveva aggiunto `'horizontal_push'` a `PATTERN_PER_MUSCOLO.triceps`, ma quel filtro agisce a livello
+di *muscolo*, non di singolo slot — verificato sulla fixture catalogo
+(`src/generators/__tests__/fixtures/exercises.json`): `dip_panca` ha `movement_pattern:
+'elbow_extension'` (già ammesso da sempre) e `dip_parallele` ha `movement_pattern: 'horizontal_push'`
+(ammesso dal 19/08). Con `PATTERN_PER_MUSCOLO.triceps = ['elbow_extension', 'horizontal_push']`
+**entrambi** passavano il filtro di coerenza, e la scelta finale fra i due restava affidata al
+sorteggio fra i primi 3 candidati per fatica (`testa[Math.floor(random() * testa.length)]`) — il
+motore non aveva mai smesso di scegliere a caso, aveva solo smesso di escludere sempre
+`dip_parallele`. Corretto aggiungendo `preferredPatterns: ['horizontal_push']` allo slot 4 di
+`BASE_SLOTS.push` (non al filtro globale per muscolo): il pool si restringe ai soli esercizi con
+quel pattern esatto, e nel catalogo solo `dip_parallele` lo ha — `dip_panca` resta candidato per
+altri slot triceps (es. isolamento) ma non più per questo. Aggiunto anche `maxSets: 3` sullo
+stesso slot (prima 4, come tutti i compound): sez. feedback utente, "le 4 serie standard erano
+eccessive per uno slot che funge da recupero attivo dopo due panche pesanti" — nuovo campo
+opzionale `SlotDef.maxSets`, applicato nel calcolo della prescrizione solo quando il protocollo non
+è FST-7 (FST-7 ha già una sua prescrizione dedicata, non tocca `maxSets`).
+
+**Bug reale #2 — il programma settimanale si perdeva dopo aver salvato una giornata**: dal modal
+"Allenamento Salvato!" (`WorkoutPreview.tsx`) le uniche due uscite erano "Vai alla Libreria
+Salvati" e "Torna alla Home" — nessuna delle due riportava alla settimana in corso
+(`weeklyProgram`, tenuta in `sessionStorage`), quindi chi stava costruendo un programma multi-
+giorno la perdeva di vista non appena salvava una seduta. Aggiunto un pulsante "📅 Torna alla
+Settimana" (`naviga('/crea')`), sia in cima alla pagina di anteprima sia nel modal di conferma
+salvataggio, visibile solo quando `weeklyProgram.config.program_kind === 'program'` e
+`weeklyProgram.week.length > 1` (cioè un vero programma multi-giorno, non una seduta singola). Il
+bottone "Vai alla Libreria Salvati" diventa stilisticamente secondario (bordo invece di sfondo
+pieno) quando quello nuovo compare, per non avere due call-to-action ugualmente primarie.
+
+**Verificato**: `tsc --noEmit` pulito, **251/251 test verdi** (suite intera, non solo il file
+toccato — invariata rispetto al 19/08 tranne il test riscritto sotto), `eslint` pulito sui file
+toccati, `npm run build` pulita. Il test `bodybuilding.test.ts` sul dip (sez. "Push senza shoulder
+press fisso...") è stato riscritto: prima verificava solo che `dip_parallele` fosse *raggiungibile*
+su 40 seed (troppo debole: passava anche se metà delle volte usciva `dip_panca`), ora verifica per
+ogni seed che l'esercizio scelto sia sempre `dip_parallele` e abbia sempre al massimo 3 serie.
+
+**Non verificato in un browser reale**: stesso limite di sempre in questo Codespace (nessun utente
+Supabase autenticato disponibile per il wizard `Create.tsx`/`WorkoutPreview.tsx`). Prossimo passo:
+Rossi deve generare un Push vero e controllare a occhio che lo slot 4 sia sempre il dip alle
+parallele con 3 serie, e provare il salvataggio di una giornata dentro un programma settimanale
+multi-giorno per vedere comparire il nuovo pulsante "Torna alla Settimana".
+
+**Lavoro consegnato via PR draft, non ancora mergiato su `main`**: branch
+`claude/gymbuilder-user-testing-v8r1j7`, PR #30
+(https://github.com/nuovorossi1-blip/gymbuilder/pull/30). La produzione
+(`gymbuilder-lemon.vercel.app`) non contiene ancora queste modifiche: il deploy automatico scatta
+solo dopo il merge su `main`.
