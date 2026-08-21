@@ -1576,8 +1576,9 @@ Rossi deve generare un Push vero e controllare a occhio che lo slot 4 sia sempre
 parallele con 3 serie, e provare il salvataggio di una giornata dentro un programma settimanale
 multi-giorno per vedere comparire il nuovo pulsante "Torna alla Settimana".
 
-**Lavoro consegnato via PR draft, non ancora mergiato su `main`**: branch
-`claude/gymbuilder-user-testing-v8r1j7`, PR #30
-(https://github.com/nuovorossi1-blip/gymbuilder/pull/30). La produzione
-(`gymbuilder-lemon.vercel.app`) non contiene ancora queste modifiche: il deploy automatico scatta
-solo dopo il merge su `main`.
+**Lavoro consegnato e mergiato su `main`** (squash commit `94070fb`, 21/08): la PR #30 è stata
+mergiata, Vercel ha buildato e pubblicato in produzione con successo (check GitHub: Vercel
+success sul commit `94070fb`). **Non verificato personalmente aprendo il link**: restrizioni di
+rete di questa sessione impediscono l'accesso a `gymbuilder-lemon.vercel.app` da qui — il
+prossimo LLM (o Rossi) deve aprire il sito e controllare a occhio prima di considerare la
+verifica completa, non fidarsi solo del pannello verde di Vercel.
