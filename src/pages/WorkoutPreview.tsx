@@ -168,14 +168,6 @@ export default function WorkoutPreview() {
 
   return (
     <div className="px-5 pt-12 pb-8">
-      {weeklyProgram && weeklyProgram.config.program_kind === 'program' && weeklyProgram.week.length > 1 && (
-        <button
-          onClick={() => naviga('/crea')}
-          className="mb-3 inline-flex items-center gap-1.5 text-[13px] font-bold uppercase text-cyan-300 hover:text-white"
-        >
-          ← Torna alla Settimana
-        </button>
-      )}
       <p className="eyebrow mb-2">{EXPERIENCE_LABELS[displayed.experience]} · {GOAL_LABELS[displayed.goal]}</p>
       <h1 className="font-display font-extrabold uppercase leading-[0.9] tracking-tight text-[2.4rem]">
         {displayed.split ? SPLIT_LABELS[displayed.split] : MODE_LABELS[displayed.mode]}
@@ -365,7 +357,7 @@ export default function WorkoutPreview() {
           </button>
           <button
             className="rounded-xl border border-edge bg-steel py-3.5 font-data text-[11px] uppercase tracking-[0.14em] text-chalk active:bg-edge"
-            onClick={() => naviga('/')}
+            onClick={() => naviga('/crea')}
           >
             Torna alla settimana
           </button>

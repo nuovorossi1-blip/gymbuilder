@@ -4,7 +4,7 @@
 > da qui. Va **aggiornato** a ogni sessione, non accodato all'infinito.
 > L'identità del progetto e il percorso di AI-OS stanno in `AIOS_PROJECT.json`.
 
-**Ultimo aggiornamento:** 2026-08-21 (Density 3-6-9 Fase 3 — punto d'ingresso reale in Home + guida delle 4 regole — vedi fondo file) - Claude (Sonnet 5)
+**Ultimo aggiornamento:** 2026-08-21 (bug reale: il bottone "Torna alla settimana" nella riga di azioni principale diceva una cosa e ne faceva un'altra — vedi fondo file) - Claude (Sonnet 5)
 
 Etichette: `[FACT]` verificato nel codice · `[RICOSTRUITO]` dedotto da indizi ·
 `[IGNOTO]` non ricavabile dal repository
@@ -1804,3 +1804,38 @@ avviso già scritto per la Fase 2: **non ancora provato su un telefono vero**, i
 timer in background durante un riposo lungo. Consegnato **direttamente su `main`**: la card è ora
 visibile a chiunque apra l'app, quindi — a differenza delle fasi precedenti — questa modifica SI
 vede subito da chiunque usi GymBuilder normalmente, non solo da chi cerca l'URL apposta.
+
+## Aggiornamento stato — 2026-08-21 (continua): "Torna alla settimana" diceva una cosa e ne faceva un'altra + link ridondante rimosso
+
+**Problemi rilevati**: Rossi ha mandato due screenshot segnalando un pulsante "Torna alla
+settimana" ridondante in cima alla pagina. Verificando ho trovato qualcosa di più serio di una
+ridondanza: nella riga di azioni principale di `WorkoutPreview.tsx` (quella con "Inizia"/"Salva
+in Libreria", SEMPRE visibile, non quella del modal post-salvataggio) esisteva **già da prima
+delle mie modifiche di oggi** un bottone con scritto "Torna alla settimana" che in realtà
+navigava a `/` (Home), non a `/crea` (la settimana). Funzionava per puro caso quando l'utente
+finiva comunque sulla Home senza accorgersi della discrepanza fra testo e comportamento — non
+l'avevo notato quando ho corretto gli altri due bug collegati (Indietro nativo Android, Home che
+non riprendeva il programma) perché quella riga specifica non era coinvolta in quegli scenari.
+
+**Cosa è stato fatto**: rimosso il link "← Torna alla Settimana" in cima alla pagina (quello
+aggiunto da me oggi in una sessione precedente — davvero ridondante, come detto da Rossi).
+Corretto il bottone preesistente nella riga di azioni: stesso testo, `onClick` cambiato da
+`naviga('/')` a `naviga('/crea')` — ora fa davvero quello che dice. Non toccato il terzo punto,
+il bottone "📅 Torna alla Settimana" dentro al modal "Allenamento Salvato!" (contesto diverso,
+dopo il salvataggio, funzionava già correttamente e non era nelle due schermate segnalate).
+279/279 test verdi (invariato — nessuna logica di generazione toccata, solo navigazione),
+`tsc`/`eslint`/`npm run build` puliti.
+
+**Cosa c'è ancora da fare**: nessun seguito diretto. Buona occasione per ricordare (a me stesso
+e a chi legge questo file dopo): quando si corregge un bug di navigazione, vale la pena cercare
+`naviga('/')`/`navigate('/')` nell'intero file, non solo nel punto segnalato — questo bottone
+mislabeled esisteva a poche righe da dove ho lavorato due volte oggi senza che lo notassi.
+
+**Dove deve arrivare il progetto**: stessa area di sempre — la navigazione dentro un programma
+settimanale deve fare esattamente quello che dice di fare, senza eccezioni nascoste.
+
+**Cosa deve aspettarsi l'utente**: **verificato solo con test/build, non ancora in un browser o
+dispositivo reale** (stesso limite di sempre). Prossimo passo: aprire un giorno generato dentro
+un programma settimanale e controllare che in fondo alla pagina ci sia un solo bottone "Torna
+alla settimana" (non più il link doppio in cima) e che tocandolo si veda davvero la settimana,
+non la Home. Consegnato **direttamente su `main`**.

@@ -61,6 +61,6 @@
   "last_session": {
     "model": "Claude Sonnet 5",
     "date": "2026-08-21",
-    "summary": "Density 3-6-9 Fase 3: punto d'ingresso reale nell'app - card su HomeDashboard + pagina Density369Scegli.tsx (scelta split + le 4 regole operative sez. 5 della spec). Prima serviva scrivere l'URL a mano. Modifica a HomeDashboard.tsx minima, non distruttiva. 279/279 test verdi (invariato), tsc/eslint/build puliti. La funzione Density 3-6-9 e' ora completa end-to-end lato codice (Home -> scelta -> guida -> esecuzione -> salvataggio). URGENTE ancora aperto: mai verificato su telefono Android vero con schermo bloccato durante un riposo lungo - stessa area di un crash gia' documentato in passato. Push diretto su main - la card e' visibile a chiunque apra l'app, prima modifica di oggi su questa funzione che si vede senza cercare l'URL."
+    "summary": "Bug reale trovato da screenshot di Rossi: WorkoutPreview.tsx aveva un bottone preesistente 'Torna alla settimana' nella riga di azioni principale (Inizia/Salva in Libreria) che in realta' navigava a '/' (Home), non a '/crea' - testo e comportamento non corrispondevano, esisteva da prima delle mie modifiche di oggi, non notato durante i due fix precedenti sullo stesso file. Corretto onClick a naviga('/crea'). Rimosso anche il link ridondante in cima alla pagina (mia aggiunta di oggi, confermato ridondante da Rossi). 279/279 test verdi (invariato), tsc/eslint/build puliti. Push diretto su main."
   }
 }
