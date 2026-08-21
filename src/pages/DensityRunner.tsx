@@ -73,7 +73,7 @@ export default function DensityRunner() {
 
   const split = (searchParams.get('split') as DensitySplit) ?? 'push'
 
-  const workout = useMemo(() => {
+  const generato = useMemo(() => {
     if (!catalog || catalog.length === 0) return null
     return generaDensity369(catalog, {
       split,
@@ -81,11 +81,42 @@ export default function DensityRunner() {
       available_equipment: settings?.available_equipment ?? null,
       excluded_exercises: settings?.excluded_exercises ?? [],
       preferred_exercises: settings?.favorite_exercises ?? [],
-      seed: Date.now(),
     })
   }, [catalog, split, settings])
 
+  // Stato separato dal risultato "grezzo" del generatore: la sostituzione manuale di un
+  // esercizio (sotto) modifica questo, non `generato` — così un ricalcolo di `generato` (es.
+  // le impostazioni finiscono di caricare) non cancella una sostituzione già fatta dall'utente.
+  const [workout, setWorkout] = useState<Density369Workout | null>(null)
+  useEffect(() => {
+    setWorkout((attuale) => attuale ?? generato)
+  }, [generato])
+
+  const sostituisciEsercizio = useCallback((blockIndex: 0 | 1, stationIndex: 0 | 1 | 2, nuovoId: string) => {
+    setWorkout((attuale) => {
+      if (!attuale) return attuale
+      const blocco = attuale.blocks[blockIndex]
+      const stazione = blocco.stations[stationIndex]
+      const nuovo = stazione.alternatives.find((a) => a.exercise_id === nuovoId)
+      if (!nuovo) return attuale
+      const stazioneAggiornata = {
+        ...stazione,
+        exercise_id: nuovo.exercise_id,
+        name: nuovo.name,
+        // L'esercizio appena lasciato torna fra le alternative, quello appena scelto ne esce.
+        alternatives: [
+          { exercise_id: stazione.exercise_id, name: stazione.name },
+          ...stazione.alternatives.filter((a) => a.exercise_id !== nuovoId),
+        ],
+      }
+      const stazioniAggiornate = blocco.stations.map((s, i) => (i === stationIndex ? stazioneAggiornata : s))
+      const blocchiAggiornati = attuale.blocks.map((b, i) => (i === blockIndex ? { ...b, stations: stazioniAggiornate } : b))
+      return { ...attuale, blocks: blocchiAggiornati }
+    })
+  }, [])
+
   const [stato, setStato] = useState<DensityRunnerState>(statoIniziale)
+  const [mostraAlternative, setMostraAlternative] = useState(false)
   const [clock, setClock] = useState<TimerClock | null>(null)
   const [paused, setPaused] = useState(false)
   const [, forceRender] = useState(0)
@@ -117,6 +148,7 @@ export default function DensityRunner() {
   const avanzaFase = useCallback(() => {
     if (!workout) return
     setStato((s) => avanza(s, workout))
+    setMostraAlternative(false)
   }, [workout])
 
   // Tick: ridisegna ogni secondo e avanza da sola quando un riposo arriva a zero. Lo stesso
@@ -229,7 +261,31 @@ export default function DensityRunner() {
       ) : (
         <div className="text-center">
           <p className="text-sm uppercase tracking-wider text-purple-300 mb-2">Stazione {st.role} · {st.reps} rep</p>
-          <h2 className="font-display text-3xl font-bold text-white mb-8">{st.name}</h2>
+          <h2 className="font-display text-3xl font-bold text-white mb-3">{st.name}</h2>
+          {st.alternatives.length > 0 && (
+            <button
+              onClick={() => setMostraAlternative((v) => !v)}
+              className="mb-5 text-xs font-bold uppercase text-cyan-300 hover:text-white"
+            >
+              🔄 Sostituisci esercizio
+            </button>
+          )}
+          {mostraAlternative && st.alternatives.length > 0 && (
+            <div className="mb-5 space-y-1.5">
+              {st.alternatives.map((alt) => (
+                <button
+                  key={alt.exercise_id}
+                  onClick={() => {
+                    sostituisciEsercizio(stato.position.blockIndex, stato.position.stationIndex, alt.exercise_id)
+                    setMostraAlternative(false)
+                  }}
+                  className="w-full rounded-xl glass-card border border-edge py-3 text-sm text-slate-200 hover:border-cyan-500/50 hover:text-white"
+                >
+                  {alt.name}
+                </button>
+              ))}
+            </div>
+          )}
           <button
             onClick={avanzaFase}
             className="w-full rounded-xl bg-gradient-to-r from-purple-500 to-indigo-600 py-4 font-display text-base font-bold uppercase text-white shadow-lg"

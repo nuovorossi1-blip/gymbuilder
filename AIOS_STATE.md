@@ -4,7 +4,7 @@
 > da qui. Va **aggiornato** a ogni sessione, non accodato all'infinito.
 > L'identità del progetto e il percorso di AI-OS stanno in `AIOS_PROJECT.json`.
 
-**Ultimo aggiornamento:** 2026-08-21 (Density 3-6-9 selezionabile davvero nel wizard, come protocollo — con template per 11 split, non solo PPL — vedi fondo file) - Claude (Sonnet 5)
+**Ultimo aggiornamento:** 2026-08-21 (Density 3-6-9: scelta esercizi resa deterministica, non più casuale, + sostituzione manuale — correzione su segnalazione diretta di Rossi — vedi fondo file) - Claude (Sonnet 5)
 
 Etichette: `[FACT]` verificato nel codice · `[RICOSTRUITO]` dedotto da indizi ·
 `[IGNOTO]` non ricavabile dal repository
@@ -1895,3 +1895,60 @@ uno split fra Push/Pull/Legs/Upper/Lower/Petto/Dorso/Braccia/Gambe/Front/Back, a
 del wizard e verificare che porti davvero a `/density-369` con la sessione giusta generata.
 Provare anche il caso "Spalle" del Bro Split: deve mostrare un messaggio chiaro, non generare
 niente di sbagliato. Consegnato **direttamente su `main`**.
+
+## Aggiornamento stato — 2026-08-21 (continua): Density 3-6-9 — scelta esercizi resa deterministica (era casuale), aggiunta sostituzione manuale
+
+**Problemi rilevati**: Rossi ha corretto un fraintendimento reale mio, non un bug marginale.
+Avevo costruito la scelta dell'esercizio per stazione come il resto del motore bodybuilding:
+primi 3 candidati per affaticamento, poi uno a caso (seme diverso ogni apertura della sessione,
+`seed: Date.now()` in `DensityRunner.tsx`). Rossi: "gli esercizi sono sempre gli stessi" per un
+dato split — un utente che rigenera lo stesso Push deve ritrovare sempre lo stesso esercizio di
+default in ogni stazione, non una scelta automatica diversa ogni volta. Le sostituzioni devono
+essere una scelta esplicita dell'utente (come "Sostituisci" nel resto dell'app), non un
+comportamento del sistema.
+
+**Cosa è stato fatto**:
+- `sceglieEsercizio` in `density369.ts` riscritta senza alcuna casualità: filtra il pool (stesso
+  ordine di `POOL`, mai un sort per affaticamento), un preferito dell'utente fra i compatibili
+  vince, altrimenti sempre il primo del pool — deterministico al 100%. Tolto `rng`/`random`
+  ovunque nel file, tolto `seed` da `Density369Config` (non aveva più senso).
+- `DensityStation` ha ora un campo `alternatives`: gli altri esercizi compatibili per quella
+  stazione (stesso ruolo, stessa attrezzatura, non già scelti altrove nella sessione), popolato
+  al momento della generazione. Propagato anche in `densityRunnerEngine.ts`
+  (`DensityStazioneCorrente.alternatives`).
+- `DensityRunner.tsx`: `workout` non è più solo il risultato "grezzo" del generatore
+  (`useMemo`), ma uno stato React modificabile — un `useEffect` lo inizializza una sola volta dal
+  risultato generato, così un ricalcolo del memo (es. le impostazioni finiscono di caricare dopo
+  il primo render) non cancella una sostituzione già fatta dall'utente. Aggiunto un pulsante "🔄
+  Sostituisci esercizio" durante la fase di lavoro (visibile solo se la stazione ha almeno
+  un'alternativa), che apre una mini-lista e applica lo scambio: l'esercizio appena lasciato
+  torna fra le alternative, quello scelto ne esce — coerente con come funziona "Sostituisci" nel
+  resto dell'app.
+- Test riscritti: tolti tutti i cicli `for (seed = 1..30)` (non hanno più senso, non c'è più
+  nulla che varia con un seme), sostituiti con test che chiamano la stessa configurazione più
+  volte e verificano che il risultato sia SEMPRE identico — incluso un test esplicito che Push
+  Blocco A Stazione 1 sia sempre `panca_piana` (l'esercizio della specifica), uno che un
+  preferito dell'utente vince sul default, e uno che escludere il default fa emergere
+  deterministicamente il successivo del pool (non un altro a caso). Più test sulle
+  `alternatives` (popolate quando il pool ha più di un candidato, vuote quando ne ha uno solo).
+  312/312 test verdi (302 prima + 10 nuovi), `tsc`/`eslint`/`npm run build` puliti. `Runner.tsx`
+  verificato ancora intatto (`git diff` vuoto) — questa modifica resta dentro l'area isolata di
+  ieri.
+
+**Cosa c'è ancora da fare**: nessun seguito diretto di questa correzione. Restano aperte le voci
+già in `TODO.md` (bro_shoulders, integrazione col programma settimanale, gli step superflui del
+wizard, il superset non modellato).
+
+**Dove deve arrivare il progetto**: coerente con l'obiettivo di sempre, ma con una precisazione
+importante emersa oggi: "guidato dai dati" non significa "randomizzato" — per un protocollo con
+template espliciti come questo, l'utente si aspetta stabilità (stessi esercizi di default ogni
+volta) e controllo esplicito (sostituzione manuale), non varietà automatica come nel motore
+bodybuilding standard. Vale la pena ricordarselo se in futuro si aggiungono altri protocolli con
+template altrettanto espliciti.
+
+**Cosa deve aspettarsi l'utente**: **verificato solo con test/tsc/build, non ancora in un
+browser o dispositivo reale** (stesso limite di sempre). Prossimo passo: generare due volte la
+stessa sessione Density (stesso split, stesse impostazioni) e controllare che gli esercizi
+proposti siano identici; durante l'esecuzione, controllare che compaia "🔄 Sostituisci
+esercizio" quando la stazione ha alternative, e che scegliendone una cambi davvero l'esercizio
+mostrato. Consegnato **direttamente su `main`**.

@@ -31,12 +31,10 @@ const TUTTI_GLI_SPLIT_SUPPORTATI: DensitySplit[] = [
   'push', 'pull', 'legs', 'upper', 'lower', 'bro_chest', 'bro_back', 'bro_arms', 'bro_legs', 'front_body', 'back_body',
 ]
 
-describe('generaDensity369 — struttura di base (sez. 1-2 della specifica 21/08)', () => {
+describe('generaDensity369 — struttura di base', () => {
   for (const split of SPLIT_PPL) {
     it(`${split}: produce sempre 2 blocchi (A, B) di 3 stazioni ciascuno`, () => {
-      const w = generaDensity369(catalogo, {
-        split, equipment: 'full_gym', excluded_exercises: [], seed: 1,
-      })
+      const w = generaDensity369(catalogo, { split, equipment: 'full_gym', excluded_exercises: [] })
       expect(w).not.toBeNull()
       expect(w!.blocks).toHaveLength(2)
       expect(w!.blocks[0].label).toBe('A')
@@ -46,9 +44,7 @@ describe('generaDensity369 — struttura di base (sez. 1-2 della specifica 21/08
     })
 
     it(`${split}: ogni stazione rispetta il range di ripetizioni fisso della specifica`, () => {
-      const w = generaDensity369(catalogo, {
-        split, equipment: 'full_gym', excluded_exercises: [], seed: 2,
-      })
+      const w = generaDensity369(catalogo, { split, equipment: 'full_gym', excluded_exercises: [] })
       for (const blocco of w!.blocks) {
         expect(blocco.stations[0].reps).toBe('3-6')
         expect(blocco.stations[1].reps).toBe('6-12')
@@ -57,18 +53,14 @@ describe('generaDensity369 — struttura di base (sez. 1-2 della specifica 21/08
     })
 
     it(`${split}: nessun esercizio ripetuto fra le 6 stazioni della sessione`, () => {
-      for (let seed = 1; seed <= 20; seed++) {
-        const w = generaDensity369(catalogo, {
-          split, equipment: 'full_gym', excluded_exercises: [], seed,
-        })
-        const tuttiGliId = w!.blocks.flatMap((b) => b.stations.map((s) => s.exercise_id))
-        expect(new Set(tuttiGliId).size).toBe(tuttiGliId.length)
-      }
+      const w = generaDensity369(catalogo, { split, equipment: 'full_gym', excluded_exercises: [] })
+      const tuttiGliId = w!.blocks.flatMap((b) => b.stations.map((s) => s.exercise_id))
+      expect(new Set(tuttiGliId).size).toBe(tuttiGliId.length)
     })
   }
 
   it('default: 3 giri per blocco, recupero 180s fine giro Blocco A, 120s Blocco B, 210s fra i blocchi', () => {
-    const w = generaDensity369(catalogo, { split: 'push', equipment: 'full_gym', excluded_exercises: [], seed: 3 })
+    const w = generaDensity369(catalogo, { split: 'push', equipment: 'full_gym', excluded_exercises: [] })
     expect(w!.blocks[0].rounds).toBe(3)
     expect(w!.blocks[1].rounds).toBe(3)
     expect(w!.blocks[0].round_rest_sec).toBe(180)
@@ -77,14 +69,14 @@ describe('generaDensity369 — struttura di base (sez. 1-2 della specifica 21/08
   })
 
   it('rounds_a è configurabile ma con tetto a 4 (specifica: "default 3 round, max 4")', () => {
-    const w1 = generaDensity369(catalogo, { split: 'push', equipment: 'full_gym', excluded_exercises: [], rounds_a: 6, seed: 4 })
+    const w1 = generaDensity369(catalogo, { split: 'push', equipment: 'full_gym', excluded_exercises: [], rounds_a: 6 })
     expect(w1!.blocks[0].rounds).toBe(4)
-    const w2 = generaDensity369(catalogo, { split: 'push', equipment: 'full_gym', excluded_exercises: [], rounds_a: 2, seed: 4 })
+    const w2 = generaDensity369(catalogo, { split: 'push', equipment: 'full_gym', excluded_exercises: [], rounds_a: 2 })
     expect(w2!.blocks[0].rounds).toBe(2)
   })
 
   it('ogni stazione ha 10-15s di recupero tecnico dopo di sé (punto medio 12s)', () => {
-    const w = generaDensity369(catalogo, { split: 'legs', equipment: 'full_gym', excluded_exercises: [], seed: 5 })
+    const w = generaDensity369(catalogo, { split: 'legs', equipment: 'full_gym', excluded_exercises: [] })
     for (const blocco of w!.blocks) {
       for (const stazione of blocco.stations) {
         expect(stazione.rest_after_sec).toBeGreaterThanOrEqual(10)
@@ -94,27 +86,74 @@ describe('generaDensity369 — struttura di base (sez. 1-2 della specifica 21/08
   })
 })
 
-describe('generaDensity369 — regole "salva-effort" (Rossi, 21/08)', () => {
-  for (const split of SPLIT_PPL) {
-    it(`${split}: la Stazione 1 non è mai un cavo (perde reclutamento neurale ad alta soglia)`, () => {
-      for (let seed = 1; seed <= 30; seed++) {
-        const w = generaDensity369(catalogo, { split, equipment: 'full_gym', excluded_exercises: [], seed })
-        for (const blocco of w!.blocks) {
-          const st1 = blocco.stations[0]
-          const esercizio = catalogo.find((e) => e.id === st1.exercise_id)!
-          expect(esercizio.equipment).not.toBe('cable')
-        }
-      }
-    })
+describe('generaDensity369 — scelta DETERMINISTICA, non casuale (corretto 21/08 su segnalazione di Rossi)', () => {
+  it('lo stesso split, chiamato più volte con la stessa configurazione, dà sempre esattamente gli stessi esercizi', () => {
+    const risultati = Array.from({ length: 10 }, () =>
+      generaDensity369(catalogo, { split: 'push', equipment: 'full_gym', excluded_exercises: [] })
+    )
+    for (const w of risultati) expect(w).toEqual(risultati[0])
+  })
 
-    it(`${split}: la Stazione 3 non è mai un bilanciere pesante (rischio con l'acido lattico)`, () => {
-      for (let seed = 1; seed <= 30; seed++) {
-        const w = generaDensity369(catalogo, { split, equipment: 'full_gym', excluded_exercises: [], seed })
-        for (const blocco of w!.blocks) {
-          const st3 = blocco.stations[2]
-          const esercizio = catalogo.find((e) => e.id === st3.exercise_id)!
-          expect(esercizio.equipment).not.toBe('barbell')
-        }
+  for (const split of TUTTI_GLI_SPLIT_SUPPORTATI) {
+    it(`${split}: 10 generazioni di fila producono tutte lo stesso identico workout`, () => {
+      const risultati = Array.from({ length: 10 }, () =>
+        generaDensity369(catalogo, { split, equipment: 'full_gym', excluded_exercises: [] })
+      )
+      for (const w of risultati) expect(w).toEqual(risultati[0])
+    })
+  }
+
+  it('Push Blocco A Stazione 1 è di default Panca Piana con Bilanciere (l\'esercizio della specifica, non uno a caso fra le alternative)', () => {
+    const w = generaDensity369(catalogo, { split: 'push', equipment: 'full_gym', excluded_exercises: [] })
+    expect(w!.blocks[0].stations[0].exercise_id).toBe('panca_piana')
+  })
+
+  it('un preferito dell\'utente fra i candidati compatibili vince sul default', () => {
+    const w = generaDensity369(catalogo, {
+      split: 'push', equipment: 'full_gym', excluded_exercises: [],
+      preferred_exercises: ['chest_press_convergente'],
+    })
+    expect(w!.blocks[0].stations[0].exercise_id).toBe('chest_press_convergente')
+  })
+
+  it('escludendo il default di una stazione, subentra deterministicamente il successivo del pool (non un altro a caso)', () => {
+    const w1 = generaDensity369(catalogo, { split: 'push', equipment: 'full_gym', excluded_exercises: [] })
+    expect(w1!.blocks[0].stations[0].exercise_id).toBe('panca_piana')
+    const w2 = generaDensity369(catalogo, { split: 'push', equipment: 'full_gym', excluded_exercises: ['panca_piana'] })
+    expect(w2!.blocks[0].stations[0].exercise_id).toBe('panca_piana_man')
+    // Ripetuto: stesso risultato ogni volta, non un'alternativa diversa a ogni chiamata.
+    const w3 = generaDensity369(catalogo, { split: 'push', equipment: 'full_gym', excluded_exercises: ['panca_piana'] })
+    expect(w3!.blocks[0].stations[0].exercise_id).toBe('panca_piana_man')
+  })
+})
+
+describe('generaDensity369 — alternative per la sostituzione manuale', () => {
+  it('ogni stazione con più di un candidato compatibile espone le alternative (per il tasto "Sostituisci")', () => {
+    const w = generaDensity369(catalogo, { split: 'push', equipment: 'full_gym', excluded_exercises: [] })
+    const st1PettoA = w!.blocks[0].stations[0] // panca_piana di default, 3 candidati totali nel pool
+    expect(st1PettoA.exercise_id).toBe('panca_piana')
+    expect(st1PettoA.alternatives.map((a) => a.exercise_id)).toEqual(
+      expect.arrayContaining(['panca_piana_man', 'chest_press_convergente'])
+    )
+    expect(st1PettoA.alternatives.some((a) => a.exercise_id === st1PettoA.exercise_id)).toBe(false)
+  })
+
+  it('una stazione con un solo candidato compatibile ha alternative vuote, non un errore', () => {
+    const w = generaDensity369(catalogo, { split: 'push', equipment: 'full_gym', excluded_exercises: [] })
+    const st1SpalleB = w!.blocks[1].stations[1] // military_press-family, un solo candidato nel pool spalle[2]
+    expect(st1SpalleB.alternatives).toEqual([])
+  })
+})
+
+describe('generaDensity369 — regole "salva-effort" (Rossi, 21/08)', () => {
+  for (const split of TUTTI_GLI_SPLIT_SUPPORTATI) {
+    it(`${split}: la Stazione 1 non è mai un cavo, la Stazione 3 non è mai un bilanciere pesante`, () => {
+      const w = generaDensity369(catalogo, { split, equipment: 'full_gym', excluded_exercises: [] })
+      for (const blocco of w!.blocks) {
+        const st1 = catalogo.find((e) => e.id === blocco.stations[0].exercise_id)!
+        const st3 = catalogo.find((e) => e.id === blocco.stations[2].exercise_id)!
+        expect(st1.equipment).not.toBe('cable')
+        expect(st3.equipment).not.toBe('barbell')
       }
     })
   }
@@ -125,62 +164,39 @@ describe('generaDensity369 — attrezzatura ed esclusioni', () => {
     const w = generaDensity369(catalogo, {
       split: 'legs', equipment: 'full_gym',
       excluded_exercises: ['squat', 'front_squat', 'leg_press'],
-      seed: 6,
     })
     expect(w).toBeNull()
   })
 
   it('con equipment "bodyweight" Push non è generabile (nessuna stazione petto/spalle è a corpo libero pura per tutte le stazioni necessarie)', () => {
-    const w = generaDensity369(catalogo, { split: 'push', equipment: 'bodyweight', excluded_exercises: [], seed: 7 })
+    const w = generaDensity369(catalogo, { split: 'push', equipment: 'bodyweight', excluded_exercises: [] })
     expect(w).toBeNull()
-  })
-
-  it('stesso seed produce lo stesso risultato (determinismo)', () => {
-    const w1 = generaDensity369(catalogo, { split: 'pull', equipment: 'full_gym', excluded_exercises: [], seed: 42 })
-    const w2 = generaDensity369(catalogo, { split: 'pull', equipment: 'full_gym', excluded_exercises: [], seed: 42 })
-    expect(w1).toEqual(w2)
   })
 })
 
 describe('generaDensity369 — durata stimata', () => {
   it('la durata stimata è un numero positivo e ragionevole (fra 15 e 90 minuti)', () => {
     for (const split of SPLIT_PPL) {
-      const w = generaDensity369(catalogo, { split, equipment: 'full_gym', excluded_exercises: [], seed: 8 })
+      const w = generaDensity369(catalogo, { split, equipment: 'full_gym', excluded_exercises: [] })
       expect(w!.estimated_duration_min).toBeGreaterThan(15)
       expect(w!.estimated_duration_min).toBeLessThan(90)
     }
   })
 })
 
-describe('generaDensity369 — tutti gli split supportati (estensione 21/08, oltre PPL)', () => {
+describe('generaDensity369 — tutti gli split supportati', () => {
   for (const split of TUTTI_GLI_SPLIT_SUPPORTATI) {
-    it(`${split}: genera sempre 2 blocchi di 3 stazioni, senza conflitti fra stazioni su 30 seed`, () => {
-      for (let seed = 1; seed <= 30; seed++) {
-        const w = generaDensity369(catalogo, { split, equipment: 'full_gym', excluded_exercises: [], seed })
-        expect(w).not.toBeNull()
-        expect(w!.blocks).toHaveLength(2)
-        for (const blocco of w!.blocks) expect(blocco.stations).toHaveLength(3)
-        const tuttiGliId = w!.blocks.flatMap((b) => b.stations.map((s) => s.exercise_id))
-        expect(new Set(tuttiGliId).size).toBe(tuttiGliId.length)
-      }
-    })
-
-    it(`${split}: rispetta le regole salva-effort (mai cavo in Stazione 1, mai bilanciere in Stazione 3) su 20 seed`, () => {
-      for (let seed = 1; seed <= 20; seed++) {
-        const w = generaDensity369(catalogo, { split, equipment: 'full_gym', excluded_exercises: [], seed })
-        for (const blocco of w!.blocks) {
-          const st1 = catalogo.find((e) => e.id === blocco.stations[0].exercise_id)!
-          const st3 = catalogo.find((e) => e.id === blocco.stations[2].exercise_id)!
-          expect(st1.equipment).not.toBe('cable')
-          expect(st3.equipment).not.toBe('barbell')
-        }
-      }
+    it(`${split}: genera sempre 2 blocchi di 3 stazioni, senza conflitti fra stazioni`, () => {
+      const w = generaDensity369(catalogo, { split, equipment: 'full_gym', excluded_exercises: [] })
+      expect(w).not.toBeNull()
+      expect(w!.blocks).toHaveLength(2)
+      for (const blocco of w!.blocks) expect(blocco.stations).toHaveLength(3)
+      const tuttiGliId = w!.blocks.flatMap((b) => b.stations.map((s) => s.exercise_id))
+      expect(new Set(tuttiGliId).size).toBe(tuttiGliId.length)
     })
   }
 
-  it('bro_shoulders e full_body non hanno un template: nessuno split diverso da quelli supportati genera qualcosa', () => {
-    const supportati = new Set(TUTTI_GLI_SPLIT_SUPPORTATI)
-    expect(supportati.has('push')).toBe(true) // controllo di sanità sull'elenco stesso
-    expect(supportati.size).toBe(11)
+  it('bro_shoulders e full_body non hanno un template: solo 11 split sono supportati', () => {
+    expect(TUTTI_GLI_SPLIT_SUPPORTATI).toHaveLength(11)
   })
 })

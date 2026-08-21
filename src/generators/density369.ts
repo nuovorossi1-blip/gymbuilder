@@ -9,28 +9,36 @@
  *   Stazione 2 — Ipertrofia Meccanica: 6-12 rep, RPE 9
  *   Stazione 3 — Stress Metabolico: 9-25 rep, RPE 10/cedimento
  *
+ * Scelta dell'esercizio DETERMINISTICA, non casuale (corretto il 21/08 dopo
+ * feedback di Rossi: "gli esercizi sono sempre gli stessi" per un dato
+ * split — non una scelta automatica diversa ogni volta come nel resto del
+ * motore bodybuilding). Ogni pool in POOL è ordinato: il primo elemento è
+ * il default (l'esercizio della specifica originale dove esiste a
+ * catalogo), sempre quello scelto a parità di attrezzatura/esclusioni. Un
+ * preferito dell'utente fra i candidati compatibili vince sul default. Le
+ * alternative restanti del pool sono esposte su ogni DensityStation
+ * (`alternatives`) per la sostituzione manuale — stesso concetto di
+ * "Sostituisci" già nel resto dell'app, non ancora la stessa interfaccia.
+ *
  * Fase 1 (concordata con Rossi il 21/08): SOLO modello dati + generatore,
  * testabile senza toccare Runner/UI. Il motore di esecuzione a circuito nel
- * Runner (giri dal vivo, i tre tipi di recupero) è volutamente rimandato —
- * vedi TODO.md.
+ * Runner (giri dal vivo, i tre tipi di recupero) è stato fatto in una fase
+ * successiva (Fase 2, DensityRunner.tsx) — vedi AIOS_STATE.md.
  *
- * Split coperti in questa fase: Push, Pull, Legs (sez. 4A della specifica,
- * "PPL"). Upper/Lower, Bro Split, Front/Back restano da fare: la tabella di
- * sostituzione per distretto muscolare copre già i pool di esercizi
- * necessari, manca solo la mappa split->distretto per quegli altri split.
+ * Split coperti: PPL, Upper/Lower, Bro Chest/Back/Arms/Legs, Front/Back —
+ * vedi TEMPLATE più sotto per l'elenco preciso e cosa manca.
  *
- * Nota sulla riconciliazione fra i due documenti di Rossi (21/08): la
- * tabella di sostituzione per distretto muscolare (la più dettagliata, con
- * le 3 colonne Stazione 1/2/3) è stata presa come fonte autorevole per
- * "quale esercizio appartiene a quale stazione". Il template letterale per
- * split (il primo documento, sez. 4A) è servito solo per "quale
- * distretto/stazione va in quale blocco". Dove i due documenti indicavano
- * una stazione diversa per lo stesso esercizio — es. "Rematore con
- * Bilanciere" proposto nel primo documento come opzione Pull Blocco A
- * Stazione 2 (6-12 rep), ma classificato Stazione 1 (3-6 rep) nella
- * tabella — ho scelto, fra le alternative offerte nello stesso slot dal
- * primo documento, quella coerente con la tabella (qui: "Lat Machine"),
- * invece di indovinare quale dei due avesse la precedenza.
+ * Nota sulla riconciliazione fra i documenti di Rossi (21/08, più versioni
+ * nel tempo): la tabella di sostituzione per distretto muscolare (la più
+ * dettagliata, con le 3 colonne Stazione 1/2/3) è stata presa come fonte
+ * autorevole per "quale esercizio appartiene a quale stazione". I template
+ * letterali per split (i vari documenti di specifica) sono serviti solo per
+ * "quale distretto/stazione va in quale blocco". Dove un documento indicava
+ * una stazione diversa per lo stesso esercizio rispetto alla tabella — es.
+ * "Rematore con Bilanciere" proposto come opzione Pull Blocco A Stazione 2
+ * (6-12 rep) ma classificato Stazione 1 (3-6 rep) nella tabella — ho scelto
+ * l'alternativa coerente con la tabella (qui: "Lat Machine"), invece di
+ * indovinare quale fonte avesse la precedenza.
  *
  * Non ancora verificato in un browser reale (stesso limite di sempre in
  * questo ambiente): solo test automatici, vedi density369.test.ts.
@@ -38,7 +46,6 @@
 
 import type { Equipment, EquipmentItem, Exercise, Muscle } from '../types'
 import { isExerciseAvailable } from './equipment'
-import { rng } from './shared'
 
 export type DensitySplit =
   | 'push' | 'pull' | 'legs' | 'upper' | 'lower'
@@ -55,6 +62,11 @@ export interface DensityStation {
    *  10-15s per spec). Per l'ultima stazione del blocco non si applica: conta invece
    *  round_rest_sec del blocco (fine giro), non questo valore. */
   rest_after_sec: number
+  /** Altri esercizi validi per questa stessa stazione (stesso ruolo biomeccanico, stessa
+   *  attrezzatura disponibile, non ancora scelti altrove nella sessione) — per la sostituzione
+   *  manuale. L'esercizio di default (`exercise_id` sopra) non compare qui. Vuoto se il pool
+   *  aveva un solo candidato disponibile. */
+  alternatives: { exercise_id: string; name: string }[]
 }
 
 export interface DensityBlock {
@@ -87,7 +99,6 @@ export interface Density369Config {
   rounds_a?: number
   /** Default 3 (Blocco B). */
   rounds_b?: number
-  seed?: number
 }
 
 const REPS_PER_STAZIONE: Record<1 | 2 | 3, string> = { 1: '3-6', 2: '6-12', 3: '9-25' }
@@ -216,14 +227,21 @@ const NOME_SPLIT: Record<DensitySplit, string> = {
   front_body: 'Front', back_body: 'Back',
 }
 
+interface SceltaEsercizio {
+  scelto: Exercise
+  alternative: Exercise[]
+}
+
 function sceglieEsercizio(
   candidatiId: string[],
   catalogo: Exercise[],
   cfg: Density369Config,
-  giaScelti: Set<string>,
-  random: () => number
-): Exercise | null {
+  giaScelti: Set<string>
+): SceltaEsercizio | null {
   const preferiti = new Set(cfg.preferred_exercises ?? [])
+  // L'ordine di candidatiId (definito in POOL) è quello di preferenza: il primo è il default
+  // della specifica dove esiste a catalogo. Filtra senza riordinare — mai un sort qui, è
+  // proprio l'assenza di un sort/scelta casuale il punto (vedi nota in testa al file).
   const pool = candidatiId
     .map((id) => catalogo.find((e) => e.id === id))
     .filter((e): e is Exercise => !!e)
@@ -233,14 +251,11 @@ function sceglieEsercizio(
 
   if (pool.length === 0) return null
 
-  // Stesso criterio di generaBodybuilding (shared.ts/bodybuilding.ts): un preferito
-  // compatibile va scelto, non solo avvantaggiato; altrimenti si sceglie fra i 3 col minor
-  // affaticamento sistemico, per un minimo di varietà a parità di idoneità.
-  const preferitiCandidati = pool.filter((e) => preferiti.has(e.id))
-  const finale = preferitiCandidati.length > 0 ? preferitiCandidati : pool
-  finale.sort((a, b) => a.systemic_fatigue - b.systemic_fatigue)
-  const testa = finale.slice(0, Math.min(3, finale.length))
-  return testa[Math.floor(random() * testa.length)]
+  // Un preferito dell'utente fra i candidati compatibili vince sul default della specifica —
+  // stesso principio già usato nel resto del motore bodybuilding (sez. 10 della correzione).
+  const preferito = pool.find((e) => preferiti.has(e.id))
+  const scelto = preferito ?? pool[0]
+  return { scelto, alternative: pool.filter((e) => e.id !== scelto.id) }
 }
 
 function costruisciBlocco(
@@ -249,7 +264,6 @@ function costruisciBlocco(
   catalogo: Exercise[],
   cfg: Density369Config,
   giaScelti: Set<string>,
-  random: () => number,
   rounds: number,
   roundRestSec: number
 ): DensityBlock | null {
@@ -257,8 +271,9 @@ function costruisciBlocco(
   for (let i = 0; i < 3; i++) {
     const role = (i + 1) as 1 | 2 | 3
     const candidatiId = POOL[distretti[i]][role]
-    const scelto = sceglieEsercizio(candidatiId, catalogo, cfg, giaScelti, random)
-    if (!scelto) return null // attrezzatura/esclusioni non lasciano nessun candidato per questa stazione
+    const risultato = sceglieEsercizio(candidatiId, catalogo, cfg, giaScelti)
+    if (!risultato) return null // attrezzatura/esclusioni non lasciano nessun candidato per questa stazione
+    const { scelto, alternative } = risultato
     giaScelti.add(scelto.id)
     stations.push({
       role,
@@ -267,6 +282,7 @@ function costruisciBlocco(
       muscle: scelto.primary_muscles[0],
       reps: REPS_PER_STAZIONE[role],
       rest_after_sec: REST_STAZIONE_SEC,
+      alternatives: alternative.map((e) => ({ exercise_id: e.id, name: e.name })),
     })
   }
   return { label, rounds, round_rest_sec: roundRestSec, stations }
@@ -287,16 +303,15 @@ function stimaDurataMin(blockA: DensityBlock, blockB: DensityBlock): number {
  * una stazione — mai un errore tecnico, il chiamante decide come dirlo in italiano semplice.
  */
 export function generaDensity369(catalogo: Exercise[], cfg: Density369Config): Density369Workout | null {
-  const random = rng(cfg.seed ?? Date.now())
   const template = TEMPLATE[cfg.split]
   const giaScelti = new Set<string>()
 
   const roundsA = Math.min(4, Math.max(1, cfg.rounds_a ?? 3))
   const roundsB = Math.max(1, cfg.rounds_b ?? 3)
 
-  const blockA = costruisciBlocco('A', template.a, catalogo, cfg, giaScelti, random, roundsA, ROUND_REST_A_SEC)
+  const blockA = costruisciBlocco('A', template.a, catalogo, cfg, giaScelti, roundsA, ROUND_REST_A_SEC)
   if (!blockA) return null
-  const blockB = costruisciBlocco('B', template.b, catalogo, cfg, giaScelti, random, roundsB, ROUND_REST_B_SEC)
+  const blockB = costruisciBlocco('B', template.b, catalogo, cfg, giaScelti, roundsB, ROUND_REST_B_SEC)
   if (!blockB) return null
 
   return {

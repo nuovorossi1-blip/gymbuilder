@@ -6,7 +6,7 @@ import type { Density369Workout } from '../generators/density369'
 // macchina a stati, non le scelte di esercizio) — 2 giri nel Blocco A, 1 giro nel Blocco B,
 // così la sequenza di transizioni è breve da seguire ma copre comunque ogni tipo di fase.
 function workoutDiProva(): Density369Workout {
-  const stazione = (role: 1 | 2 | 3, id: string) => ({ role, exercise_id: id, name: id, muscle: 'chest' as const, reps: '3-6', rest_after_sec: 12 })
+  const stazione = (role: 1 | 2 | 3, id: string) => ({ role, exercise_id: id, name: id, muscle: 'chest' as const, reps: '3-6', rest_after_sec: 12, alternatives: [] })
   return {
     name: 'Prova',
     split: 'push',
