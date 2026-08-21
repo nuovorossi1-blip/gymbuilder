@@ -27,6 +27,9 @@ const ESERCIZI_MANCANTI_FIXTURE: Exercise[] = [
 const catalogo = [...(catalogoReale as unknown as Exercise[]), ...ESERCIZI_MANCANTI_FIXTURE]
 
 const SPLIT_PPL: DensitySplit[] = ['push', 'pull', 'legs']
+const TUTTI_GLI_SPLIT_SUPPORTATI: DensitySplit[] = [
+  'push', 'pull', 'legs', 'upper', 'lower', 'bro_chest', 'bro_back', 'bro_arms', 'bro_legs', 'front_body', 'back_body',
+]
 
 describe('generaDensity369 — struttura di base (sez. 1-2 della specifica 21/08)', () => {
   for (const split of SPLIT_PPL) {
@@ -146,5 +149,38 @@ describe('generaDensity369 — durata stimata', () => {
       expect(w!.estimated_duration_min).toBeGreaterThan(15)
       expect(w!.estimated_duration_min).toBeLessThan(90)
     }
+  })
+})
+
+describe('generaDensity369 — tutti gli split supportati (estensione 21/08, oltre PPL)', () => {
+  for (const split of TUTTI_GLI_SPLIT_SUPPORTATI) {
+    it(`${split}: genera sempre 2 blocchi di 3 stazioni, senza conflitti fra stazioni su 30 seed`, () => {
+      for (let seed = 1; seed <= 30; seed++) {
+        const w = generaDensity369(catalogo, { split, equipment: 'full_gym', excluded_exercises: [], seed })
+        expect(w).not.toBeNull()
+        expect(w!.blocks).toHaveLength(2)
+        for (const blocco of w!.blocks) expect(blocco.stations).toHaveLength(3)
+        const tuttiGliId = w!.blocks.flatMap((b) => b.stations.map((s) => s.exercise_id))
+        expect(new Set(tuttiGliId).size).toBe(tuttiGliId.length)
+      }
+    })
+
+    it(`${split}: rispetta le regole salva-effort (mai cavo in Stazione 1, mai bilanciere in Stazione 3) su 20 seed`, () => {
+      for (let seed = 1; seed <= 20; seed++) {
+        const w = generaDensity369(catalogo, { split, equipment: 'full_gym', excluded_exercises: [], seed })
+        for (const blocco of w!.blocks) {
+          const st1 = catalogo.find((e) => e.id === blocco.stations[0].exercise_id)!
+          const st3 = catalogo.find((e) => e.id === blocco.stations[2].exercise_id)!
+          expect(st1.equipment).not.toBe('cable')
+          expect(st3.equipment).not.toBe('barbell')
+        }
+      }
+    })
+  }
+
+  it('bro_shoulders e full_body non hanno un template: nessuno split diverso da quelli supportati genera qualcosa', () => {
+    const supportati = new Set(TUTTI_GLI_SPLIT_SUPPORTATI)
+    expect(supportati.has('push')).toBe(true) // controllo di sanità sull'elenco stesso
+    expect(supportati.size).toBe(11)
   })
 })

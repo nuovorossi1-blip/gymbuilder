@@ -31,7 +31,11 @@ import { loadAudioSettings, TimerAudio } from '../engine/audio'
 import { notifyTimerEvent, publishBackgroundTimer, requestTimerNotifications, resetBackgroundTimer } from '../engine/backgroundTimer'
 import type { GeneratedWorkout, PrescribedExercise } from '../types'
 
-const NOME_SPLIT: Record<DensitySplit, string> = { push: 'Push', pull: 'Pull', legs: 'Legs' }
+const NOME_SPLIT: Record<DensitySplit, string> = {
+  push: 'Push', pull: 'Pull', legs: 'Legs', upper: 'Upper', lower: 'Lower',
+  bro_chest: 'Petto', bro_back: 'Dorso', bro_arms: 'Braccia', bro_legs: 'Gambe',
+  front_body: 'Front', back_body: 'Back',
+}
 
 /** Trasforma il workout Density in una forma compatibile con lo storico esistente
  *  (`completed_workouts`, via registraCompletato): un esercizio per stazione, `sets` pari ai

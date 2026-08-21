@@ -9,7 +9,7 @@ export type Sex = 'female' | 'male' | 'other' | 'unspecified'
 export type SplitSystem = 'ppl' | 'upper_lower' | 'bro_split' | 'front_back'
 /** Protocollo di esecuzione Bodybuilding: 'standard' è il motore a slot di sempre.
  *  'fst7' e 'cbum_top_backoff' sono varianti di prescrizione sullo stesso motore. */
-export type BodybuildingProtocol = 'standard' | 'fst7' | 'cbum_top_backoff'
+export type BodybuildingProtocol = 'standard' | 'fst7' | 'cbum_top_backoff' | 'density_369'
 export type ExerciseFeedbackReason = 'dislike' | 'unavailable' | 'too_hard' | 'too_easy' | 'discomfort' | 'prefer_other'
 export type Weekday = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday'
 
@@ -421,6 +421,7 @@ export const BODYBUILDING_PROTOCOL_LABELS: Record<BodybuildingProtocol, string> 
   standard: 'Standard',
   fst7: 'FST-7 (Hany Rambod)',
   cbum_top_backoff: 'Top Set & Back-Off (CBum)',
+  density_369: 'Density Tri-Set 3-6-9',
 }
 
 

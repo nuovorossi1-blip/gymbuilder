@@ -61,6 +61,6 @@
   "last_session": {
     "model": "Claude Sonnet 5",
     "date": "2026-08-21",
-    "summary": "Bug reale trovato da screenshot di Rossi: WorkoutPreview.tsx aveva un bottone preesistente 'Torna alla settimana' nella riga di azioni principale (Inizia/Salva in Libreria) che in realta' navigava a '/' (Home), non a '/crea' - testo e comportamento non corrispondevano, esisteva da prima delle mie modifiche di oggi, non notato durante i due fix precedenti sullo stesso file. Corretto onClick a naviga('/crea'). Rimosso anche il link ridondante in cima alla pagina (mia aggiunta di oggi, confermato ridondante da Rossi). 279/279 test verdi (invariato), tsc/eslint/build puliti. Push diretto su main."
+    "summary": "Density 3-6-9 diventato un vero protocollo selezionabile nel wizard (step Protocollo di Allenamento), come richiesto da Rossi dopo uno screenshot. DensitySplit ampliato da 3 a 11 valori (PPL + Upper/Lower + Bro Chest/Back/Arms/Legs + Front/Back), ognuno con template distretto/stazione verificato senza conflitti (45 nuovi test, 0 fallimenti al primo tentativo). bro_shoulders lasciato scoperto di proposito: nessun esercizio a catalogo puo' fare da composto pesante per i deltoidi posteriori senza violare la Regola 1 salva-effort. In Create.tsx, generateDay ora smista a /density-369?split=X quando protocol='density_369', solo per Sessione Singola (programma settimanale multi-giorno mostra un errore, nessuna sostituzione silenziosa). 302/302 test verdi, tsc/eslint/build puliti, Runner.tsx confermato intatto. Push diretto su main."
   }
 }

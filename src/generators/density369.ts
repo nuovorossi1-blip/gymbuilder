@@ -40,7 +40,10 @@ import type { Equipment, EquipmentItem, Exercise, Muscle } from '../types'
 import { isExerciseAvailable } from './equipment'
 import { rng } from './shared'
 
-export type DensitySplit = 'push' | 'pull' | 'legs'
+export type DensitySplit =
+  | 'push' | 'pull' | 'legs' | 'upper' | 'lower'
+  | 'bro_chest' | 'bro_back' | 'bro_arms' | 'bro_legs'
+  | 'front_body' | 'back_body'
 
 export interface DensityStation {
   role: 1 | 2 | 3
@@ -166,15 +169,52 @@ const POOL: Record<Distretto, Record<1 | 2 | 3, string[]>> = {
   },
 }
 
-/** Quale distretto va in quale stazione di quale blocco, per split — sez. 4A della specifica,
- *  riconciliata con la tabella di sostituzione (vedi nota in testa al file). */
+/**
+ * Quale distretto va in quale stazione di quale blocco, per split — sez. 4A/B/C/D della
+ * specifica, riconciliata con la tabella di sostituzione (vedi nota in testa al file). Coperti
+ * oggi (21/08, seconda estensione): PPL, Upper/Lower, i 4 Bro Split che il catalogo può
+ * supportare bene, Front/Back. **Non coperto**: `bro_shoulders` (Spalle da sola) — nessun
+ * esercizio a catalogo fa da "composto pesante" per i deltoidi posteriori, la Stazione 1
+ * risulterebbe sempre una macchina/cavo (viola la Regola 1 di Rossi), quindi niente template
+ * finché non si arricchisce il catalogo — vedi TODO.md. `full_body` non è mai stato richiesto
+ * per questo protocollo, resta fuori.
+ *
+ * Alcune scelte non sono "quello che dice la lettera della spec", ma il pool corretto per la
+ * stazione secondo la tabella di sostituzione — stesso motivo già spiegato per Pull Blocco A
+ * Stazione 2 (Rematore con Bilanciere è Stazione 1 nella tabella, non Stazione 2: dove capita
+ * di nuovo — Upper Blocco A St2, Front/Back — si usa il pool giusto per quella stazione dello
+ * stesso distretto, non l'esercizio letterale). La spec descrive due superset (Upper Blocco B
+ * St3 "Pushdown + Curl") che questo motore non modella (una stazione = un esercizio): ridotti a
+ * un solo esercizio, non un errore silenzioso — segnalato qui e in TODO.md.
+ */
 const TEMPLATE: Record<DensitySplit, { a: Distretto[]; b: Distretto[] }> = {
   push: { a: ['petto', 'petto', 'spalle'], b: ['tricipiti', 'spalle', 'tricipiti'] },
   pull: { a: ['dorso_larghezza', 'dorso_larghezza', 'dorso_spessore'], b: ['bicipiti', 'dorso_spessore', 'bicipiti'] },
   legs: { a: ['quadricipiti', 'quadricipiti', 'quadricipiti'], b: ['catena_posteriore', 'catena_posteriore', 'polpacci_core'] },
+  // Lower e la giornata Gambe del Bro Split condividono lo stesso identico obiettivo di un Legs
+  // PPL: stessa struttura, non serve un template diverso.
+  lower: { a: ['quadricipiti', 'quadricipiti', 'quadricipiti'], b: ['catena_posteriore', 'catena_posteriore', 'polpacci_core'] },
+  bro_legs: { a: ['quadricipiti', 'quadricipiti', 'quadricipiti'], b: ['catena_posteriore', 'catena_posteriore', 'polpacci_core'] },
+  upper: { a: ['petto', 'dorso_spessore', 'spalle'], b: ['spalle', 'dorso_larghezza', 'tricipiti'] },
+  // Giornata di un solo distretto (non in coppia con un altro come nel Push/Pull PPL): entrambi
+  // i blocchi restano sullo stesso muscolo, sfruttando le due metà del pool (composto+accessorio
+  // nel Blocco A, isolamento dedicato nel Blocco B) invece di dividerlo fra due muscoli diversi.
+  bro_chest: { a: ['petto', 'petto', 'spalle'], b: ['tricipiti', 'tricipiti', 'tricipiti'] },
+  bro_back: { a: ['dorso_larghezza', 'dorso_larghezza', 'dorso_larghezza'], b: ['dorso_spessore', 'dorso_spessore', 'dorso_spessore'] },
+  bro_arms: { a: ['tricipiti', 'tricipiti', 'tricipiti'], b: ['bicipiti', 'bicipiti', 'bicipiti'] },
+  front_body: { a: ['quadricipiti', 'petto', 'quadricipiti'], b: ['spalle', 'spalle', 'polpacci_core'] },
+  back_body: { a: ['dorso_spessore', 'dorso_spessore', 'dorso_spessore'], b: ['catena_posteriore', 'dorso_spessore', 'bicipiti'] },
 }
 
-const NOME_SPLIT: Record<DensitySplit, string> = { push: 'Push', pull: 'Pull', legs: 'Legs' }
+/** Split per cui questo protocollo ha davvero un template — usarlo per decidere se proporlo
+ *  all'utente per lo split scelto, invece di scoprirlo solo al momento della generazione. */
+export const DENSITY_SPLIT_SUPPORTATI = Object.keys(TEMPLATE) as DensitySplit[]
+
+const NOME_SPLIT: Record<DensitySplit, string> = {
+  push: 'Push', pull: 'Pull', legs: 'Legs', upper: 'Upper', lower: 'Lower',
+  bro_chest: 'Petto', bro_back: 'Dorso', bro_arms: 'Braccia', bro_legs: 'Gambe',
+  front_body: 'Front', back_body: 'Back',
+}
 
 function sceglieEsercizio(
   candidatiId: string[],

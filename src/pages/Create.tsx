@@ -10,6 +10,7 @@ import { loadLocalAiSettings } from '../features/profile/aiSettings'
 import { useSettings } from '../features/profile/useSettings'
 import { useWorkout } from '../features/workout/WorkoutContext'
 import { generaBodybuilding } from '../generators/bodybuilding'
+import { DENSITY_SPLIT_SUPPORTATI, type DensitySplit } from '../generators/density369'
 import { FORMATI_CROSSFIT, generaCrossFit } from '../generators/crossfit'
 import { isExerciseAvailable, PRESET_EQUIPMENT } from '../generators/equipment'
 import { generaHybrid } from '../generators/hybrid'
@@ -209,11 +210,34 @@ export default function Create() {
 
   function generateDay(session: WeeklySession, sourceProgram = weeklyProgram) {
     if (!sourceProgram || catalog.length === 0) return
+    const global = sourceProgram.config
+    // Density Tri-Set 3-6-9 (21/08): motore e modello dati completamente diversi da
+    // generaBodybuilding (blocchi/stazioni/giri, non serie singole) — non passa da
+    // finalizeWorkout/validateWorkout/il tracciamento del programma settimanale, che sono tutti
+    // costruiti per l'altra forma. Genera davvero DensityRunner.tsx quando arriva: qui basta
+    // sapere se lo split scelto ha un template (DENSITY_SPLIT_SUPPORTATI) e mandare l'utente
+    // là. Solo sessione singola per ora: dentro un programma settimanale multi-giorno questa
+    // sessione non aggiornerebbe mai "giorno generato" nella settimana (quel tracciamento vive
+    // in updateProgram/applyWorkoutRecovery più sotto, pensati per l'altra forma) — vedi
+    // TODO.md.
+    if (session.mode === 'bodybuilding' && global.protocol === 'density_369') {
+      if (global.program_kind !== 'single_session') {
+        setError('Density Tri-Set 3-6-9 funziona solo per sessione singola per ora, non ancora dentro un programma settimanale — torna indietro e scegli "Sessione Singola", oppure un altro protocollo.')
+        return
+      }
+      const split = session.split as DensitySplit
+      if (!DENSITY_SPLIT_SUPPORTATI.includes(split)) {
+        setError('Density Tri-Set 3-6-9 non è ancora disponibile per questo split — prova Push, Pull, Legs, Upper, Lower, Petto, Dorso, Braccia, Gambe, Front o Back.')
+        return
+      }
+      setError(null)
+      navigate(`/density-369?split=${split}`)
+      return
+    }
     if (session.generated_workout) {
       finalizeWorkout(session, sourceProgram, session.generated_workout)
       return
     }
-    const global = sourceProgram.config
     const adaptiveExcluded = user ? adaptiveExcludedIds(user.id, catalog) : []
     const excluded = [...new Set([...global.preferences.excluded_exercise_ids, ...adaptiveExcluded])]
     const usableCatalog = filterExercisesByPreferences(catalog, { excludedExerciseIds: excluded })

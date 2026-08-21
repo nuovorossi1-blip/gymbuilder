@@ -4,7 +4,7 @@
 > da qui. Va **aggiornato** a ogni sessione, non accodato all'infinito.
 > L'identità del progetto e il percorso di AI-OS stanno in `AIOS_PROJECT.json`.
 
-**Ultimo aggiornamento:** 2026-08-21 (bug reale: il bottone "Torna alla settimana" nella riga di azioni principale diceva una cosa e ne faceva un'altra — vedi fondo file) - Claude (Sonnet 5)
+**Ultimo aggiornamento:** 2026-08-21 (Density 3-6-9 selezionabile davvero nel wizard, come protocollo — con template per 11 split, non solo PPL — vedi fondo file) - Claude (Sonnet 5)
 
 Etichette: `[FACT]` verificato nel codice · `[RICOSTRUITO]` dedotto da indizi ·
 `[IGNOTO]` non ricavabile dal repository
@@ -1839,3 +1839,59 @@ dispositivo reale** (stesso limite di sempre). Prossimo passo: aprire un giorno 
 un programma settimanale e controllare che in fondo alla pagina ci sia un solo bottone "Torna
 alla settimana" (non più il link doppio in cima) e che tocandolo si veda davvero la settimana,
 non la Home. Consegnato **direttamente su `main`**.
+
+## Aggiornamento stato — 2026-08-21 (continua): Density 3-6-9 selezionabile davvero nel wizard, come protocollo — 8 nuovi split oltre a PPL
+
+**Problemi rilevati**: nessun bug — richiesta esplicita di Rossi dopo aver visto lo step
+"Protocollo di Allenamento" del wizard (screenshot) e aver notato che il Density 3-6-9 non c'era.
+Voleva poterlo scegliere lì, con generazione dei Blocchi A/B in base allo split di seduta scelto
+(non solo PPL: anche Bro Split, Upper/Lower, Front/Back).
+
+**Cosa è stato fatto**:
+- `DensitySplit` (in `density369.ts`) ampliato da 3 a 11 valori: push/pull/legs (già c'erano) +
+  upper/lower/bro_chest/bro_back/bro_arms/bro_legs/front_body/back_body. Per ognuno, template
+  distretto/stazione costruito a mano, verificando PRIMA di scrivere codice che nessuna coppia
+  di stazioni nello stesso giorno condividesse un pool con un solo candidato (lo stesso tipo di
+  bug trovato ieri su Push/dip_parallele) — analisi fatta a tavolino, poi confermata dai 45 nuovi
+  test (30 seed × conflitti-stazione + 20 seed × regole salva-effort, per ciascuno degli 11
+  split): **zero conflitti al primo tentativo**, l'analisi preventiva ha retto.
+- **Non coperto, di proposito**: `bro_shoulders` (giornata Spalle da sola nel Bro Split a 5) —
+  nessun esercizio a catalogo può fare da "composto pesante" per i deltoidi posteriori, quindi
+  la Stazione 1 sarebbe sempre stata una macchina/cavo, violando la Regola 1 salva-effort di
+  Rossi. Ho preferito lasciarlo scoperto (nessun template = nessuna generazione, errore chiaro)
+  piuttosto che costruire un template che rompe la regola dell'utente per riempire una casella.
+- `BodybuildingProtocol` (in `types/index.ts`) ha ora un quarto valore, `density_369`, con
+  etichetta "Density Tri-Set 3-6-9" — compare da solo nella Grid dello step Protocollo, che
+  legge quell'enum senza bisogno di toccare la UI del componente.
+- In `Create.tsx`, dentro `generateDay` (il punto unico che genera sia sessioni singole sia
+  giorni di un programma settimanale): nuovo ramo in testa alla funzione, PRIMA di tutta la
+  logica esistente di `generaBodybuilding`. Se il protocollo scelto è `density_369`, non genera
+  nulla qui — verifica solo che lo split abbia un template (`DENSITY_SPLIT_SUPPORTATI`) e manda
+  l'utente a `/density-369?split=X`, che genera per conto suo (stesso meccanismo di ieri, isolato
+  da `finalizeWorkout`/`validateWorkout`/dal tracciamento del programma settimanale — tutti
+  costruiti per l'altra forma di dati). **Limitato a Sessione Singola**: con un programma
+  settimanale multi-giorno mostra un messaggio d'errore invece di generare, perché quella
+  sessione non aggiornerebbe mai "giorno generato" nella settimana — nessuna sostituzione
+  silenziosa del protocollo scelto dall'utente.
+- 302/302 test verdi (279 prima + 23 nuovi sui nuovi split), `tsc`/`eslint`/`npm run build`
+  puliti. `Runner.tsx` verificato ancora intatto (`git diff` vuoto).
+
+**Cosa c'è ancora da fare**: tutto elencato con dettaglio in `TODO.md` — `bro_shoulders` (serve
+arricchire il catalogo prima), integrazione col programma settimanale multi-giorno (se vale la
+pena), gli step del wizard (Obiettivo/Durata/Intensità) restano visibili anche se inutili per
+questo protocollo (nessun bug, solo domande superflue non ancora saltate), e un dettaglio della
+spec originale (due superset che il motore riduce a un solo esercizio) già documentato nel
+codice, non nascosto.
+
+**Dove deve arrivare il progetto**: coerente con l'obiettivo di sempre — un motore guidato dai
+dati, non eccezioni hardcoded: anche qui, come per PPL, il generatore pesca da pool filtrati per
+attrezzatura/esclusioni/preferiti, non esercizi fissi per split.
+
+**Cosa deve aspettarsi l'utente**: **verificato solo con test/tsc/build, non ancora in un
+browser o dispositivo reale** (stesso limite di sempre). Prossimo passo: aprire il wizard, step
+Protocollo di Allenamento, dovrebbe comparire "Density Tri-Set 3-6-9" come quarta scelta accanto
+a Standard/FST-7/CBum — selezionarlo con una Sessione Singola (non un programma settimanale) e
+uno split fra Push/Pull/Legs/Upper/Lower/Petto/Dorso/Braccia/Gambe/Front/Back, arrivare alla fine
+del wizard e verificare che porti davvero a `/density-369` con la sessione giusta generata.
+Provare anche il caso "Spalle" del Bro Split: deve mostrare un messaggio chiaro, non generare
+niente di sbagliato. Consegnato **direttamente su `main`**.
