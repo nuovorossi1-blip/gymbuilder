@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../features/auth/AuthProvider'
 import { useWorkout } from '../features/workout/WorkoutContext'
-import { registraCompletato } from '../lib/api'
+import { registraCompletato, elencoStorico } from '../lib/api'
+import { ultimiPesiPerEsercizio } from '../engine/weightHistory'
 import { FORMATO_A_GIRI, FORMATO_A_INTERVALLI, isLaggingNote, MUSCLE_LABELS, type PrescribedExercise } from '../types'
 import { metconInstruction, metconSubtitle } from '../engine/metconInstructions'
 import { loadAudioSettings, saveAudioSettings, TimerAudio, type AudioTimerSettings, type TimerSound } from '../engine/audio'
@@ -413,6 +414,43 @@ export default function Runner() {
     return () => { document.removeEventListener('visibilitychange', syncVisibility); resetBackgroundTimer() }
   }, [])
 
+  // Precompila il peso di ogni esercizio con l'ultima volta usata (21/08, tracciamento peso
+  // richiesto da Rossi): una volta sola per apertura del Runner (il ref evita di rifarlo ad
+  // ogni render e di sovrascrivere un peso che l'utente ha già scritto in questa sessione).
+  // Tocca solo `workout` in context tramite `setWorkout`, nessun'altra parte della macchina a
+  // stati esistente: stesso principio di cautela già seguito per il resto di questo file.
+  // `setWorkout` (dal context) non supporta la forma funzionale come useState: si legge il
+  // valore più fresco da un ref aggiornato ad ogni render, non dalla chiusura della promise.
+  const workoutRef = useRef(workout)
+  useEffect(() => { workoutRef.current = workout }, [workout])
+
+  const preRiempimentoPesoFatto = useRef(false)
+  useEffect(() => {
+    if (preRiempimentoPesoFatto.current) return
+    if (!user || !workout || esercizi.length === 0) return
+    preRiempimentoPesoFatto.current = true
+    elencoStorico(user.id)
+      .then((storico) => {
+        const pesi = ultimiPesiPerEsercizio(storico)
+        if (Object.keys(pesi).length === 0) return
+        const attuale = workoutRef.current
+        if (!attuale) return
+        const blocchiAggiornati = attuale.blocks.map((blocco) => {
+          if (blocco.kind !== 'main') return blocco
+          return {
+            ...blocco,
+            exercises: blocco.exercises.map((esercizio) =>
+              esercizio.logged_weight_kg === undefined && esercizio.exercise_id in pesi
+                ? { ...esercizio, logged_weight_kg: pesi[esercizio.exercise_id] }
+                : esercizio
+            ),
+          }
+        })
+        setWorkout({ ...attuale, blocks: blocchiAggiornati })
+      })
+      .catch(() => { /* nessun peso precompilato se lo storico non si legge: non blocca l'allenamento */ })
+  }, [user, workout, esercizi.length, setWorkout])
+
   if (!workout && activeSession) {
     return (
       <div className="px-5 pt-12">
@@ -449,6 +487,25 @@ export default function Runner() {
   }
 
   const es = esercizi[fase.iEs]
+
+  /** Scrive il peso inserito dall'utente sull'esercizio giusto dentro `workout` (context),
+   *  così finisce automaticamente nel salvataggio (registraCompletato serializza `blocks`
+   *  così com'è, nessuna migrazione richiesta). Ricostruisce lo stesso ordine di `esercizi`
+   *  sopra (filter 'main' + flatMap) per ritrovare il blocco/indice locale giusto da `iEs`. */
+  function impostaPesoEsercizio(iEs: number, peso: number | undefined) {
+    if (!workout) return
+    let contatore = 0
+    const blocchiAggiornati = workout.blocks.map((blocco) => {
+      if (blocco.kind !== 'main') return blocco
+      const eserciziAggiornati = blocco.exercises.map((esercizio) => {
+        const indiceAttuale = contatore
+        contatore += 1
+        return indiceAttuale === iEs ? { ...esercizio, logged_weight_kg: peso } : esercizio
+      })
+      return { ...blocco, exercises: eserciziAggiornati }
+    })
+    setWorkout({ ...workout, blocks: blocchiAggiornati })
+  }
 
   function interrompiAllenamento() {
     if (typeof window !== 'undefined' && !window.confirm('Vuoi davvero interrompere ed eliminare la sessione in corso?')) return
@@ -1110,6 +1167,20 @@ export default function Runner() {
         </p>
       )}
       {es.instructions && <p className="mt-2 text-[13px] text-slate2 leading-relaxed">{es.instructions}</p>}
+
+      <label className="mt-5 block">
+        <span className="eyebrow mb-1.5 block">Peso usato (kg)</span>
+        <input
+          type="number"
+          inputMode="decimal"
+          step="0.5"
+          min="0"
+          placeholder="es. 40"
+          value={es.logged_weight_kg ?? ''}
+          onChange={(e) => impostaPesoEsercizio(fase.iEs, e.target.value === '' ? undefined : Number(e.target.value))}
+          className="w-full rounded-xl border border-edge bg-steel px-4 py-3 font-data text-lg text-chalk placeholder:text-slate2/60 focus:border-amber2 focus:outline-none"
+        />
+      </label>
 
       <div className="mt-12 text-center">
         <p className="eyebrow mb-3">Serie</p>

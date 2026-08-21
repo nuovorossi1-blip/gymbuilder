@@ -84,6 +84,7 @@ export interface DensityStazioneCorrente {
   reps: string
   role: 1 | 2 | 3
   alternatives: { exercise_id: string; name: string }[]
+  logged_weight_kg?: number
 }
 
 /** Info per la UI: la stazione a cui si riferisce lo stato attuale — durante 'lavoro' è la
@@ -96,10 +97,10 @@ export function stazioneCorrente(state: DensityRunnerState, workout: Density369W
   if (phase === 'riposo_giro' || phase === 'riposo_blocco') {
     const prossimoBlocco = phase === 'riposo_blocco' ? workout.blocks[position.blockIndex + 1] : bloccoAttuale
     const s = prossimoBlocco.stations[0]
-    return { exercise_id: s.exercise_id, name: s.name, reps: s.reps, role: s.role, alternatives: s.alternatives }
+    return { exercise_id: s.exercise_id, name: s.name, reps: s.reps, role: s.role, alternatives: s.alternatives, logged_weight_kg: s.logged_weight_kg }
   }
   const s = bloccoAttuale.stations[position.stationIndex]
-  return { exercise_id: s.exercise_id, name: s.name, reps: s.reps, role: s.role, alternatives: s.alternatives }
+  return { exercise_id: s.exercise_id, name: s.name, reps: s.reps, role: s.role, alternatives: s.alternatives, logged_weight_kg: s.logged_weight_kg }
 }
 
 export function progressoTesto(state: DensityRunnerState, workout: Density369Workout): string {

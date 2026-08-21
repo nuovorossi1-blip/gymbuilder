@@ -63,6 +63,10 @@ export interface DensityStation {
    *  manuale. L'esercizio di default (`exercise_id` sopra) non compare qui. Vuoto se il pool
    *  aveva un solo candidato disponibile. */
   alternatives: { exercise_id: string; name: string }[]
+  /** Peso usato dall'utente per questa stazione (kg), inserito a mano durante l'allenamento —
+   *  stesso campo/stesso significato di PrescribedExercise.logged_weight_kg nel resto
+   *  dell'app, mai calcolato dal motore. */
+  logged_weight_kg?: number
 }
 
 export interface DensityBlock {

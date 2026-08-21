@@ -21,8 +21,9 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../features/auth/AuthProvider'
 import { useWorkout } from '../features/workout/WorkoutContext'
 import { useSettings } from '../features/profile/useSettings'
-import { registraCompletato } from '../lib/api'
+import { registraCompletato, elencoStorico } from '../lib/api'
 import { generaDensity369, type DensitySplit, type Density369Workout } from '../generators/density369'
+import { ultimiPesiPerEsercizio } from '../engine/weightHistory'
 import {
   avanza, durataFaseSec, progressoTesto, statoIniziale, stazioneCorrente, type DensityRunnerState,
 } from '../engine/densityRunnerEngine'
@@ -53,6 +54,7 @@ function comeWorkoutRegistrabile(w: Density369Workout, durataSec: number): Gener
       // Nessuna pausa fra le stazioni dello stesso giro (corretto 21/08): l'unico riposo
       // reale in questo protocollo è a fine giro, quindi è quello che ha senso registrare qui.
       rest_sec: blocco.round_rest_sec,
+      logged_weight_kg: s.logged_weight_kg,
     }))
   )
   return {
@@ -117,6 +119,16 @@ export default function DensityRunner() {
     })
   }, [])
 
+  const impostaPesoStazione = useCallback((blockIndex: 0 | 1, stationIndex: 0 | 1 | 2, peso: number | undefined) => {
+    setWorkout((attuale) => {
+      if (!attuale) return attuale
+      const blocco = attuale.blocks[blockIndex]
+      const stazioniAggiornate = blocco.stations.map((s, i) => (i === stationIndex ? { ...s, logged_weight_kg: peso } : s))
+      const blocchiAggiornati = attuale.blocks.map((b, i) => (i === blockIndex ? { ...b, stations: stazioniAggiornate } : b))
+      return { ...attuale, blocks: blocchiAggiornati }
+    })
+  }, [])
+
   const [stato, setStato] = useState<DensityRunnerState>(statoIniziale)
   const [mostraAlternative, setMostraAlternative] = useState(false)
   const [clock, setClock] = useState<TimerClock | null>(null)
@@ -132,6 +144,34 @@ export default function DensityRunner() {
     void requestTimerNotifications()
     return () => { resetBackgroundTimer(true) }
   }, [])
+
+  // Precompila il peso di ogni stazione con l'ultima volta usata (21/08, stesso tracciamento
+  // del Runner normale — vedi AIOS_STATE.md). Qui `setWorkout` è stato locale (useState), non
+  // context: supporta già la forma funzionale, non serve il ref usato in Runner.tsx.
+  const preRiempimentoPesoFatto = useRef(false)
+  useEffect(() => {
+    if (preRiempimentoPesoFatto.current) return
+    if (!user || !workout) return
+    preRiempimentoPesoFatto.current = true
+    elencoStorico(user.id)
+      .then((storico) => {
+        const pesi = ultimiPesiPerEsercizio(storico)
+        if (Object.keys(pesi).length === 0) return
+        setWorkout((attuale) => {
+          if (!attuale) return attuale
+          const blocchiAggiornati = attuale.blocks.map((blocco) => ({
+            ...blocco,
+            stations: blocco.stations.map((s) =>
+              s.logged_weight_kg === undefined && s.exercise_id in pesi
+                ? { ...s, logged_weight_kg: pesi[s.exercise_id] }
+                : s
+            ),
+          }))
+          return { ...attuale, blocks: blocchiAggiornati }
+        })
+      })
+      .catch(() => { /* nessun peso precompilato se lo storico non si legge: non blocca l'allenamento */ })
+  }, [user, workout])
 
   // Ogni volta che si entra in una fase di riposo si crea un nuovo orologio con la durata
   // giusta; le fasi 'lavoro'/'completato' non hanno orologio (avanzamento manuale).
@@ -264,6 +304,24 @@ export default function DensityRunner() {
         <div className="text-center">
           <p className="text-sm uppercase tracking-wider text-purple-300 mb-2">Stazione {st.role} · {st.reps} rep</p>
           <h2 className="font-display text-3xl font-bold text-white mb-3">{st.name}</h2>
+
+          <label className="mb-4 block text-left">
+            <span className="eyebrow mb-1.5 block text-slate-400">Peso usato (kg)</span>
+            <input
+              type="number"
+              inputMode="decimal"
+              step="0.5"
+              min="0"
+              placeholder="es. 40"
+              value={st.logged_weight_kg ?? ''}
+              onChange={(e) => impostaPesoStazione(
+                stato.position.blockIndex, stato.position.stationIndex,
+                e.target.value === '' ? undefined : Number(e.target.value)
+              )}
+              className="w-full rounded-xl border border-edge bg-steel px-4 py-3 font-data text-lg text-white placeholder:text-slate-500 focus:border-purple-400 focus:outline-none"
+            />
+          </label>
+
           {st.alternatives.length > 0 && (
             <button
               onClick={() => setMostraAlternative((v) => !v)}

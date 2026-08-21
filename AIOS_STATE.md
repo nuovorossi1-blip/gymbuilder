@@ -4,7 +4,7 @@
 > da qui. Va **aggiornato** a ogni sessione, non accodato all'infinito.
 > L'identità del progetto e il percorso di AI-OS stanno in `AIOS_PROJECT.json`.
 
-**Ultimo aggiornamento:** 2026-08-21 (Density 3-6-9: tolto il countdown fra stazioni dello stesso giro, ora è tocco diretto come AMRAP — primo pezzo di un piano più grande, peso e integrazione settimanale ancora da fare — vedi fondo file) - Claude (Sonnet 5)
+**Ultimo aggiornamento:** 2026-08-21 (Pezzo 2 del piano: tracciamento del peso usato per qualsiasi esercizio, con precompilazione dall'ultima volta — vedi fondo file) - Claude (Sonnet 5)
 
 Etichette: `[FACT]` verificato nel codice · `[RICOSTRUITO]` dedotto da indizi ·
 `[IGNOTO]` non ricavabile dal repository
@@ -1991,3 +1991,60 @@ browser o dispositivo reale** (stesso limite di sempre). Prossimo passo per Ross
 il Density Runner dal vivo, toccando "Fatto" sulla prima stazione deve passare immediatamente
 alla seconda (nessuna attesa, nessun countdown), stessa cosa dalla seconda alla terza — solo
 dopo la terza stazione deve comparire un vero timer. Consegnato **direttamente su `main`**.
+
+## Aggiornamento stato — 2026-08-21 (continua): Pezzo 2 del piano — peso usato, per qualsiasi esercizio
+
+**Contesto**: secondo pezzo del piano in tre parti concordato con Rossi (vedi aggiornamento
+precedente). Non solo Density 3-6-9: vale per l'intero motore bodybuilding/forza/CrossFit — un
+campo dove scrivere il peso usato, vicino al nome dell'esercizio, che si salva da solo e si
+ripropone la volta successiva come punto di partenza per la progressione.
+
+**Cosa è stato fatto**:
+- `PrescribedExercise.logged_weight_kg` (opzionale) — nuovo campo, nessuna migrazione al
+  database: `completed_workouts.blocks` è già un blob flessibile, il peso ci finisce dentro
+  automaticamente scrivendolo negli esercizi prima di chiamare `registraCompletato` (già
+  esistente, non toccato).
+- `DensityStation.logged_weight_kg` — stesso campo, stesso principio, per il Density Runner.
+- **Runner.tsx**: campo "Peso usato (kg)" subito sotto nome/istruzioni dell'esercizio, sopra il
+  contatore delle serie. Una funzione `impostaPesoEsercizio` scrive il valore dentro `workout`
+  (context) ricostruendo l'indice giusto nello stesso ordine con cui la UI già enumera gli
+  esercizi. **Attenzione tecnica trovata e corretta**: `setWorkout` del context (a differenza di
+  un normale `useState`) non supporta la forma funzionale `(prev) => next` — tentare di usarla
+  dava un errore di tipo a compilazione, non a runtime, quindi l'ha preso `tsc` prima che
+  arrivasse da qualche parte. Corretto leggendo il valore più fresco da un ref dedicato invece
+  che dalla chiusura della promise.
+- **DensityRunner.tsx**: stesso campo nella fase di lavoro, sopra "Sostituisci esercizio". Qui
+  `setWorkout` è stato locale (`useState`), supporta già la forma funzionale — nessun problema
+  analogo.
+- **Precompilazione dall'ultima volta** (`src/engine/weightHistory.ts`, funzione pura
+  `ultimiPesiPerEsercizio`, testata a parte senza bisogno di rete): legge `elencoStorico`
+  (già esistente) e, per ogni esercizio, prende il peso dall'allenamento più recente in cui
+  compare — non fa la media, non guarda quanti allenamenti fa. Applicata una volta sola
+  all'apertura del Runner/Density Runner (un ref evita di rifarlo o di sovrascrivere un peso
+  che l'utente ha già scritto in questa sessione), e solo per gli esercizi che non hanno ancora
+  un peso — mai sovrascrive quello che l'utente ha già inserito.
+- **Attenzione sulle regole degli hook**: in `Runner.tsx` i nuovi `useEffect` sono stati messi
+  PRIMA dei due `return` anticipati della funzione (righe ~416/425 prima di questa modifica),
+  non dopo — altrimenti sarebbe stata una violazione delle regole di React sugli hook (chiamati
+  in ordine diverso a seconda del render). Verificato con `git diff` che il resto del file
+  (macchina a stati, timer, servizio in background) è rimasto identico riga per riga.
+- 317/317 test verdi (312 prima + 5 nuovi su `weightHistory.ts`), `tsc`/`eslint`/`npm run build`
+  puliti.
+
+**Cosa c'è ancora da fare**: il terzo pezzo del piano — Density 3-6-9 selezionabile per singolo
+giorno dentro un programma settimanale multi-giorno (oggi resta Sessione Singola soltanto), con
+rimozione della card doppia in Home.
+
+**Dove deve arrivare il progetto**: coerente con l'obiettivo — non solo generare l'allenamento
+giusto, ma aiutare a migliorare nel tempo. Il peso tracciato è il primo pezzo di progressione
+vera nell'app (finora si tracciava solo "fatto/non fatto", mai "con quanto").
+
+**Cosa deve aspettarsi l'utente**: **verificato solo con test/tsc/build, non ancora in un
+browser o dispositivo reale** — stesso limite di sempre, ma qui vale la pena essere specifici:
+questa modifica tocca `Runner.tsx` per la prima volta in questa serie di sessioni (le precedenti
+erano tutte isolate apposta). Ho aggiunto solo, senza toccare una riga di quello che già
+esisteva (verificato col diff), ma è comunque il file più delicato del progetto — vale la pena
+provarlo con un allenamento vero prima di fidarsene del tutto. Prossimo passo per Rossi: avviare
+un allenamento normale, controllare che il campo peso compaia sotto il nome dell'esercizio,
+scrivere un numero, finire l'allenamento, e la volta successiva con lo stesso esercizio
+controllare che il peso sia già scritto. Consegnato **direttamente su `main`**.

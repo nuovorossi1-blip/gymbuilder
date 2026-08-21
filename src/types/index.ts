@@ -129,6 +129,11 @@ export interface PrescribedExercise {
   instructions?: string
   /** Calorie attive stimate per l'intero esercizio (sez. 60): mai "esatte". */
   est_kcal?: number
+  /** Peso usato dall'utente per questo esercizio (kg), inserito a mano durante l'allenamento —
+   *  mai calcolato o suggerito dal motore. Un solo valore per l'intero esercizio, non per
+   *  singola serie (coerente con come l'utente lo inserisce: vicino al nome dell'esercizio,
+   *  non ripetuto per ogni serie). */
+  logged_weight_kg?: number
 }
 
 export interface WorkoutBlock {
