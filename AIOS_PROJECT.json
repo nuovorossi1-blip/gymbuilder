@@ -61,6 +61,6 @@
   "last_session": {
     "model": "Claude Sonnet 5",
     "date": "2026-08-21",
-    "summary": "Corretto un secondo bug reale collegato al precedente: la Home non offriva mai un modo non distruttivo di riprendere un programma settimanale a meta - ogni CTA (Pianifica Settimana, Crea nuovo) cancellava esplicitamente weeklyProgram. Aggiunta una card 'Programma Settimanale in Corso' su HomeDashboard (stesso pattern gia' usato per activeSession) con pulsante che naviga a /crea senza reset. 251/251 test verdi, tsc/eslint/build puliti. Push diretto su main. Non ancora verificato su dispositivo reale."
+    "summary": "Creato src/generators/density369.ts: Fase 1 (modello dati + generatore, solo Push/Pull/Legs) del nuovo protocollo Density Tri-Set 3-6-9 richiesto da Rossi - due blocchi A/B, ognuno tri-set di 3 stazioni a rep fisse, pool per 9 distretti muscolari verificati contro il catalogo Supabase reale. Non ancora raggiungibile dall'interfaccia (nessun pulsante nel wizard) - serve Fase 2 (motore Runner a circuito) prima di essere usabile. 273/273 test verdi (22 nuovi), tsc/eslint/build puliti. Bug di conflitto candidati (dip_parallele conteso fra due stazioni dello stesso Push) trovato e corretto dai test prima del push. Push diretto su main - file nuovo, non importato da nulla, deploy non cambia nulla di visibile."
   }
 }

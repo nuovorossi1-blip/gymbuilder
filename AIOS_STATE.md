@@ -4,7 +4,7 @@
 > da qui. Va **aggiornato** a ogni sessione, non accodato all'infinito.
 > L'identità del progetto e il percorso di AI-OS stanno in `AIOS_PROJECT.json`.
 
-**Ultimo aggiornamento:** 2026-08-21 (Home non offriva modo non distruttivo di riprendere un programma settimanale a metà — vedi fondo file) - Claude (Sonnet 5)
+**Ultimo aggiornamento:** 2026-08-21 (nuovo protocollo Density Tri-Set 3-6-9, Fase 1 — modello dati + generatore PPL — vedi fondo file) - Claude (Sonnet 5)
 
 Etichette: `[FACT]` verificato nel codice · `[RICOSTRUITO]` dedotto da indizi ·
 `[IGNOTO]` non ricavabile dal repository
@@ -1658,3 +1658,50 @@ apri giorno 1, tocca 🏠 Oggi nella barra in basso, e controllare che sulla Hom
 card viola "Programma Settimanale in Corso" con il pulsante per riprendere, invece di dover
 ricominciare da zero. Consegnato **direttamente su `main`** (stessa modalità di oggi, non via
 PR): il deploy automatico Vercel parte da solo dopo il push.
+
+## Aggiornamento stato — 2026-08-21 (continua): nuovo protocollo "Density Tri-Set 3-6-9" — Fase 1 (modello dati + generatore, solo PPL)
+
+**Problemi rilevati**: nessun bug — è una richiesta di nuova funzionalità. Rossi ha fornito una
+specifica dettagliata (due blocchi A/B, ognuno un tri-set di 3 stazioni a rep fisse 3-6/6-12/9-25,
+timer a tre livelli, regole di sostituzione vincolate) più, dopo una mia richiesta di chiarimento,
+una tabella di sostituzione per 9 distretti muscolari × 3 stazioni. Ho verificato quella tabella
+riga per riga contro il catalogo VERO di Supabase (non la fixture di test, nota già stale): ~85%
+degli esercizi citati esiste già, ~15 mancano (elenco completo in `TODO.md`).
+
+**Cosa è stato fatto**: creato `src/generators/density369.ts` — motore dedicato (non dentro
+`bodybuilding.ts`, struttura troppo diversa dal resto). Copre Push/Pull/Legs (Fase 1 concordata
+esplicitamente con Rossi, non tutti gli split della spec). Pool di esercizi per 9 distretti
+muscolari × 3 stazioni, verificati uno per uno contro il catalogo reale; mappa
+split->distretto/stazione ricostruita riconciliando i due documenti di Rossi dove non
+combaciavano esattamente (vedi commento in testa al file per il caso specifico, Pull Blocco A
+Stazione 2). Le regole "salva-effort" di Rossi (mai cavo/macchina in Stazione 1 tranne le due
+eccezioni esplicite della spec — Chest Press convergente, Leg Press; mai bilanciere pesante in
+Stazione 3) sono rispettate per costruzione dei pool, verificate anche a test su 30 seed per
+split. **Bug trovato e corretto PRIMA del push, dai test stessi**: `dip_parallele` era candidato
+sia per Petto Stazione 2 sia — come unico candidato — per Tricipiti Stazione 1 dello stesso Push:
+se il Blocco A lo sceglieva per il petto, il Blocco B restava senza nessun esercizio per quella
+stazione. Rimosso da Petto Stazione 2 (restava comunque un solo esercizio lì, Panca Inclinata
+Manubri: le due alternative citate da Rossi, Panca Declinata e Smith Machine, non esistono a
+catalogo).
+
+**Cosa c'è ancora da fare**: tre voci aperte in `TODO.md`, tutte con dettaglio completo lì —
+(1) arricchimento catalogo per i ~15 esercizi mancanti citati da Rossi ma non a catalogo, non
+blocca l'uso del protocollo, solo la varietà; (2) mappa split->distretto per Upper/Lower, Bro
+Split, Front/Back — la spec originale li descrive ma non sono stati fatti in questa fase;
+(3) Fase 2 — motore di esecuzione a circuito nel Runner (oggi esegue solo sequenze piatte o i
+formati Metcon esistenti; valutare se riusare `kind: 'circuit'` già esistente per Condizionamento
+o serve un motore dedicato), poi Fase 3 — guida/tooltip UI (sez. 5 della spec).
+
+**Dove deve arrivare il progetto**: nuova capacità nella sezione Bodybuilding, coerente con
+l'obiettivo finale (sez. 1) — motore deterministico guidato dai dati, non un'eccezione hardcoded:
+per questo il generatore pesca da pool filtrati per attrezzatura/esclusioni/preferiti come tutto
+il resto del motore, non esercizi fissi per split come nella lettera originale della spec.
+
+**Cosa deve aspettarsi l'utente**: **questa è Fase 1 SOLO: modello dati + generatore, testato con
+273/273 test verdi (251 prima + 22 nuovi), `tsc`/`eslint`/`npm run build` puliti — ma non
+raggiungibile da nessuna parte dell'interfaccia oggi.** Non c'è ancora un modo di generare questo
+protocollo dall'app: nessun pulsante, nessuna opzione nel wizard. Serve la Fase 2 (motore Runner)
+prima che sia usabile per davvero da un utente. Consegnato **direttamente su `main`** (stessa
+modalità di oggi): il file nuovo non è importato da nessuna parte dell'app esistente, quindi il
+deploy Vercel non cambia nulla di visibile — è codice pronto ma "spento" finché non viene
+collegato all'interfaccia.
