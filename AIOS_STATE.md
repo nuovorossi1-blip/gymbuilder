@@ -4,7 +4,7 @@
 > da qui. Va **aggiornato** a ogni sessione, non accodato all'infinito.
 > L'identità del progetto e il percorso di AI-OS stanno in `AIOS_PROJECT.json`.
 
-**Ultimo aggiornamento:** 2026-08-21 (dip Push vincolato a dip_parallele, non più casuale + tasto "Torna alla Settimana" dopo il salvataggio — vedi fondo file) - Claude (Sonnet 5)
+**Ultimo aggiornamento:** 2026-08-21 (bug reale: Indietro nativo Android cancellava il programma settimanale tornando da un giorno generato — vedi fondo file) - Claude (Sonnet 5)
 
 Etichette: `[FACT]` verificato nel codice · `[RICOSTRUITO]` dedotto da indizi ·
 `[IGNOTO]` non ricavabile dal repository
@@ -324,6 +324,7 @@ workflow APK richiede la correzione documentata nella sez. 10.
 | Con intensità "Alta" e poco tempo a disposizione, il recupero finiva identico a quello di intensità "Bassa" nello stesso scenario — il campo Intensità sembrava non avere alcun effetto | Non è un bug: quando il tempo è troppo poco per il recupero lungo richiesto da "Alta", l'adattamento al tempo lo comprime verso il minimo, esattamente come farebbe con qualunque altra intensità nello stesso vincolo. È l'effetto atteso di "adatta il tempo, non tagliare esercizi", solo che in quel caso specifico appiattisce la differenza fra intensità | Non è stato cambiato il motore: cambiato il test, che ora verifica l'effetto dell'intensità con un budget di tempo sufficiente a non farla comprimere. Da tenere a mente: l'intensità è un'indicazione, non una garanzia, quando il tempo è troppo poco |
 | Il dip di Push tornava a essere scelto a caso fra `dip_parallele` (corretto: allena anche petto/deltoide anteriore) e `dip_panca` (che non lo fa), nonostante il fix del 19/08 mattina | Il fix del 19/08 aveva ammesso `horizontal_push` a livello di intero muscolo tricipiti, non del singolo slot: entrambi gli esercizi passavano il filtro e la scelta finale restava un sorteggio fra i primi candidati | Aggiunto `preferredPatterns: ['horizontal_push']` sullo slot 4 di `BASE_SLOTS.push`: nel catalogo solo `dip_parallele` ha quel pattern esatto, quindi lo slot ora sceglie sempre e solo lui. Aggiunto anche `maxSets: 3` sullo stesso slot (prima 4) |
 | Salvando una giornata dentro un programma settimanale multi-giorno, non c'era modo di tornare alla settimana in corso | Il modal "Allenamento Salvato!" aveva solo due uscite (Libreria, Home), nessuna verso `weeklyProgram` | Aggiunto un pulsante "Torna alla Settimana" (in cima alla pagina e nel modal), visibile solo quando `weeklyProgram.config.program_kind === 'program'` e `week.length > 1` |
+| Il tasto/gesto Indietro nativo di Android, tornando da un giorno generato (es. Push) verso la settimana per vederne un altro (es. Pull), cancellava l'intero programma settimanale e riportava alla Home | `Create.tsx` leggeva `fresh=1` dall'URL ad ogni render per decidere se azzerare tutto: quel parametro restava scritto nella voce di cronologia di `/crea` anche dopo il primo uso, perché nessun codice lo rimuoveva. Il tasto Indietro nativo (diverso da un pulsante interno: riapre la stessa voce di cronologia) tornava su quell'URL con `fresh=1` ancora presente, e la pagina si ricomportava come un ingresso fresco dalla Home | `freshEntry`/`skipKindStep` ora catturati una sola volta al mount (non riletti da `searchParams` ad ogni render); l'URL viene ripulito da `fresh=1` (via `setSearchParams` con `replace`) subito dopo il primo uso, così una voce di cronologia raggiunta di nuovo con Indietro non lo trova più |
 | In Condizionamento, i movimenti monostrutturali (es. "1 min" al vogatore) diventavano "5" ripetizioni nei formati EMOM/For Time dopo la riduzione/aumento delle reps | `reduxReps()` usava `parseInt("1 min")`, che in JavaScript non restituisce `NaN` ma `1` (legge le cifre iniziali e ignora il resto): la stringa veniva trattata come un numero valido e riscalata a un valore senza senso | Aggiunta una guardia esplicita `/^\d+$/.test(reps)` prima di qualunque trasformazione numerica: le reps a tempo restano intatte. Trovato eseguendo davvero il motore su tutti e 6 i formati prima di scrivere i test (non solo `tsc`/build), esattamente la lezione già in sez. 9 |
 | In Condizionamento, la `duration_min` finale dei formati "Rounds"/"Circuit"/"Intervals" era platealmente troppo corta (es. 5 minuti per 4 movimenti × 5 giri) | Il calcolo trattava ogni round come se durasse sempre 60 secondi (`rounds × 1 min`), formula presa in prestito da EMOM dove è vera per costruzione (`interval_sec` sempre 60) ma falsa per formati senza un `interval_sec` esplicito, dove un giro dura quanto il circuito reale richiede | `costruisciBlocco()` ora calcola e restituisce i minuti reali per formato (stima ~45s di lavoro a movimento + il recupero effettivo fra un esercizio e l'altro), invece di dedurli a ritroso da `rounds`/`interval_sec` al chiamante. Stessa lezione di sopra: il bug non sarebbe mai emerso da `tsc`/build, solo eseguendo il motore e leggendo i numeri prodotti |
 | L'app poteva ancora chiudersi durante l'allenamento (schermo spento, dopo un cambio di fase come lavoro→riposo) nonostante il fix precedente del 17/08 (`a125bd8`, try/catch su `onStartCommand`) | Quel fix intercetta solo le `RuntimeException` sincrone dentro `onStartCommand()`. Il ramo `deadline <= now` chiamava `stopTimer()` senza mai chiamare `startForeground()` — ma il servizio è avviato con `startForegroundService()`, che impone `startForeground()` entro pochi secondi *da ogni esito*. Se non arriva, Android lancia `ForegroundServiceDidNotStartInTimeException` *dopo* che `onStartCommand()` è già tornato: un crash a livello di sistema che nessun try/catch Java/JS può intercettare. Un deadline già scaduto arriva quando il tick React che lo calcola gira in ritardo (throttling in background/schermo spento) | Aggiunta `promoteToForegroundThenStop()`: il ramo del deadline scaduto ora chiama comunque `startForeground()` (con una notifica "a zero secondi") prima di fermare il servizio, rispettando il contratto Android in ogni ramo. Non riproducibile in questo Codespace (niente Android SDK): individuato per lettura del contratto `startForegroundService`, non da un log di crash reale — da confermare su un telefono vero |
@@ -1582,3 +1583,38 @@ success sul commit `94070fb`). **Non verificato personalmente aprendo il link**:
 rete di questa sessione impediscono l'accesso a `gymbuilder-lemon.vercel.app` da qui — il
 prossimo LLM (o Rossi) deve aprire il sito e controllare a occhio prima di considerare la
 verifica completa, non fidarsi solo del pannello verde di Vercel.
+
+## Aggiornamento stato — 2026-08-21 (continua): Indietro nativo Android cancellava il programma settimanale
+
+**Problemi rilevati**: segnalato dall'utente testando in produzione dopo il fix precedente — creato
+un programma PPL Bodybuilding + CrossFit Hybrid a 5 giorni, aperto il giorno Push (esercizi
+generati e visibili), poi usato il tasto/gesto **Indietro nativo di Android** (non un pulsante
+interno) per tornare alla settimana e guardare un altro giorno (es. Pull): l'app riportava alla
+Home e **l'intero programma settimanale spariva**, non solo il giorno aperto.
+
+**Cosa è stato fatto**: causa vera trovata leggendo `Create.tsx` — `freshEntry`/`skipKindStep`
+venivano ricalcolati da `searchParams` a ogni render, e l'URL con `fresh=1` (usato per dire "azzera
+tutto, sono appena arrivato dalla Home") non veniva mai ripulito dopo il primo uso. Il tasto
+Indietro nativo riapre la voce di cronologia così com'era, `fresh=1` compreso: tornare su `/crea`
+da `/allenamento` la faceva ricomportare come un ingresso fresco, azzerando `weeklyProgram`. Fix:
+`freshEntry`/`skipKindStep` congelati una sola volta al mount (`useState` lazy init, mai riletti
+dopo), e l'URL ripulito da `fresh=1` (`setSearchParams` con `replace`, non `push`) subito dopo
+l'unico reset legittimo. `program_kind` resta nell'URL apposta: serve ancora per riconoscere un
+arrivo diretto dalla Home in futuro.
+
+**Cosa c'è ancora da fare**: nessun seguito diretto di questo fix. Restano aperte le voci più
+vecchie di verifica manuale già in `TODO.md` (FST-7/CBum/PPL 6 slot nel wizard reale, badge
+Avvicinamento, ecc.) — non toccate oggi, non cancellate.
+
+**Dove deve arrivare il progetto**: coerente con l'obiettivo finale (sez. 1) — un motore
+deterministico affidabile, ma altrettanto importante è che l'esperienza attorno (navigazione,
+salvataggio, ripresa) non perda mai il lavoro dell'utente: questo bug rientrava proprio in quella
+seconda categoria, non nel motore di generazione.
+
+**Cosa deve aspettarsi l'utente**: **verificato solo con `tsc`/`npx vitest run` (251/251
+verdi)/`eslint`/`npm run build`, non ancora in un browser o dispositivo reale** (stesso limite di
+sempre in questo Codespace: nessun utente Supabase autenticato disponibile per `Create.tsx`).
+Prossimo passo per Rossi: rifare esattamente lo scenario segnalato (programma multi-giorno →
+apri un giorno → Indietro nativo Android) e controllare che il programma resti intatto invece di
+sparire. Consegnato **direttamente su `main`** (non via PR, su indicazione esplicita dell'utente
+"sempre e poi deploy"): il deploy automatico Vercel parte da solo dopo il push.

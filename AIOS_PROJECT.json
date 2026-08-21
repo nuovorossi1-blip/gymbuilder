@@ -61,6 +61,6 @@
   "last_session": {
     "model": "Claude Sonnet 5",
     "date": "2026-08-21",
-    "summary": "Corretto un residuo del bug dip Push (19/08): lo slot tricipiti composto sceglieva ancora a caso fra dip_parallele e dip_panca; ora vincolato al solo dip_parallele con max 3 serie (SlotDef.maxSets, nuovo campo). Aggiunto pulsante 'Torna alla Settimana' dopo il salvataggio di una giornata dentro un programma multi-giorno (prima si perdeva la settimana). 251/251 test verdi, tsc/eslint/build puliti. Consegnato via PR draft #30 su branch claude/gymbuilder-user-testing-v8r1j7, non ancora mergiato su main: produzione non ancora aggiornata."
+    "summary": "Corretto un bug reale: il tasto Indietro nativo Android, tornando da un giorno generato (es. Push) alla settimana per vederne un altro, cancellava l'intero programma settimanale (causa: fresh=1 non veniva mai rimosso dall'URL di /crea, il Indietro nativo lo rileggeva e azzerava tutto). freshEntry/skipKindStep ora congelati al mount, URL ripulito subito dopo l'uso. 251/251 test verdi, tsc/eslint/build puliti. Push diretto su main (non PR) su indicazione esplicita dell'utente. Non ancora verificato su dispositivo reale."
   }
 }

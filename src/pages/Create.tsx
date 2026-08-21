@@ -45,7 +45,7 @@ const DEFAULT_CONFIG: WeeklyProgramConfig = {
 }
 
 export default function Create() {
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { user } = useAuth()
   const { profile } = useSettings(user?.id)
   const { weeklyProgram, setWeeklyProgram, setWorkout, setGenerationConfig, setCatalog, clearRejectedExercises } = useWorkout()
@@ -55,12 +55,22 @@ export default function Create() {
   const [error, setError] = useState<string | null>(null)
 
   const initialKind = searchParams.get('program_kind') === 'single_session' ? 'single_session' : 'program'
-  const freshEntry = searchParams.get('fresh') === '1'
-  // L'utente ha già scelto "Programma Settimanale" o "Sessione Singola" nella Home (sez.
-  // feedback utente 19/08 sera: "la pagina successiva non mi deve chiedere di nuovo"): lo step
-  // 2 del wizard, che ripropone la stessa scelta, va saltato solo in questo caso — un ingresso
-  // diretto sull'URL senza quel parametro deve poterla ancora fare.
-  const skipKindStep = freshEntry && searchParams.has('program_kind')
+  // Congelati al PRIMO mount di questa pagina (useState lazy init, mai riletti dopo): l'effect
+  // sotto ripulisce fresh=1 dall'URL subito dopo averlo usato, così se l'utente torna qui col
+  // tasto/gesto Indietro nativo di Android (che riapre la stessa voce di cronologia, non naviga
+  // come un pulsante interno) non lo trova più e non riazzera la settimana appena costruita —
+  // bug reale segnalato dall'utente il 21/08: Push generato dentro un programma PPL+Hybrid,
+  // Indietro nativo per guardare Pull riportava alla Home cancellando l'intero programma.
+  // Se leggessimo fresh/skipKindStep da searchParams ad ogni render invece che una volta sola,
+  // ripulire l'URL romperebbe anche "salta lo step 2" a metà wizard nella STESSA sessione.
+  const [{ freshEntry, skipKindStep }] = useState(() => ({
+    freshEntry: searchParams.get('fresh') === '1',
+    // L'utente ha già scelto "Programma Settimanale" o "Sessione Singola" nella Home (sez.
+    // feedback utente 19/08 sera: "la pagina successiva non mi deve chiedere di nuovo"): lo step
+    // 2 del wizard, che ripropone la stessa scelta, va saltato solo in questo caso — un ingresso
+    // diretto sull'URL senza quel parametro deve poterla ancora fare.
+    skipKindStep: searchParams.get('fresh') === '1' && searchParams.has('program_kind'),
+  }))
   const [builderInitial, setBuilderInitial] = useState<WeeklyProgramConfig>(() =>
     weeklyProgram && !freshEntry
       ? weeklyProgram.config
@@ -79,7 +89,14 @@ export default function Create() {
     setWorkout(null)
     setGenerationConfig(null)
     clearRejectedExercises()
-  }, [clearRejectedExercises, freshEntry, setGenerationConfig, setWeeklyProgram, setWorkout])
+    // Sostituisce (non aggiunge) la voce di cronologia corrente togliendo fresh=1: vedi
+    // spiegazione sopra su freshEntry/skipKindStep.
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev)
+      next.delete('fresh')
+      return next
+    }, { replace: true })
+  }, [clearRejectedExercises, freshEntry, setGenerationConfig, setSearchParams, setWeeklyProgram, setWorkout])
 
   useEffect(() => {
     caricaCatalogo().then((items) => {
