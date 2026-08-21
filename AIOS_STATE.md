@@ -11,6 +11,31 @@ Etichette: `[FACT]` verificato nel codice · `[RICOSTRUITO]` dedotto da indizi �
 
 ---
 
+## REGOLA PERMANENTE — vale per qualsiasi LLM che lavora su questo progetto
+
+Prima di rispondere all'utente su qualsiasi lavoro fatto (anche piccolo), aggiorna questo file
+con tutti e cinque questi punti, non una selezione:
+
+1. **Problemi rilevati** — cosa non andava, e la causa vera (non il sintomo). Se un problema
+   segnalato dall'utente non è ancora risolto, resta in "6. Problemi aperti" finché non lo è
+   davvero, non finché sembra sistemato.
+2. **Cosa è stato fatto** — la modifica reale, non l'intenzione. Scrivilo solo dopo aver
+   verificato che funziona (test, build, lettura del codice vero), mai prima.
+3. **Cosa c'è ancora da fare** — sia il seguito immediato di questo lavoro, sia le voci più
+   vecchie non toccate oggi: non cancellarle solo perché non erano il focus della sessione.
+4. **Dove dobbiamo arrivare** — non basta dire cosa è cambiato: rileggi "1. Obiettivo finale"
+   e collega il lavoro di oggi a quello, così chi legge non deve indovinare perché è stato fatto.
+5. **Cosa aspettarsi** — cosa deve controllare l'utente per verificare che il lavoro sia
+   davvero fatto (link da aprire, scenario da provare, dato da guardare), e cosa NON è ancora
+   vero (es. "in una PR draft, non ancora in produzione") — mai lasciar credere che qualcosa sia
+   live se non lo è.
+
+Questo non sostituisce le regole già scritte più sotto (SALVATAGGIO AUTOMATICO, tabella
+"Problemi risolti" da non cancellare mai): le rende esplicite così che nessun LLM le salti per
+fretta o per convinzione che "questa volta non serve".
+
+---
+
 ## 1. Obiettivo finale
 
 Un'applicazione che genera allenamenti su misura. L'utente non sceglie una scheda
