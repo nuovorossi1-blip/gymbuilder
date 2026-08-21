@@ -11,7 +11,7 @@ export default function HomeDashboard() {
   const { user } = useAuth()
   const {
     activeSession, resumeActiveSession, setWorkout, setGenerationConfig,
-    setWeeklyProgram, clearRejectedExercises, catalog,
+    weeklyProgram, setWeeklyProgram, clearRejectedExercises, catalog,
   } = useWorkout()
   const [savedList, setSavedList] = useState<SavedWorkout[]>([])
   const [lastCompleted, setLastCompleted] = useState<CompletedWorkout | null>(null)
@@ -144,8 +144,35 @@ export default function HomeDashboard() {
               <span>▶ CONTINUA ALLENAMENTO</span>
             </button>
           </>
+        ) : weeklyProgram && weeklyProgram.config.program_kind === 'program' && weeklyProgram.week.length > 1 ? (
+          <>
+            <div className="flex items-center justify-between mb-3">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-purple-500/20 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-purple-300">
+                🗓️ Programma Settimanale in Corso
+              </span>
+              <span className="font-data text-xs text-slate-400">
+                {weeklyProgram.week.filter((giorno) => giorno.generated_workout).length}/{weeklyProgram.week.length} giorni generati
+              </span>
+            </div>
+
+            <h2 className="font-display text-xl font-bold text-white mb-1">
+              {weeklyProgram.week.map((giorno) => giorno.label).join(' · ')}
+            </h2>
+
+            <p className="text-xs text-slate-300 mb-5">
+              Riprendi da dove hai lasciato senza perdere la settimana già costruita.
+            </p>
+
+            <button
+              onClick={() => navigate('/crea')}
+              className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-purple-500 to-indigo-600 py-3.5 px-4 font-display text-sm font-bold uppercase tracking-wider text-white shadow-lg transition-transform active:scale-[0.98]"
+            >
+              <span>📅 CONTINUA LA SETTIMANA</span>
+            </button>
+          </>
         ) : lastCompleted ? (
           <>
+
             <div className="flex items-center justify-between mb-3">
               <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/20 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-emerald-300">
                 <span className="h-2 w-2 rounded-full bg-emerald-400" />

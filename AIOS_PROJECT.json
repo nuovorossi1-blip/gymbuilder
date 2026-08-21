@@ -61,6 +61,6 @@
   "last_session": {
     "model": "Claude Sonnet 5",
     "date": "2026-08-21",
-    "summary": "Corretto un bug reale: il tasto Indietro nativo Android, tornando da un giorno generato (es. Push) alla settimana per vederne un altro, cancellava l'intero programma settimanale (causa: fresh=1 non veniva mai rimosso dall'URL di /crea, il Indietro nativo lo rileggeva e azzerava tutto). freshEntry/skipKindStep ora congelati al mount, URL ripulito subito dopo l'uso. 251/251 test verdi, tsc/eslint/build puliti. Push diretto su main (non PR) su indicazione esplicita dell'utente. Non ancora verificato su dispositivo reale."
+    "summary": "Corretto un secondo bug reale collegato al precedente: la Home non offriva mai un modo non distruttivo di riprendere un programma settimanale a meta - ogni CTA (Pianifica Settimana, Crea nuovo) cancellava esplicitamente weeklyProgram. Aggiunta una card 'Programma Settimanale in Corso' su HomeDashboard (stesso pattern gia' usato per activeSession) con pulsante che naviga a /crea senza reset. 251/251 test verdi, tsc/eslint/build puliti. Push diretto su main. Non ancora verificato su dispositivo reale."
   }
 }

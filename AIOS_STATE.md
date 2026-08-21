@@ -4,7 +4,7 @@
 > da qui. Va **aggiornato** a ogni sessione, non accodato all'infinito.
 > L'identità del progetto e il percorso di AI-OS stanno in `AIOS_PROJECT.json`.
 
-**Ultimo aggiornamento:** 2026-08-21 (bug reale: Indietro nativo Android cancellava il programma settimanale tornando da un giorno generato — vedi fondo file) - Claude (Sonnet 5)
+**Ultimo aggiornamento:** 2026-08-21 (Home non offriva modo non distruttivo di riprendere un programma settimanale a metà — vedi fondo file) - Claude (Sonnet 5)
 
 Etichette: `[FACT]` verificato nel codice · `[RICOSTRUITO]` dedotto da indizi ·
 `[IGNOTO]` non ricavabile dal repository
@@ -1618,3 +1618,43 @@ Prossimo passo per Rossi: rifare esattamente lo scenario segnalato (programma mu
 apri un giorno → Indietro nativo Android) e controllare che il programma resti intatto invece di
 sparire. Consegnato **direttamente su `main`** (non via PR, su indicazione esplicita dell'utente
 "sempre e poi deploy"): il deploy automatico Vercel parte da solo dopo il push.
+
+## Aggiornamento stato — 2026-08-21 (continua): Home non offriva un modo non distruttivo di riprendere un programma settimanale a metà
+
+**Problemi rilevati**: segnalato dall'utente — stesso sintomo del fix precedente (perdita del
+programma settimanale) ma causa diversa. Dentro un giorno generato (es. Push) l'utente vede il
+link "← Torna alla Settimana" appena aggiunto, ma sotto è sempre visibile la barra di
+navigazione principale con l'icona 🏠 "Oggi", molto più prominente — istintivo toccare quella.
+Il problema vero è dopo: la Home **non mostrava mai** un programma settimanale a metà.
+`activeSession` (allenamento in corso) ha una card dedicata con "Continua Allenamento", ma
+`weeklyProgram` no: ogni CTA grande su Home ("Pianifica Settimana", "Crea nuovo allenamento")
+chiama `createFreshWorkout`, che chiama esplicitamente `setWeeklyProgram(null)` — cancella il
+programma appena lo tocchi, senza alcuna alternativa non distruttiva per dire "no, voglio
+riprendere quello che stavo già facendo".
+
+**Cosa è stato fatto**: aggiunta in `HomeDashboard.tsx` una terza card di stato (fra
+`activeSession` e `lastCompleted`, stesso stile visivo delle altre due) che riconosce
+`weeklyProgram.config.program_kind === 'program' && weeklyProgram.week.length > 1`: mostra
+quanti giorni sono già generati (`X/Y giorni generati`), l'elenco delle etichette dei giorni,
+e un pulsante "📅 CONTINUA LA SETTIMANA" che naviga a `/crea` **senza** passare da
+`createFreshWorkout` — nessun reset. Aggiunto anche `weeklyProgram` (il valore, prima si
+leggeva solo il setter) alla destrutturazione di `useWorkout()` in questo file.
+
+**Cosa c'è ancora da fare**: nessun seguito diretto. Resta aperta, come nota per il futuro,
+una domanda di prodotto non decisa oggi (non toccata perché fuori dallo scope del bug
+segnalato): se convenga anche avvisare l'utente con una conferma ("hai un programma in corso,
+sei sicuro di volerne creare uno nuovo?") quando tocca "Pianifica Settimana"/"Crea nuovo"
+mentre `weeklyProgram` esiste già, invece di limitarsi a offrire la via d'uscita non
+distruttiva come fatto oggi.
+
+**Dove deve arrivare il progetto**: stessa area dell'obiettivo finale (sez. 1) toccata dal fix
+precedente — l'esperienza attorno al motore di generazione non deve mai far perdere il lavoro
+dell'utente senza che lui lo scelga esplicitamente.
+
+**Cosa deve aspettarsi l'utente**: **verificato solo con `tsc`/`npx vitest run` (251/251
+verdi)/`eslint`/`npm run build`, non ancora in un browser o dispositivo reale** (stesso limite
+di sempre). Prossimo passo per Rossi: rifare lo scenario — programma PPL+Hybrid 5 giorni,
+apri giorno 1, tocca 🏠 Oggi nella barra in basso, e controllare che sulla Home compaia ora la
+card viola "Programma Settimanale in Corso" con il pulsante per riprendere, invece di dover
+ricominciare da zero. Consegnato **direttamente su `main`** (stessa modalità di oggi, non via
+PR): il deploy automatico Vercel parte da solo dopo il push.
