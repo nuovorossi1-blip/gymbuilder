@@ -4,7 +4,7 @@
 > da qui. Va **aggiornato** a ogni sessione, non accodato all'infinito.
 > L'identità del progetto e il percorso di AI-OS stanno in `AIOS_PROJECT.json`.
 
-**Ultimo aggiornamento:** 2026-08-21 (nuovo protocollo Density Tri-Set 3-6-9, Fase 1 — modello dati + generatore PPL — vedi fondo file) - Claude (Sonnet 5)
+**Ultimo aggiornamento:** 2026-08-21 (Density 3-6-9 Fase 2 — motore di esecuzione dal vivo, isolato da Runner.tsx su richiesta esplicita dell'utente dopo discussione sul rischio — vedi fondo file) - Claude (Sonnet 5)
 
 Etichette: `[FACT]` verificato nel codice · `[RICOSTRUITO]` dedotto da indizi ·
 `[IGNOTO]` non ricavabile dal repository
@@ -1705,3 +1705,69 @@ prima che sia usabile per davvero da un utente. Consegnato **direttamente su `ma
 modalità di oggi): il file nuovo non è importato da nessuna parte dell'app esistente, quindi il
 deploy Vercel non cambia nulla di visibile — è codice pronto ma "spento" finché non viene
 collegato all'interfaccia.
+
+## Aggiornamento stato — 2026-08-21 (continua): Density 3-6-9 Fase 2 — motore di esecuzione dal vivo (ISOLATO, rischio da leggere prima di fidarsi)
+
+**Problemi rilevati**: nessun bug, seguito diretto della Fase 1. Prima di scrivere codice ho
+segnalato a Rossi un rischio reale: `Runner.tsx` (1234 righe) è il punto dell'app con storia di
+crash documentata (`ForegroundServiceDidNotStartInTimeException`, sez. Handoff corrente più
+sopra) — il fix già in produzione tiene vivo il servizio nativo Android per tutta la sessione e
+non lo ferma mai fra un round e l'altro. Il Density 3-6-9 ha molti più cambi di fase ravvicinati
+di un allenamento normale (3 stazioni per giro, più giri, più blocchi): rischio concreto di
+reintrodurre lo stesso tipo di crash se integrato male, e nessun modo di testarlo dal vivo in
+questa sessione (serve un telefono Android reale con l'app in background). **Rossi ha scelto
+esplicitamente: isolarlo**, invece di integrarlo dentro la macchina a stati di Runner.tsx.
+
+**Cosa è stato fatto**:
+- `src/engine/densityRunnerEngine.ts` — motore PURO di transizione di stato (nessun React,
+  nessun timer reale, nessun codice nativo): dato lo stato attuale (blocco/giro/stazione/fase)
+  e l'evento "questa fase è finita", dice qual è lo stato dopo. Testato a fondo: 6 test,
+  incluso un cammino completo dell'intera sessione (17 transizioni) verificato passo-passo, non
+  solo lo stato finale.
+- `src/pages/DensityRunner.tsx` — pagina nuova, dedicata, isolata: **non tocca `Runner.tsx` per
+  niente** (verificato: `git diff` su quel file è vuoto). Riusa però le stesse utility
+  condivise già testate nel resto dell'app — `timer.ts` (TimerClock, calcolo deterministico via
+  timestamp, stesso pattern di Runner.tsx), `backgroundTimer.ts` (stesso servizio nativo
+  Android, stesso `publishBackgroundTimer` mai fermato fra una fase e l'altra — solo alla vera
+  fine sessione, via `resetBackgroundTimer(true)` — per non ripetere l'errore del vecchio bug),
+  `audio.ts` (stessi beep di avviso). Non una macchina a stati nuova scollegata da tutto: eredita
+  il comportamento già corretto, non lo reinventa.
+- Route nuova `/density-369?split=push|pull|legs` (in `App.tsx`, 2 righe aggiunte, nessun'altra
+  modifica a quel file). Genera la sessione al volo con l'attrezzatura/esclusioni/preferiti
+  salvati dell'utente (`useSettings`), non hardcoded.
+- Al completamento: salva in `completed_workouts` tramite `registraCompletato` già esistente —
+  la sessione viene "appiattita" in un formato compatibile (un esercizio per stazione, `sets`
+  pari ai giri del blocco): perde il dettaglio giro-per-giro nello storico, ma resta leggibile
+  senza dover cambiare lo schema del database.
+- 279/279 test verdi (273 prima + 6 nuovi), `tsc`/`eslint`/`npm run build` puliti.
+
+**Limite noto e accettato, non nascosto**: `ActiveTimerState.href` (in `backgroundTimer.ts`) è
+scritto fisso a `/avvia` — se l'utente tocca la notifica di sistema mentre una sessione Density è
+in pausa/background, viene riportato al Runner normale (vuoto), non a `/density-369`. Il
+servizio nativo e il countdown continuano comunque a funzionare correttamente; è solo il "tocca
+per tornare esattamente qui" che punta al posto sbagliato. Non l'ho corretto: farlo avrebbe
+richiesto generalizzare `ActiveTimerState`, cioè toccare codice condiviso con `Runner.tsx` — la
+stessa cosa che Rossi ha chiesto di evitare.
+
+**Cosa c'è ancora da fare**: (1) Fase 3 — nessun modo di raggiungere `/density-369` dall'interno
+dell'app (nessun pulsante, nessuna voce nel wizard): oggi ci si arriva solo scrivendo l'indirizzo
+a mano; (2) il limite dell'href sopra; (3) le tre voci già aperte da Fase 1 (arricchimento
+catalogo, altri split, verifica bodyweight) restano tali, non toccate oggi.
+
+**Dove deve arrivare il progetto**: stessa area dell'obiettivo finale di sempre — qui in più
+vale la pena ripeterlo: l'affidabilità del timer in background non è un dettaglio secondario per
+GymBuilder, è già costata un giro di crash risolto con fatica. Isolare questa Fase 2 non è stata
+prudenza eccessiva: era la scelta esplicita dell'utente dopo aver capito il rischio vero.
+
+**Cosa deve aspettarsi l'utente — leggere con più attenzione del solito**: tutto verificato SOLO
+con test automatici e compilazione, **MAI su un browser o telefono vero**, per nessuna parte di
+questa sessione — ma qui vale un avviso più forte del solito "non ancora verificato": questa è
+la prima volta che questo tipo di codice (timer che deve sopravvivere a schermo bloccato /
+app in background) viene scritto senza poter nemmeno indirettamente testarlo, su un'app che ha
+già avuto un crash vero in quella stessa area. **Prima di fidarsi per un allenamento reale**:
+provare `/density-369?split=push` con schermo che si blocca a metà di un riposo lungo (i 180s di
+fine giro sono il caso più a rischio, il più lungo), controllare che il countdown riprenda giusto
+riaprendo lo schermo e che l'app non crashi. Consegnato **direttamente su `main`**: la nuova
+pagina non è raggiungibile da nessun punto dell'interfaccia esistente (serve l'URL diretto),
+quindi il rischio per chi usa l'app normalmente oggi è zero — il rischio è solo per chi va a
+provare deliberatamente `/density-369`.
