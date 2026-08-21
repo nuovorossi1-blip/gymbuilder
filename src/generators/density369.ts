@@ -44,7 +44,7 @@
  * questo ambiente): solo test automatici, vedi density369.test.ts.
  */
 
-import type { Equipment, EquipmentItem, Exercise, Muscle } from '../types'
+import type { Equipment, EquipmentItem, Exercise, GeneratedWorkout, Muscle, PrescribedExercise } from '../types'
 import { isExerciseAvailable } from './equipment'
 
 export type DensitySplit =
@@ -321,4 +321,44 @@ export function generaDensity369(catalogo: Exercise[], cfg: Density369Config): D
     blocks: [blockA, blockB],
     estimated_duration_min: stimaDurataMin(blockA, blockB),
   }
+}
+
+/**
+ * Trasforma un Density369Workout in una forma compatibile col resto dell'app
+ * (`GeneratedWorkout`/`PrescribedExercise`, quello che il Runner normale, `WorkoutPreview`, lo
+ * storico e il tracciamento del programma settimanale già sanno leggere): un esercizio per
+ * stazione, `sets` pari ai giri del blocco (la stazione si ripete quella volta), non un log
+ * giro-per-giro — perde il dettaglio del circuito ma resta leggibile senza dover cambiare lo
+ * schema del database o la logica esistente altrove. Condivisa fra `DensityRunner.tsx` (al
+ * salvataggio in `completed_workouts`) e `Create.tsx` (per segnare un giorno del programma
+ * settimanale come generato — 21/08, integrazione col programma settimanale).
+ *
+ * `durataSec`: la durata reale se il workout è già stato eseguito, altrimenti una stima
+ * (`estimated_duration_min * 60`) va bene per un giorno non ancora iniziato — solo per mostrare
+ * un numero ragionevole in `duration_min`, mai usata per validare o bloccare nulla.
+ */
+export function density369ComeGeneratedWorkout(w: Density369Workout, durataSec: number): GeneratedWorkout {
+  const esercizi: PrescribedExercise[] = w.blocks.flatMap((blocco) =>
+    blocco.stations.map((s): PrescribedExercise => ({
+      exercise_id: s.exercise_id,
+      name: `${s.name} (Blocco ${blocco.label}, Stazione ${s.role})`,
+      role: s.role === 3 ? 'isolation' : 'compound',
+      muscle: s.muscle,
+      sets: blocco.rounds,
+      reps: s.reps,
+      // Nessuna pausa fra le stazioni dello stesso giro (corretto 21/08): l'unico riposo reale
+      // in questo protocollo è a fine giro, quindi è quello che ha senso registrare qui.
+      rest_sec: blocco.round_rest_sec,
+      logged_weight_kg: s.logged_weight_kg,
+    }))
+  )
+  return {
+    name: w.name,
+    mode: 'bodybuilding',
+    split: w.split,
+    goal: 'hypertrophy',
+    experience: 'advanced',
+    duration_min: Math.round(durataSec / 60),
+    blocks: [{ kind: 'main', title: w.name, exercises: esercizi }],
+  } as GeneratedWorkout
 }

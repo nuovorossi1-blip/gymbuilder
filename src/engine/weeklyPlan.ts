@@ -451,7 +451,7 @@ export function generateWeeklyProgram(config: WeeklyProgramConfig): WeeklyProgra
   return { id: `week-${Date.now()}`, persisted: false, config: normalized, week, warnings: validateWeeklyProgram(week, normalized) }
 }
 
-export function updateWeeklySession(program: WeeklyProgram, id: string, patch: Partial<Pick<WeeklySession, 'day' | 'mode' | 'split'>>): WeeklyProgram {
+export function updateWeeklySession(program: WeeklyProgram, id: string, patch: Partial<Pick<WeeklySession, 'day' | 'mode' | 'split' | 'bb_protocol'>>): WeeklyProgram {
   const week = program.week.map((session) => {
     if (session.id !== id) return session
     const mode = patch.mode ?? session.mode

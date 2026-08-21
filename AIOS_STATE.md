@@ -4,7 +4,7 @@
 > da qui. Va **aggiornato** a ogni sessione, non accodato all'infinito.
 > L'identità del progetto e il percorso di AI-OS stanno in `AIOS_PROJECT.json`.
 
-**Ultimo aggiornamento:** 2026-08-21 (rimosso lo step "Livello di Esperienza" dal wizard e la relativa etichetta in schermata — l'app presuppone che l'utente sappia già allenarsi — vedi fondo file) - Claude (Sonnet 5)
+**Ultimo aggiornamento:** 2026-08-21 (Pezzo 3, ultimo del piano: Density 3-6-9 selezionabile per singolo giorno dentro un programma settimanale multi-giorno, con tracciamento vero — vedi fondo file) - Claude (Sonnet 5)
 
 Etichette: `[FACT]` verificato nel codice · `[RICOSTRUITO]` dedotto da indizi ·
 `[IGNOTO]` non ricavabile dal repository
@@ -2101,3 +2101,56 @@ link con `program_kind` già impostato) e controllare che il primo step sia "Cos
 il tasto Indietro funzioni in ogni punto — in particolare partendo dalla Home con
 "Programma Settimanale" già scelto lì, dove ora il salto avviene diversamente da prima.
 Consegnato **direttamente su `main`**.
+
+## Aggiornamento stato — 2026-08-21 (continua): Pezzo 3 (ultimo) del piano — Density 3-6-9 dentro il programma settimanale, per singolo giorno
+
+**Contesto**: chiude il piano in 3 pezzi concordato con Rossi (Fatto Density Runner → peso
+ovunque → questo). Esempio suo: un PPL a 5 giorni dove solo il giorno Gambe usa il Density 3-6-9,
+gli altri restano Standard/FST-7/CBum come sempre.
+
+**Cosa è stato fatto**:
+- `WeeklySession.bb_protocol` (nuovo campo opzionale) — protocollo Bodybuilding per QUESTA
+  seduta, sovrascrive `config.protocol` (globale) solo per quel giorno. `updateWeeklySession`
+  ampliata per accettarlo nel patch.
+- In "Modifica Slot" (l'editor di un giorno dentro `WeekView`), nuovo selettore "Protocollo per
+  questo giorno" — proposto solo per Bodybuilding, e Density 3-6-9 compare fra le opzioni solo
+  se lo split di quel giorno ha davvero un template (`DENSITY_SPLIT_SUPPORTATI`) — niente scelte
+  che falliscono solo dopo averle fatte.
+- **La parte centrale**: `generateDay` ora legge `session.bb_protocol ?? global.protocol` (non
+  più solo il protocollo globale) e, se è Density 3-6-9, **genera per davvero lì** (non solo un
+  redirect): chiama `generaDensity369`, lo converte in forma compatibile col resto dell'app
+  (`density369ComeGeneratedWorkout`, spostata da `DensityRunner.tsx` a `density369.ts` così è
+  condivisa, non duplicata), e aggiorna la settimana con `applyWorkoutRecovery` — il giorno
+  risulta davvero "generato" agli occhi del programma (stima di recupero aggiornata, non più
+  invisibile al tracciamento). **Tolta la restrizione "solo sessione singola"** della Fase 2:
+  ora funziona anche dentro un programma settimanale multi-giorno, era proprio quello il punto.
+  La generazione è deterministica (fix di ieri): `DensityRunner.tsx` la rifà per conto suo
+  all'apertura, stesso risultato — unica eccezione nota: se l'utente sostituisce un esercizio
+  dentro `DensityRunner`, quella scelta non si riflette nel "giorno generato" della settimana,
+  resta solo nella sessione eseguita/salvata (limite accettato, non un bug, documentato nel
+  codice).
+- **Pulizia (A4)**: rimossa la card doppia in Home e la pagina `Density369Scegli.tsx` — la
+  scelta ora vive solo nel wizard (sessione singola: step Protocollo; settimana: per-giorno in
+  Modifica Slot), coerente con gli altri protocolli. **Le 4 regole operative** che c'erano in
+  quella pagina non sono state perse: spostate in un pannello pieghevole ("ℹ️ Regole") dentro
+  `DensityRunner.tsx` stesso.
+- 317/317 test verdi (invariato: questa parte è soprattutto wizard/routing, senza test unitari
+  dedicati — `tsc` pulito è stato il controllo principale, oltre a lint/build), `Runner.tsx`
+  verificato ancora intatto (non toccato in questa parte).
+
+**Cosa c'è ancora da fare**: il piano in 3 pezzi è concluso. Restano le voci più vecchie già in
+`TODO.md` — arricchimento catalogo, `bro_shoulders` senza template, il limite
+`ActiveTimerState.href`, e ora anche la nuova nota sul disallineamento sostituzione/tracciamento
+appena descritta sopra.
+
+**Dove deve arrivare il progetto**: il Density 3-6-9 è ora una funzione completa e integrata,
+non più un esperimento a sé — selezionabile ovunque un protocollo Bodybuilding lo è, sia per una
+sessione che dentro una settimana intera, con lo stesso livello di tracciamento degli altri.
+
+**Cosa deve aspettarsi l'utente**: **verificato solo con test/tsc/build, non ancora in un
+browser o dispositivo reale** — stesso limite di sempre, ma qui in particolare vale la pena
+provare lo scenario esatto che Rossi ha descritto: costruire un programma settimanale a più
+giorni (es. PPL 5 giorni), impostare "Density 3-6-9" solo su UN giorno tramite "Modifica Slot",
+generare quel giorno e controllare che (a) porti davvero a `/density-369` con la sessione giusta,
+(b) il pallino/stato di quel giorno nella vista settimanale risulti "generato", (c) gli altri
+giorni restino invariati col loro protocollo originale. Consegnato **direttamente su `main`**.

@@ -12,8 +12,9 @@
  * browser disponibile in questa sessione): il flusso a schermo bloccato in particolare va
  * provato con attenzione da un dispositivo Android vero prima di fidarsene per un allenamento.
  *
- * Ingresso ancora minimo (query string, non il wizard): la Fase 3 (wizard/UI completa) resta
- * da fare, vedi TODO.md.
+ * Raggiungibile dal wizard (Sessione Singola: step Protocollo; Programma Settimanale: scelta
+ * per singolo giorno in "Modifica Slot") — non più da una card separata in Home, tolta il
+ * 21/08 sera perché ridondante ora che la scelta vive nel wizard come gli altri protocolli.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -22,7 +23,7 @@ import { useAuth } from '../features/auth/AuthProvider'
 import { useWorkout } from '../features/workout/WorkoutContext'
 import { useSettings } from '../features/profile/useSettings'
 import { registraCompletato, elencoStorico } from '../lib/api'
-import { generaDensity369, type DensitySplit, type Density369Workout } from '../generators/density369'
+import { density369ComeGeneratedWorkout, generaDensity369, type DensitySplit, type Density369Workout } from '../generators/density369'
 import { ultimiPesiPerEsercizio } from '../engine/weightHistory'
 import {
   avanza, durataFaseSec, progressoTesto, statoIniziale, stazioneCorrente, type DensityRunnerState,
@@ -30,7 +31,6 @@ import {
 import { type TimerClock, remainingSeconds, pauseClock, resumeClock, countdownEvents } from '../engine/timer'
 import { loadAudioSettings, TimerAudio } from '../engine/audio'
 import { notifyTimerEvent, publishBackgroundTimer, requestTimerNotifications, resetBackgroundTimer } from '../engine/backgroundTimer'
-import type { GeneratedWorkout, PrescribedExercise } from '../types'
 
 const NOME_SPLIT: Record<DensitySplit, string> = {
   push: 'Push', pull: 'Pull', legs: 'Legs', upper: 'Upper', lower: 'Lower',
@@ -38,35 +38,27 @@ const NOME_SPLIT: Record<DensitySplit, string> = {
   front_body: 'Front', back_body: 'Back',
 }
 
-/** Trasforma il workout Density in una forma compatibile con lo storico esistente
- *  (`completed_workouts`, via registraCompletato): un esercizio per stazione, `sets` pari ai
- *  giri del blocco (la stazione si ripete quella volta), non un log giro-per-giro — perde il
- *  dettaglio del circuito ma resta leggibile nella cronologia senza toccare lo schema DB. */
-function comeWorkoutRegistrabile(w: Density369Workout, durataSec: number): GeneratedWorkout {
-  const esercizi: PrescribedExercise[] = w.blocks.flatMap((blocco) =>
-    blocco.stations.map((s): PrescribedExercise => ({
-      exercise_id: s.exercise_id,
-      name: `${s.name} (Blocco ${blocco.label}, Stazione ${s.role})`,
-      role: s.role === 3 ? 'isolation' : 'compound',
-      muscle: s.muscle,
-      sets: blocco.rounds,
-      reps: s.reps,
-      // Nessuna pausa fra le stazioni dello stesso giro (corretto 21/08): l'unico riposo
-      // reale in questo protocollo è a fine giro, quindi è quello che ha senso registrare qui.
-      rest_sec: blocco.round_rest_sec,
-      logged_weight_kg: s.logged_weight_kg,
-    }))
-  )
-  return {
-    name: w.name,
-    mode: 'bodybuilding',
-    split: w.split,
-    goal: 'hypertrophy',
-    experience: 'advanced',
-    duration_min: Math.round(durataSec / 60),
-    blocks: [{ kind: 'main', title: w.name, exercises: esercizi }],
-  } as GeneratedWorkout
-}
+// Sez. 5 della spec originale di Rossi (21/08): prima vivevano in una pagina di scelta a
+// parte (Density369Scegli.tsx, rimossa il 21/08 sera perché ridondante col wizard) — spostate
+// qui, in un pannello pieghevole, per non perderle.
+const REGOLE = [
+  {
+    titolo: 'Autoregolazione dei Carichi',
+    testo: 'Non usare pesi standard nelle stazioni 2 e 3: riduci il carico del 20-25% nella Stazione 2 e usa carichi leggeri (~50%) nella Stazione 3.',
+  },
+  {
+    titolo: 'Regola del Buffer (RIR)',
+    testo: 'Nella Stazione 1 tieni sempre 1-2 ripetizioni di margine — mai a cedimento concentrico, comprometterebbe il volume del circuito.',
+  },
+  {
+    titolo: 'Doppia Progressione',
+    testo: 'Aumenta il peso nella Stazione 1 solo quando chiudi 6 ripetizioni pulite in tutti i round previsti.',
+  },
+  {
+    titolo: 'Logistica Salva-Postazione',
+    testo: 'Tieni Blocco A e Blocco B nello stesso metro quadro (es. panca con manubri vicini) per rispettare i 10-15s di cambio stazione.',
+  },
+]
 
 export default function DensityRunner() {
   const { user } = useAuth()
@@ -131,6 +123,7 @@ export default function DensityRunner() {
 
   const [stato, setStato] = useState<DensityRunnerState>(statoIniziale)
   const [mostraAlternative, setMostraAlternative] = useState(false)
+  const [mostraRegole, setMostraRegole] = useState(false)
   const [clock, setClock] = useState<TimerClock | null>(null)
   const [paused, setPaused] = useState(false)
   const [, forceRender] = useState(0)
@@ -236,7 +229,7 @@ export default function DensityRunner() {
     setSalvataggio('salvo')
     try {
       const durataSec = Math.floor((Date.now() - inizioRef.current) / 1000)
-      await registraCompletato(user.id, comeWorkoutRegistrabile(workout, durataSec), durataSec, null, null)
+      await registraCompletato(user.id, density369ComeGeneratedWorkout(workout, durataSec), durataSec, null, null)
       void notifyTimerEvent('TIMER_COMPLETED', 'Allenamento completato')
       naviga('/salvati')
     } catch {
@@ -286,7 +279,22 @@ export default function DensityRunner() {
 
   return (
     <div className="px-5 pt-12 pb-8">
-      <p className="eyebrow mb-1">{NOME_SPLIT[workout.split]} · Density Tri-Set 3-6-9</p>
+      <div className="mb-1 flex items-center justify-between">
+        <p className="eyebrow">{NOME_SPLIT[workout.split]} · Density Tri-Set 3-6-9</p>
+        <button onClick={() => setMostraRegole((v) => !v)} className="text-xs text-cyan-300 hover:text-white">
+          ℹ️ Regole
+        </button>
+      </div>
+      {mostraRegole && (
+        <div className="mb-4 space-y-2">
+          {REGOLE.map((r) => (
+            <div key={r.titolo} className="rounded-xl glass-card border border-edge p-3">
+              <div className="text-[11px] font-bold uppercase tracking-wide text-purple-300 mb-0.5">{r.titolo}</div>
+              <p className="text-xs text-slate-300">{r.testo}</p>
+            </div>
+          ))}
+        </div>
+      )}
       <p className="text-xs text-slate-400 mb-6">{progressoTesto(stato, workout)}</p>
 
       {inRiposo ? (

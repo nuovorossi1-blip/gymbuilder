@@ -296,6 +296,11 @@ export interface WeeklySession {
   variant: 'A' | 'B'
   /** Workout già compilato da un LLM: se presente la UI lo apre senza rigenerarlo. */
   generated_workout?: GeneratedWorkout
+  /** Protocollo Bodybuilding per QUESTA seduta specifica (Standard/FST-7/CBum/Density 3-6-9) —
+   *  sovrascrive `config.protocol` solo per questo giorno, quando serve un mix (es. PPL a 5
+   *  giorni dove solo il giorno Gambe usa il Density 3-6-9). Rilevante solo se `mode ===
+   *  'bodybuilding'`; se assente si usa il protocollo globale come sempre. */
+  bb_protocol?: BodybuildingProtocol
 }
 
 export interface RecoveryProfile {

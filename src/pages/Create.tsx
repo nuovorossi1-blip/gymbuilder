@@ -10,7 +10,7 @@ import { loadLocalAiSettings } from '../features/profile/aiSettings'
 import { useSettings } from '../features/profile/useSettings'
 import { useWorkout } from '../features/workout/WorkoutContext'
 import { generaBodybuilding } from '../generators/bodybuilding'
-import { DENSITY_SPLIT_SUPPORTATI, type DensitySplit } from '../generators/density369'
+import { DENSITY_SPLIT_SUPPORTATI, density369ComeGeneratedWorkout, generaDensity369, type DensitySplit } from '../generators/density369'
 import { FORMATI_CROSSFIT, generaCrossFit } from '../generators/crossfit'
 import { isExerciseAvailable, PRESET_EQUIPMENT } from '../generators/equipment'
 import { generaHybrid } from '../generators/hybrid'
@@ -214,25 +214,44 @@ export default function Create() {
   function generateDay(session: WeeklySession, sourceProgram = weeklyProgram) {
     if (!sourceProgram || catalog.length === 0) return
     const global = sourceProgram.config
-    // Density Tri-Set 3-6-9 (21/08): motore e modello dati completamente diversi da
-    // generaBodybuilding (blocchi/stazioni/giri, non serie singole) — non passa da
-    // finalizeWorkout/validateWorkout/il tracciamento del programma settimanale, che sono tutti
-    // costruiti per l'altra forma. Genera davvero DensityRunner.tsx quando arriva: qui basta
-    // sapere se lo split scelto ha un template (DENSITY_SPLIT_SUPPORTATI) e mandare l'utente
-    // là. Solo sessione singola per ora: dentro un programma settimanale multi-giorno questa
-    // sessione non aggiornerebbe mai "giorno generato" nella settimana (quel tracciamento vive
-    // in updateProgram/applyWorkoutRecovery più sotto, pensati per l'altra forma) — vedi
-    // TODO.md.
-    if (session.mode === 'bodybuilding' && global.protocol === 'density_369') {
-      if (global.program_kind !== 'single_session') {
-        setError('Density Tri-Set 3-6-9 funziona solo per sessione singola per ora, non ancora dentro un programma settimanale — torna indietro e scegli "Sessione Singola", oppure un altro protocollo.')
-        return
-      }
+    // Density Tri-Set 3-6-9 (21/08, integrato nel programma settimanale il 21/08 sera su
+    // richiesta di Rossi): motore e modello dati completamente diversi da generaBodybuilding
+    // (blocchi/stazioni/giri, non serie singole). `session.bb_protocol`, se impostato, vince
+    // sul protocollo globale della settimana — permette un PPL a 5 giorni dove solo un giorno
+    // (es. Gambe) usa il Density 3-6-9, gli altri restano Standard/FST-7/CBum come sempre.
+    // Genera qui (non solo dentro DensityRunner.tsx) apposta: serve un GeneratedWorkout
+    // "appiattito" (density369ComeGeneratedWorkout) da passare ad applyWorkoutRecovery, così
+    // il giorno risulta davvero generato agli occhi della settimana (pallino pieno, stima di
+    // recupero aggiornata) — non solo un redirect a schermo nero per la settimana. La
+    // generazione è deterministica (stesso split+attrezzatura => stessi esercizi, fix del
+    // 21/08 pomeriggio): DensityRunner.tsx la rifà per conto suo all'apertura, ottenendo lo
+    // stesso risultato — nessun rischio di disallineamento, a meno che l'utente sostituisca un
+    // esercizio lì dentro (quella sostituzione non si riflette qui, resta solo nella sessione
+    // eseguita/salvata: limite noto, non un bug — vedi TODO.md).
+    const protocolloDelGiorno = session.mode === 'bodybuilding' ? (session.bb_protocol ?? global.protocol) : undefined
+    if (session.mode === 'bodybuilding' && protocolloDelGiorno === 'density_369') {
       const split = session.split as DensitySplit
       if (!DENSITY_SPLIT_SUPPORTATI.includes(split)) {
         setError('Density Tri-Set 3-6-9 non è ancora disponibile per questo split — prova Push, Pull, Legs, Upper, Lower, Petto, Dorso, Braccia, Gambe, Front o Back.')
         return
       }
+      const adaptiveExcluded = user ? adaptiveExcludedIds(user.id, catalog) : []
+      const excluded = [...new Set([...global.preferences.excluded_exercise_ids, ...adaptiveExcluded])]
+      const generato = generaDensity369(catalog, {
+        split,
+        equipment: global.equipment.preset,
+        available_equipment: global.equipment.available,
+        excluded_exercises: excluded,
+        preferred_exercises: global.preferences.preferred_exercise_ids,
+      })
+      if (!generato) {
+        setError("Density Tri-Set 3-6-9 non è generabile con l'attrezzatura/esclusioni attuali per questo giorno.")
+        return
+      }
+      const workoutAppiattito = density369ComeGeneratedWorkout(generato, generato.estimated_duration_min * 60)
+      updateProgram(applyWorkoutRecovery(sourceProgram, session.id, workoutAppiattito, catalog))
+      setGenerationConfig(buildGenerationConfig(sourceProgram, session, excluded))
+      setWorkout(workoutAppiattito)
       setError(null)
       navigate(`/density-369?split=${split}`)
       return
@@ -1293,7 +1312,7 @@ function SessionEditor({
   onClose,
 }: {
   session: WeeklySession
-  onChange: (patch: Partial<Pick<WeeklySession, 'day' | 'mode' | 'split'>>) => void
+  onChange: (patch: Partial<Pick<WeeklySession, 'day' | 'mode' | 'split' | 'bb_protocol'>>) => void
   onClose: () => void
 }) {
   const splits = session.mode === 'strength' ? STRENGTH_SPLITS : EDITABLE_SPLITS
@@ -1340,6 +1359,26 @@ function SessionEditor({
                 {SPLIT_LABELS[split]}
               </option>
             ))}
+          </select>
+        </label>
+      )}
+      {session.mode === 'bodybuilding' && (
+        <label className="block text-xs text-slate-300">
+          Protocollo per questo giorno
+          <select
+            className="input mt-1"
+            value={session.bb_protocol ?? ''}
+            onChange={(event) => onChange({ bb_protocol: (event.target.value || undefined) as BodybuildingProtocol | undefined })}
+          >
+            <option value="">Come il resto della settimana</option>
+            {(Object.keys(BODYBUILDING_PROTOCOL_LABELS) as BodybuildingProtocol[])
+              // Density 3-6-9 non ha ancora un template per tutti gli split (es. Spalle da sola
+              // nel Bro Split, sez. density369.ts) — non proporlo per uno split che non lo
+              // supporta, invece di lasciarlo scegliere e fallire solo dopo.
+              .filter((p) => p !== 'density_369' || (session.split && DENSITY_SPLIT_SUPPORTATI.includes(session.split as DensitySplit)))
+              .map((p) => (
+                <option key={p} value={p}>{BODYBUILDING_PROTOCOL_LABELS[p]}</option>
+              ))}
           </select>
         </label>
       )}

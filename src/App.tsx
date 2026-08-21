@@ -8,7 +8,6 @@ import HomeDashboard from './pages/HomeDashboard'
 import Create from './pages/Create'
 import WorkoutPreview from './pages/WorkoutPreview'
 import DensityRunner from './pages/DensityRunner'
-import Density369Scegli from './pages/Density369Scegli'
 import Runner from './pages/Runner'
 import Saved from './pages/Saved'
 import History from './pages/History'
@@ -73,7 +72,6 @@ function Guscio() {
         <Route path="/" element={<HomeDashboard />} />
         <Route path="/crea" element={<Create />} />
         <Route path="/allenamento" element={<WorkoutPreview />} />
-        <Route path="/density-369/scegli" element={<Density369Scegli />} />
         <Route path="/density-369" element={<DensityRunner />} />
         <Route path="/avvia" element={<Runner />} />
         <Route path="/salvati" element={<Saved />} />
