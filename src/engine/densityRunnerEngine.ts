@@ -6,17 +6,19 @@
  * dice qual è lo stato dopo un evento ("ho finito la stazione", "il riposo è arrivato a
  * zero"). Chi lo usa (DensityRunner.tsx) si occupa di orologio reale, salvataggio, audio.
  *
- * Una sessione è: per ogni blocco (A poi B), per ogni giro (1..rounds), per ogni stazione
- * (1..3 nell'ordine) — lavoro (a tempo libero, l'utente conferma quando ha finito le sue
- * ripetizioni) poi riposo. Il riposo dopo la stazione 1 e 2 è quello tecnico della stazione
- * (10-15s); il riposo dopo la stazione 3 è quello di fine giro (round_rest_sec del blocco) —
- * a meno che sia anche l'ultimo giro del Blocco A, nel qual caso è la transizione fra i
- * blocchi (block_transition_rest_sec del workout, non del blocco).
+ * Una sessione è: per ogni blocco (A poi B), per ogni giro (1..rounds), tre stazioni DI FILA
+ * senza pausa fra loro — l'utente tocca "Fatto" e passa subito alla stazione successiva, come
+ * il formato AMRAP già esistente nell'app (corretto il 21/08 su indicazione di Rossi: prima
+ * c'era un conto alla rovescia di 10-15s fra una stazione e l'altra, tolto perché non è così
+ * che deve funzionare — nessun timer finché non sono fatte tutte e tre). Solo DOPO la terza
+ * stazione del giro parte un vero riposo cronometrato: round_rest_sec del blocco, o — se è
+ * anche l'ultimo giro del Blocco A — la transizione fra i blocchi
+ * (block_transition_rest_sec del workout, non del blocco).
  */
 
 import type { Density369Workout } from '../generators/density369'
 
-export type DensityRunnerPhase = 'lavoro' | 'riposo_stazione' | 'riposo_giro' | 'riposo_blocco' | 'completato'
+export type DensityRunnerPhase = 'lavoro' | 'riposo_giro' | 'riposo_blocco' | 'completato'
 
 export interface DensityRunnerPosition {
   blockIndex: 0 | 1
@@ -38,7 +40,6 @@ export function statoIniziale(): DensityRunnerState {
  *  tempo, servono un tocco dell'utente o non c'è più nulla da fare). */
 export function durataFaseSec(state: DensityRunnerState, workout: Density369Workout): number {
   const blocco = workout.blocks[state.position.blockIndex]
-  if (state.phase === 'riposo_stazione') return blocco.stations[state.position.stationIndex].rest_after_sec
   if (state.phase === 'riposo_giro') return blocco.round_rest_sec
   if (state.phase === 'riposo_blocco') return workout.block_transition_rest_sec
   return 0
@@ -59,15 +60,15 @@ export function avanza(state: DensityRunnerState, workout: Density369Workout): D
   if (phase === 'completato') return state
 
   if (phase === 'lavoro') {
+    // Dentro lo stesso giro si passa dritti alla stazione successiva, nessuna pausa — solo
+    // dopo la terza stazione (fine giro) parte un vero riposo cronometrato.
     if (!ultimaStazione) {
-      return { position: { ...position, stationIndex: (position.stationIndex + 1) as 0 | 1 | 2 }, phase: 'riposo_stazione' }
+      return { position: { ...position, stationIndex: (position.stationIndex + 1) as 0 | 1 | 2 }, phase: 'lavoro' }
     }
     if (!ultimoGiro) return { position, phase: 'riposo_giro' }
     if (!ultimoBlocco) return { position, phase: 'riposo_blocco' }
     return { position, phase: 'completato' }
   }
-
-  if (phase === 'riposo_stazione') return { position, phase: 'lavoro' }
 
   if (phase === 'riposo_giro') {
     return { position: { ...position, round: position.round + 1, stationIndex: 0 }, phase: 'lavoro' }
@@ -86,10 +87,9 @@ export interface DensityStazioneCorrente {
 }
 
 /** Info per la UI: la stazione a cui si riferisce lo stato attuale — durante 'lavoro' è la
- *  stazione da eseguire ora, durante un riposo è comunque quella già impostata in
- *  position.stationIndex (la prossima da fare quando il riposo finisce), tranne
- *  'riposo_giro'/'riposo_blocco' dove la prossima stazione è sempre la prima (0) del giro o
- *  blocco successivo — per quei due casi la funzione guarda avanti e la calcola. */
+ *  stazione da eseguire ora; durante 'riposo_giro'/'riposo_blocco' è quella che partirà dopo
+ *  (sempre la prima, indice 0, del giro o blocco successivo) — per quei due casi la funzione
+ *  guarda avanti e la calcola. */
 export function stazioneCorrente(state: DensityRunnerState, workout: Density369Workout): DensityStazioneCorrente {
   const { position, phase } = state
   const bloccoAttuale = workout.blocks[position.blockIndex]

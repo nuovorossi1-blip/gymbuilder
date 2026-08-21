@@ -6,7 +6,7 @@ import type { Density369Workout } from '../generators/density369'
 // macchina a stati, non le scelte di esercizio) — 2 giri nel Blocco A, 1 giro nel Blocco B,
 // così la sequenza di transizioni è breve da seguire ma copre comunque ogni tipo di fase.
 function workoutDiProva(): Density369Workout {
-  const stazione = (role: 1 | 2 | 3, id: string) => ({ role, exercise_id: id, name: id, muscle: 'chest' as const, reps: '3-6', rest_after_sec: 12, alternatives: [] })
+  const stazione = (role: 1 | 2 | 3, id: string) => ({ role, exercise_id: id, name: id, muscle: 'chest' as const, reps: '3-6', alternatives: [] })
   return {
     name: 'Prova',
     split: 'push',
@@ -20,7 +20,7 @@ function workoutDiProva(): Density369Workout {
 }
 
 describe('densityRunnerEngine — sequenza completa', () => {
-  it('percorre l\'intera sessione (2 giri Blocco A, 1 giro Blocco B) nell\'ordine corretto, fase per fase', () => {
+  it('percorre l\'intera sessione (2 giri Blocco A, 1 giro Blocco B) nell\'ordine corretto, fase per fase — nessuna pausa fra stazioni dello stesso giro (corretto 21/08: come AMRAP, non un countdown)', () => {
     const w = workoutDiProva()
     let s = statoIniziale()
     const sequenza: string[] = []
@@ -33,21 +33,15 @@ describe('densityRunnerEngine — sequenza completa', () => {
 
     expect(sequenza).toEqual([
       'lavoro:Blocco A · Giro 1/2 · Stazione 1/3:a1',
-      'riposo_stazione:Blocco A · Giro 1/2 · Stazione 2/3:a2',
-      'lavoro:Blocco A · Giro 1/2 · Stazione 2/3:a2',
-      'riposo_stazione:Blocco A · Giro 1/2 · Stazione 3/3:a3',
-      'lavoro:Blocco A · Giro 1/2 · Stazione 3/3:a3',
-      'riposo_giro:Blocco A · Giro 1/2 · Stazione 3/3:a1', // fine giro: la prossima stazione mostrata è già a1 del giro 2
+      'lavoro:Blocco A · Giro 1/2 · Stazione 2/3:a2', // Fatto su a1 -> subito a2, nessuna pausa
+      'lavoro:Blocco A · Giro 1/2 · Stazione 3/3:a3', // Fatto su a2 -> subito a3, nessuna pausa
+      'riposo_giro:Blocco A · Giro 1/2 · Stazione 3/3:a1', // Fatto su a3 (fine giro) -> primo vero riposo
       'lavoro:Blocco A · Giro 2/2 · Stazione 1/3:a1',
-      'riposo_stazione:Blocco A · Giro 2/2 · Stazione 2/3:a2',
       'lavoro:Blocco A · Giro 2/2 · Stazione 2/3:a2',
-      'riposo_stazione:Blocco A · Giro 2/2 · Stazione 3/3:a3',
       'lavoro:Blocco A · Giro 2/2 · Stazione 3/3:a3',
-      'riposo_blocco:Blocco A · Giro 2/2 · Stazione 3/3:b1', // fine Blocco A: la prossima è b1 del Blocco B
+      'riposo_blocco:Blocco A · Giro 2/2 · Stazione 3/3:b1', // fine Blocco A -> transizione a B
       'lavoro:Blocco B · Giro 1/1 · Stazione 1/3:b1',
-      'riposo_stazione:Blocco B · Giro 1/1 · Stazione 2/3:b2',
       'lavoro:Blocco B · Giro 1/1 · Stazione 2/3:b2',
-      'riposo_stazione:Blocco B · Giro 1/1 · Stazione 3/3:b3',
       'lavoro:Blocco B · Giro 1/1 · Stazione 3/3:b3',
       'completato',
     ])
@@ -56,7 +50,7 @@ describe('densityRunnerEngine — sequenza completa', () => {
   it('avanzare oltre "completato" non cambia più nulla', () => {
     const w = workoutDiProva()
     let s = statoIniziale()
-    for (let i = 0; i < 17; i++) s = avanza(s, w)
+    for (let i = 0; i < 11; i++) s = avanza(s, w)
     expect(s.phase).toBe('completato')
     const dopo = avanza(s, w)
     expect(dopo).toEqual(s)
@@ -64,17 +58,18 @@ describe('densityRunnerEngine — sequenza completa', () => {
 })
 
 describe('densityRunnerEngine — durata delle fasi di riposo', () => {
-  it('riposo_stazione dura il rest_after_sec della stazione appena fatta', () => {
+  it('non esiste più un riposo fra stazioni: lavoro dura sempre 0 (a tocco, non a tempo)', () => {
     const w = workoutDiProva()
-    const dopoStazione1 = avanza(statoIniziale(), w) // riposo_stazione dopo a1
-    expect(dopoStazione1.phase).toBe('riposo_stazione')
-    expect(durataFaseSec(dopoStazione1, w)).toBe(12)
+    expect(durataFaseSec(statoIniziale(), w)).toBe(0)
+    const dopoStazione1 = avanza(statoIniziale(), w) // subito stazione 2, ancora 'lavoro'
+    expect(dopoStazione1.phase).toBe('lavoro')
+    expect(durataFaseSec(dopoStazione1, w)).toBe(0)
   })
 
   it('riposo_giro dura round_rest_sec del blocco (180 per A, 120 per B)', () => {
     const w = workoutDiProva()
     let s = statoIniziale()
-    for (let i = 0; i < 5; i++) s = avanza(s, w) // fino a riposo_giro di fine Blocco A giro 1
+    for (let i = 0; i < 3; i++) s = avanza(s, w) // 3 "Fatto" di fila -> fine giro 1 Blocco A
     expect(s.phase).toBe('riposo_giro')
     expect(durataFaseSec(s, w)).toBe(180)
   })
@@ -82,16 +77,15 @@ describe('densityRunnerEngine — durata delle fasi di riposo', () => {
   it('riposo_blocco dura block_transition_rest_sec del workout, non del blocco', () => {
     const w = workoutDiProva()
     let s = statoIniziale()
-    for (let i = 0; i < 11; i++) s = avanza(s, w) // fino a riposo_blocco fine Blocco A
+    for (let i = 0; i < 7; i++) s = avanza(s, w) // fino a riposo_blocco fine Blocco A (2 giri x 3 stazioni + 1 riposo_giro)
     expect(s.phase).toBe('riposo_blocco')
     expect(durataFaseSec(s, w)).toBe(200)
   })
 
-  it('lavoro e completato non hanno durata (0): sono a conferma manuale, non a timer', () => {
+  it('completato non ha durata (0)', () => {
     const w = workoutDiProva()
-    expect(durataFaseSec(statoIniziale(), w)).toBe(0)
     let s = statoIniziale()
-    for (let i = 0; i < 17; i++) s = avanza(s, w)
+    for (let i = 0; i < 11; i++) s = avanza(s, w)
     expect(durataFaseSec(s, w)).toBe(0)
   })
 })

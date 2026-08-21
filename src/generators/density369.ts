@@ -58,10 +58,6 @@ export interface DensityStation {
   name: string
   muscle: Muscle
   reps: string
-  /** Recupero DOPO questa stazione, prima della prossima (tempo tecnico di cambio attrezzo,
-   *  10-15s per spec). Per l'ultima stazione del blocco non si applica: conta invece
-   *  round_rest_sec del blocco (fine giro), non questo valore. */
-  rest_after_sec: number
   /** Altri esercizi validi per questa stessa stazione (stesso ruolo biomeccanico, stessa
    *  attrezzatura disponibile, non ancora scelti altrove nella sessione) — per la sostituzione
    *  manuale. L'esercizio di default (`exercise_id` sopra) non compare qui. Vuoto se il pool
@@ -102,7 +98,6 @@ export interface Density369Config {
 }
 
 const REPS_PER_STAZIONE: Record<1 | 2 | 3, string> = { 1: '3-6', 2: '6-12', 3: '9-25' }
-const REST_STAZIONE_SEC = 12 // 10-15s per spec, punto medio dichiarato
 const ROUND_REST_A_SEC = 180
 const ROUND_REST_B_SEC = 120
 const BLOCK_TRANSITION_REST_SEC = 210 // 180-240s per spec, punto medio dichiarato
@@ -281,7 +276,6 @@ function costruisciBlocco(
       name: scelto.name,
       muscle: scelto.primary_muscles[0],
       reps: REPS_PER_STAZIONE[role],
-      rest_after_sec: REST_STAZIONE_SEC,
       alternatives: alternative.map((e) => ({ exercise_id: e.id, name: e.name })),
     })
   }
@@ -289,9 +283,11 @@ function costruisciBlocco(
 }
 
 function stimaDurataMin(blockA: DensityBlock, blockB: DensityBlock): number {
+  // Nessun riposo fra le stazioni dello stesso giro (corretto 21/08: si passa dritti da una
+  // stazione alla successiva, come AMRAP) — solo tempo di lavoro per giro, più il vero riposo
+  // a fine giro fra un giro e il successivo.
   const secondiBlocco = (blocco: DensityBlock) => {
-    const secondiPerGiro =
-      blocco.stations.length * TEMPO_LAVORO_STAZIONE_SEC + blocco.stations.length * REST_STAZIONE_SEC
+    const secondiPerGiro = blocco.stations.length * TEMPO_LAVORO_STAZIONE_SEC
     return blocco.rounds * secondiPerGiro + (blocco.rounds - 1) * blocco.round_rest_sec
   }
   return Math.round((secondiBlocco(blockA) + secondiBlocco(blockB) + BLOCK_TRANSITION_REST_SEC) / 60)

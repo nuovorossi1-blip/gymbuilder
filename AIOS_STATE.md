@@ -4,7 +4,7 @@
 > da qui. Va **aggiornato** a ogni sessione, non accodato all'infinito.
 > L'identità del progetto e il percorso di AI-OS stanno in `AIOS_PROJECT.json`.
 
-**Ultimo aggiornamento:** 2026-08-21 (Density 3-6-9: scelta esercizi resa deterministica, non più casuale, + sostituzione manuale — correzione su segnalazione diretta di Rossi — vedi fondo file) - Claude (Sonnet 5)
+**Ultimo aggiornamento:** 2026-08-21 (Density 3-6-9: tolto il countdown fra stazioni dello stesso giro, ora è tocco diretto come AMRAP — primo pezzo di un piano più grande, peso e integrazione settimanale ancora da fare — vedi fondo file) - Claude (Sonnet 5)
 
 Etichette: `[FACT]` verificato nel codice · `[RICOSTRUITO]` dedotto da indizi ·
 `[IGNOTO]` non ricavabile dal repository
@@ -1952,3 +1952,42 @@ stessa sessione Density (stesso split, stesse impostazioni) e controllare che gl
 proposti siano identici; durante l'esecuzione, controllare che compaia "🔄 Sostituisci
 esercizio" quando la stazione ha alternative, e che scegliendone una cambi davvero l'esercizio
 mostrato. Consegnato **direttamente su `main`**.
+
+## Aggiornamento stato — 2026-08-21 (continua): Density 3-6-9 — nessun countdown fra stazioni dello stesso giro (corretto, era sbagliato)
+
+**Contesto — piano concordato con Rossi, tre pezzi, in quest'ordine** (dopo una discussione
+approfondita, con piano scritto prima di toccare codice, come richiesto esplicitamente):
+1. Correggere il comportamento "Fatto" nel Density Runner (questo aggiornamento)
+2. Tracciamento del peso usato, per QUALSIASI esercizio dell'app, non solo Density (prossimo)
+3. Density 3-6-9 selezionabile per singolo giorno dentro un programma settimanale multi-giorno,
+   non solo Sessione Singola — con rimozione della card doppia in Home (dopo)
+
+**Problemi rilevati**: la mia implementazione di ieri (Fase 2) faceva partire un vero countdown
+di 10-15s fra una stazione e l'altra dello stesso giro. Rossi ha chiarito che non è così che
+deve funzionare: dentro lo stesso giro si tocca "Fatto" e si passa SUBITO alla stazione
+successiva, senza attesa — esattamente come già funziona AMRAP nel resto dell'app (nessun timer
+fra un esercizio e l'altro dentro lo stesso giro, il giro si conta quando hai toccato "Fatto" su
+tutti). Solo DOPO la terza stazione (fine giro) parte un vero timer cronometrato.
+
+**Cosa è stato fatto**: tolta la fase `riposo_stazione` dalla macchina a stati
+(`densityRunnerEngine.ts`) — restano solo `lavoro` (le 3 stazioni di fila, tocco diretto),
+`riposo_giro` (fine giro, vero timer), `riposo_blocco` (cambio blocco), `completato`. Tolto il
+campo `rest_after_sec` da `DensityStation` (non serve più nulla del genere) e la costante
+`REST_STAZIONE_SEC` dal generatore; corretta la stima della durata (`estimated_duration_min`) di
+conseguenza. Il test della sequenza completa è stato ricalcolato **a mano prima di scrivere il
+codice** (12 stati invece di 17) ed è tornato giusto al primo tentativo. 312/312 test verdi,
+`tsc`/`eslint`/`npm run build` puliti. `Runner.tsx` verificato ancora intatto.
+
+**Cosa c'è ancora da fare**: i due pezzi 2 e 3 del piano sopra — non toccati in questo commit,
+arriveranno come aggiornamenti separati. Non ancora aggiunto il campo peso da nessuna parte
+(quello è il pezzo 2).
+
+**Dove deve arrivare il progetto**: coerente con l'osservazione di ieri — un formato con
+struttura esplicita come questo deve rispettare fedelmente la logica di esecuzione reale che
+l'utente si aspetta, non un'approssimazione plausibile ma sbagliata nei dettagli.
+
+**Cosa deve aspettarsi l'utente**: **verificato solo con test/tsc/build, non ancora in un
+browser o dispositivo reale** (stesso limite di sempre). Prossimo passo per Rossi: quando prova
+il Density Runner dal vivo, toccando "Fatto" sulla prima stazione deve passare immediatamente
+alla seconda (nessuna attesa, nessun countdown), stessa cosa dalla seconda alla terza — solo
+dopo la terza stazione deve comparire un vero timer. Consegnato **direttamente su `main`**.

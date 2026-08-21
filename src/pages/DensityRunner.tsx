@@ -50,7 +50,9 @@ function comeWorkoutRegistrabile(w: Density369Workout, durataSec: number): Gener
       muscle: s.muscle,
       sets: blocco.rounds,
       reps: s.reps,
-      rest_sec: s.role === 3 ? blocco.round_rest_sec : s.rest_after_sec,
+      // Nessuna pausa fra le stazioni dello stesso giro (corretto 21/08): l'unico riposo
+      // reale in questo protocollo è a fine giro, quindi è quello che ha senso registrare qui.
+      rest_sec: blocco.round_rest_sec,
     }))
   )
   return {
@@ -250,7 +252,7 @@ export default function DensityRunner() {
       {inRiposo ? (
         <div className="text-center">
           <p className="text-sm uppercase tracking-wider text-cyan-300 mb-2">
-            {stato.phase === 'riposo_stazione' ? 'Cambio stazione' : stato.phase === 'riposo_giro' ? 'Fine giro' : 'Cambio blocco'}
+            {stato.phase === 'riposo_giro' ? 'Fine giro' : 'Cambio blocco'}
           </p>
           <p className="font-data text-6xl font-bold text-white mb-4">{rimanente}s</p>
           <p className="text-sm text-slate-300 mb-8">Prossima: {st.name} · {st.reps} rep</p>

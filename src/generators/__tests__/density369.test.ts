@@ -75,12 +75,11 @@ describe('generaDensity369 — struttura di base', () => {
     expect(w2!.blocks[0].rounds).toBe(2)
   })
 
-  it('ogni stazione ha 10-15s di recupero tecnico dopo di sé (punto medio 12s)', () => {
+  it('nessuna pausa fra le stazioni dello stesso giro: il tipo dati non ha più un campo di recupero per stazione (corretto 21/08)', () => {
     const w = generaDensity369(catalogo, { split: 'legs', equipment: 'full_gym', excluded_exercises: [] })
     for (const blocco of w!.blocks) {
       for (const stazione of blocco.stations) {
-        expect(stazione.rest_after_sec).toBeGreaterThanOrEqual(10)
-        expect(stazione.rest_after_sec).toBeLessThanOrEqual(15)
+        expect(stazione).not.toHaveProperty('rest_after_sec')
       }
     }
   })
