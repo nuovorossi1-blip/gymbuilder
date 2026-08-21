@@ -1,6 +1,6 @@
 {
-  "version": "1.0.50",
-  "versionCode": 50,
+  "version": "1.0.51",
+  "versionCode": 51,
   "apkUrl": "https://gymbuilder-lemon.vercel.app/gymbuilder.apk",
   "releaseUrl": "https://github.com/nuovorossi1-blip/gymbuilder/releases/latest",
   "notes": "Correzioni e miglioramenti.",
