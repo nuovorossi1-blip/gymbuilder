@@ -198,9 +198,16 @@ describe('generaCrossFit — struttura (Forza/Skill + Metcon AMRAP)', () => {
       experience: 'advanced', equipment: 'full_gym', duration_min: 60,
       priority_muscles: ['front_delts'], excluded_exercises: [], seed: 14, intensity: 'medium',
     })
-    expect(mainBlock(w).exercises[0].muscle).toBe('front_delts')
-    expect(mainBlock(w).exercises[0].note).toBe('focus carenza: carico ridotto')
-    expect(mainBlock(w).exercises[0].reps).toBe('6-8')
+    // Il campo `muscle` riporta il PRIMO muscolo primario dell'esercizio, non la
+    // carenza richiesta: con il catalogo aggiornato (18/09/2026) la scelta puo'
+    // cadere su un esercizio multi-primario come Clean & Jerk, che allena i
+    // front_delts ma si dichiara "quads". La cosa da verificare e' che
+    // l'esercizio scelto lavori davvero il muscolo carente.
+    const scelto = mainBlock(w).exercises[0]
+    const record = catalogo.find((e) => e.id === scelto.exercise_id)
+    expect(record?.primary_muscles).toContain('front_delts')
+    expect(scelto.note).toBe('focus carenza: carico ridotto')
+    expect(scelto.reps).toBe('6-8')
   })
 })
 

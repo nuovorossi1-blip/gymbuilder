@@ -1,98 +1,3644 @@
-[{"id":"abduzioni_macchina","name":"Abduzioni alla macchina","primary_muscles":["glutes"],"secondary_muscles":[],"equipment":"machine","movement_pattern":"hinge","roles":["isolation","hypertrophy"],"min_experience":"beginner","technical_complexity":1,"systemic_fatigue":1,"local_fatigue":2,"grip_fatigue":1,"cardio_demand":1,"default_sets":3,"default_reps":"15-20","default_rest":60},
-{"id":"affondi_libero","name":"Affondi a corpo libero","primary_muscles":["quads"],"secondary_muscles":["glutes"],"equipment":"bodyweight","movement_pattern":"lunge","roles":["compound","conditioning"],"min_experience":"beginner","technical_complexity":1,"systemic_fatigue":2,"local_fatigue":2,"grip_fatigue":1,"cardio_demand":2,"default_sets":3,"default_reps":"12-20","default_rest":60},
-{"id":"affondi_man","name":"Affondi con manubri","primary_muscles":["quads"],"secondary_muscles":["glutes","hamstrings"],"equipment":"dumbbell","movement_pattern":"lunge","roles":["compound","hypertrophy"],"min_experience":"beginner","technical_complexity":2,"systemic_fatigue":3,"local_fatigue":3,"grip_fatigue":2,"cardio_demand":2,"default_sets":3,"default_reps":"10-12","default_rest":105},
-{"id":"alzate_90","name":"Alzate a 90 gradi","primary_muscles":["rear_delts"],"secondary_muscles":[],"equipment":"dumbbell","movement_pattern":"rear_delt","roles":["isolation","hypertrophy"],"min_experience":"beginner","technical_complexity":1,"systemic_fatigue":1,"local_fatigue":2,"grip_fatigue":1,"cardio_demand":1,"default_sets":3,"default_reps":"12-20","default_rest":60},
-{"id":"alzate_laterali","name":"Alzate laterali","primary_muscles":["lateral_delts"],"secondary_muscles":[],"equipment":"dumbbell","movement_pattern":"lateral_raise","roles":["isolation","hypertrophy"],"min_experience":"beginner","technical_complexity":1,"systemic_fatigue":1,"local_fatigue":2,"grip_fatigue":1,"cardio_demand":1,"default_sets":4,"default_reps":"12-15","default_rest":60},
-{"id":"alzate_laterali_cavo","name":"Alzate laterali ai cavi","primary_muscles":["lateral_delts"],"secondary_muscles":[],"equipment":"cable","movement_pattern":"lateral_raise","roles":["isolation","hypertrophy"],"min_experience":"beginner","technical_complexity":1,"systemic_fatigue":1,"local_fatigue":2,"grip_fatigue":1,"cardio_demand":1,"default_sets":3,"default_reps":"12-20","default_rest":60},
-{"id":"alzate_laterali_elastico","name":"Alzate laterali con elastico","primary_muscles":["lateral_delts"],"secondary_muscles":[],"equipment":"bodyweight","movement_pattern":"lateral_raise","roles":["isolation","hypertrophy"],"min_experience":"beginner","technical_complexity":1,"systemic_fatigue":1,"local_fatigue":2,"grip_fatigue":1,"cardio_demand":1,"default_sets":3,"default_reps":"15-20","default_rest":60},
-{"id":"box_step_up","name":"Step-up su rialzo","primary_muscles":["quads","glutes"],"secondary_muscles":["hamstrings","core"],"equipment":"bodyweight","movement_pattern":"lunge","roles":["compound","conditioning"],"min_experience":"beginner","technical_complexity":1,"systemic_fatigue":2,"local_fatigue":2,"grip_fatigue":1,"cardio_demand":2,"default_sets":3,"default_reps":"10-15 per gamba","default_rest":45},
-{"id":"bulgarian_split","name":"Affondo bulgaro","primary_muscles":["quads"],"secondary_muscles":["glutes"],"equipment":"dumbbell","movement_pattern":"lunge","roles":["compound","hypertrophy"],"min_experience":"intermediate","technical_complexity":2,"systemic_fatigue":3,"local_fatigue":3,"grip_fatigue":2,"cardio_demand":2,"default_sets":3,"default_reps":"8-12","default_rest":105},
-{"id":"burpee","name":"Burpee","primary_muscles":["chest","quads","core"],"secondary_muscles":["triceps","front_delts","glutes"],"equipment":"bodyweight","movement_pattern":"burpee","roles":["compound","conditioning"],"min_experience":"beginner","technical_complexity":2,"systemic_fatigue":3,"local_fatigue":2,"grip_fatigue":1,"cardio_demand":3,"default_sets":3,"default_reps":"10-15","default_rest":45},
-{"id":"calf_in_piedi","name":"Calf in piedi","primary_muscles":["calves"],"secondary_muscles":[],"equipment":"machine","movement_pattern":"jump","roles":["isolation","hypertrophy"],"min_experience":"beginner","technical_complexity":1,"systemic_fatigue":1,"local_fatigue":2,"grip_fatigue":1,"cardio_demand":1,"default_sets":4,"default_reps":"12-15","default_rest":60},
-{"id":"calf_libero","name":"Calf a corpo libero","primary_muscles":["calves"],"secondary_muscles":[],"equipment":"bodyweight","movement_pattern":"jump","roles":["isolation","hypertrophy"],"min_experience":"beginner","technical_complexity":1,"systemic_fatigue":1,"local_fatigue":2,"grip_fatigue":1,"cardio_demand":1,"default_sets":4,"default_reps":"20-25","default_rest":45},
-{"id":"calf_manubri","name":"Calf con manubri","primary_muscles":["calves"],"secondary_muscles":[],"equipment":"dumbbell","movement_pattern":"jump","roles":["isolation","hypertrophy"],"min_experience":"beginner","technical_complexity":1,"systemic_fatigue":1,"local_fatigue":2,"grip_fatigue":2,"cardio_demand":1,"default_sets":4,"default_reps":"15-20","default_rest":60},
-{"id":"calf_seduto","name":"Calf da seduto","primary_muscles":["calves"],"secondary_muscles":[],"equipment":"machine","movement_pattern":"jump","roles":["isolation","hypertrophy"],"min_experience":"beginner","technical_complexity":1,"systemic_fatigue":1,"local_fatigue":2,"grip_fatigue":1,"cardio_demand":1,"default_sets":4,"default_reps":"15-20","default_rest":60},
-{"id":"chest_press","name":"Chest press alla macchina","primary_muscles":["chest"],"secondary_muscles":["triceps","front_delts"],"equipment":"machine","movement_pattern":"horizontal_push","roles":["compound","hypertrophy"],"min_experience":"beginner","technical_complexity":1,"systemic_fatigue":2,"local_fatigue":3,"grip_fatigue":1,"cardio_demand":1,"default_sets":3,"default_reps":"8-12","default_rest":90},
-{"id":"croci_cavi","name":"Croci ai cavi","primary_muscles":["chest"],"secondary_muscles":[],"equipment":"cable","movement_pattern":"horizontal_push","roles":["isolation","hypertrophy"],"min_experience":"beginner","technical_complexity":1,"systemic_fatigue":1,"local_fatigue":2,"grip_fatigue":1,"cardio_demand":1,"default_sets":3,"default_reps":"12-15","default_rest":75},
-{"id":"crunch_cavo","name":"Crunch ai cavi","primary_muscles":["core"],"secondary_muscles":[],"equipment":"cable","movement_pattern":"core","roles":["isolation","core","hypertrophy"],"min_experience":"beginner","technical_complexity":1,"systemic_fatigue":1,"local_fatigue":2,"grip_fatigue":1,"cardio_demand":1,"default_sets":3,"default_reps":"15-20","default_rest":60},
-{"id":"curl_bilanciere","name":"Curl con bilanciere","primary_muscles":["biceps"],"secondary_muscles":[],"equipment":"barbell","movement_pattern":"elbow_flexion","roles":["isolation","hypertrophy"],"min_experience":"beginner","technical_complexity":1,"systemic_fatigue":1,"local_fatigue":2,"grip_fatigue":2,"cardio_demand":1,"default_sets":3,"default_reps":"8-12","default_rest":75},
-{"id":"curl_cavo","name":"Curl ai cavi","primary_muscles":["biceps"],"secondary_muscles":[],"focus_portion":"short_head","equipment":"cable","movement_pattern":"elbow_flexion","roles":["isolation","hypertrophy"],"min_experience":"beginner","technical_complexity":1,"systemic_fatigue":1,"local_fatigue":2,"grip_fatigue":1,"cardio_demand":1,"default_sets":3,"default_reps":"12-15","default_rest":60},
-{"id":"curl_elastico","name":"Curl con elastico","primary_muscles":["biceps"],"secondary_muscles":[],"equipment":"bodyweight","movement_pattern":"elbow_flexion","roles":["isolation","hypertrophy"],"min_experience":"beginner","technical_complexity":1,"systemic_fatigue":1,"local_fatigue":2,"grip_fatigue":1,"cardio_demand":1,"default_sets":3,"default_reps":"15-20","default_rest":60},
-{"id":"curl_manubri","name":"Curl con manubri","primary_muscles":["biceps"],"secondary_muscles":[],"equipment":"dumbbell","movement_pattern":"elbow_flexion","roles":["isolation","hypertrophy"],"min_experience":"beginner","technical_complexity":1,"systemic_fatigue":1,"local_fatigue":2,"grip_fatigue":2,"cardio_demand":1,"default_sets":3,"default_reps":"10-12","default_rest":75},
-{"id":"curl_martello","name":"Curl a martello","primary_muscles":["biceps"],"secondary_muscles":[],"focus_portion":"brachialis","equipment":"dumbbell","movement_pattern":"elbow_flexion","roles":["isolation","hypertrophy"],"min_experience":"beginner","technical_complexity":1,"systemic_fatigue":1,"local_fatigue":2,"grip_fatigue":2,"cardio_demand":1,"default_sets":3,"default_reps":"10-12","default_rest":75},
-{"id":"curl_panca_scott","name":"Curl su panca Scott","primary_muscles":["biceps"],"secondary_muscles":[],"focus_portion":"short_head","equipment":"machine","movement_pattern":"elbow_flexion","roles":["isolation","hypertrophy"],"min_experience":"beginner","technical_complexity":1,"systemic_fatigue":1,"local_fatigue":2,"grip_fatigue":1,"cardio_demand":1,"default_sets":3,"default_reps":"10-15","default_rest":75},
-{"id":"preacher_curl_macchina","name":"Preacher curl alla macchina","primary_muscles":["biceps"],"secondary_muscles":[],"focus_portion":"short_head","equipment":"machine","movement_pattern":"elbow_flexion","roles":["isolation","hypertrophy"],"min_experience":"beginner","technical_complexity":1,"systemic_fatigue":1,"local_fatigue":2,"grip_fatigue":1,"cardio_demand":1,"default_sets":3,"default_reps":"8-12","default_rest":60},
-{"id":"curl_inclinata_man","name":"Curl con manubri su panca inclinata","primary_muscles":["biceps"],"secondary_muscles":[],"focus_portion":"long_head","equipment":"dumbbell","movement_pattern":"elbow_flexion","roles":["isolation","hypertrophy"],"min_experience":"beginner","technical_complexity":1,"systemic_fatigue":1,"local_fatigue":2,"grip_fatigue":2,"cardio_demand":1,"default_sets":3,"default_reps":"8-12","default_rest":60},
-{"id":"bayesian_curl","name":"Bayesian curl al cavo","primary_muscles":["biceps"],"secondary_muscles":[],"focus_portion":"long_head","equipment":"cable","movement_pattern":"elbow_flexion","roles":["isolation","hypertrophy"],"min_experience":"beginner","technical_complexity":1,"systemic_fatigue":1,"local_fatigue":2,"grip_fatigue":1,"cardio_demand":1,"default_sets":3,"default_reps":"10-15","default_rest":45},
-{"id":"db_thruster","name":"Thruster con manubri","primary_muscles":["quads","front_delts"],"secondary_muscles":["glutes","triceps","core"],"equipment":"dumbbell","movement_pattern":"squat","roles":["compound","conditioning"],"min_experience":"beginner","technical_complexity":2,"systemic_fatigue":3,"local_fatigue":2,"grip_fatigue":1,"cardio_demand":3,"default_sets":3,"default_reps":"10-15","default_rest":60},
-{"id":"dip_panca","name":"Dip fra due panche","primary_muscles":["triceps"],"secondary_muscles":["chest"],"focus_portion":"medial_head","equipment":"bodyweight","movement_pattern":"elbow_extension","roles":["compound","hypertrophy"],"min_experience":"beginner","technical_complexity":1,"systemic_fatigue":2,"local_fatigue":2,"grip_fatigue":1,"cardio_demand":1,"default_sets":3,"default_reps":"10-15","default_rest":75},
-{"id":"dip_parallele","name":"Dip alle parallele","primary_muscles":["triceps"],"secondary_muscles":["chest","front_delts"],"focus_portion":"medial_head","equipment":"bodyweight","movement_pattern":"horizontal_push","roles":["compound","hypertrophy"],"min_experience":"intermediate","technical_complexity":2,"systemic_fatigue":2,"local_fatigue":3,"grip_fatigue":2,"cardio_demand":1,"default_sets":3,"default_reps":"8-12","default_rest":105},
-{"id":"estensioni_sopra_testa","name":"Estensioni sopra la testa","primary_muscles":["triceps"],"secondary_muscles":[],"focus_portion":"long_head","equipment":"cable","movement_pattern":"elbow_extension","roles":["isolation","hypertrophy"],"min_experience":"beginner","technical_complexity":1,"systemic_fatigue":1,"local_fatigue":2,"grip_fatigue":1,"cardio_demand":1,"default_sets":3,"default_reps":"12-15","default_rest":60},
-{"id":"estensione_tricipiti_cavo_alto","name":"Estensione tricipiti sopra la testa al cavo","primary_muscles":["triceps"],"secondary_muscles":[],"focus_portion":"long_head","equipment":"cable","movement_pattern":"elbow_extension","roles":["isolation","hypertrophy"],"min_experience":"beginner","technical_complexity":1,"systemic_fatigue":1,"local_fatigue":2,"grip_fatigue":1,"cardio_demand":1,"default_sets":3,"default_reps":"10-15","default_rest":60},
-{"id":"face_pull","name":"Face pull","primary_muscles":["rear_delts"],"secondary_muscles":["back"],"equipment":"cable","movement_pattern":"rear_delt","roles":["isolation","hypertrophy"],"min_experience":"beginner","technical_complexity":1,"systemic_fatigue":1,"local_fatigue":1,"grip_fatigue":1,"cardio_demand":1,"default_sets":3,"default_reps":"15-20","default_rest":60},
-{"id":"french_press","name":"French press","primary_muscles":["triceps"],"secondary_muscles":[],"focus_portion":"long_head","equipment":"barbell","movement_pattern":"elbow_extension","roles":["isolation","hypertrophy"],"min_experience":"intermediate","technical_complexity":2,"systemic_fatigue":1,"local_fatigue":2,"grip_fatigue":1,"cardio_demand":1,"default_sets":3,"default_reps":"8-12","default_rest":75},
-{"id":"front_squat","name":"Front squat","primary_muscles":["quads"],"secondary_muscles":["core","glutes"],"equipment":"barbell","movement_pattern":"squat","roles":["compound","strength"],"min_experience":"advanced","technical_complexity":3,"systemic_fatigue":3,"local_fatigue":3,"grip_fatigue":2,"cardio_demand":2,"default_sets":4,"default_reps":"5-8","default_rest":180},
-{"id":"glute_bridge","name":"Ponte per glutei","primary_muscles":["glutes"],"secondary_muscles":["hamstrings"],"equipment":"bodyweight","movement_pattern":"hinge","roles":["isolation","hypertrophy"],"min_experience":"beginner","technical_complexity":1,"systemic_fatigue":1,"local_fatigue":2,"grip_fatigue":1,"cardio_demand":1,"default_sets":3,"default_reps":"15-20","default_rest":60},
-{"id":"goblet_squat","name":"Goblet squat","primary_muscles":["quads"],"secondary_muscles":["glutes","core"],"equipment":"dumbbell","movement_pattern":"squat","roles":["compound","hypertrophy"],"min_experience":"beginner","technical_complexity":1,"systemic_fatigue":2,"local_fatigue":3,"grip_fatigue":2,"cardio_demand":2,"default_sets":3,"default_reps":"10-15","default_rest":90},
-{"id":"good_morning_libero","name":"Good morning a corpo libero","primary_muscles":["hamstrings"],"secondary_muscles":["glutes","back"],"equipment":"bodyweight","movement_pattern":"hinge","roles":["compound","hypertrophy"],"min_experience":"beginner","technical_complexity":1,"systemic_fatigue":1,"local_fatigue":2,"grip_fatigue":1,"cardio_demand":1,"default_sets":3,"default_reps":"15-20","default_rest":60},
-{"id":"hack_squat","name":"Hack squat","primary_muscles":["quads"],"secondary_muscles":["glutes"],"equipment":"machine","movement_pattern":"squat","roles":["compound","hypertrophy"],"min_experience":"beginner","technical_complexity":1,"systemic_fatigue":3,"local_fatigue":3,"grip_fatigue":1,"cardio_demand":1,"default_sets":4,"default_reps":"8-12","default_rest":120},
-{"id":"hip_thrust","name":"Hip thrust","primary_muscles":["glutes"],"secondary_muscles":["hamstrings"],"equipment":"barbell","movement_pattern":"hinge","roles":["compound","hypertrophy"],"min_experience":"beginner","technical_complexity":2,"systemic_fatigue":2,"local_fatigue":3,"grip_fatigue":1,"cardio_demand":1,"default_sets":4,"default_reps":"8-12","default_rest":105},
-{"id":"hollow_hold","name":"Hollow hold","primary_muscles":["core"],"secondary_muscles":[],"equipment":"bodyweight","movement_pattern":"core","roles":["isolation","core"],"min_experience":"beginner","technical_complexity":1,"systemic_fatigue":1,"local_fatigue":2,"grip_fatigue":1,"cardio_demand":1,"default_sets":3,"default_reps":"20-40 sec","default_rest":60},
-{"id":"kb_swing","name":"Swing con kettlebell","primary_muscles":["glutes","hamstrings"],"secondary_muscles":["core","back"],"equipment":"kettlebell","movement_pattern":"hinge","roles":["compound","conditioning"],"min_experience":"intermediate","technical_complexity":2,"systemic_fatigue":3,"local_fatigue":2,"grip_fatigue":2,"cardio_demand":3,"default_sets":3,"default_reps":"15-20","default_rest":60},
-{"id":"kb_thruster","name":"Thruster con kettlebell","primary_muscles":["quads","front_delts"],"secondary_muscles":["glutes","triceps","core"],"equipment":"kettlebell","movement_pattern":"squat","roles":["compound","conditioning"],"min_experience":"intermediate","technical_complexity":2,"systemic_fatigue":3,"local_fatigue":2,"grip_fatigue":2,"cardio_demand":3,"default_sets":3,"default_reps":"10-15","default_rest":60},
-{"id":"lat_machine","name":"Lat machine","primary_muscles":["back"],"secondary_muscles":["biceps"],"equipment":"machine","movement_pattern":"vertical_pull","roles":["compound","hypertrophy"],"min_experience":"beginner","technical_complexity":1,"systemic_fatigue":2,"local_fatigue":3,"grip_fatigue":2,"cardio_demand":1,"default_sets":4,"default_reps":"10-12","default_rest":90},
-{"id":"leg_curl","name":"Leg curl","primary_muscles":["hamstrings"],"secondary_muscles":[],"equipment":"machine","movement_pattern":"knee_flexion","roles":["isolation","hypertrophy"],"min_experience":"beginner","technical_complexity":1,"systemic_fatigue":1,"local_fatigue":2,"grip_fatigue":1,"cardio_demand":1,"default_sets":3,"default_reps":"12-15","default_rest":75},
-{"id":"leg_extension","name":"Leg extension","primary_muscles":["quads"],"secondary_muscles":[],"equipment":"machine","movement_pattern":"knee_flexion","roles":["isolation","hypertrophy"],"min_experience":"beginner","technical_complexity":1,"systemic_fatigue":1,"local_fatigue":2,"grip_fatigue":1,"cardio_demand":1,"default_sets":3,"default_reps":"12-15","default_rest":75},
-{"id":"leg_press","name":"Leg press","primary_muscles":["quads"],"secondary_muscles":["glutes","hamstrings"],"equipment":"machine","movement_pattern":"squat","roles":["compound","hypertrophy"],"min_experience":"beginner","technical_complexity":1,"systemic_fatigue":2,"local_fatigue":3,"grip_fatigue":1,"cardio_demand":1,"default_sets":4,"default_reps":"10-15","default_rest":120},
-{"id":"belt_squat","name":"Belt squat","primary_muscles":["quads"],"secondary_muscles":["glutes","hamstrings"],"equipment":"machine","movement_pattern":"squat","roles":["compound","hypertrophy"],"min_experience":"beginner","technical_complexity":1,"systemic_fatigue":2,"local_fatigue":3,"grip_fatigue":1,"cardio_demand":1,"default_sets":4,"default_reps":"8-12","default_rest":120},
-{"id":"leg_raise","name":"Sollevamento gambe alla sbarra","primary_muscles":["core"],"secondary_muscles":[],"equipment":"bodyweight","movement_pattern":"core","roles":["isolation","core"],"min_experience":"intermediate","technical_complexity":2,"systemic_fatigue":1,"local_fatigue":2,"grip_fatigue":3,"cardio_demand":1,"default_sets":3,"default_reps":"10-15","default_rest":60},
-{"id":"military_press","name":"Lento avanti con bilanciere","primary_muscles":["front_delts"],"secondary_muscles":["triceps","core"],"equipment":"barbell","movement_pattern":"vertical_push","roles":["compound","strength","hypertrophy"],"min_experience":"intermediate","technical_complexity":2,"systemic_fatigue":3,"local_fatigue":3,"grip_fatigue":2,"cardio_demand":1,"default_sets":4,"default_reps":"6-8","default_rest":150},
-{"id":"mountain_climber","name":"Mountain climber","primary_muscles":["core"],"secondary_muscles":["quads","front_delts"],"equipment":"bodyweight","movement_pattern":"core","roles":["isolation","core","conditioning"],"min_experience":"beginner","technical_complexity":1,"systemic_fatigue":2,"local_fatigue":2,"grip_fatigue":1,"cardio_demand":3,"default_sets":3,"default_reps":"30-40","default_rest":30},
-{"id":"nordic_curl","name":"Nordic curl assistito","primary_muscles":["hamstrings"],"secondary_muscles":["glutes"],"equipment":"bodyweight","movement_pattern":"knee_flexion","roles":["isolation","hypertrophy"],"min_experience":"intermediate","technical_complexity":2,"systemic_fatigue":2,"local_fatigue":3,"grip_fatigue":1,"cardio_demand":1,"default_sets":3,"default_reps":"6-10","default_rest":90},
-{"id":"panca_inclinata_bil","name":"Panca inclinata con bilanciere","primary_muscles":["chest"],"secondary_muscles":["front_delts","triceps"],"equipment":"barbell","movement_pattern":"horizontal_push","roles":["compound","hypertrophy"],"min_experience":"intermediate","technical_complexity":2,"systemic_fatigue":3,"local_fatigue":3,"grip_fatigue":2,"cardio_demand":1,"default_sets":4,"default_reps":"8-10","default_rest":120},
-{"id":"panca_inclinata_man","name":"Panca inclinata con manubri","primary_muscles":["chest"],"secondary_muscles":["front_delts","triceps"],"equipment":"dumbbell","movement_pattern":"horizontal_push","roles":["compound","hypertrophy"],"min_experience":"beginner","technical_complexity":2,"systemic_fatigue":2,"local_fatigue":3,"grip_fatigue":2,"cardio_demand":1,"default_sets":3,"default_reps":"8-12","default_rest":105},
-{"id":"panca_piana","name":"Panca piana con bilanciere","primary_muscles":["chest"],"secondary_muscles":["triceps","front_delts"],"equipment":"barbell","movement_pattern":"horizontal_push","roles":["compound","strength","hypertrophy"],"min_experience":"intermediate","technical_complexity":2,"systemic_fatigue":3,"local_fatigue":3,"grip_fatigue":2,"cardio_demand":1,"default_sets":4,"default_reps":"6-8","default_rest":150},
-{"id":"piegamenti","name":"Piegamenti sulle braccia","primary_muscles":["chest"],"secondary_muscles":["triceps","core"],"equipment":"bodyweight","movement_pattern":"horizontal_push","roles":["compound","hypertrophy"],"min_experience":"beginner","technical_complexity":1,"systemic_fatigue":2,"local_fatigue":2,"grip_fatigue":1,"cardio_demand":2,"default_sets":3,"default_reps":"10-20","default_rest":75},
-{"id":"piegamenti_diamante","name":"Piegamenti a diamante","primary_muscles":["triceps"],"secondary_muscles":["chest"],"focus_portion":"medial_head","equipment":"bodyweight","movement_pattern":"elbow_extension","roles":["isolation","hypertrophy"],"min_experience":"beginner","technical_complexity":1,"systemic_fatigue":2,"local_fatigue":2,"grip_fatigue":1,"cardio_demand":2,"default_sets":3,"default_reps":"10-15","default_rest":75},
-{"id":"piegamenti_larghi","name":"Piegamenti a presa larga","primary_muscles":["chest"],"secondary_muscles":["front_delts"],"equipment":"bodyweight","movement_pattern":"horizontal_push","roles":["isolation","hypertrophy"],"min_experience":"beginner","technical_complexity":1,"systemic_fatigue":2,"local_fatigue":2,"grip_fatigue":1,"cardio_demand":2,"default_sets":3,"default_reps":"12-20","default_rest":75},
-{"id":"piegamenti_rialzati","name":"Piegamenti con piedi rialzati","primary_muscles":["chest"],"secondary_muscles":["front_delts","triceps"],"equipment":"bodyweight","movement_pattern":"horizontal_push","roles":["compound","hypertrophy"],"min_experience":"intermediate","technical_complexity":2,"systemic_fatigue":2,"local_fatigue":3,"grip_fatigue":1,"cardio_demand":2,"default_sets":3,"default_reps":"8-15","default_rest":90},
-{"id":"pike_push_up","name":"Piegamenti a V","primary_muscles":["front_delts"],"secondary_muscles":["triceps"],"equipment":"bodyweight","movement_pattern":"vertical_push","roles":["compound","hypertrophy"],"min_experience":"intermediate","technical_complexity":2,"systemic_fatigue":2,"local_fatigue":3,"grip_fatigue":1,"cardio_demand":2,"default_sets":3,"default_reps":"8-12","default_rest":90},
-{"id":"pike_push_up_facile","name":"Piegamenti a V con ginocchia a terra","primary_muscles":["front_delts"],"secondary_muscles":["triceps"],"equipment":"bodyweight","movement_pattern":"vertical_push","roles":["compound","hypertrophy"],"min_experience":"beginner","technical_complexity":1,"systemic_fatigue":2,"local_fatigue":2,"grip_fatigue":1,"cardio_demand":2,"default_sets":3,"default_reps":"10-15","default_rest":75},
-{"id":"plank","name":"Plank","primary_muscles":["core"],"secondary_muscles":[],"equipment":"bodyweight","movement_pattern":"core","roles":["isolation","core"],"min_experience":"beginner","technical_complexity":1,"systemic_fatigue":1,"local_fatigue":2,"grip_fatigue":1,"cardio_demand":1,"default_sets":3,"default_reps":"30-60 sec","default_rest":60},
-{"id":"pulley","name":"Pulley basso","primary_muscles":["back"],"secondary_muscles":["biceps","rear_delts"],"equipment":"cable","movement_pattern":"horizontal_pull","roles":["compound","hypertrophy"],"min_experience":"beginner","technical_complexity":1,"systemic_fatigue":2,"local_fatigue":2,"grip_fatigue":2,"cardio_demand":1,"default_sets":3,"default_reps":"10-12","default_rest":90},
-{"id":"pullover_cavo","name":"Pullover ai cavi","primary_muscles":["back"],"secondary_muscles":[],"equipment":"cable","movement_pattern":"vertical_pull","roles":["isolation","hypertrophy"],"min_experience":"beginner","technical_complexity":1,"systemic_fatigue":1,"local_fatigue":2,"grip_fatigue":1,"cardio_demand":1,"default_sets":3,"default_reps":"12-15","default_rest":75},
-{"id":"pushdown","name":"Pushdown ai cavi","primary_muscles":["triceps"],"secondary_muscles":[],"focus_portion":"lateral_head","equipment":"cable","movement_pattern":"elbow_extension","roles":["isolation","hypertrophy"],"min_experience":"beginner","technical_complexity":1,"systemic_fatigue":1,"local_fatigue":2,"grip_fatigue":1,"cardio_demand":1,"default_sets":3,"default_reps":"12-15","default_rest":60},
-{"id":"pushdown_unilaterale","name":"Pushdown unilaterale","primary_muscles":["triceps"],"secondary_muscles":[],"focus_portion":"lateral_head","equipment":"cable","movement_pattern":"elbow_extension","roles":["isolation","hypertrophy"],"min_experience":"beginner","technical_complexity":1,"systemic_fatigue":1,"local_fatigue":2,"grip_fatigue":1,"cardio_demand":1,"default_sets":3,"default_reps":"10-15","default_rest":45},
-{"id":"rematore_australiano","name":"Rematore australiano","primary_muscles":["back"],"secondary_muscles":["biceps","rear_delts"],"equipment":"bodyweight","movement_pattern":"horizontal_pull","roles":["compound","hypertrophy"],"min_experience":"beginner","technical_complexity":1,"systemic_fatigue":2,"local_fatigue":2,"grip_fatigue":2,"cardio_demand":1,"default_sets":3,"default_reps":"10-15","default_rest":90},
-{"id":"rematore_bil","name":"Rematore con bilanciere","primary_muscles":["back"],"secondary_muscles":["biceps","rear_delts"],"equipment":"barbell","movement_pattern":"horizontal_pull","roles":["compound","strength","hypertrophy"],"min_experience":"intermediate","technical_complexity":2,"systemic_fatigue":3,"local_fatigue":3,"grip_fatigue":3,"cardio_demand":1,"default_sets":4,"default_reps":"8-10","default_rest":120},
-{"id":"rematore_man","name":"Rematore con manubrio","primary_muscles":["back"],"secondary_muscles":["biceps"],"equipment":"dumbbell","movement_pattern":"horizontal_pull","roles":["compound","hypertrophy"],"min_experience":"beginner","technical_complexity":1,"systemic_fatigue":2,"local_fatigue":2,"grip_fatigue":3,"cardio_demand":1,"default_sets":3,"default_reps":"10-12","default_rest":90},
-{"id":"reverse_fly_elastico","name":"Aperture posteriori con elastico","primary_muscles":["rear_delts"],"secondary_muscles":[],"equipment":"bodyweight","movement_pattern":"rear_delt","roles":["isolation","hypertrophy"],"min_experience":"beginner","technical_complexity":1,"systemic_fatigue":1,"local_fatigue":1,"grip_fatigue":1,"cardio_demand":1,"default_sets":3,"default_reps":"15-20","default_rest":60},
-{"id":"reverse_pec_deck","name":"Reverse pec deck","primary_muscles":["rear_delts"],"secondary_muscles":[],"equipment":"machine","movement_pattern":"rear_delt","roles":["isolation","hypertrophy"],"min_experience":"beginner","technical_complexity":1,"systemic_fatigue":1,"local_fatigue":2,"grip_fatigue":1,"cardio_demand":1,"default_sets":3,"default_reps":"15-20","default_rest":60},
-{"id":"row_erg","name":"Vogatore","primary_muscles":["back"],"secondary_muscles":["hamstrings","biceps","core"],"equipment":"cardio","movement_pattern":"row","roles":["conditioning","cardio"],"min_experience":"beginner","technical_complexity":2,"systemic_fatigue":2,"local_fatigue":1,"grip_fatigue":1,"cardio_demand":3,"default_sets":1,"default_reps":"2 min","default_rest":0},
-{"id":"russian_twist","name":"Russian twist","primary_muscles":["core"],"secondary_muscles":[],"equipment":"bodyweight","movement_pattern":"core","roles":["isolation","core","conditioning"],"min_experience":"beginner","technical_complexity":1,"systemic_fatigue":1,"local_fatigue":2,"grip_fatigue":1,"cardio_demand":2,"default_sets":3,"default_reps":"20-30","default_rest":45},
-{"id":"shoulder_press_mac","name":"Shoulder press alla macchina","primary_muscles":["front_delts"],"secondary_muscles":["triceps"],"equipment":"machine","movement_pattern":"vertical_push","roles":["compound","hypertrophy"],"min_experience":"beginner","technical_complexity":1,"systemic_fatigue":2,"local_fatigue":3,"grip_fatigue":1,"cardio_demand":1,"default_sets":3,"default_reps":"8-12","default_rest":90},
-{"id":"shoulder_press_man","name":"Shoulder press con manubri","primary_muscles":["front_delts"],"secondary_muscles":["triceps"],"equipment":"dumbbell","movement_pattern":"vertical_push","roles":["compound","hypertrophy"],"min_experience":"beginner","technical_complexity":2,"systemic_fatigue":2,"local_fatigue":3,"grip_fatigue":2,"cardio_demand":1,"default_sets":3,"default_reps":"8-12","default_rest":105},
-{"id":"sit_up","name":"Sit-up","primary_muscles":["core"],"secondary_muscles":[],"equipment":"bodyweight","movement_pattern":"core","roles":["isolation","core","conditioning"],"min_experience":"beginner","technical_complexity":1,"systemic_fatigue":1,"local_fatigue":2,"grip_fatigue":1,"cardio_demand":1,"default_sets":3,"default_reps":"15-25","default_rest":30},
-{"id":"squat","name":"Squat con bilanciere","primary_muscles":["quads"],"secondary_muscles":["glutes","core","hamstrings"],"equipment":"barbell","movement_pattern":"squat","roles":["compound","strength","hypertrophy"],"min_experience":"intermediate","technical_complexity":3,"systemic_fatigue":3,"local_fatigue":3,"grip_fatigue":2,"cardio_demand":2,"default_sets":4,"default_reps":"6-8","default_rest":180},
-{"id":"squat_libero","name":"Squat a corpo libero","primary_muscles":["quads"],"secondary_muscles":["glutes"],"equipment":"bodyweight","movement_pattern":"squat","roles":["compound","conditioning"],"min_experience":"beginner","technical_complexity":1,"systemic_fatigue":1,"local_fatigue":2,"grip_fatigue":1,"cardio_demand":2,"default_sets":3,"default_reps":"15-25","default_rest":60},
-{"id":"stacco","name":"Stacco da terra","primary_muscles":["back","hamstrings"],"secondary_muscles":["glutes","core"],"equipment":"barbell","movement_pattern":"hinge","roles":["compound","strength"],"min_experience":"advanced","technical_complexity":3,"systemic_fatigue":3,"local_fatigue":3,"grip_fatigue":3,"cardio_demand":2,"default_sets":4,"default_reps":"4-6","default_rest":180},
-{"id":"stacco_rumeno","name":"Stacco rumeno","primary_muscles":["hamstrings"],"secondary_muscles":["glutes","back"],"equipment":"barbell","movement_pattern":"hinge","roles":["compound","strength","hypertrophy"],"min_experience":"intermediate","technical_complexity":2,"systemic_fatigue":3,"local_fatigue":3,"grip_fatigue":3,"cardio_demand":1,"default_sets":4,"default_reps":"8-10","default_rest":120},
-{"id":"stacco_rumeno_man","name":"Stacco rumeno con manubri","primary_muscles":["hamstrings"],"secondary_muscles":["glutes"],"equipment":"dumbbell","movement_pattern":"hinge","roles":["compound","hypertrophy"],"min_experience":"beginner","technical_complexity":2,"systemic_fatigue":2,"local_fatigue":3,"grip_fatigue":2,"cardio_demand":1,"default_sets":3,"default_reps":"10-12","default_rest":105},
-{"id":"superman","name":"Superman","primary_muscles":["back"],"secondary_muscles":["glutes"],"equipment":"bodyweight","movement_pattern":"hinge","roles":["isolation"],"min_experience":"beginner","technical_complexity":1,"systemic_fatigue":1,"local_fatigue":2,"grip_fatigue":1,"cardio_demand":1,"default_sets":3,"default_reps":"12-15","default_rest":45},
-{"id":"trazioni","name":"Trazioni alla sbarra","primary_muscles":["back"],"secondary_muscles":["biceps","rear_delts"],"equipment":"bodyweight","movement_pattern":"vertical_pull","roles":["compound","hypertrophy"],"min_experience":"intermediate","technical_complexity":2,"systemic_fatigue":2,"local_fatigue":3,"grip_fatigue":3,"cardio_demand":1,"default_sets":4,"default_reps":"6-12","default_rest":120},
-{"id":"trazioni_supine","name":"Trazioni a presa supina","primary_muscles":["biceps"],"secondary_muscles":["back"],"focus_portion":"long_head","equipment":"bodyweight","movement_pattern":"vertical_pull","roles":["isolation","hypertrophy"],"min_experience":"intermediate","technical_complexity":2,"systemic_fatigue":2,"local_fatigue":3,"grip_fatigue":3,"cardio_demand":1,"default_sets":3,"default_reps":"6-10","default_rest":90},
-{"id":"wu_band_pull","name":"Pull apart con elastico","primary_muscles":["rear_delts"],"secondary_muscles":[],"equipment":"bodyweight","movement_pattern":"rear_delt","roles":["warmup"],"min_experience":"beginner","technical_complexity":1,"systemic_fatigue":1,"local_fatigue":1,"grip_fatigue":1,"cardio_demand":1,"default_sets":2,"default_reps":"20","default_rest":0},
-{"id":"wu_bike","name":"Cyclette leggera","primary_muscles":[],"secondary_muscles":[],"equipment":"cardio","movement_pattern":"bike","roles":["warmup","cardio"],"min_experience":"beginner","technical_complexity":1,"systemic_fatigue":1,"local_fatigue":1,"grip_fatigue":1,"cardio_demand":2,"default_sets":1,"default_reps":"5 min","default_rest":0},
-{"id":"wu_camminata","name":"Camminata veloce sul tapis roulant","primary_muscles":[],"secondary_muscles":[],"equipment":"cardio","movement_pattern":"run","roles":["warmup","cardio"],"min_experience":"beginner","technical_complexity":1,"systemic_fatigue":1,"local_fatigue":1,"grip_fatigue":1,"cardio_demand":2,"default_sets":1,"default_reps":"5 min","default_rest":0},
-{"id":"wu_circonduzioni","name":"Circonduzioni delle spalle","primary_muscles":[],"secondary_muscles":[],"equipment":"bodyweight","movement_pattern":"lateral_raise","roles":["warmup"],"min_experience":"beginner","technical_complexity":1,"systemic_fatigue":1,"local_fatigue":1,"grip_fatigue":1,"cardio_demand":1,"default_sets":2,"default_reps":"15 per lato","default_rest":0},
-{"id":"wu_dead_bug","name":"Dead bug","primary_muscles":["core"],"secondary_muscles":[],"equipment":"bodyweight","movement_pattern":"core","roles":["warmup","core"],"min_experience":"beginner","technical_complexity":1,"systemic_fatigue":1,"local_fatigue":1,"grip_fatigue":1,"cardio_demand":1,"default_sets":2,"default_reps":"10 per lato","default_rest":0},
-{"id":"wu_rotazioni_anca","name":"Rotazioni delle anche","primary_muscles":[],"secondary_muscles":[],"equipment":"bodyweight","movement_pattern":"squat","roles":["warmup"],"min_experience":"beginner","technical_complexity":1,"systemic_fatigue":1,"local_fatigue":1,"grip_fatigue":1,"cardio_demand":1,"default_sets":2,"default_reps":"10 per lato","default_rest":0},
-{"id":"wu_salto_corda","name":"Saltelli con la corda","primary_muscles":[],"secondary_muscles":[],"equipment":"bodyweight","movement_pattern":"jump","roles":["warmup","cardio","conditioning"],"min_experience":"beginner","technical_complexity":1,"systemic_fatigue":1,"local_fatigue":1,"grip_fatigue":1,"cardio_demand":3,"default_sets":1,"default_reps":"3 min","default_rest":0},
-{"id":"wu_scapole","name":"Retrazioni scapolari alla sbarra","primary_muscles":["back"],"secondary_muscles":[],"equipment":"bodyweight","movement_pattern":"vertical_pull","roles":["warmup"],"min_experience":"beginner","technical_complexity":1,"systemic_fatigue":1,"local_fatigue":1,"grip_fatigue":2,"cardio_demand":1,"default_sets":2,"default_reps":"10","default_rest":0},
-{"id":"wu_serie_leggera","name":"Serie leggera del primo esercizio","primary_muscles":[],"secondary_muscles":[],"equipment":"bodyweight","movement_pattern":"squat","roles":["warmup"],"min_experience":"beginner","technical_complexity":1,"systemic_fatigue":1,"local_fatigue":1,"grip_fatigue":1,"cardio_demand":1,"default_sets":2,"default_reps":"12 al 50%","default_rest":0},
-{"id":"wu_squat_vuoto","name":"Squat a corpo libero lento","primary_muscles":["quads"],"secondary_muscles":[],"equipment":"bodyweight","movement_pattern":"squat","roles":["warmup"],"min_experience":"beginner","technical_complexity":1,"systemic_fatigue":1,"local_fatigue":1,"grip_fatigue":1,"cardio_demand":1,"default_sets":2,"default_reps":"12","default_rest":0},
-{"id":"adductor_machine","name":"Adductor machine","primary_muscles":["adductors"],"secondary_muscles":[],"equipment":"machine","movement_pattern":"hip_adduction","roles":["isolation","hypertrophy"],"min_experience":"beginner","technical_complexity":1,"systemic_fatigue":1,"local_fatigue":2,"grip_fatigue":1,"cardio_demand":1,"default_sets":3,"default_reps":"12-20","default_rest":60},
-{"id":"copenhagen_plank","name":"Copenhagen plank","primary_muscles":["adductors"],"secondary_muscles":["core"],"equipment":"bodyweight","movement_pattern":"hip_adduction","roles":["isolation","hypertrophy"],"min_experience":"intermediate","technical_complexity":2,"systemic_fatigue":1,"local_fatigue":2,"grip_fatigue":1,"cardio_demand":1,"default_sets":3,"default_reps":"20-30 sec per lato","default_rest":60},
-{"id":"wrist_curl","name":"Wrist curl con manubri","primary_muscles":["forearms"],"secondary_muscles":[],"equipment":"dumbbell","movement_pattern":"wrist_flexion","roles":["isolation","hypertrophy"],"min_experience":"beginner","technical_complexity":1,"systemic_fatigue":1,"local_fatigue":2,"grip_fatigue":2,"cardio_demand":1,"default_sets":3,"default_reps":"12-20","default_rest":45},
-{"id":"reverse_wrist_curl","name":"Wrist curl inverso con manubri","primary_muscles":["forearms"],"secondary_muscles":[],"equipment":"dumbbell","movement_pattern":"wrist_extension","roles":["isolation","hypertrophy"],"min_experience":"beginner","technical_complexity":1,"systemic_fatigue":1,"local_fatigue":2,"grip_fatigue":2,"cardio_demand":1,"default_sets":3,"default_reps":"12-20","default_rest":45},
-{"id":"wu_bird_dog","name":"Bird dog","primary_muscles":["core"],"secondary_muscles":["glutes"],"equipment":"bodyweight","movement_pattern":"core","roles":["warmup","core"],"min_experience":"beginner","technical_complexity":1,"systemic_fatigue":1,"local_fatigue":1,"grip_fatigue":1,"cardio_demand":1,"default_sets":1,"default_reps":"8 per lato","default_rest":0}]
+[
+  {
+    "id": "ab_wheel",
+    "name": "Ab wheel rollout",
+    "primary_muscles": [
+      "core"
+    ],
+    "secondary_muscles": [],
+    "equipment": "bodyweight",
+    "movement_pattern": "core",
+    "roles": [
+      "compound",
+      "core",
+      "hypertrophy"
+    ],
+    "min_experience": "intermediate",
+    "technical_complexity": 2,
+    "systemic_fatigue": 2,
+    "local_fatigue": 3,
+    "grip_fatigue": 1,
+    "cardio_demand": 1,
+    "default_sets": 3,
+    "default_reps": "8-15",
+    "default_rest": 60
+  },
+  {
+    "id": "abduzioni_macchina",
+    "name": "Abduzioni alla macchina",
+    "primary_muscles": [
+      "glutes"
+    ],
+    "secondary_muscles": [],
+    "equipment": "machine",
+    "movement_pattern": "hinge",
+    "roles": [
+      "isolation",
+      "hypertrophy"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 1,
+    "local_fatigue": 2,
+    "grip_fatigue": 1,
+    "cardio_demand": 1,
+    "default_sets": 3,
+    "default_reps": "15-20",
+    "default_rest": 60
+  },
+  {
+    "id": "adductor_machine",
+    "name": "Adductor machine",
+    "primary_muscles": [
+      "adductors"
+    ],
+    "secondary_muscles": [],
+    "equipment": "machine",
+    "movement_pattern": "hip_adduction",
+    "roles": [
+      "isolation",
+      "hypertrophy"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 1,
+    "local_fatigue": 2,
+    "grip_fatigue": 1,
+    "cardio_demand": 1,
+    "default_sets": 3,
+    "default_reps": "12-20",
+    "default_rest": 60
+  },
+  {
+    "id": "affondi_libero",
+    "name": "Affondi a corpo libero",
+    "primary_muscles": [
+      "quads"
+    ],
+    "secondary_muscles": [
+      "glutes"
+    ],
+    "equipment": "bodyweight",
+    "movement_pattern": "lunge",
+    "roles": [
+      "compound",
+      "conditioning"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 2,
+    "local_fatigue": 2,
+    "grip_fatigue": 1,
+    "cardio_demand": 2,
+    "default_sets": 3,
+    "default_reps": "12-20",
+    "default_rest": 60
+  },
+  {
+    "id": "affondi_man",
+    "name": "Affondi con manubri",
+    "primary_muscles": [
+      "quads"
+    ],
+    "secondary_muscles": [
+      "glutes",
+      "hamstrings"
+    ],
+    "equipment": "dumbbell",
+    "movement_pattern": "lunge",
+    "roles": [
+      "compound",
+      "hypertrophy"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 2,
+    "systemic_fatigue": 3,
+    "local_fatigue": 3,
+    "grip_fatigue": 2,
+    "cardio_demand": 2,
+    "default_sets": 3,
+    "default_reps": "10-12",
+    "default_rest": 105
+  },
+  {
+    "id": "alzate_90",
+    "name": "Alzate a 90 gradi",
+    "primary_muscles": [
+      "rear_delts"
+    ],
+    "secondary_muscles": [],
+    "equipment": "dumbbell",
+    "movement_pattern": "rear_delt",
+    "roles": [
+      "isolation",
+      "hypertrophy"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 1,
+    "local_fatigue": 2,
+    "grip_fatigue": 1,
+    "cardio_demand": 1,
+    "default_sets": 3,
+    "default_reps": "12-20",
+    "default_rest": 60
+  },
+  {
+    "id": "alzate_laterali",
+    "name": "Alzate laterali",
+    "primary_muscles": [
+      "lateral_delts"
+    ],
+    "secondary_muscles": [],
+    "equipment": "dumbbell",
+    "movement_pattern": "lateral_raise",
+    "roles": [
+      "isolation",
+      "hypertrophy"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 1,
+    "local_fatigue": 2,
+    "grip_fatigue": 1,
+    "cardio_demand": 1,
+    "default_sets": 4,
+    "default_reps": "12-15",
+    "default_rest": 60
+  },
+  {
+    "id": "alzate_laterali_cavo",
+    "name": "Alzate laterali ai cavi",
+    "primary_muscles": [
+      "lateral_delts"
+    ],
+    "secondary_muscles": [],
+    "equipment": "cable",
+    "movement_pattern": "lateral_raise",
+    "roles": [
+      "isolation",
+      "hypertrophy"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 1,
+    "local_fatigue": 2,
+    "grip_fatigue": 1,
+    "cardio_demand": 1,
+    "default_sets": 3,
+    "default_reps": "12-20",
+    "default_rest": 60
+  },
+  {
+    "id": "alzate_laterali_elastico",
+    "name": "Alzate laterali con elastico",
+    "primary_muscles": [
+      "lateral_delts"
+    ],
+    "secondary_muscles": [],
+    "equipment": "bodyweight",
+    "movement_pattern": "lateral_raise",
+    "roles": [
+      "isolation",
+      "hypertrophy"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 1,
+    "local_fatigue": 2,
+    "grip_fatigue": 1,
+    "cardio_demand": 1,
+    "default_sets": 3,
+    "default_reps": "15-20",
+    "default_rest": 60
+  },
+  {
+    "id": "alzate_laterali_macchina",
+    "name": "Alzate laterali alla macchina",
+    "primary_muscles": [
+      "lateral_delts"
+    ],
+    "secondary_muscles": [],
+    "equipment": "machine",
+    "movement_pattern": "lateral_raise",
+    "roles": [
+      "isolation",
+      "hypertrophy"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 1,
+    "local_fatigue": 2,
+    "grip_fatigue": 1,
+    "cardio_demand": 1,
+    "default_sets": 3,
+    "default_reps": "12-20",
+    "default_rest": 45
+  },
+  {
+    "id": "assault_bike",
+    "name": "Assault Bike",
+    "primary_muscles": [
+      "quads"
+    ],
+    "secondary_muscles": [
+      "hamstrings",
+      "front_delts"
+    ],
+    "equipment": "cardio",
+    "movement_pattern": "bike",
+    "roles": [
+      "compound",
+      "conditioning"
+    ],
+    "min_experience": "advanced",
+    "technical_complexity": 1,
+    "systemic_fatigue": 3,
+    "local_fatigue": 2,
+    "grip_fatigue": 1,
+    "cardio_demand": 3,
+    "default_sets": 3,
+    "default_reps": "1 min",
+    "default_rest": 45
+  },
+  {
+    "id": "bar_muscle_up",
+    "name": "Muscle-up alla sbarra",
+    "primary_muscles": [
+      "back",
+      "triceps"
+    ],
+    "secondary_muscles": [
+      "biceps",
+      "chest",
+      "core"
+    ],
+    "equipment": "bodyweight",
+    "movement_pattern": "vertical_pull",
+    "roles": [
+      "compound",
+      "conditioning"
+    ],
+    "min_experience": "advanced",
+    "technical_complexity": 3,
+    "systemic_fatigue": 3,
+    "local_fatigue": 2,
+    "grip_fatigue": 3,
+    "cardio_demand": 2,
+    "default_sets": 3,
+    "default_reps": "8-15",
+    "default_rest": 45
+  },
+  {
+    "id": "bayesian_curl",
+    "name": "Bayesian curl al cavo",
+    "primary_muscles": [
+      "biceps"
+    ],
+    "secondary_muscles": [],
+    "focus_portion": "long_head",
+    "equipment": "cable",
+    "movement_pattern": "elbow_flexion",
+    "roles": [
+      "isolation",
+      "hypertrophy"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 1,
+    "local_fatigue": 2,
+    "grip_fatigue": 1,
+    "cardio_demand": 1,
+    "default_sets": 3,
+    "default_reps": "10-15",
+    "default_rest": 45
+  },
+  {
+    "id": "belt_squat",
+    "name": "Belt squat",
+    "primary_muscles": [
+      "quads"
+    ],
+    "secondary_muscles": [
+      "glutes",
+      "hamstrings"
+    ],
+    "equipment": "machine",
+    "movement_pattern": "squat",
+    "roles": [
+      "compound",
+      "hypertrophy"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 2,
+    "local_fatigue": 3,
+    "grip_fatigue": 1,
+    "cardio_demand": 1,
+    "default_sets": 4,
+    "default_reps": "8-12",
+    "default_rest": 120
+  },
+  {
+    "id": "box_jump_over",
+    "name": "Salto oltre il box",
+    "primary_muscles": [
+      "quads"
+    ],
+    "secondary_muscles": [
+      "glutes",
+      "calves"
+    ],
+    "equipment": "bodyweight",
+    "movement_pattern": "jump",
+    "roles": [
+      "compound",
+      "conditioning"
+    ],
+    "min_experience": "advanced",
+    "technical_complexity": 3,
+    "systemic_fatigue": 3,
+    "local_fatigue": 2,
+    "grip_fatigue": 1,
+    "cardio_demand": 3,
+    "default_sets": 3,
+    "default_reps": "8-15",
+    "default_rest": 45
+  },
+  {
+    "id": "box_step_up",
+    "name": "Step-up su rialzo",
+    "primary_muscles": [
+      "quads",
+      "glutes"
+    ],
+    "secondary_muscles": [
+      "hamstrings",
+      "core"
+    ],
+    "equipment": "bodyweight",
+    "movement_pattern": "lunge",
+    "roles": [
+      "compound",
+      "conditioning"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 2,
+    "local_fatigue": 2,
+    "grip_fatigue": 1,
+    "cardio_demand": 2,
+    "default_sets": 3,
+    "default_reps": "10-15 per gamba",
+    "default_rest": 45
+  },
+  {
+    "id": "bulgarian_split",
+    "name": "Affondo bulgaro",
+    "primary_muscles": [
+      "quads"
+    ],
+    "secondary_muscles": [
+      "glutes"
+    ],
+    "equipment": "dumbbell",
+    "movement_pattern": "lunge",
+    "roles": [
+      "compound",
+      "hypertrophy"
+    ],
+    "min_experience": "intermediate",
+    "technical_complexity": 2,
+    "systemic_fatigue": 3,
+    "local_fatigue": 3,
+    "grip_fatigue": 2,
+    "cardio_demand": 2,
+    "default_sets": 3,
+    "default_reps": "8-12",
+    "default_rest": 105
+  },
+  {
+    "id": "burpee",
+    "name": "Burpee",
+    "primary_muscles": [
+      "chest",
+      "quads",
+      "core"
+    ],
+    "secondary_muscles": [
+      "triceps",
+      "front_delts",
+      "glutes"
+    ],
+    "equipment": "bodyweight",
+    "movement_pattern": "burpee",
+    "roles": [
+      "compound",
+      "conditioning"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 2,
+    "systemic_fatigue": 3,
+    "local_fatigue": 2,
+    "grip_fatigue": 1,
+    "cardio_demand": 3,
+    "default_sets": 3,
+    "default_reps": "10-15",
+    "default_rest": 45
+  },
+  {
+    "id": "burpee_over_bar",
+    "name": "Burpee oltre il bilanciere",
+    "primary_muscles": [
+      "chest",
+      "quads"
+    ],
+    "secondary_muscles": [
+      "triceps",
+      "core"
+    ],
+    "equipment": "bodyweight",
+    "movement_pattern": "burpee",
+    "roles": [
+      "compound",
+      "conditioning"
+    ],
+    "min_experience": "advanced",
+    "technical_complexity": 2,
+    "systemic_fatigue": 3,
+    "local_fatigue": 2,
+    "grip_fatigue": 1,
+    "cardio_demand": 3,
+    "default_sets": 3,
+    "default_reps": "8-15",
+    "default_rest": 45
+  },
+  {
+    "id": "calf_in_piedi",
+    "name": "Calf in piedi",
+    "primary_muscles": [
+      "calves"
+    ],
+    "secondary_muscles": [],
+    "equipment": "machine",
+    "movement_pattern": "jump",
+    "roles": [
+      "isolation",
+      "hypertrophy"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 1,
+    "local_fatigue": 2,
+    "grip_fatigue": 1,
+    "cardio_demand": 1,
+    "default_sets": 4,
+    "default_reps": "12-15",
+    "default_rest": 60
+  },
+  {
+    "id": "calf_leg_press",
+    "name": "Calf raise alla pressa",
+    "primary_muscles": [
+      "calves"
+    ],
+    "secondary_muscles": [],
+    "equipment": "machine",
+    "movement_pattern": "calf_raise",
+    "roles": [
+      "isolation",
+      "hypertrophy"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 1,
+    "local_fatigue": 2,
+    "grip_fatigue": 1,
+    "cardio_demand": 1,
+    "default_sets": 4,
+    "default_reps": "12-20",
+    "default_rest": 45
+  },
+  {
+    "id": "calf_libero",
+    "name": "Calf a corpo libero",
+    "primary_muscles": [
+      "calves"
+    ],
+    "secondary_muscles": [],
+    "equipment": "bodyweight",
+    "movement_pattern": "jump",
+    "roles": [
+      "isolation",
+      "hypertrophy"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 1,
+    "local_fatigue": 2,
+    "grip_fatigue": 1,
+    "cardio_demand": 1,
+    "default_sets": 4,
+    "default_reps": "20-25",
+    "default_rest": 45
+  },
+  {
+    "id": "calf_manubri",
+    "name": "Calf con manubri",
+    "primary_muscles": [
+      "calves"
+    ],
+    "secondary_muscles": [],
+    "equipment": "dumbbell",
+    "movement_pattern": "jump",
+    "roles": [
+      "isolation",
+      "hypertrophy"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 1,
+    "local_fatigue": 2,
+    "grip_fatigue": 2,
+    "cardio_demand": 1,
+    "default_sets": 4,
+    "default_reps": "15-20",
+    "default_rest": 60
+  },
+  {
+    "id": "calf_seduto",
+    "name": "Calf da seduto",
+    "primary_muscles": [
+      "calves"
+    ],
+    "secondary_muscles": [],
+    "equipment": "machine",
+    "movement_pattern": "jump",
+    "roles": [
+      "isolation",
+      "hypertrophy"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 1,
+    "local_fatigue": 2,
+    "grip_fatigue": 1,
+    "cardio_demand": 1,
+    "default_sets": 4,
+    "default_reps": "15-20",
+    "default_rest": 60
+  },
+  {
+    "id": "chest_press",
+    "name": "Chest press alla macchina",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [
+      "triceps",
+      "front_delts"
+    ],
+    "equipment": "machine",
+    "movement_pattern": "horizontal_push",
+    "roles": [
+      "compound",
+      "hypertrophy"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 2,
+    "local_fatigue": 3,
+    "grip_fatigue": 1,
+    "cardio_demand": 1,
+    "default_sets": 3,
+    "default_reps": "8-12",
+    "default_rest": 90
+  },
+  {
+    "id": "chest_press_convergente",
+    "name": "Chest press convergente",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [
+      "triceps",
+      "front_delts"
+    ],
+    "equipment": "machine",
+    "movement_pattern": "horizontal_push",
+    "roles": [
+      "compound",
+      "hypertrophy"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 2,
+    "local_fatigue": 3,
+    "grip_fatigue": 1,
+    "cardio_demand": 1,
+    "default_sets": 3,
+    "default_reps": "8-12",
+    "default_rest": 90
+  },
+  {
+    "id": "chest_press_inclinata",
+    "name": "Chest press inclinata",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [
+      "triceps",
+      "front_delts"
+    ],
+    "equipment": "machine",
+    "movement_pattern": "horizontal_push",
+    "roles": [
+      "compound",
+      "hypertrophy"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 2,
+    "local_fatigue": 3,
+    "grip_fatigue": 1,
+    "cardio_demand": 1,
+    "default_sets": 3,
+    "default_reps": "8-12",
+    "default_rest": 90
+  },
+  {
+    "id": "chest_to_bar",
+    "name": "Trazioni petto alla sbarra",
+    "primary_muscles": [
+      "back"
+    ],
+    "secondary_muscles": [
+      "biceps",
+      "rear_delts"
+    ],
+    "equipment": "bodyweight",
+    "movement_pattern": "vertical_pull",
+    "roles": [
+      "compound",
+      "conditioning"
+    ],
+    "min_experience": "advanced",
+    "technical_complexity": 3,
+    "systemic_fatigue": 3,
+    "local_fatigue": 2,
+    "grip_fatigue": 3,
+    "cardio_demand": 2,
+    "default_sets": 3,
+    "default_reps": "8-15",
+    "default_rest": 45
+  },
+  {
+    "id": "clean_jerk",
+    "name": "Clean & Jerk",
+    "primary_muscles": [
+      "quads",
+      "front_delts"
+    ],
+    "secondary_muscles": [
+      "back",
+      "glutes",
+      "triceps",
+      "core"
+    ],
+    "equipment": "barbell",
+    "movement_pattern": "vertical_push",
+    "roles": [
+      "compound",
+      "strength",
+      "conditioning"
+    ],
+    "min_experience": "advanced",
+    "technical_complexity": 3,
+    "systemic_fatigue": 3,
+    "local_fatigue": 2,
+    "grip_fatigue": 3,
+    "cardio_demand": 2,
+    "default_sets": 3,
+    "default_reps": "8-15",
+    "default_rest": 45
+  },
+  {
+    "id": "copenhagen_plank",
+    "name": "Copenhagen plank",
+    "primary_muscles": [
+      "adductors"
+    ],
+    "secondary_muscles": [
+      "core"
+    ],
+    "equipment": "bodyweight",
+    "movement_pattern": "hip_adduction",
+    "roles": [
+      "isolation",
+      "hypertrophy"
+    ],
+    "min_experience": "intermediate",
+    "technical_complexity": 2,
+    "systemic_fatigue": 1,
+    "local_fatigue": 2,
+    "grip_fatigue": 1,
+    "cardio_demand": 1,
+    "default_sets": 3,
+    "default_reps": "20-30 sec per lato",
+    "default_rest": 60
+  },
+  {
+    "id": "croci_cavi",
+    "name": "Croci ai cavi",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [],
+    "equipment": "cable",
+    "movement_pattern": "horizontal_push",
+    "roles": [
+      "isolation",
+      "hypertrophy"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 1,
+    "local_fatigue": 2,
+    "grip_fatigue": 1,
+    "cardio_demand": 1,
+    "default_sets": 3,
+    "default_reps": "12-15",
+    "default_rest": 75
+  },
+  {
+    "id": "croci_manubri",
+    "name": "Croci con manubri",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [],
+    "equipment": "dumbbell",
+    "movement_pattern": "chest_fly",
+    "roles": [
+      "isolation",
+      "hypertrophy"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 1,
+    "local_fatigue": 2,
+    "grip_fatigue": 1,
+    "cardio_demand": 1,
+    "default_sets": 3,
+    "default_reps": "10-15",
+    "default_rest": 75
+  },
+  {
+    "id": "crunch_cavo",
+    "name": "Crunch ai cavi",
+    "primary_muscles": [
+      "core"
+    ],
+    "secondary_muscles": [],
+    "equipment": "cable",
+    "movement_pattern": "core",
+    "roles": [
+      "isolation",
+      "core",
+      "hypertrophy"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 1,
+    "local_fatigue": 2,
+    "grip_fatigue": 1,
+    "cardio_demand": 1,
+    "default_sets": 3,
+    "default_reps": "15-20",
+    "default_rest": 60
+  },
+  {
+    "id": "curl_bilanciere",
+    "name": "Curl con bilanciere",
+    "primary_muscles": [
+      "biceps"
+    ],
+    "secondary_muscles": [],
+    "equipment": "barbell",
+    "movement_pattern": "elbow_flexion",
+    "roles": [
+      "isolation",
+      "hypertrophy"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 1,
+    "local_fatigue": 2,
+    "grip_fatigue": 2,
+    "cardio_demand": 1,
+    "default_sets": 3,
+    "default_reps": "8-12",
+    "default_rest": 75
+  },
+  {
+    "id": "curl_cavo",
+    "name": "Curl ai cavi",
+    "primary_muscles": [
+      "biceps"
+    ],
+    "secondary_muscles": [],
+    "focus_portion": "short_head",
+    "equipment": "cable",
+    "movement_pattern": "elbow_flexion",
+    "roles": [
+      "isolation",
+      "hypertrophy"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 1,
+    "local_fatigue": 2,
+    "grip_fatigue": 1,
+    "cardio_demand": 1,
+    "default_sets": 3,
+    "default_reps": "12-15",
+    "default_rest": 60
+  },
+  {
+    "id": "curl_elastico",
+    "name": "Curl con elastico",
+    "primary_muscles": [
+      "biceps"
+    ],
+    "secondary_muscles": [],
+    "equipment": "bodyweight",
+    "movement_pattern": "elbow_flexion",
+    "roles": [
+      "isolation",
+      "hypertrophy"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 1,
+    "local_fatigue": 2,
+    "grip_fatigue": 1,
+    "cardio_demand": 1,
+    "default_sets": 3,
+    "default_reps": "15-20",
+    "default_rest": 60
+  },
+  {
+    "id": "curl_inclinata_man",
+    "name": "Curl con manubri su panca inclinata",
+    "primary_muscles": [
+      "biceps"
+    ],
+    "secondary_muscles": [],
+    "focus_portion": "long_head",
+    "equipment": "dumbbell",
+    "movement_pattern": "elbow_flexion",
+    "roles": [
+      "isolation",
+      "hypertrophy"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 1,
+    "local_fatigue": 2,
+    "grip_fatigue": 2,
+    "cardio_demand": 1,
+    "default_sets": 3,
+    "default_reps": "8-12",
+    "default_rest": 60
+  },
+  {
+    "id": "curl_manubri",
+    "name": "Curl con manubri",
+    "primary_muscles": [
+      "biceps"
+    ],
+    "secondary_muscles": [],
+    "equipment": "dumbbell",
+    "movement_pattern": "elbow_flexion",
+    "roles": [
+      "isolation",
+      "hypertrophy"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 1,
+    "local_fatigue": 2,
+    "grip_fatigue": 2,
+    "cardio_demand": 1,
+    "default_sets": 3,
+    "default_reps": "10-12",
+    "default_rest": 75
+  },
+  {
+    "id": "curl_martello",
+    "name": "Curl a martello",
+    "primary_muscles": [
+      "biceps"
+    ],
+    "secondary_muscles": [],
+    "focus_portion": "brachialis",
+    "equipment": "dumbbell",
+    "movement_pattern": "elbow_flexion",
+    "roles": [
+      "isolation",
+      "hypertrophy"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 1,
+    "local_fatigue": 2,
+    "grip_fatigue": 2,
+    "cardio_demand": 1,
+    "default_sets": 3,
+    "default_reps": "10-12",
+    "default_rest": 75
+  },
+  {
+    "id": "curl_panca_scott",
+    "name": "Curl su panca Scott",
+    "primary_muscles": [
+      "biceps"
+    ],
+    "secondary_muscles": [],
+    "focus_portion": "short_head",
+    "equipment": "machine",
+    "movement_pattern": "elbow_flexion",
+    "roles": [
+      "isolation",
+      "hypertrophy"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 1,
+    "local_fatigue": 2,
+    "grip_fatigue": 1,
+    "cardio_demand": 1,
+    "default_sets": 3,
+    "default_reps": "10-15",
+    "default_rest": 75
+  },
+  {
+    "id": "db_thruster",
+    "name": "Thruster con manubri",
+    "primary_muscles": [
+      "quads",
+      "front_delts"
+    ],
+    "secondary_muscles": [
+      "glutes",
+      "triceps",
+      "core"
+    ],
+    "equipment": "dumbbell",
+    "movement_pattern": "squat",
+    "roles": [
+      "compound",
+      "conditioning"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 2,
+    "systemic_fatigue": 3,
+    "local_fatigue": 2,
+    "grip_fatigue": 1,
+    "cardio_demand": 3,
+    "default_sets": 3,
+    "default_reps": "10-15",
+    "default_rest": 60
+  },
+  {
+    "id": "dip_assisted",
+    "name": "Dip assistiti",
+    "primary_muscles": [
+      "triceps"
+    ],
+    "secondary_muscles": [
+      "chest",
+      "front_delts"
+    ],
+    "equipment": "bodyweight",
+    "movement_pattern": "vertical_push",
+    "roles": [
+      "compound",
+      "conditioning"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 2,
+    "local_fatigue": 2,
+    "grip_fatigue": 1,
+    "cardio_demand": 1,
+    "default_sets": 3,
+    "default_reps": "8-15",
+    "default_rest": 45
+  },
+  {
+    "id": "dip_panca",
+    "name": "Dip fra due panche",
+    "primary_muscles": [
+      "triceps"
+    ],
+    "secondary_muscles": [
+      "chest"
+    ],
+    "focus_portion": "medial_head",
+    "equipment": "bodyweight",
+    "movement_pattern": "elbow_extension",
+    "roles": [
+      "compound",
+      "hypertrophy"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 2,
+    "local_fatigue": 2,
+    "grip_fatigue": 1,
+    "cardio_demand": 1,
+    "default_sets": 3,
+    "default_reps": "10-15",
+    "default_rest": 75
+  },
+  {
+    "id": "dip_parallele",
+    "name": "Dip alle parallele",
+    "primary_muscles": [
+      "triceps"
+    ],
+    "secondary_muscles": [
+      "chest",
+      "front_delts"
+    ],
+    "focus_portion": "medial_head",
+    "equipment": "bodyweight",
+    "movement_pattern": "horizontal_push",
+    "roles": [
+      "compound",
+      "hypertrophy"
+    ],
+    "min_experience": "intermediate",
+    "technical_complexity": 2,
+    "systemic_fatigue": 2,
+    "local_fatigue": 3,
+    "grip_fatigue": 2,
+    "cardio_demand": 1,
+    "default_sets": 3,
+    "default_reps": "8-12",
+    "default_rest": 105
+  },
+  {
+    "id": "double_under",
+    "name": "Double under",
+    "primary_muscles": [
+      "calves"
+    ],
+    "secondary_muscles": [
+      "quads",
+      "core"
+    ],
+    "equipment": "bodyweight",
+    "movement_pattern": "jump",
+    "roles": [
+      "compound",
+      "conditioning"
+    ],
+    "min_experience": "advanced",
+    "technical_complexity": 3,
+    "systemic_fatigue": 2,
+    "local_fatigue": 2,
+    "grip_fatigue": 1,
+    "cardio_demand": 3,
+    "default_sets": 3,
+    "default_reps": "8-15",
+    "default_rest": 45
+  },
+  {
+    "id": "estensione_tricipiti_cavo_alto",
+    "name": "Estensione tricipiti sopra la testa al cavo",
+    "primary_muscles": [
+      "triceps"
+    ],
+    "secondary_muscles": [],
+    "focus_portion": "long_head",
+    "equipment": "cable",
+    "movement_pattern": "elbow_extension",
+    "roles": [
+      "isolation",
+      "hypertrophy"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 1,
+    "local_fatigue": 2,
+    "grip_fatigue": 1,
+    "cardio_demand": 1,
+    "default_sets": 3,
+    "default_reps": "10-15",
+    "default_rest": 60
+  },
+  {
+    "id": "estensioni_sopra_testa",
+    "name": "Estensioni sopra la testa",
+    "primary_muscles": [
+      "triceps"
+    ],
+    "secondary_muscles": [],
+    "focus_portion": "long_head",
+    "equipment": "cable",
+    "movement_pattern": "elbow_extension",
+    "roles": [
+      "isolation",
+      "hypertrophy"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 1,
+    "local_fatigue": 2,
+    "grip_fatigue": 1,
+    "cardio_demand": 1,
+    "default_sets": 3,
+    "default_reps": "12-15",
+    "default_rest": 60
+  },
+  {
+    "id": "face_pull",
+    "name": "Face pull",
+    "primary_muscles": [
+      "rear_delts"
+    ],
+    "secondary_muscles": [
+      "back"
+    ],
+    "equipment": "cable",
+    "movement_pattern": "rear_delt",
+    "roles": [
+      "isolation",
+      "hypertrophy"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 1,
+    "local_fatigue": 1,
+    "grip_fatigue": 1,
+    "cardio_demand": 1,
+    "default_sets": 3,
+    "default_reps": "15-20",
+    "default_rest": 60
+  },
+  {
+    "id": "farmers_walk",
+    "name": "Camminata con pesi",
+    "primary_muscles": [
+      "core"
+    ],
+    "secondary_muscles": [
+      "back",
+      "quads"
+    ],
+    "equipment": "dumbbell",
+    "movement_pattern": "carry",
+    "roles": [
+      "compound",
+      "conditioning"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 2,
+    "local_fatigue": 2,
+    "grip_fatigue": 3,
+    "cardio_demand": 2,
+    "default_sets": 3,
+    "default_reps": "8-15",
+    "default_rest": 45
+  },
+  {
+    "id": "french_press",
+    "name": "French press",
+    "primary_muscles": [
+      "triceps"
+    ],
+    "secondary_muscles": [],
+    "focus_portion": "long_head",
+    "equipment": "barbell",
+    "movement_pattern": "elbow_extension",
+    "roles": [
+      "isolation",
+      "hypertrophy"
+    ],
+    "min_experience": "intermediate",
+    "technical_complexity": 2,
+    "systemic_fatigue": 1,
+    "local_fatigue": 2,
+    "grip_fatigue": 1,
+    "cardio_demand": 1,
+    "default_sets": 3,
+    "default_reps": "8-12",
+    "default_rest": 75
+  },
+  {
+    "id": "front_squat",
+    "name": "Front squat",
+    "primary_muscles": [
+      "quads"
+    ],
+    "secondary_muscles": [
+      "core",
+      "glutes"
+    ],
+    "equipment": "barbell",
+    "movement_pattern": "squat",
+    "roles": [
+      "compound",
+      "strength"
+    ],
+    "min_experience": "advanced",
+    "technical_complexity": 3,
+    "systemic_fatigue": 3,
+    "local_fatigue": 3,
+    "grip_fatigue": 2,
+    "cardio_demand": 2,
+    "default_sets": 4,
+    "default_reps": "5-8",
+    "default_rest": 180
+  },
+  {
+    "id": "glute_bridge",
+    "name": "Ponte per glutei",
+    "primary_muscles": [
+      "glutes"
+    ],
+    "secondary_muscles": [
+      "hamstrings"
+    ],
+    "equipment": "bodyweight",
+    "movement_pattern": "hinge",
+    "roles": [
+      "isolation",
+      "hypertrophy"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 1,
+    "local_fatigue": 2,
+    "grip_fatigue": 1,
+    "cardio_demand": 1,
+    "default_sets": 3,
+    "default_reps": "15-20",
+    "default_rest": 60
+  },
+  {
+    "id": "glute_kickback_cavo",
+    "name": "Slancio posteriore al cavo",
+    "primary_muscles": [
+      "glutes"
+    ],
+    "secondary_muscles": [],
+    "equipment": "cable",
+    "movement_pattern": "hip_extension",
+    "roles": [
+      "isolation",
+      "hypertrophy"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 1,
+    "local_fatigue": 2,
+    "grip_fatigue": 1,
+    "cardio_demand": 1,
+    "default_sets": 3,
+    "default_reps": "12-20 per gamba",
+    "default_rest": 45
+  },
+  {
+    "id": "goblet_squat",
+    "name": "Goblet squat",
+    "primary_muscles": [
+      "quads"
+    ],
+    "secondary_muscles": [
+      "glutes",
+      "core"
+    ],
+    "equipment": "dumbbell",
+    "movement_pattern": "squat",
+    "roles": [
+      "compound",
+      "hypertrophy"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 2,
+    "local_fatigue": 3,
+    "grip_fatigue": 2,
+    "cardio_demand": 2,
+    "default_sets": 3,
+    "default_reps": "10-15",
+    "default_rest": 90
+  },
+  {
+    "id": "good_morning_bil",
+    "name": "Good morning con bilanciere",
+    "primary_muscles": [
+      "hamstrings"
+    ],
+    "secondary_muscles": [
+      "glutes",
+      "back"
+    ],
+    "equipment": "barbell",
+    "movement_pattern": "hinge",
+    "roles": [
+      "compound",
+      "strength",
+      "hypertrophy"
+    ],
+    "min_experience": "advanced",
+    "technical_complexity": 3,
+    "systemic_fatigue": 3,
+    "local_fatigue": 3,
+    "grip_fatigue": 1,
+    "cardio_demand": 1,
+    "default_sets": 3,
+    "default_reps": "6-10",
+    "default_rest": 150
+  },
+  {
+    "id": "good_morning_libero",
+    "name": "Good morning a corpo libero",
+    "primary_muscles": [
+      "hamstrings"
+    ],
+    "secondary_muscles": [
+      "glutes",
+      "back"
+    ],
+    "equipment": "bodyweight",
+    "movement_pattern": "hinge",
+    "roles": [
+      "compound",
+      "hypertrophy"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 1,
+    "local_fatigue": 2,
+    "grip_fatigue": 1,
+    "cardio_demand": 1,
+    "default_sets": 3,
+    "default_reps": "15-20",
+    "default_rest": 60
+  },
+  {
+    "id": "hack_squat",
+    "name": "Hack squat",
+    "primary_muscles": [
+      "quads"
+    ],
+    "secondary_muscles": [
+      "glutes"
+    ],
+    "equipment": "machine",
+    "movement_pattern": "squat",
+    "roles": [
+      "compound",
+      "hypertrophy"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 3,
+    "local_fatigue": 3,
+    "grip_fatigue": 1,
+    "cardio_demand": 1,
+    "default_sets": 4,
+    "default_reps": "8-12",
+    "default_rest": 120
+  },
+  {
+    "id": "handstand_pushup",
+    "name": "Piegamenti in verticale",
+    "primary_muscles": [
+      "front_delts"
+    ],
+    "secondary_muscles": [
+      "triceps",
+      "core"
+    ],
+    "equipment": "bodyweight",
+    "movement_pattern": "vertical_push",
+    "roles": [
+      "compound",
+      "conditioning"
+    ],
+    "min_experience": "advanced",
+    "technical_complexity": 3,
+    "systemic_fatigue": 3,
+    "local_fatigue": 2,
+    "grip_fatigue": 1,
+    "cardio_demand": 2,
+    "default_sets": 3,
+    "default_reps": "8-15",
+    "default_rest": 45
+  },
+  {
+    "id": "high_row_macchina",
+    "name": "Rematore alto alla macchina",
+    "primary_muscles": [
+      "back",
+      "rear_delts"
+    ],
+    "secondary_muscles": [
+      "biceps"
+    ],
+    "equipment": "machine",
+    "movement_pattern": "horizontal_pull",
+    "roles": [
+      "compound",
+      "hypertrophy"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 1,
+    "local_fatigue": 3,
+    "grip_fatigue": 2,
+    "cardio_demand": 1,
+    "default_sets": 3,
+    "default_reps": "10-12",
+    "default_rest": 90
+  },
+  {
+    "id": "hip_thrust",
+    "name": "Hip thrust",
+    "primary_muscles": [
+      "glutes"
+    ],
+    "secondary_muscles": [
+      "hamstrings"
+    ],
+    "equipment": "barbell",
+    "movement_pattern": "hinge",
+    "roles": [
+      "compound",
+      "hypertrophy"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 2,
+    "systemic_fatigue": 2,
+    "local_fatigue": 3,
+    "grip_fatigue": 1,
+    "cardio_demand": 1,
+    "default_sets": 4,
+    "default_reps": "8-12",
+    "default_rest": 105
+  },
+  {
+    "id": "hip_thrust_macchina",
+    "name": "Hip thrust alla macchina",
+    "primary_muscles": [
+      "glutes"
+    ],
+    "secondary_muscles": [
+      "hamstrings"
+    ],
+    "equipment": "machine",
+    "movement_pattern": "hinge",
+    "roles": [
+      "compound",
+      "hypertrophy"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 2,
+    "local_fatigue": 3,
+    "grip_fatigue": 1,
+    "cardio_demand": 1,
+    "default_sets": 3,
+    "default_reps": "8-12",
+    "default_rest": 90
+  },
+  {
+    "id": "hollow_hold",
+    "name": "Hollow hold",
+    "primary_muscles": [
+      "core"
+    ],
+    "secondary_muscles": [],
+    "equipment": "bodyweight",
+    "movement_pattern": "core",
+    "roles": [
+      "isolation",
+      "core"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 1,
+    "local_fatigue": 2,
+    "grip_fatigue": 1,
+    "cardio_demand": 1,
+    "default_sets": 3,
+    "default_reps": "20-40 sec",
+    "default_rest": 60
+  },
+  {
+    "id": "jump_rope",
+    "name": "Single under — salto singolo con la corda",
+    "primary_muscles": [
+      "calves"
+    ],
+    "secondary_muscles": [
+      "quads",
+      "core"
+    ],
+    "equipment": "bodyweight",
+    "movement_pattern": "jump",
+    "roles": [
+      "compound",
+      "conditioning"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 2,
+    "local_fatigue": 2,
+    "grip_fatigue": 1,
+    "cardio_demand": 3,
+    "default_sets": 3,
+    "default_reps": "8-15",
+    "default_rest": 45
+  },
+  {
+    "id": "jumping_jack",
+    "name": "Jumping jack",
+    "primary_muscles": [
+      "calves"
+    ],
+    "secondary_muscles": [
+      "quads",
+      "front_delts"
+    ],
+    "equipment": "bodyweight",
+    "movement_pattern": "jump",
+    "roles": [
+      "compound",
+      "conditioning"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 1,
+    "local_fatigue": 2,
+    "grip_fatigue": 1,
+    "cardio_demand": 2,
+    "default_sets": 3,
+    "default_reps": "8-15",
+    "default_rest": 45
+  },
+  {
+    "id": "jumping_pullup",
+    "name": "Trazioni con salto",
+    "primary_muscles": [
+      "back"
+    ],
+    "secondary_muscles": [
+      "biceps",
+      "quads"
+    ],
+    "equipment": "bodyweight",
+    "movement_pattern": "vertical_pull",
+    "roles": [
+      "compound",
+      "conditioning"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 2,
+    "systemic_fatigue": 2,
+    "local_fatigue": 2,
+    "grip_fatigue": 2,
+    "cardio_demand": 2,
+    "default_sets": 3,
+    "default_reps": "8-15",
+    "default_rest": 45
+  },
+  {
+    "id": "kb_swing",
+    "name": "Swing con kettlebell",
+    "primary_muscles": [
+      "glutes",
+      "hamstrings"
+    ],
+    "secondary_muscles": [
+      "core",
+      "back"
+    ],
+    "equipment": "kettlebell",
+    "movement_pattern": "hinge",
+    "roles": [
+      "compound",
+      "conditioning"
+    ],
+    "min_experience": "intermediate",
+    "technical_complexity": 2,
+    "systemic_fatigue": 3,
+    "local_fatigue": 2,
+    "grip_fatigue": 2,
+    "cardio_demand": 3,
+    "default_sets": 3,
+    "default_reps": "15-20",
+    "default_rest": 60
+  },
+  {
+    "id": "kb_thruster",
+    "name": "Thruster con kettlebell",
+    "primary_muscles": [
+      "quads",
+      "front_delts"
+    ],
+    "secondary_muscles": [
+      "glutes",
+      "triceps",
+      "core"
+    ],
+    "equipment": "kettlebell",
+    "movement_pattern": "squat",
+    "roles": [
+      "compound",
+      "conditioning"
+    ],
+    "min_experience": "intermediate",
+    "technical_complexity": 2,
+    "systemic_fatigue": 3,
+    "local_fatigue": 2,
+    "grip_fatigue": 2,
+    "cardio_demand": 3,
+    "default_sets": 3,
+    "default_reps": "10-15",
+    "default_rest": 60
+  },
+  {
+    "id": "landmine_press",
+    "name": "Landmine press",
+    "primary_muscles": [
+      "front_delts"
+    ],
+    "secondary_muscles": [
+      "chest",
+      "triceps"
+    ],
+    "equipment": "barbell",
+    "movement_pattern": "vertical_push",
+    "roles": [
+      "compound",
+      "hypertrophy"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 2,
+    "local_fatigue": 2,
+    "grip_fatigue": 1,
+    "cardio_demand": 1,
+    "default_sets": 3,
+    "default_reps": "8-12 per lato",
+    "default_rest": 90
+  },
+  {
+    "id": "lat_machine",
+    "name": "Lat machine",
+    "primary_muscles": [
+      "back"
+    ],
+    "secondary_muscles": [
+      "biceps"
+    ],
+    "equipment": "machine",
+    "movement_pattern": "vertical_pull",
+    "roles": [
+      "compound",
+      "hypertrophy"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 2,
+    "local_fatigue": 3,
+    "grip_fatigue": 2,
+    "cardio_demand": 1,
+    "default_sets": 4,
+    "default_reps": "10-12",
+    "default_rest": 90
+  },
+  {
+    "id": "lat_machine_neutra",
+    "name": "Lat machine a presa neutra",
+    "primary_muscles": [
+      "back"
+    ],
+    "secondary_muscles": [
+      "biceps"
+    ],
+    "equipment": "machine",
+    "movement_pattern": "vertical_pull",
+    "roles": [
+      "compound",
+      "hypertrophy"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 2,
+    "local_fatigue": 3,
+    "grip_fatigue": 2,
+    "cardio_demand": 1,
+    "default_sets": 3,
+    "default_reps": "8-12",
+    "default_rest": 90
+  },
+  {
+    "id": "leg_curl",
+    "name": "Leg curl",
+    "primary_muscles": [
+      "hamstrings"
+    ],
+    "secondary_muscles": [],
+    "equipment": "machine",
+    "movement_pattern": "knee_flexion",
+    "roles": [
+      "isolation",
+      "hypertrophy"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 1,
+    "local_fatigue": 2,
+    "grip_fatigue": 1,
+    "cardio_demand": 1,
+    "default_sets": 3,
+    "default_reps": "12-15",
+    "default_rest": 75
+  },
+  {
+    "id": "leg_curl_seduto",
+    "name": "Leg curl da seduto",
+    "primary_muscles": [
+      "hamstrings"
+    ],
+    "secondary_muscles": [],
+    "equipment": "machine",
+    "movement_pattern": "knee_flexion",
+    "roles": [
+      "isolation",
+      "hypertrophy"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 1,
+    "local_fatigue": 2,
+    "grip_fatigue": 1,
+    "cardio_demand": 1,
+    "default_sets": 3,
+    "default_reps": "10-15",
+    "default_rest": 60
+  },
+  {
+    "id": "leg_extension",
+    "name": "Leg extension",
+    "primary_muscles": [
+      "quads"
+    ],
+    "secondary_muscles": [],
+    "equipment": "machine",
+    "movement_pattern": "knee_flexion",
+    "roles": [
+      "isolation",
+      "hypertrophy"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 1,
+    "local_fatigue": 2,
+    "grip_fatigue": 1,
+    "cardio_demand": 1,
+    "default_sets": 3,
+    "default_reps": "12-15",
+    "default_rest": 75
+  },
+  {
+    "id": "leg_press",
+    "name": "Leg press",
+    "primary_muscles": [
+      "quads"
+    ],
+    "secondary_muscles": [
+      "glutes",
+      "hamstrings"
+    ],
+    "equipment": "machine",
+    "movement_pattern": "squat",
+    "roles": [
+      "compound",
+      "hypertrophy"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 2,
+    "local_fatigue": 3,
+    "grip_fatigue": 1,
+    "cardio_demand": 1,
+    "default_sets": 4,
+    "default_reps": "10-15",
+    "default_rest": 120
+  },
+  {
+    "id": "leg_raise",
+    "name": "Sollevamento gambe alla sbarra",
+    "primary_muscles": [
+      "core"
+    ],
+    "secondary_muscles": [],
+    "equipment": "bodyweight",
+    "movement_pattern": "core",
+    "roles": [
+      "isolation",
+      "core"
+    ],
+    "min_experience": "intermediate",
+    "technical_complexity": 2,
+    "systemic_fatigue": 1,
+    "local_fatigue": 2,
+    "grip_fatigue": 3,
+    "cardio_demand": 1,
+    "default_sets": 3,
+    "default_reps": "10-15",
+    "default_rest": 60
+  },
+  {
+    "id": "military_press",
+    "name": "Lento avanti con bilanciere",
+    "primary_muscles": [
+      "front_delts"
+    ],
+    "secondary_muscles": [
+      "triceps",
+      "core"
+    ],
+    "equipment": "barbell",
+    "movement_pattern": "vertical_push",
+    "roles": [
+      "compound",
+      "strength",
+      "hypertrophy"
+    ],
+    "min_experience": "intermediate",
+    "technical_complexity": 2,
+    "systemic_fatigue": 3,
+    "local_fatigue": 3,
+    "grip_fatigue": 2,
+    "cardio_demand": 1,
+    "default_sets": 4,
+    "default_reps": "6-8",
+    "default_rest": 150
+  },
+  {
+    "id": "mountain_climber",
+    "name": "Mountain climber",
+    "primary_muscles": [
+      "core"
+    ],
+    "secondary_muscles": [
+      "quads",
+      "front_delts"
+    ],
+    "equipment": "bodyweight",
+    "movement_pattern": "core",
+    "roles": [
+      "isolation",
+      "core",
+      "conditioning"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 2,
+    "local_fatigue": 2,
+    "grip_fatigue": 1,
+    "cardio_demand": 3,
+    "default_sets": 3,
+    "default_reps": "30-40",
+    "default_rest": 30
+  },
+  {
+    "id": "nordic_curl",
+    "name": "Nordic curl assistito",
+    "primary_muscles": [
+      "hamstrings"
+    ],
+    "secondary_muscles": [
+      "glutes"
+    ],
+    "equipment": "bodyweight",
+    "movement_pattern": "knee_flexion",
+    "roles": [
+      "isolation",
+      "hypertrophy"
+    ],
+    "min_experience": "intermediate",
+    "technical_complexity": 2,
+    "systemic_fatigue": 2,
+    "local_fatigue": 3,
+    "grip_fatigue": 1,
+    "cardio_demand": 1,
+    "default_sets": 3,
+    "default_reps": "6-10",
+    "default_rest": 90
+  },
+  {
+    "id": "overhead_squat",
+    "name": "Squat con bilanciere sopra la testa",
+    "primary_muscles": [
+      "quads",
+      "front_delts"
+    ],
+    "secondary_muscles": [
+      "glutes",
+      "core"
+    ],
+    "equipment": "barbell",
+    "movement_pattern": "squat",
+    "roles": [
+      "compound",
+      "strength",
+      "conditioning"
+    ],
+    "min_experience": "advanced",
+    "technical_complexity": 3,
+    "systemic_fatigue": 3,
+    "local_fatigue": 2,
+    "grip_fatigue": 2,
+    "cardio_demand": 2,
+    "default_sets": 3,
+    "default_reps": "8-15",
+    "default_rest": 45
+  },
+  {
+    "id": "pallof_press",
+    "name": "Pallof press",
+    "primary_muscles": [
+      "core"
+    ],
+    "secondary_muscles": [],
+    "equipment": "cable",
+    "movement_pattern": "core",
+    "roles": [
+      "isolation",
+      "core",
+      "hypertrophy"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 1,
+    "local_fatigue": 2,
+    "grip_fatigue": 1,
+    "cardio_demand": 1,
+    "default_sets": 3,
+    "default_reps": "10-15 per lato",
+    "default_rest": 45
+  },
+  {
+    "id": "panca_inclinata_bil",
+    "name": "Panca inclinata con bilanciere",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [
+      "front_delts",
+      "triceps"
+    ],
+    "equipment": "barbell",
+    "movement_pattern": "horizontal_push",
+    "roles": [
+      "compound",
+      "hypertrophy"
+    ],
+    "min_experience": "intermediate",
+    "technical_complexity": 2,
+    "systemic_fatigue": 3,
+    "local_fatigue": 3,
+    "grip_fatigue": 2,
+    "cardio_demand": 1,
+    "default_sets": 4,
+    "default_reps": "8-10",
+    "default_rest": 120
+  },
+  {
+    "id": "panca_inclinata_man",
+    "name": "Panca inclinata con manubri",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [
+      "front_delts",
+      "triceps"
+    ],
+    "equipment": "dumbbell",
+    "movement_pattern": "horizontal_push",
+    "roles": [
+      "compound",
+      "hypertrophy"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 2,
+    "systemic_fatigue": 2,
+    "local_fatigue": 3,
+    "grip_fatigue": 2,
+    "cardio_demand": 1,
+    "default_sets": 3,
+    "default_reps": "8-12",
+    "default_rest": 105
+  },
+  {
+    "id": "panca_piana",
+    "name": "Panca piana con bilanciere",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [
+      "triceps",
+      "front_delts"
+    ],
+    "equipment": "barbell",
+    "movement_pattern": "horizontal_push",
+    "roles": [
+      "compound",
+      "strength",
+      "hypertrophy"
+    ],
+    "min_experience": "intermediate",
+    "technical_complexity": 2,
+    "systemic_fatigue": 3,
+    "local_fatigue": 3,
+    "grip_fatigue": 2,
+    "cardio_demand": 1,
+    "default_sets": 4,
+    "default_reps": "6-8",
+    "default_rest": 150
+  },
+  {
+    "id": "panca_piana_man",
+    "name": "Panca piana con manubri",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [
+      "triceps",
+      "front_delts"
+    ],
+    "equipment": "dumbbell",
+    "movement_pattern": "horizontal_push",
+    "roles": [
+      "compound",
+      "hypertrophy"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 2,
+    "systemic_fatigue": 3,
+    "local_fatigue": 3,
+    "grip_fatigue": 2,
+    "cardio_demand": 1,
+    "default_sets": 4,
+    "default_reps": "8-12",
+    "default_rest": 120
+  },
+  {
+    "id": "pec_deck",
+    "name": "Pec deck",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [],
+    "equipment": "machine",
+    "movement_pattern": "chest_fly",
+    "roles": [
+      "isolation",
+      "hypertrophy"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 1,
+    "local_fatigue": 2,
+    "grip_fatigue": 1,
+    "cardio_demand": 1,
+    "default_sets": 3,
+    "default_reps": "12-15",
+    "default_rest": 60
+  },
+  {
+    "id": "pendulum_squat",
+    "name": "Pendulum squat",
+    "primary_muscles": [
+      "quads"
+    ],
+    "secondary_muscles": [
+      "glutes"
+    ],
+    "equipment": "machine",
+    "movement_pattern": "squat",
+    "roles": [
+      "compound",
+      "strength",
+      "hypertrophy"
+    ],
+    "min_experience": "intermediate",
+    "technical_complexity": 2,
+    "systemic_fatigue": 3,
+    "local_fatigue": 3,
+    "grip_fatigue": 1,
+    "cardio_demand": 1,
+    "default_sets": 4,
+    "default_reps": "6-10",
+    "default_rest": 150
+  },
+  {
+    "id": "piegamenti",
+    "name": "Piegamenti sulle braccia",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [
+      "triceps",
+      "core"
+    ],
+    "equipment": "bodyweight",
+    "movement_pattern": "horizontal_push",
+    "roles": [
+      "compound",
+      "hypertrophy"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 2,
+    "local_fatigue": 2,
+    "grip_fatigue": 1,
+    "cardio_demand": 2,
+    "default_sets": 3,
+    "default_reps": "10-20",
+    "default_rest": 75
+  },
+  {
+    "id": "piegamenti_diamante",
+    "name": "Piegamenti a diamante",
+    "primary_muscles": [
+      "triceps"
+    ],
+    "secondary_muscles": [
+      "chest"
+    ],
+    "focus_portion": "medial_head",
+    "equipment": "bodyweight",
+    "movement_pattern": "elbow_extension",
+    "roles": [
+      "isolation",
+      "hypertrophy"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 2,
+    "local_fatigue": 2,
+    "grip_fatigue": 1,
+    "cardio_demand": 2,
+    "default_sets": 3,
+    "default_reps": "10-15",
+    "default_rest": 75
+  },
+  {
+    "id": "piegamenti_larghi",
+    "name": "Piegamenti a presa larga",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [
+      "front_delts"
+    ],
+    "equipment": "bodyweight",
+    "movement_pattern": "horizontal_push",
+    "roles": [
+      "isolation",
+      "hypertrophy"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 2,
+    "local_fatigue": 2,
+    "grip_fatigue": 1,
+    "cardio_demand": 2,
+    "default_sets": 3,
+    "default_reps": "12-20",
+    "default_rest": 75
+  },
+  {
+    "id": "piegamenti_rialzati",
+    "name": "Piegamenti con piedi rialzati",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [
+      "front_delts",
+      "triceps"
+    ],
+    "equipment": "bodyweight",
+    "movement_pattern": "horizontal_push",
+    "roles": [
+      "compound",
+      "hypertrophy"
+    ],
+    "min_experience": "intermediate",
+    "technical_complexity": 2,
+    "systemic_fatigue": 2,
+    "local_fatigue": 3,
+    "grip_fatigue": 1,
+    "cardio_demand": 2,
+    "default_sets": 3,
+    "default_reps": "8-15",
+    "default_rest": 90
+  },
+  {
+    "id": "pike_push_up",
+    "name": "Piegamenti a V",
+    "primary_muscles": [
+      "front_delts"
+    ],
+    "secondary_muscles": [
+      "triceps"
+    ],
+    "equipment": "bodyweight",
+    "movement_pattern": "vertical_push",
+    "roles": [
+      "compound",
+      "hypertrophy"
+    ],
+    "min_experience": "intermediate",
+    "technical_complexity": 2,
+    "systemic_fatigue": 2,
+    "local_fatigue": 3,
+    "grip_fatigue": 1,
+    "cardio_demand": 2,
+    "default_sets": 3,
+    "default_reps": "8-12",
+    "default_rest": 90
+  },
+  {
+    "id": "pike_push_up_facile",
+    "name": "Piegamenti a V con ginocchia a terra",
+    "primary_muscles": [
+      "front_delts"
+    ],
+    "secondary_muscles": [
+      "triceps"
+    ],
+    "equipment": "bodyweight",
+    "movement_pattern": "vertical_push",
+    "roles": [
+      "compound",
+      "hypertrophy"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 2,
+    "local_fatigue": 2,
+    "grip_fatigue": 1,
+    "cardio_demand": 2,
+    "default_sets": 3,
+    "default_reps": "10-15",
+    "default_rest": 75
+  },
+  {
+    "id": "pistol_squat",
+    "name": "Squat a una gamba",
+    "primary_muscles": [
+      "quads"
+    ],
+    "secondary_muscles": [
+      "glutes",
+      "core"
+    ],
+    "equipment": "bodyweight",
+    "movement_pattern": "squat",
+    "roles": [
+      "compound",
+      "conditioning"
+    ],
+    "min_experience": "advanced",
+    "technical_complexity": 3,
+    "systemic_fatigue": 2,
+    "local_fatigue": 2,
+    "grip_fatigue": 1,
+    "cardio_demand": 2,
+    "default_sets": 3,
+    "default_reps": "8-15",
+    "default_rest": 45
+  },
+  {
+    "id": "plank",
+    "name": "Plank",
+    "primary_muscles": [
+      "core"
+    ],
+    "secondary_muscles": [],
+    "equipment": "bodyweight",
+    "movement_pattern": "core",
+    "roles": [
+      "isolation",
+      "core"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 1,
+    "local_fatigue": 2,
+    "grip_fatigue": 1,
+    "cardio_demand": 1,
+    "default_sets": 3,
+    "default_reps": "30-60 sec",
+    "default_rest": 60
+  },
+  {
+    "id": "power_clean",
+    "name": "Power clean",
+    "primary_muscles": [
+      "quads",
+      "back"
+    ],
+    "secondary_muscles": [
+      "glutes",
+      "hamstrings",
+      "core"
+    ],
+    "equipment": "barbell",
+    "movement_pattern": "hinge",
+    "roles": [
+      "compound",
+      "strength",
+      "conditioning"
+    ],
+    "min_experience": "advanced",
+    "technical_complexity": 3,
+    "systemic_fatigue": 3,
+    "local_fatigue": 2,
+    "grip_fatigue": 3,
+    "cardio_demand": 2,
+    "default_sets": 3,
+    "default_reps": "8-15",
+    "default_rest": 45
+  },
+  {
+    "id": "power_snatch",
+    "name": "Power snatch",
+    "primary_muscles": [
+      "back",
+      "front_delts"
+    ],
+    "secondary_muscles": [
+      "quads",
+      "glutes",
+      "core"
+    ],
+    "equipment": "barbell",
+    "movement_pattern": "hinge",
+    "roles": [
+      "compound",
+      "strength",
+      "conditioning"
+    ],
+    "min_experience": "advanced",
+    "technical_complexity": 3,
+    "systemic_fatigue": 3,
+    "local_fatigue": 2,
+    "grip_fatigue": 3,
+    "cardio_demand": 2,
+    "default_sets": 3,
+    "default_reps": "8-15",
+    "default_rest": 45
+  },
+  {
+    "id": "preacher_curl_macchina",
+    "name": "Preacher curl alla macchina",
+    "primary_muscles": [
+      "biceps"
+    ],
+    "secondary_muscles": [],
+    "focus_portion": "short_head",
+    "equipment": "machine",
+    "movement_pattern": "elbow_flexion",
+    "roles": [
+      "isolation",
+      "hypertrophy"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 1,
+    "local_fatigue": 2,
+    "grip_fatigue": 1,
+    "cardio_demand": 1,
+    "default_sets": 3,
+    "default_reps": "8-12",
+    "default_rest": 60
+  },
+  {
+    "id": "pulldown_unilaterale",
+    "name": "Lat pulldown a un braccio",
+    "primary_muscles": [
+      "back"
+    ],
+    "secondary_muscles": [
+      "biceps"
+    ],
+    "equipment": "cable",
+    "movement_pattern": "vertical_pull",
+    "roles": [
+      "compound",
+      "hypertrophy"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 1,
+    "local_fatigue": 2,
+    "grip_fatigue": 2,
+    "cardio_demand": 1,
+    "default_sets": 3,
+    "default_reps": "10-12 per lato",
+    "default_rest": 75
+  },
+  {
+    "id": "pulley",
+    "name": "Pulley basso",
+    "primary_muscles": [
+      "back"
+    ],
+    "secondary_muscles": [
+      "biceps",
+      "rear_delts"
+    ],
+    "equipment": "cable",
+    "movement_pattern": "horizontal_pull",
+    "roles": [
+      "compound",
+      "hypertrophy"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 2,
+    "local_fatigue": 2,
+    "grip_fatigue": 2,
+    "cardio_demand": 1,
+    "default_sets": 3,
+    "default_reps": "10-12",
+    "default_rest": 90
+  },
+  {
+    "id": "pullover_cavo",
+    "name": "Pullover ai cavi",
+    "primary_muscles": [
+      "back"
+    ],
+    "secondary_muscles": [],
+    "equipment": "cable",
+    "movement_pattern": "vertical_pull",
+    "roles": [
+      "isolation",
+      "hypertrophy"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 1,
+    "local_fatigue": 2,
+    "grip_fatigue": 1,
+    "cardio_demand": 1,
+    "default_sets": 3,
+    "default_reps": "12-15",
+    "default_rest": 75
+  },
+  {
+    "id": "pullup_assisted",
+    "name": "Trazioni assistite",
+    "primary_muscles": [
+      "back"
+    ],
+    "secondary_muscles": [
+      "biceps",
+      "rear_delts"
+    ],
+    "equipment": "bodyweight",
+    "movement_pattern": "vertical_pull",
+    "roles": [
+      "compound",
+      "conditioning"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 2,
+    "local_fatigue": 2,
+    "grip_fatigue": 2,
+    "cardio_demand": 1,
+    "default_sets": 3,
+    "default_reps": "8-15",
+    "default_rest": 45
+  },
+  {
+    "id": "push_jerk",
+    "name": "Push jerk",
+    "primary_muscles": [
+      "front_delts"
+    ],
+    "secondary_muscles": [
+      "quads",
+      "triceps",
+      "core"
+    ],
+    "equipment": "barbell",
+    "movement_pattern": "vertical_push",
+    "roles": [
+      "compound",
+      "strength",
+      "conditioning"
+    ],
+    "min_experience": "advanced",
+    "technical_complexity": 3,
+    "systemic_fatigue": 3,
+    "local_fatigue": 2,
+    "grip_fatigue": 2,
+    "cardio_demand": 2,
+    "default_sets": 3,
+    "default_reps": "8-15",
+    "default_rest": 45
+  },
+  {
+    "id": "pushdown",
+    "name": "Pushdown ai cavi",
+    "primary_muscles": [
+      "triceps"
+    ],
+    "secondary_muscles": [],
+    "focus_portion": "lateral_head",
+    "equipment": "cable",
+    "movement_pattern": "elbow_extension",
+    "roles": [
+      "isolation",
+      "hypertrophy"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 1,
+    "local_fatigue": 2,
+    "grip_fatigue": 1,
+    "cardio_demand": 1,
+    "default_sets": 3,
+    "default_reps": "12-15",
+    "default_rest": 60
+  },
+  {
+    "id": "pushdown_unilaterale",
+    "name": "Pushdown unilaterale",
+    "primary_muscles": [
+      "triceps"
+    ],
+    "secondary_muscles": [],
+    "focus_portion": "lateral_head",
+    "equipment": "cable",
+    "movement_pattern": "elbow_extension",
+    "roles": [
+      "isolation",
+      "hypertrophy"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 1,
+    "local_fatigue": 2,
+    "grip_fatigue": 1,
+    "cardio_demand": 1,
+    "default_sets": 3,
+    "default_reps": "10-15",
+    "default_rest": 45
+  },
+  {
+    "id": "rear_delt_cavi",
+    "name": "Croci inverse ai cavi",
+    "primary_muscles": [
+      "rear_delts"
+    ],
+    "secondary_muscles": [],
+    "equipment": "cable",
+    "movement_pattern": "rear_delt",
+    "roles": [
+      "isolation",
+      "hypertrophy"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 1,
+    "local_fatigue": 2,
+    "grip_fatigue": 1,
+    "cardio_demand": 1,
+    "default_sets": 3,
+    "default_reps": "12-20",
+    "default_rest": 45
+  },
+  {
+    "id": "rematore_australiano",
+    "name": "Rematore australiano",
+    "primary_muscles": [
+      "back"
+    ],
+    "secondary_muscles": [
+      "biceps",
+      "rear_delts"
+    ],
+    "equipment": "bodyweight",
+    "movement_pattern": "horizontal_pull",
+    "roles": [
+      "compound",
+      "hypertrophy"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 2,
+    "local_fatigue": 2,
+    "grip_fatigue": 2,
+    "cardio_demand": 1,
+    "default_sets": 3,
+    "default_reps": "10-15",
+    "default_rest": 90
+  },
+  {
+    "id": "rematore_bil",
+    "name": "Rematore con bilanciere",
+    "primary_muscles": [
+      "back"
+    ],
+    "secondary_muscles": [
+      "biceps",
+      "rear_delts"
+    ],
+    "equipment": "barbell",
+    "movement_pattern": "horizontal_pull",
+    "roles": [
+      "compound",
+      "strength",
+      "hypertrophy"
+    ],
+    "min_experience": "intermediate",
+    "technical_complexity": 2,
+    "systemic_fatigue": 3,
+    "local_fatigue": 3,
+    "grip_fatigue": 3,
+    "cardio_demand": 1,
+    "default_sets": 4,
+    "default_reps": "8-10",
+    "default_rest": 120
+  },
+  {
+    "id": "rematore_chest_supported_man",
+    "name": "Rematore con manubri su panca a 45°",
+    "primary_muscles": [
+      "back"
+    ],
+    "secondary_muscles": [
+      "biceps",
+      "rear_delts"
+    ],
+    "equipment": "dumbbell",
+    "movement_pattern": "horizontal_pull",
+    "roles": [
+      "compound",
+      "hypertrophy"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 1,
+    "local_fatigue": 3,
+    "grip_fatigue": 2,
+    "cardio_demand": 1,
+    "default_sets": 3,
+    "default_reps": "8-12",
+    "default_rest": 90
+  },
+  {
+    "id": "rematore_macchina",
+    "name": "Rematore alla macchina",
+    "primary_muscles": [
+      "back"
+    ],
+    "secondary_muscles": [
+      "biceps",
+      "rear_delts"
+    ],
+    "equipment": "machine",
+    "movement_pattern": "horizontal_pull",
+    "roles": [
+      "compound",
+      "hypertrophy"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 1,
+    "local_fatigue": 3,
+    "grip_fatigue": 2,
+    "cardio_demand": 1,
+    "default_sets": 3,
+    "default_reps": "8-12",
+    "default_rest": 90
+  },
+  {
+    "id": "rematore_man",
+    "name": "Rematore con manubrio",
+    "primary_muscles": [
+      "back"
+    ],
+    "secondary_muscles": [
+      "biceps"
+    ],
+    "equipment": "dumbbell",
+    "movement_pattern": "horizontal_pull",
+    "roles": [
+      "compound",
+      "hypertrophy"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 2,
+    "local_fatigue": 2,
+    "grip_fatigue": 3,
+    "cardio_demand": 1,
+    "default_sets": 3,
+    "default_reps": "10-12",
+    "default_rest": 90
+  },
+  {
+    "id": "reverse_fly_elastico",
+    "name": "Aperture posteriori con elastico",
+    "primary_muscles": [
+      "rear_delts"
+    ],
+    "secondary_muscles": [],
+    "equipment": "bodyweight",
+    "movement_pattern": "rear_delt",
+    "roles": [
+      "isolation",
+      "hypertrophy"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 1,
+    "local_fatigue": 1,
+    "grip_fatigue": 1,
+    "cardio_demand": 1,
+    "default_sets": 3,
+    "default_reps": "15-20",
+    "default_rest": 60
+  },
+  {
+    "id": "reverse_lunge_man",
+    "name": "Affondo inverso con manubri",
+    "primary_muscles": [
+      "quads",
+      "glutes"
+    ],
+    "secondary_muscles": [
+      "hamstrings"
+    ],
+    "equipment": "dumbbell",
+    "movement_pattern": "lunge",
+    "roles": [
+      "compound",
+      "hypertrophy"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 2,
+    "systemic_fatigue": 2,
+    "local_fatigue": 3,
+    "grip_fatigue": 2,
+    "cardio_demand": 1,
+    "default_sets": 3,
+    "default_reps": "8-12 per gamba",
+    "default_rest": 90
+  },
+  {
+    "id": "reverse_pec_deck",
+    "name": "Reverse pec deck",
+    "primary_muscles": [
+      "rear_delts"
+    ],
+    "secondary_muscles": [],
+    "equipment": "machine",
+    "movement_pattern": "rear_delt",
+    "roles": [
+      "isolation",
+      "hypertrophy"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 1,
+    "local_fatigue": 2,
+    "grip_fatigue": 1,
+    "cardio_demand": 1,
+    "default_sets": 3,
+    "default_reps": "15-20",
+    "default_rest": 60
+  },
+  {
+    "id": "reverse_wrist_curl",
+    "name": "Wrist curl inverso con manubri",
+    "primary_muscles": [
+      "forearms"
+    ],
+    "secondary_muscles": [],
+    "equipment": "dumbbell",
+    "movement_pattern": "wrist_extension",
+    "roles": [
+      "isolation",
+      "hypertrophy"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 1,
+    "local_fatigue": 2,
+    "grip_fatigue": 2,
+    "cardio_demand": 1,
+    "default_sets": 3,
+    "default_reps": "12-20",
+    "default_rest": 45
+  },
+  {
+    "id": "row_erg",
+    "name": "Vogatore",
+    "primary_muscles": [
+      "back"
+    ],
+    "secondary_muscles": [
+      "hamstrings",
+      "biceps",
+      "core"
+    ],
+    "equipment": "cardio",
+    "movement_pattern": "row",
+    "roles": [
+      "conditioning",
+      "cardio"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 2,
+    "systemic_fatigue": 2,
+    "local_fatigue": 1,
+    "grip_fatigue": 1,
+    "cardio_demand": 3,
+    "default_sets": 1,
+    "default_reps": "2 min",
+    "default_rest": 0
+  },
+  {
+    "id": "running",
+    "name": "Corsa",
+    "primary_muscles": [
+      "quads"
+    ],
+    "secondary_muscles": [
+      "hamstrings",
+      "glutes",
+      "core"
+    ],
+    "equipment": "cardio",
+    "movement_pattern": "run",
+    "roles": [
+      "compound",
+      "conditioning"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 2,
+    "local_fatigue": 2,
+    "grip_fatigue": 1,
+    "cardio_demand": 3,
+    "default_sets": 3,
+    "default_reps": "1 min",
+    "default_rest": 45
+  },
+  {
+    "id": "russian_twist",
+    "name": "Russian twist",
+    "primary_muscles": [
+      "core"
+    ],
+    "secondary_muscles": [],
+    "equipment": "bodyweight",
+    "movement_pattern": "core",
+    "roles": [
+      "isolation",
+      "core",
+      "conditioning"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 1,
+    "local_fatigue": 2,
+    "grip_fatigue": 1,
+    "cardio_demand": 2,
+    "default_sets": 3,
+    "default_reps": "20-30",
+    "default_rest": 45
+  },
+  {
+    "id": "shoulder_press_mac",
+    "name": "Shoulder press alla macchina",
+    "primary_muscles": [
+      "front_delts"
+    ],
+    "secondary_muscles": [
+      "triceps"
+    ],
+    "equipment": "machine",
+    "movement_pattern": "vertical_push",
+    "roles": [
+      "compound",
+      "hypertrophy"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 2,
+    "local_fatigue": 3,
+    "grip_fatigue": 1,
+    "cardio_demand": 1,
+    "default_sets": 3,
+    "default_reps": "8-12",
+    "default_rest": 90
+  },
+  {
+    "id": "shoulder_press_man",
+    "name": "Shoulder press con manubri",
+    "primary_muscles": [
+      "front_delts"
+    ],
+    "secondary_muscles": [
+      "triceps"
+    ],
+    "equipment": "dumbbell",
+    "movement_pattern": "vertical_push",
+    "roles": [
+      "compound",
+      "hypertrophy"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 2,
+    "systemic_fatigue": 2,
+    "local_fatigue": 3,
+    "grip_fatigue": 2,
+    "cardio_demand": 1,
+    "default_sets": 3,
+    "default_reps": "8-12",
+    "default_rest": 105
+  },
+  {
+    "id": "single_leg_rdl",
+    "name": "Stacco rumeno a una gamba",
+    "primary_muscles": [
+      "hamstrings"
+    ],
+    "secondary_muscles": [
+      "glutes",
+      "core"
+    ],
+    "equipment": "dumbbell",
+    "movement_pattern": "hinge",
+    "roles": [
+      "compound",
+      "hypertrophy"
+    ],
+    "min_experience": "intermediate",
+    "technical_complexity": 2,
+    "systemic_fatigue": 2,
+    "local_fatigue": 3,
+    "grip_fatigue": 2,
+    "cardio_demand": 1,
+    "default_sets": 3,
+    "default_reps": "8-12 per gamba",
+    "default_rest": 90
+  },
+  {
+    "id": "sit_up",
+    "name": "Sit-up",
+    "primary_muscles": [
+      "core"
+    ],
+    "secondary_muscles": [],
+    "equipment": "bodyweight",
+    "movement_pattern": "core",
+    "roles": [
+      "isolation",
+      "core",
+      "conditioning"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 1,
+    "local_fatigue": 2,
+    "grip_fatigue": 1,
+    "cardio_demand": 1,
+    "default_sets": 3,
+    "default_reps": "15-25",
+    "default_rest": 30
+  },
+  {
+    "id": "ski_erg",
+    "name": "SkiErg",
+    "primary_muscles": [
+      "back"
+    ],
+    "secondary_muscles": [
+      "triceps",
+      "core"
+    ],
+    "equipment": "cardio",
+    "movement_pattern": "row",
+    "roles": [
+      "compound",
+      "conditioning"
+    ],
+    "min_experience": "advanced",
+    "technical_complexity": 2,
+    "systemic_fatigue": 3,
+    "local_fatigue": 2,
+    "grip_fatigue": 2,
+    "cardio_demand": 3,
+    "default_sets": 3,
+    "default_reps": "1 min",
+    "default_rest": 45
+  },
+  {
+    "id": "squat",
+    "name": "Squat con bilanciere",
+    "primary_muscles": [
+      "quads"
+    ],
+    "secondary_muscles": [
+      "glutes",
+      "core",
+      "hamstrings"
+    ],
+    "equipment": "barbell",
+    "movement_pattern": "squat",
+    "roles": [
+      "compound",
+      "strength",
+      "hypertrophy"
+    ],
+    "min_experience": "intermediate",
+    "technical_complexity": 3,
+    "systemic_fatigue": 3,
+    "local_fatigue": 3,
+    "grip_fatigue": 2,
+    "cardio_demand": 2,
+    "default_sets": 4,
+    "default_reps": "6-8",
+    "default_rest": 180
+  },
+  {
+    "id": "squat_libero",
+    "name": "Squat a corpo libero",
+    "primary_muscles": [
+      "quads"
+    ],
+    "secondary_muscles": [
+      "glutes"
+    ],
+    "equipment": "bodyweight",
+    "movement_pattern": "squat",
+    "roles": [
+      "compound",
+      "conditioning"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 1,
+    "local_fatigue": 2,
+    "grip_fatigue": 1,
+    "cardio_demand": 2,
+    "default_sets": 3,
+    "default_reps": "15-25",
+    "default_rest": 60
+  },
+  {
+    "id": "stacco",
+    "name": "Stacco da terra",
+    "primary_muscles": [
+      "back",
+      "hamstrings"
+    ],
+    "secondary_muscles": [
+      "glutes",
+      "core"
+    ],
+    "equipment": "barbell",
+    "movement_pattern": "hinge",
+    "roles": [
+      "compound",
+      "strength"
+    ],
+    "min_experience": "advanced",
+    "technical_complexity": 3,
+    "systemic_fatigue": 3,
+    "local_fatigue": 3,
+    "grip_fatigue": 3,
+    "cardio_demand": 2,
+    "default_sets": 4,
+    "default_reps": "4-6",
+    "default_rest": 180
+  },
+  {
+    "id": "stacco_rumeno",
+    "name": "Stacco rumeno",
+    "primary_muscles": [
+      "hamstrings"
+    ],
+    "secondary_muscles": [
+      "glutes",
+      "back"
+    ],
+    "equipment": "barbell",
+    "movement_pattern": "hinge",
+    "roles": [
+      "compound",
+      "strength",
+      "hypertrophy"
+    ],
+    "min_experience": "intermediate",
+    "technical_complexity": 2,
+    "systemic_fatigue": 3,
+    "local_fatigue": 3,
+    "grip_fatigue": 3,
+    "cardio_demand": 1,
+    "default_sets": 4,
+    "default_reps": "8-10",
+    "default_rest": 120
+  },
+  {
+    "id": "stacco_rumeno_man",
+    "name": "Stacco rumeno con manubri",
+    "primary_muscles": [
+      "hamstrings"
+    ],
+    "secondary_muscles": [
+      "glutes"
+    ],
+    "equipment": "dumbbell",
+    "movement_pattern": "hinge",
+    "roles": [
+      "compound",
+      "hypertrophy"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 2,
+    "systemic_fatigue": 2,
+    "local_fatigue": 3,
+    "grip_fatigue": 2,
+    "cardio_demand": 1,
+    "default_sets": 3,
+    "default_reps": "10-12",
+    "default_rest": 105
+  },
+  {
+    "id": "superman",
+    "name": "Superman",
+    "primary_muscles": [
+      "back"
+    ],
+    "secondary_muscles": [
+      "glutes"
+    ],
+    "equipment": "bodyweight",
+    "movement_pattern": "hinge",
+    "roles": [
+      "isolation"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 1,
+    "local_fatigue": 2,
+    "grip_fatigue": 1,
+    "cardio_demand": 1,
+    "default_sets": 3,
+    "default_reps": "12-15",
+    "default_rest": 45
+  },
+  {
+    "id": "t_bar_row",
+    "name": "T-Bar Row",
+    "primary_muscles": [
+      "back"
+    ],
+    "secondary_muscles": [
+      "biceps",
+      "rear_delts"
+    ],
+    "equipment": "barbell",
+    "movement_pattern": "horizontal_pull",
+    "roles": [
+      "compound",
+      "strength",
+      "hypertrophy"
+    ],
+    "min_experience": "intermediate",
+    "technical_complexity": 2,
+    "systemic_fatigue": 3,
+    "local_fatigue": 3,
+    "grip_fatigue": 3,
+    "cardio_demand": 1,
+    "default_sets": 4,
+    "default_reps": "6-10",
+    "default_rest": 120
+  },
+  {
+    "id": "toes_to_bar",
+    "name": "Piedi alla sbarra",
+    "primary_muscles": [
+      "core"
+    ],
+    "secondary_muscles": [
+      "back"
+    ],
+    "equipment": "bodyweight",
+    "movement_pattern": "core",
+    "roles": [
+      "compound",
+      "conditioning"
+    ],
+    "min_experience": "advanced",
+    "technical_complexity": 3,
+    "systemic_fatigue": 2,
+    "local_fatigue": 2,
+    "grip_fatigue": 3,
+    "cardio_demand": 2,
+    "default_sets": 3,
+    "default_reps": "8-15",
+    "default_rest": 45
+  },
+  {
+    "id": "trazioni",
+    "name": "Trazioni alla sbarra",
+    "primary_muscles": [
+      "back"
+    ],
+    "secondary_muscles": [
+      "biceps",
+      "rear_delts"
+    ],
+    "equipment": "bodyweight",
+    "movement_pattern": "vertical_pull",
+    "roles": [
+      "compound",
+      "hypertrophy"
+    ],
+    "min_experience": "intermediate",
+    "technical_complexity": 2,
+    "systemic_fatigue": 2,
+    "local_fatigue": 3,
+    "grip_fatigue": 3,
+    "cardio_demand": 1,
+    "default_sets": 4,
+    "default_reps": "6-12",
+    "default_rest": 120
+  },
+  {
+    "id": "trazioni_supine",
+    "name": "Trazioni a presa supina",
+    "primary_muscles": [
+      "biceps"
+    ],
+    "secondary_muscles": [
+      "back"
+    ],
+    "focus_portion": "long_head",
+    "equipment": "bodyweight",
+    "movement_pattern": "vertical_pull",
+    "roles": [
+      "isolation",
+      "hypertrophy"
+    ],
+    "min_experience": "intermediate",
+    "technical_complexity": 2,
+    "systemic_fatigue": 2,
+    "local_fatigue": 3,
+    "grip_fatigue": 3,
+    "cardio_demand": 1,
+    "default_sets": 3,
+    "default_reps": "6-10",
+    "default_rest": 90
+  },
+  {
+    "id": "turkish_get_up",
+    "name": "Turkish get-up",
+    "primary_muscles": [
+      "core",
+      "front_delts"
+    ],
+    "secondary_muscles": [
+      "glutes",
+      "triceps"
+    ],
+    "equipment": "kettlebell",
+    "movement_pattern": "core",
+    "roles": [
+      "compound",
+      "conditioning"
+    ],
+    "min_experience": "intermediate",
+    "technical_complexity": 3,
+    "systemic_fatigue": 2,
+    "local_fatigue": 2,
+    "grip_fatigue": 2,
+    "cardio_demand": 1,
+    "default_sets": 3,
+    "default_reps": "8-15",
+    "default_rest": 45
+  },
+  {
+    "id": "wall_ball",
+    "name": "Wall ball",
+    "primary_muscles": [
+      "quads",
+      "front_delts"
+    ],
+    "secondary_muscles": [
+      "glutes",
+      "triceps",
+      "core"
+    ],
+    "equipment": "bodyweight",
+    "movement_pattern": "squat",
+    "roles": [
+      "compound",
+      "conditioning"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 2,
+    "systemic_fatigue": 3,
+    "local_fatigue": 2,
+    "grip_fatigue": 1,
+    "cardio_demand": 3,
+    "default_sets": 3,
+    "default_reps": "8-15",
+    "default_rest": 45
+  },
+  {
+    "id": "wrist_curl",
+    "name": "Wrist curl con manubri",
+    "primary_muscles": [
+      "forearms"
+    ],
+    "secondary_muscles": [],
+    "equipment": "dumbbell",
+    "movement_pattern": "wrist_flexion",
+    "roles": [
+      "isolation",
+      "hypertrophy"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 1,
+    "local_fatigue": 2,
+    "grip_fatigue": 2,
+    "cardio_demand": 1,
+    "default_sets": 3,
+    "default_reps": "12-20",
+    "default_rest": 45
+  },
+  {
+    "id": "wu_band_pull",
+    "name": "Pull apart con elastico",
+    "primary_muscles": [
+      "rear_delts"
+    ],
+    "secondary_muscles": [],
+    "equipment": "bodyweight",
+    "movement_pattern": "rear_delt",
+    "roles": [
+      "warmup"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 1,
+    "local_fatigue": 1,
+    "grip_fatigue": 1,
+    "cardio_demand": 1,
+    "default_sets": 2,
+    "default_reps": "20",
+    "default_rest": 0
+  },
+  {
+    "id": "wu_bike",
+    "name": "Cyclette leggera",
+    "primary_muscles": [],
+    "secondary_muscles": [],
+    "equipment": "cardio",
+    "movement_pattern": "bike",
+    "roles": [
+      "warmup",
+      "cardio"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 1,
+    "local_fatigue": 1,
+    "grip_fatigue": 1,
+    "cardio_demand": 2,
+    "default_sets": 1,
+    "default_reps": "5 min",
+    "default_rest": 0
+  },
+  {
+    "id": "wu_bird_dog",
+    "name": "Bird dog",
+    "primary_muscles": [
+      "core"
+    ],
+    "secondary_muscles": [
+      "glutes"
+    ],
+    "equipment": "bodyweight",
+    "movement_pattern": "core",
+    "roles": [
+      "warmup",
+      "core"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 1,
+    "local_fatigue": 1,
+    "grip_fatigue": 1,
+    "cardio_demand": 1,
+    "default_sets": 1,
+    "default_reps": "8 per lato",
+    "default_rest": 0
+  },
+  {
+    "id": "wu_camminata",
+    "name": "Camminata veloce sul tapis roulant",
+    "primary_muscles": [],
+    "secondary_muscles": [],
+    "equipment": "cardio",
+    "movement_pattern": "run",
+    "roles": [
+      "warmup",
+      "cardio"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 1,
+    "local_fatigue": 1,
+    "grip_fatigue": 1,
+    "cardio_demand": 2,
+    "default_sets": 1,
+    "default_reps": "5 min",
+    "default_rest": 0
+  },
+  {
+    "id": "wu_circonduzioni",
+    "name": "Circonduzioni delle spalle",
+    "primary_muscles": [],
+    "secondary_muscles": [],
+    "equipment": "bodyweight",
+    "movement_pattern": "lateral_raise",
+    "roles": [
+      "warmup"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 1,
+    "local_fatigue": 1,
+    "grip_fatigue": 1,
+    "cardio_demand": 1,
+    "default_sets": 2,
+    "default_reps": "15 per lato",
+    "default_rest": 0
+  },
+  {
+    "id": "wu_dead_bug",
+    "name": "Dead bug",
+    "primary_muscles": [
+      "core"
+    ],
+    "secondary_muscles": [],
+    "equipment": "bodyweight",
+    "movement_pattern": "core",
+    "roles": [
+      "warmup",
+      "core"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 1,
+    "local_fatigue": 1,
+    "grip_fatigue": 1,
+    "cardio_demand": 1,
+    "default_sets": 2,
+    "default_reps": "10 per lato",
+    "default_rest": 0
+  },
+  {
+    "id": "wu_rotazioni_anca",
+    "name": "Rotazioni delle anche",
+    "primary_muscles": [],
+    "secondary_muscles": [],
+    "equipment": "bodyweight",
+    "movement_pattern": "squat",
+    "roles": [
+      "warmup"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 1,
+    "local_fatigue": 1,
+    "grip_fatigue": 1,
+    "cardio_demand": 1,
+    "default_sets": 2,
+    "default_reps": "10 per lato",
+    "default_rest": 0
+  },
+  {
+    "id": "wu_salto_corda",
+    "name": "Saltelli con la corda",
+    "primary_muscles": [],
+    "secondary_muscles": [],
+    "equipment": "bodyweight",
+    "movement_pattern": "jump",
+    "roles": [
+      "warmup",
+      "cardio",
+      "conditioning"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 1,
+    "local_fatigue": 1,
+    "grip_fatigue": 1,
+    "cardio_demand": 3,
+    "default_sets": 1,
+    "default_reps": "3 min",
+    "default_rest": 0
+  },
+  {
+    "id": "wu_scapole",
+    "name": "Retrazioni scapolari alla sbarra",
+    "primary_muscles": [
+      "back"
+    ],
+    "secondary_muscles": [],
+    "equipment": "bodyweight",
+    "movement_pattern": "vertical_pull",
+    "roles": [
+      "warmup"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 1,
+    "local_fatigue": 1,
+    "grip_fatigue": 2,
+    "cardio_demand": 1,
+    "default_sets": 2,
+    "default_reps": "10",
+    "default_rest": 0
+  },
+  {
+    "id": "wu_serie_leggera",
+    "name": "Serie leggera del primo esercizio",
+    "primary_muscles": [],
+    "secondary_muscles": [],
+    "equipment": "bodyweight",
+    "movement_pattern": "squat",
+    "roles": [
+      "warmup"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 1,
+    "local_fatigue": 1,
+    "grip_fatigue": 1,
+    "cardio_demand": 1,
+    "default_sets": 2,
+    "default_reps": "12 al 50%",
+    "default_rest": 0
+  },
+  {
+    "id": "wu_squat_vuoto",
+    "name": "Squat a corpo libero lento",
+    "primary_muscles": [
+      "quads"
+    ],
+    "secondary_muscles": [],
+    "equipment": "bodyweight",
+    "movement_pattern": "squat",
+    "roles": [
+      "warmup"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 1,
+    "local_fatigue": 1,
+    "grip_fatigue": 1,
+    "cardio_demand": 1,
+    "default_sets": 2,
+    "default_reps": "12",
+    "default_rest": 0
+  }
+]

@@ -4,8 +4,41 @@
 > da qui. Va **aggiornato** a ogni sessione, non accodato all'infinito.
 > L'identità del progetto e il percorso di AI-OS stanno in `AIOS_PROJECT.json`.
 
-**Ultimo aggiornamento:** 2026-09-18 (audit C2-C9: APK come GitHub Release, banner, versioni, chiave DeepSeek) - Claude (Opus 5)
+**Ultimo aggiornamento:** 2026-09-18 (audit C10: fixture dei test riallineata al catalogo vero) - Claude (Opus 5)
 
+### 2026-09-18 (3) — Fixture dei test riallineata al catalogo Supabase (C10)
+
+1. **Problema rilevato** — `src/generators/__tests__/fixtures/exercises.json` era fermo
+   a 98 esercizi contro i 146 attivi in Supabase: mancavano 48 movimenti, quasi tutti
+   quelli tecnici del CrossFit e diverse macchine (clean_jerk, power_clean, power_snatch,
+   push_jerk, overhead_squat, chest_to_bar, toes_to_bar, bar_muscle_up, turkish_get_up,
+   wall_ball, double_under, assault_bike, ski_erg, running, pec_deck, t_bar_row,
+   pendulum_squat, rematore_macchina...). I generatori venivano quindi provati su un
+   catalogo che non esiste piu': i test passavano anche su comportamenti che nella
+   realta' non si verificavano mai.
+2. **Cosa e' stato fatto** — esportati da Supabase i 48 mancanti e uniti alla fixture,
+   che ora ha 146 voci ordinate per id, **nessun esercizio della fixture e' assente dal
+   DB**. Manteni-uta la stessa forma a 16 campi degli esercizi gia' presenti: aggiungere
+   `metcon_safe`, `unilateral` e `required_equipment` solo ai nuovi avrebbe reso la
+   fixture disomogenea, con meta' catalogo sui valori reali e meta' sulle euristiche di
+   `inferRequiredEquipment`. Va fatto per tutti insieme, quando serve.
+3. **Un test e' caduto, ed era giusto che cadesse** — `crossfit.test.ts`, "se una carenza
+   entra nella parte Forza/Skill la richiama con carico ridotto". Con il catalogo nuovo e
+   `priority_muscles: ['front_delts']` il generatore sceglie **Clean & Jerk**, che ha
+   `primary_muscles: ["quads","front_delts"]`. Il campo `muscle` dell'esercizio generato
+   riporta il PRIMO muscolo primario, cioe' "quads", e l'asserzione `toBe('front_delts')`
+   falliva. Il comportamento e' corretto (nota "focus carenza: carico ridotto" e reps 6-8
+   sono quelle attese, e l'esercizio allena davvero i deltoidi anteriori): sbagliata era
+   l'asserzione, che funzionava solo perche' nel vecchio catalogo non esisteva un
+   esercizio multi-primario sui front_delts. Ora il test verifica che l'esercizio scelto
+   abbia `front_delts` fra i muscoli primari. 317 test verdi, `tsc` e eslint puliti,
+   `vite build` ok.
+4. **Da valutare, NON fatto** — nella scheda un esercizio scelto per una carenza si
+   presenta col suo primo muscolo primario ("quads" per Clean & Jerk) e non con la
+   carenza che lo ha fatto scegliere. Non e' un bug, ma per chi legge la scheda e'
+   fuorviante. Decisione di Rossi: lasciare com'e' o etichettare col muscolo carente.
+5. **Cosa deve aspettarsi Rossi** — nell'app non cambia niente: la fixture e' solo per i
+   test. Cambia che d'ora in poi i test coprono anche i movimenti CrossFit veri.
 ### 2026-09-18 (2) — Pipeline APK ripulita (C2, C3, C4, C5, C7, C8, C9)
 
 1. **Problemi rilevati**
