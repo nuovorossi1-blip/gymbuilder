@@ -19,8 +19,46 @@ export function isNewerVersion(remote: string, current: string): boolean {
   return false
 }
 
+const RELEASES_API = 'https://api.github.com/repos/nuovorossi1-blip/gymbuilder/releases/latest'
+const RELEASE_PAGE = 'https://github.com/nuovorossi1-blip/gymbuilder/releases/latest'
+const APK_ASSET = 'GymBuilder.apk'
+
+interface GithubReleaseAsset {
+  name: string
+  browser_download_url: string
+}
+
+interface GithubRelease {
+  tag_name: string
+  body?: string
+  assets?: GithubReleaseAsset[]
+}
+
+/**
+ * L'APK non e' piu' servito da Vercel (/version.json + /gymbuilder.apk): esce come
+ * GitHub Release, dove APK e metadati vengono pubblicati insieme e non possono
+ * essere sfasati. Il tag ha la forma apk-v1.0.N: N e' anche il versionCode.
+ */
 export async function fetchRemoteVersion(): Promise<RemoteAppVersion> {
-  const response = await fetch(`/version.json?time=${Date.now()}`, { cache: 'no-store' })
+  const response = await fetch(`${RELEASES_API}?time=${Date.now()}`, {
+    cache: 'no-store',
+    headers: { Accept: 'application/vnd.github+json' },
+  })
   if (!response.ok) throw new Error(`Version check ${response.status}`)
-  return response.json() as Promise<RemoteAppVersion>
+  const release = (await response.json()) as GithubRelease
+
+  const version = (release.tag_name || '').replace(/^apk-v/i, '').replace(/^v/i, '')
+  if (!version) throw new Error('Release senza tag di versione')
+
+  const asset = (release.assets || []).find((a) => a.name === APK_ASSET)
+  const versionCode = Number.parseInt(version.split('.').pop() || '0', 10) || 0
+
+  return {
+    version,
+    versionCode,
+    apkUrl: asset?.browser_download_url ?? `${RELEASE_PAGE}/download/${APK_ASSET}`,
+    releaseUrl: RELEASE_PAGE,
+    notes: release.body?.split('\n')[0]?.trim() || undefined,
+    mandatory: false,
+  }
 }

@@ -1,13 +1,44 @@
+# APK Android di GymBuilder — pubblicato come GitHub Release.
+#
+# COME FUNZIONA
+# - L'APK e' un guscio Capacitor che carica l'app da https://gymbuilder-lemon.vercel.app
+#   (capacitor.config.ts, campo server.url). Le modifiche al frontend arrivano DA SOLE
+#   a ogni deploy Vercel: non serve reinstallare niente.
+# - Serve un APK nuovo solo quando cambia il guscio: android/**, capacitor.config.ts,
+#   le dipendenze in package.json, o questo workflow. Per questo il trigger e' limitato
+#   a quei percorsi. Prima girava a OGNI push: produceva un APK identico con un numero
+#   nuovo e faceva comparire "Aggiorna app" sul telefono senza motivo.
+# - Si puo' lanciare a mano dalla tab Actions ("Run workflow").
+#
+# DOVE FINISCE L'APK — cambiato il 18/09/2026
+# - PRIMA: committato in public/gymbuilder.apk e ridistribuito da Vercel. Ogni build
+#   aggiungeva ~4 MB alla storia del repo e serviva un VERCEL_TOKEN.
+# - ORA: GitHub Release con tag apk-v1.0.<run_number>. Link fisso:
+#   https://github.com/nuovorossi1-blip/gymbuilder/releases/latest/download/GymBuilder.apk
+#   Nessun commit, nessun segreto da configurare: basta il GITHUB_TOKEN automatico.
+#   APK e version.json escono insieme nella stessa release, quindi non possono piu'
+#   essere sfasati come quando uno passava per il commit e l'altro per il deploy.
+#
+# FIRMA
+# - APK debug firmato con android/app/debug.keystore, committata nel repo: ogni build ha
+#   la STESSA firma e Android accetta l'update sopra la versione installata.
+#   Cancellare quella keystore = obbligare tutti a disinstallare e reinstallare.
+#   Gli APK di android-release.yml sono firmati con un'altra chiave: NON sono
+#   intercambiabili con questi sullo stesso telefono.
+
 name: Build APK for Vercel
 
 on:
   push:
     branches:
       - main
-    paths-ignore:
-      - 'public/gymbuilder.apk'
-      - 'public/version.json'
-      - 'android/app/debug.keystore'
+    paths:
+      - 'android/**'
+      - 'capacitor.config.ts'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/build-apk.yml'
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -26,9 +57,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          ref: main
-          fetch-depth: 0
 
       - name: Install Node.js 24
         uses: actions/setup-node@v4
@@ -58,61 +86,71 @@ jobs:
         run: npm ci
 
       - name: Synchronize Capacitor Android
-        run: npm run cap:sync
-
-      - name: Strip previous release APK from bundled web assets
-        # public/gymbuilder.apk (l'APK dell'ultima release, servito da Vercel) e' dentro
-        # public/, quindi "vite build" lo ricopia in dist/ e "cap sync" lo incorpora
-        # nell'app Android come asset - ogni build si porta dietro l'APK precedente, che si
-        # portava dietro quello ancora prima: da qui le build passate a 95MB+ e i download
-        # lentissimi. Va tolto dagli asset PRIMA di impacchettare la nuova APK, non da
-        # public/ (li' serve, e' quello che gli utenti scaricano).
-        run: rm -f android/app/src/main/assets/public/gymbuilder.apk
+        run: npm run cap:sync 2>&1 | tee /tmp/step-sync.log; exit ${PIPESTATUS[0]}
 
       - name: Compute build version
         id: version
         run: |
-          CODE="${{ github.run_number }}"
-          NAME="1.0.${{ github.run_number }}"
-          echo "code=$CODE" >> "$GITHUB_OUTPUT"
-          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "code=${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+          echo "name=1.0.${{ github.run_number }}" >> "$GITHUB_OUTPUT"
 
       - name: Bump Android version for this build
         run: |
           sed -i "s/versionCode [0-9]\+/versionCode ${{ steps.version.outputs.code }}/" android/app/build.gradle
           sed -i "s/versionName \"[^\"]*\"/versionName \"${{ steps.version.outputs.name }}\"/" android/app/build.gradle
+          grep -n "versionCode\|versionName" android/app/build.gradle
 
       - name: Build debug APK
         working-directory: android
-        run: bash gradlew assembleDebug
+        run: bash gradlew assembleDebug --no-daemon 2>&1 | tee /tmp/step-gradle.log; exit ${PIPESTATUS[0]}
 
-      - name: Copy APK for Vercel
-        run: cp android/app/build/outputs/apk/debug/app-debug.apk public/gymbuilder.apk
-
-      - name: Update version.json
+      - name: Prepare release files
         run: |
-          cat > public/version.json <<EOF
+          cp android/app/build/outputs/apk/debug/app-debug.apk GymBuilder.apk
+          ls -la GymBuilder.apk
+          cat > version.json <<EOF
           {
             "version": "${{ steps.version.outputs.name }}",
             "versionCode": ${{ steps.version.outputs.code }},
-            "apkUrl": "https://gymbuilder-lemon.vercel.app/gymbuilder.apk",
+            "apkUrl": "https://github.com/nuovorossi1-blip/gymbuilder/releases/latest/download/GymBuilder.apk",
             "releaseUrl": "https://github.com/nuovorossi1-blip/gymbuilder/releases/latest",
-            "notes": "Correzioni e miglioramenti.",
+            "notes": "Aggiornamento del guscio Android di GymBuilder.",
             "mandatory": false
           }
           EOF
 
-      - name: Commit APK to main
-        run: |
-          git add public/gymbuilder.apk public/version.json android/app/debug.keystore
-          if git diff --cached --quiet -- public/gymbuilder.apk public/version.json android/app/debug.keystore; then
-            echo "APK unchanged; no commit required."
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "chore: update Android APK [skip ci]"
-          git push origin HEAD:main
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: apk-v${{ steps.version.outputs.name }}
+          name: GymBuilder Android ${{ steps.version.outputs.name }}
+          body: |
+            APK Android di GymBuilder (build ${{ steps.version.outputs.code }}).
 
-      - name: Deploy APK to Vercel
-        run: npx --yes vercel@59.1.3 deploy --prod --yes --token="${{ secrets.VERCEL_TOKEN }}"
+            Scarica **GymBuilder.apk** e aprilo sul telefono. La prima volta Android chiede
+            di autorizzare l'installazione da questa origine. Chi ha gia' l'app installata
+            riceve l'avviso di aggiornamento al prossimo avvio.
+          files: |
+            GymBuilder.apk
+            version.json
+          make_latest: true
+
+      # I log completi di GitHub Actions stanno su un dominio esterno che gli strumenti
+      # di Claude non raggiungono: in caso di errore le ultime righe finiscono in un
+      # commento sul commit, leggibile dall'API GitHub.
+      - name: On failure, write the last log lines as a commit comment
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          {
+            echo "**Build APK GymBuilder fallita** (run ${{ github.run_number }})"
+            for f in /tmp/step-sync.log /tmp/step-gradle.log; do
+              if [ -f "$f" ]; then
+                echo; echo "\`$f\` (ultime 80 righe):"; echo '```'
+                tail -n 80 "$f" | grep -iv "token\|password\|secret" | cut -c1-400
+                echo '```'
+              fi
+            done
+          } > /tmp/comment.md
+          gh api "repos/${{ github.repository }}/commits/${{ github.sha }}/comments" -F body=@/tmp/comment.md >/dev/null

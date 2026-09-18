@@ -6,8 +6,16 @@ export default async function handler(request, response) {
   response.setHeader('Cache-Control', 'no-store')
   if (request.method !== 'POST') return response.status(405).json({ error: 'Metodo non consentito.' })
 
+  // La chiave viaggia dal browser a ogni richiesta (campo `apiKey`). Meglio tenerla
+  // sul server: se DEEPSEEK_API_KEY e' fra le variabili d'ambiente Vercel, si usa
+  // quella e il campo del body viene ignorato. Il fallback sul body resta finche'
+  // la variabile non e' configurata, altrimenti l'app smetterebbe di funzionare.
+  // Passo successivo, quando la variabile c'e': togliere del tutto `apiKey` dal
+  // body in src/lib/deepseek.ts e lasciare nel Profilo solo la scelta del modello.
   const { apiKey, payload } = request.body || {}
-  if (typeof apiKey !== 'string' || !apiKey.trim()) return response.status(400).json({ error: 'Chiave API DeepSeek mancante.' })
+  const serverKey = (process.env.DEEPSEEK_API_KEY || '').trim()
+  const key = serverKey || (typeof apiKey === 'string' ? apiKey.trim() : '')
+  if (!key) return response.status(400).json({ error: 'Chiave API DeepSeek mancante.' })
   if (!payload || !ALLOWED_MODELS.has(payload.model) || !Array.isArray(payload.messages)) {
     return response.status(400).json({ error: 'Richiesta DeepSeek non valida.' })
   }
@@ -17,7 +25,7 @@ export default async function handler(request, response) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey.trim()}`,
+        Authorization: `Bearer ${key}`,
       },
       body: JSON.stringify(payload),
       signal: AbortSignal.timeout(110_000),

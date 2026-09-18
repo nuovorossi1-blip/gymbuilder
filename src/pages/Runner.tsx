@@ -193,7 +193,11 @@ export default function Runner() {
       }
     } catch { /* storage opzionale */ }
     setRunnerHydrated(true)
-  }, [workout])
+    // `activeSession?.id` serve davvero: e' il confronto che decide se lo stato
+    // salvato appartiene alla sessione corrente. Se cambia sessione mentre la
+    // pagina e' montata, senza questa dipendenza il ripristino resterebbe
+    // agganciato alla sessione vecchia.
+  }, [workout, activeSession?.id])
 
   // Salvataggio costante dello stato di avanzamento per evitare la schermata "Nessun allenamento"
   useEffect(() => {

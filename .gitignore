@@ -9,3 +9,7 @@ dist
 supabase/.temp/
 tsconfig.tsbuildinfo
 .env*
+
+# APK e metadati: pubblicati come GitHub Release dal 18/09/2026, non piu' committati
+public/gymbuilder.apk
+public/version.json

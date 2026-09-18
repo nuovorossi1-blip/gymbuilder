@@ -1,10 +1,8 @@
 {
   "_comment": "Identita' del progetto per AI-OS. Letto da qualsiasi LLM che riceve /handoff gymbuilder. Lo stato corrente sta in AIOS_STATE.md. Nessun token o password qui dentro.",
-
   "protocol_version": "1.1",
   "aios_reference": "https://github.com/nuovorossi1-blip/ai-os",
   "aios_protocol_file": "AIOS_PROTOCOL.md",
-
   "project": {
     "name": "GymBuilder",
     "repository": "https://github.com/nuovorossi1-blip/gymbuilder",
@@ -13,7 +11,6 @@
     "mobile": true,
     "specification": "Master prompt di 100 sezioni fornito dall'utente. La struttura delle cartelle segue la sez. 86, l'ordine delle fasi la sez. 96, la navigazione la sez. 58."
   },
-
   "origin": {
     "type": "created_by_aios",
     "date": "2026-08-05",
@@ -21,7 +18,6 @@
     "previous_history_available": true,
     "_note": "Esiste una versione precedente di GymBuilder generata con Lovable, non collegata a questo progetto e non usata come base. Questo repository parte da zero."
   },
-
   "stack": {
     "language": "TypeScript",
     "framework": "React 18 + Vite 5",
@@ -30,7 +26,6 @@
     "database": "supabase",
     "auth": "supabase-auth (email e password)"
   },
-
   "deploy": {
     "provider": "vercel",
     "site_url": "https://gymbuilder-lemon.vercel.app",
@@ -38,13 +33,11 @@
     "auto_deploy_on_push": true,
     "_note": "Il collegamento automatico GitHub-Vercel e' attivo: ogni push su main pubblica da solo. La nota precedente (non attivo) era sbagliata/superata, corretta il 05/08 dopo verifica diretta sul pannello deployments."
   },
-
   "supabase": {
     "project_ref": "geqhxhgrameaugawmaej",
     "region": "eu-west-1",
     "organization": "Progetti Nuovo Rossi"
   },
-
   "secrets_required": [
     {
       "name": "VITE_SUPABASE_URL",
@@ -57,7 +50,6 @@
       "purpose": "chiave pubblica per parlare col database dal browser; i dati restano protetti dalle regole RLS, non da questa chiave"
     }
   ],
-
   "last_session": {
     "model": "Claude Sonnet 5",
     "date": "2026-08-21",

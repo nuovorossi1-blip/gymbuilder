@@ -24,11 +24,25 @@ jobs:
           cache: gradle
       - run: npm ci
       - run: npm run cap:sync
-      - name: Strip previous release APK from bundled web assets
-        # Vedi build-apk.yml: public/gymbuilder.apk finisce in dist/ (copia verbatim di
-        # public/ fatta da Vite) e poi negli asset Android via cap sync, incorporando la APK
-        # precedente dentro quella nuova a ogni release.
-        run: rm -f android/app/src/main/assets/public/gymbuilder.apk
+      # Lo step "Strip previous release APK" non serve piu': dal 18/09/2026 l'APK non
+      # e' piu' committato in public/, quindi non finisce dentro dist/ ne' negli asset.
+
+      # versionCode/versionName in build.gradle restano fermi a 1 / 1.0.0 perche' li
+      # scrive al volo il workflow debug. Senza questo passo la release firmata
+      # uscirebbe come 1.0.0: piu' BASSA di qualunque build debug (1.0.N), e Android
+      # rifiuterebbe l'installazione. La base 1000 tiene le release sopra i debug.
+      - name: Compute release version
+        id: version
+        run: |
+          CODE=$(( 1000 + ${{ github.run_number }} ))
+          echo "code=$CODE" >> "$GITHUB_OUTPUT"
+          echo "name=1.1.${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+
+      - name: Write version into build.gradle
+        run: |
+          sed -i "s/versionCode [0-9]\+/versionCode ${{ steps.version.outputs.code }}/" android/app/build.gradle
+          sed -i "s/versionName \"[^\"]*\"/versionName \"${{ steps.version.outputs.name }}\"/" android/app/build.gradle
+          grep -n "versionCode\|versionName" android/app/build.gradle
       - name: Restore Android signing key
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}

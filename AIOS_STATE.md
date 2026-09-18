@@ -4,8 +4,84 @@
 > da qui. Va **aggiornato** a ogni sessione, non accodato all'infinito.
 > L'identità del progetto e il percorso di AI-OS stanno in `AIOS_PROJECT.json`.
 
-**Ultimo aggiornamento:** 2026-09-18 (C1 dell'audit: `package-lock.json` riallineato — la pipeline APK stava per rompersi) - Claude (Opus 5)
+**Ultimo aggiornamento:** 2026-09-18 (audit C2-C9: APK come GitHub Release, banner, versioni, chiave DeepSeek) - Claude (Opus 5)
 
+### 2026-09-18 (2) — Pipeline APK ripulita (C2, C3, C4, C5, C7, C8, C9)
+
+1. **Problemi rilevati**
+   - **C2** Ogni push su main generava un commit "chore: update Android APK" da 4,3 MB:
+     il repo cresceva a ogni modifica e serviva un `VERCEL_TOKEN` per ridistribuirlo.
+   - **C3** `build-apk.yml` girava su OGNI push, senza filtro di percorsi. Ma l'APK e'
+     un guscio che carica `gymbuilder-lemon.vercel.app` (`capacitor.config.ts`,
+     `server.url`): per una modifica solo-web l'APK e' identico a parte il numero, e
+     sul telefono compariva "Aggiorna app" senza motivo.
+   - **C4** `android-release.yml` compilava con i valori fermi di `build.gradle`
+     (versionCode 1 / versionName 1.0.0). Una release firmata sarebbe risultata piu'
+     VECCHIA di qualsiasi build debug (1.0.N): Android l'avrebbe rifiutata.
+   - **C5** `version.json` (commit) e APK (deploy Vercel) non erano atomici: fra i due
+     passaggi il sito poteva servire metadati nuovi con APK vecchio.
+   - **C7** `InstallBanner` compariva sempre, anche su desktop e a chi l'app ce l'ha
+     gia' installata, senza modo di chiuderlo.
+   - **C8** `src/lib/deepseek.ts` spediva la chiave API dell'utente a `api/deepseek.js`
+     a ogni richiesta: la chiave transitava dal browser invece di stare sul server.
+   - **C9** `src/pages/Runner.tsx`: `useEffect` di ripristino senza `activeSession?.id`
+     fra le dipendenze, proprio il valore con cui decide se lo stato salvato
+     appartiene alla sessione corrente.
+
+2. **Cosa e' stato fatto (verificato)**
+   - `build-apk.yml` riscritto sullo schema di PronoBlast: l'APK esce come **GitHub
+     Release** `apk-v1.0.<run_number>` con `GymBuilder.apk` e `version.json` allegati.
+     Nessun commit, nessun `VERCEL_TOKEN`, i due file escono insieme (chiude anche C5).
+     Trigger limitato a `android/**`, `capacitor.config.ts`, `package.json`,
+     `package-lock.json` e al workflow stesso, piu' `workflow_dispatch` per il lancio
+     a mano. In caso di errore le ultime righe del log finiscono in un commento sul
+     commit (i log grezzi di Actions stanno su un dominio irraggiungibile da Claude).
+   - `src/native/versioning.ts`: `fetchRemoteVersion()` legge
+     `api.github.com/repos/nuovorossi1-blip/gymbuilder/releases/latest` invece di
+     `/version.json`; dal tag ricava versione e versionCode, dall'asset l'URL.
+   - `InstallBanner.tsx`: compare solo nel browser di un telefono Android e fuori
+     dall'app nativa, punta alla release e ha un tasto "Nascondi" che salva in
+     `localStorage` (`gymbuilder.installBannerHidden`).
+   - `public/gymbuilder.apk` e `public/version.json` tolti dal tracking e aggiunti a
+     `.gitignore`. **La keystore `android/app/debug.keystore` NON e' stata toccata**:
+     cambiarla impedirebbe l'aggiornamento sopra l'app gia' installata.
+   - `android-release.yml`: aggiunto il calcolo versione con base 1000
+     (`versionCode = 1000 + run_number`, `versionName = 1.1.<run_number>`) e tolto lo
+     step che ripuliva l'APK dagli asset, non piu' necessario.
+   - `api/deepseek.js`: usa `process.env.DEEPSEEK_API_KEY` se presente e ignora il
+     campo del body; il fallback sul body resta finche' la variabile non e'
+     configurata su Vercel, altrimenti l'app smetterebbe di funzionare.
+   - `Runner.tsx`: aggiunta la dipendenza mancante, con commento sul perche' serve.
+   - `android-apk-auto-update.md` riscritto, con l'avviso esplicito che **debug e
+     release non sono intercambiabili sullo stesso telefono** (firme diverse).
+   - Verifica: `tsc` 0 errori, eslint 0 errori 0 warning, **317 test verdi**,
+     `vite build` ok.
+
+3. **Cosa resta da fare**
+   - **C6** keep-alive: `api/keep-alive.js` risponde 401 senza `CRON_SECRET` nelle env
+     Vercel, e in quel caso dopo 7 giorni Supabase mette in pausa il database.
+     Deve verificarlo Rossi dal pannello.
+   - **C8 seconda meta'**: quando `DEEPSEEK_API_KEY` sara' nelle env Vercel, togliere
+     `apiKey` dal body in `src/lib/deepseek.ts` e lasciare nel Profilo la sola scelta
+     del modello.
+   - **C10** fixture dei test stale (~98 esercizi contro il catalogo vero di Supabase).
+   - **C12** crash Tabata e `WorkoutTimerService` a schermo spento: nessuna modifica
+     finche' non arriva il log vero da Profilo -> Diagnostica crash. Due giri di
+     correzioni "per ipotesi" non hanno risolto.
+   - C11 risultava aperto nell'audit ma era gia' a posto: `deploy.site_url` in
+     `AIOS_PROJECT.json` e' popolato.
+
+4. **Legame con l'obiettivo** — l'app deve arrivare sul telefono di Rossi e
+   aggiornarsi da sola, senza che il repository diventi ingestibile e senza avvisi
+   di aggiornamento che non aggiornano niente.
+
+5. **Cosa deve aspettarsi Rossi** — nell'app non cambia nulla di visibile, tranne il
+   banner di installazione che non compare piu' su desktop. Il primo push fa partire
+   il nuovo workflow e crea la prima Release `apk-v1.0.N`: **finche' quella build non
+   e' finita non esiste nessuna release**, quindi il controllo aggiornamenti dentro
+   l'APK fallisce in silenzio (e' gia' gestito, non blocca l'avvio) e il vecchio link
+   `/gymbuilder.apk` sul sito smette di funzionare. NON e' ancora vero che la chiave
+   DeepSeek sia al sicuro: lo diventa solo quando Rossi aggiunge la variabile su Vercel.
 ### 2026-09-18 — package-lock.json riallineato (punto C1 dell'audit)
 
 1. **Problema rilevato** — `npm ci` falliva con "Missing: esbuild@0.28.2 from lock file":
