@@ -4,8 +4,29 @@
 > da qui. Va **aggiornato** a ogni sessione, non accodato all'infinito.
 > L'identità del progetto e il percorso di AI-OS stanno in `AIOS_PROJECT.json`.
 
-**Ultimo aggiornamento:** 2026-08-21 (Pezzo 3, ultimo del piano: Density 3-6-9 selezionabile per singolo giorno dentro un programma settimanale multi-giorno, con tracciamento vero — vedi fondo file) - Claude (Sonnet 5)
+**Ultimo aggiornamento:** 2026-09-18 (C1 dell'audit: `package-lock.json` riallineato — la pipeline APK stava per rompersi) - Claude (Opus 5)
 
+### 2026-09-18 — package-lock.json riallineato (punto C1 dell'audit)
+
+1. **Problema rilevato** — `npm ci` falliva con "Missing: esbuild@0.28.2 from lock file":
+   il lockfile non corrispondeva più a `package.json`. Causa vera: un aggiornamento di
+   dipendenza entrato senza rigenerare il lock. Non si vedeva perché il runner GitHub usa
+   ancora npm 11, più permissivo; al primo aggiornamento di npm sul runner, `build-apk.yml`
+   e `android-release.yml` si sarebbero fermati al passo `npm ci`.
+2. **Cosa è stato fatto** — `npm install` (tocca solo `package-lock.json`: verificato con
+   `git diff --stat`, 756 righe aggiunte e nessun altro file). Poi verificato: `npm ci`
+   pulito passa, `tsc` 0 errori, 317 test verdi su 24 file, `vite build` ok.
+3. **Cosa resta da fare** — i punti C2-C12 dell'audit: APK committato in `public/` a ogni
+   build (repo che cresce di 4 MB per push), ricompilazione dell'APK anche per modifiche
+   solo-web, versione ferma a 1.0.0 in `build.gradle`, keep-alive legato a `CRON_SECRET`,
+   `InstallBanner` sempre visibile, chiave DeepSeek in transito dal browser, `useEffect`
+   con dipendenza mancante in `Runner.tsx`, fixture dei test stale, `site_url` vuoto in
+   `AIOS_PROJECT.json`. Restano aperti anche i crash Tabata e `WorkoutTimerService`:
+   servono i log veri dal telefono di Rossi, niente correzioni a ipotesi.
+4. **Legame con l'obiettivo** — senza `npm ci` funzionante non si costruisce più l'APK,
+   quindi Rossi non riceve più aggiornamenti dell'app installata.
+5. **Cosa deve aspettarsi Rossi** — nulla di visibile nell'app. NON è ancora vero che la
+   pipeline APK sia sana: C2/C3/C4 restano aperti.
 Etichette: `[FACT]` verificato nel codice · `[RICOSTRUITO]` dedotto da indizi ·
 `[IGNOTO]` non ricavabile dal repository
 
