@@ -42,58 +42,104 @@ export function limiteConsecutivi(phase: NutritionPhase | null | undefined): num
 
 const NOTE_ESCLUSE = new Set(['fst7_finisher', 'avvicinamento', 'top_set', 'back_off'])
 
+type Step = -500 | -250 | 0 | 250 | 500 | 750 | 1000
+const S = <T,>(v: [T, T, T, T, T, T, T]): Record<Step, T> =>
+  ({ [-500]: v[0], [-250]: v[1], 0: v[2], 250: v[3], 500: v[4], 750: v[5], 1000: v[6] } as Record<Step, T>)
+
+/**
+ * Tabella master per gradino calorico (23/09, tabella di Rossi): colonne -500, -250, 0, +250,
+ * +500, +750, +1000 kcal rispetto alla normocalorica. Il volume extra va PRIMA alle carenze:
+ * i muscoli in mantenimento salgono solo dai gradini alti. Valori indicativi, come il prompt.
+ */
+const TABELLA = {
+  serie: {
+    carenzaIso: S([3, 3, 4, 4, 4, 5, 5]),
+    carenzaComp: S([3, 3, 4, 4, 4, 5, 5]),
+    mantIso: S([2, 2, 3, 3, 3, 3, 4]),
+    mantComp: S([3, 3, 3, 3, 4, 4, 4]),
+    antagonista: S([2, 2, 3, 3, 3, 4, 4]),
+  },
+  rir: {
+    comp: S(['1-2', '1-2', '1', '1', '0-1', '0-1', '0-1']),
+    iso: S(['0-1', '0-1', '0-1', '0', '0', '0', '0']),
+    antagonista: S(['1', '1', '1', '1', '0-1', '0-1', '0-1']),
+  },
+  /** Quante tecniche per sessione, solo su isolamenti carenti (mai sui multiarticolari). */
+  tecniche: {
+    drop: S([0, 0, 1, 2, 9, 9, 9]),
+    restPause: S([0, 0, 0, 0, 1, 1, 2]),
+    myo: S([0, 0, 0, 0, 0, 1, 2]),
+  },
+}
+
+export function normalizzaStep(value: number | null | undefined): Step | null {
+  if (value === null || value === undefined || !Number.isFinite(value)) return null
+  return Math.max(-500, Math.min(1000, Math.round(value / 250) * 250)) as Step
+}
+
+/** Gradino di default per chi arriva con la sola fase (test, config vecchie). */
+export function stepDaFase(phase: NutritionPhase): Step {
+  return phase === 'deficit' ? -500 : phase === 'maintenance' ? 0 : 500
+}
+
 export interface FaseOpts {
-  phase: NutritionPhase
+  step: number
   carenze: Muscle[]
   split: Split
 }
 
 /**
- * Serie, RIR e tecniche per fase (Principio 5). Modifica `scelti` sul posto e ritorna la nota di
- * programmazione da mostrare in anteprima.
+ * Serie, RIR e tecniche per gradino calorico (Principi 5 e 11 di Rossi). Modifica `scelti` sul
+ * posto e ritorna la nota di programmazione da mostrare in anteprima.
  */
 export function applicaFase(scelti: PrescribedExercise[], opts: FaseOpts): string {
-  const { phase, carenze, split } = opts
+  const step = normalizzaStep(opts.step) ?? 0
+  const { carenze, split } = opts
   let antagonistaFatto = false
+  let drop = TABELLA.tecniche.drop[step]
+  let restPause = TABELLA.tecniche.restPause[step]
+  let myo = TABELLA.tecniche.myo[step]
   for (const e of scelti) {
     if (e.role === 'warmup' || (e.note && NOTE_ESCLUSE.has(e.note)) || !e.muscle) continue
     const carenza = carenze.includes(e.muscle)
     const antagonista = !antagonistaFatto && e.role === 'isolation' && !carenza &&
       ((split === 'push' && e.muscle === 'biceps') || (split === 'pull' && e.muscle === 'triceps'))
+    e.technique = undefined
     if (antagonista) {
-      // Principio 4: max 2 serie in deficit, 3 in normo/surplus, RIR 1 fisso, mai tecniche.
+      // Principio 4: richiamo leggero, mai a cedimento; al gradino massimo diventa un esercizio vero.
       antagonistaFatto = true
       e.note = NOTA_ANTAGONISTA
-      e.sets = phase === 'deficit' ? 2 : 3
-      e.rir = '1'
-      e.technique = undefined
+      e.sets = TABELLA.serie.antagonista[step]
+      e.rir = TABELLA.rir.antagonista[step]
+      if (step === 1000) e.technique = "Drop set sull'ultima serie"
       continue
     }
-    if (e.role === 'compound') {
-      e.rir = phase === 'deficit' ? '2' : phase === 'maintenance' ? '1' : '0-1'
-    } else {
-      e.rir = phase === 'deficit' ? '1' : phase === 'maintenance' ? '0-1' : '0'
-    }
-    // Mantenimento al minimo efficace in deficit; più volume sulle carenze in surplus.
-    if (phase === 'deficit' && !carenza && e.role === 'isolation') e.sets = Math.max(2, e.sets - 1)
-    if (phase === 'surplus' && carenza) e.sets = Math.min(5, e.sets + 1)
-    // Tecniche solo sulle carenze e solo su isolamenti (mai sui multiarticolari).
-    e.technique = undefined
-    if (carenza && e.role === 'isolation') {
-      if (phase === 'maintenance') e.technique = "Drop set sull'ultima serie"
-      if (phase === 'surplus') e.technique = "Drop set o rest-pause sull'ultima serie"
+    const comp = e.role === 'compound'
+    e.sets = comp
+      ? (carenza ? TABELLA.serie.carenzaComp : TABELLA.serie.mantComp)[step]
+      : (carenza ? TABELLA.serie.carenzaIso : TABELLA.serie.mantIso)[step]
+    e.rir = comp ? TABELLA.rir.comp[step] : TABELLA.rir.iso[step]
+    if (carenza && !comp) {
+      // Myo-reps preferite sulle alzate laterali al cavo/manubri, rest-pause sui curl/estensioni.
+      if (myo > 0 && e.muscle === 'lateral_delts') { e.technique = "Myo-reps sull'ultima serie"; myo-- }
+      else if (restPause > 0) { e.technique = "Rest-pause sull'ultima serie"; restPause-- }
+      else if (drop > 0) { e.technique = "Drop set sull'ultima serie"; drop-- }
+      else if (myo > 0) { e.technique = "Myo-reps sull'ultima serie"; myo-- }
     }
   }
-  if (phase === 'deficit') {
-    return 'Fase deficit: RIR 2 sui multiarticolari per proteggere il recupero, nessuna tecnica di intensità, ' +
-      'muscoli non carenti al volume minimo efficace. Mai due esercizi dello stesso muscolo in fila.'
-  }
-  if (phase === 'maintenance') {
-    return 'Fase normocalorica: RIR 1 sui multiarticolari, drop set solo sull\'ultima serie delle carenze. ' +
-      'Al massimo due esercizi dello stesso muscolo in fila, mai sul muscolo carente.'
-  }
-  return 'Fase surplus: RIR 0-1, una serie in più sulle carenze con drop set o rest-pause sull\'ultima serie. ' +
-    'Fino a tre esercizi dello stesso muscolo grande in fila; il muscolo carente resta sempre alternato.'
+  const phase = step <= -250 ? 'deficit' : step <= 250 ? 'maintenance' : 'surplus'
+  const alternanza = phase === 'deficit'
+    ? 'Mai due esercizi dello stesso muscolo in fila.'
+    : phase === 'maintenance'
+      ? 'Al massimo due esercizi dello stesso muscolo in fila, mai sul muscolo carente.'
+      : 'Fino a tre esercizi dello stesso muscolo grande in fila; il muscolo carente resta sempre alternato.'
+  const tecniche = step <= -250
+    ? 'nessuna tecnica di intensità'
+    : step <= 250
+      ? 'drop set solo sull\'ultima serie delle carenze'
+      : 'drop set, rest-pause e myo-reps sulle carenze'
+  const extra = step >= 750 ? ' Con queste calorie puoi valutare il 6° giorno e le gambe 2 volte a settimana.' : ''
+  return `Volume al gradino ${step > 0 ? '+' : ''}${step} kcal: RIR ${TABELLA.rir.comp[step]} sui multiarticolari, ${tecniche}. ${alternanza}${extra}`
 }
 
 export interface OrdinaOpts {
@@ -154,6 +200,8 @@ export function ordinaSessione(scelti: PrescribedExercise[], opts: OrdinaOpts): 
   const positionCost = (item: Item, pos: number): number => {
     let cost = Math.abs(pos - item.orig)
     if (item.big && pos > lastAllowed) cost += 6 * (pos - lastAllowed)
+    // Multiarticolari "piccoli" (dip, shoulder press): fascia media, al massimo uno slot dopo i grandi.
+    else if (item.e.role === 'compound' && pos > lastAllowed + 1) cost += 4 * (pos - lastAllowed - 1)
     // Prompt, "eccezione importante": piccolo carente slot 1 -> grande carente slot 2-3.
     if (smallLead && item.bigCarenza && pos > 2) cost += 3 * (pos - 2)
     if (item.e.note === NOTA_ANTAGONISTA) {
@@ -191,7 +239,9 @@ export function ordinaSessione(scelti: PrescribedExercise[], opts: OrdinaOpts): 
         if (used[i]) continue
         const item = items[i]
         if (pos === 0 && !leadOk(item)) continue
-        if (!bigLastAllowed && pos === n - 1 && n >= 5 && item.big) continue
+        // Nessun multiarticolare in fondo (23/09): vale anche per dip e shoulder press, che il
+        // catalogo registra come tricipiti/deltoidi ma sono composti che caricano le spalle.
+        if (!bigLastAllowed && pos === n - 1 && n >= 5 && item.e.role === 'compound') continue
         const limit = item.carenza ? limitCarenza : limitNonCarenza
         if (runLength(item) > limit) continue
         const add = positionCost(item, pos) + (pos > 0 ? sinergiaPenalty(seq[pos - 1], item) : 0)

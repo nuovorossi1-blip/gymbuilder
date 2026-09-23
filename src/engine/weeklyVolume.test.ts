@@ -21,7 +21,7 @@ describe('volume settimanale', () => {
         { id: 'a', mode: 'bodybuilding' }, { id: 'b', mode: 'bodybuilding' }, { id: 'c', mode: 'tabata' },
       ],
     } as unknown as WeeklyProgram
-    const vol = stimaVolumeSettimanale(program, () => workout([['lateral_delts', 3], ['chest', 4]]), 'deficit')!
+    const vol = stimaVolumeSettimanale(program, () => workout([['lateral_delts', 3], ['chest', 4]]), -500)!
     const lat = vol.rows.find((row) => row.muscle === 'lateral_delts')!
     expect(lat).toMatchObject({ total: 6, frequency: 2, carenza: true, target: [12, 16], status: 'basso' })
     expect(vol.rows.find((row) => row.muscle === 'chest')).toMatchObject({ total: 8, status: 'ok' })

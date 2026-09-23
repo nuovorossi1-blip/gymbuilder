@@ -7,7 +7,7 @@
  * cambia solo quale variante di esercizio esce. Le giornate metcon (CrossFit, Tabata) non hanno
  * serie per distretto confrontabili e restano fuori dal conteggio: la tabella lo dichiara.
  */
-import type { GeneratedWorkout, Muscle, NutritionPhase, WeeklyProgram, WeeklySession } from '../types'
+import type { GeneratedWorkout, Muscle, WeeklyProgram, WeeklySession } from '../types'
 
 export interface VolumeRow {
   muscle: Muscle
@@ -23,13 +23,19 @@ export interface WeeklyVolume {
   days: WeeklySession[]
   rows: VolumeRow[]
   skippedDays: number
-  phase: NutritionPhase | null
+  /** Gradino calorico del volume (-500..+1000), null se la fase non è nota. */
+  step: number | null
 }
 
-const TARGET: Record<NutritionPhase, { carenza: [number, number]; mantenimento: [number, number] }> = {
-  deficit: { carenza: [12, 16], mantenimento: [6, 8] },
-  maintenance: { carenza: [16, 20], mantenimento: [8, 10] },
-  surplus: { carenza: [18, 24], mantenimento: [10, 14] },
+/** Range indicativi per gradino calorico (tabella di Rossi): carenze e mantenimento. */
+const TARGET: Record<number, { carenza: [number, number]; mantenimento: [number, number] }> = {
+  [-500]: { carenza: [12, 16], mantenimento: [6, 8] },
+  [-250]: { carenza: [12, 16], mantenimento: [6, 8] },
+  0: { carenza: [16, 20], mantenimento: [8, 10] },
+  250: { carenza: [16, 20], mantenimento: [8, 10] },
+  500: { carenza: [18, 24], mantenimento: [10, 14] },
+  750: { carenza: [20, 26], mantenimento: [12, 16] },
+  1000: { carenza: [22, 28], mantenimento: [12, 16] },
 }
 
 const NOTE_NON_ALLENANTI = new Set(['avvicinamento'])
@@ -49,7 +55,7 @@ export function contaSerie(workout: GeneratedWorkout): Partial<Record<Muscle, nu
 export function stimaVolumeSettimanale(
   program: WeeklyProgram,
   generate: (session: WeeklySession) => GeneratedWorkout | null,
-  phase: NutritionPhase | null,
+  step: number | null,
 ): WeeklyVolume | null {
   const counted = program.week.filter((session) => session.mode === 'bodybuilding' || session.mode === 'strength')
   if (counted.length === 0) return null
@@ -64,7 +70,7 @@ export function stimaVolumeSettimanale(
   const muscles = new Set<Muscle>()
   perSession.forEach((row) => (Object.keys(row) as Muscle[]).forEach((m) => muscles.add(m)))
   const carenze = new Set(program.config.weak_points)
-  const targets = TARGET[phase ?? 'maintenance']
+  const targets = TARGET[step ?? 0] ?? TARGET[0]
   const rows: VolumeRow[] = [...muscles].map((muscle) => {
     const perDay = perSession.map((row) => row[muscle] ?? 0)
     const total = perDay.reduce((a, b) => a + b, 0)
@@ -77,5 +83,5 @@ export function stimaVolumeSettimanale(
     }
   })
   rows.sort((a, b) => Number(b.carenza) - Number(a.carenza) || b.total - a.total)
-  return { days: counted, rows, skippedDays: program.week.length - counted.length, phase }
+  return { days: counted, rows, skippedDays: program.week.length - counted.length, step }
 }

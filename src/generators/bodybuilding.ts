@@ -34,7 +34,7 @@ import { isExerciseAvailable } from './equipment'
 import { isFst7FinisherEligible } from '../engine/replacement'
 import { PESO_DEFAULT_KG, stimaCalorieEsercizio } from './calories'
 import { minutiBlocco, minutiEsercizio, PORZIONE_ROTABILE, portaCompoundInApertura, rimuoviDuplicati, riordinaPerSinergie, rng, scegliRiscaldamento } from './shared'
-import { applicaFase, ordinaSessione } from '../engine/programming'
+import { applicaFase, ordinaSessione, stepDaFase } from '../engine/programming'
 import type { NutritionPhase } from '../types'
 
 export interface GenerationConfig {
@@ -67,6 +67,9 @@ export interface GenerationConfig {
   /** Fase nutrizionale usata per volume/RIR/tecniche/interleave (engine/nutrition.ts, già
    *  abbassata di un livello se sonno o stress limitano il recupero). Assente = come prima. */
   nutrition_phase?: NutritionPhase | null
+  /** Gradino calorico del volume (-500..+1000): se presente vince su nutrition_phase per serie,
+   *  RIR e tecniche (tabella master di Rossi); nutrition_phase resta per l'interleave. */
+  nutrition_step?: number | null
 }
 
 interface SlotDef {
@@ -753,8 +756,9 @@ export function generaBodybuilding(
   // Solo protocollo Standard: FST-7 e CBum hanno un ordine e una prescrizione di protocollo.
   const protocolloStandard = !cfg.protocol || cfg.protocol === 'standard'
   let programmingNote: string | undefined
-  if (protocolloStandard && cfg.nutrition_phase) {
-    programmingNote = applicaFase(scelti, { phase: cfg.nutrition_phase, carenze: priorities, split: cfg.split })
+  if (protocolloStandard && (cfg.nutrition_phase || cfg.nutrition_step != null)) {
+    const step = cfg.nutrition_step ?? stepDaFase(cfg.nutrition_phase!)
+    programmingNote = applicaFase(scelti, { step, carenze: priorities, split: cfg.split })
   }
   const ordineProgrammato = protocolloStandard && (!!cfg.nutrition_phase || priorities.length > 0)
   if (ordineProgrammato) {

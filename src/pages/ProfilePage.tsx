@@ -25,7 +25,7 @@ const DEEPSEEK_MODEL_LABELS: Record<DeepSeekModel, string> = {
 
 export default function ProfilePage() {
   const { user, signOut } = useAuth()
-  const { profile, loading, error, saveProfile } = useSettings(user?.id)
+  const { profile, calorieLog, loading, error, saveProfile } = useSettings(user?.id)
   const [form, setForm] = useState({
     display_name: '',
     weight_kg: '',
@@ -38,6 +38,7 @@ export default function ProfilePage() {
     sleep_hours: '',
     stress_level: '' as StressLevel | '',
     joint_issues: [] as JointIssue[],
+    maintenance_kcal: '',
   })
   const [aiForm, setAiForm] = useState(() => loadLocalAiSettings())
   const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
@@ -70,6 +71,7 @@ export default function ProfilePage() {
       sleep_hours: profile.sleep_hours?.toString() ?? '',
       stress_level: profile.stress_level ?? '',
       joint_issues: profile.joint_issues ?? [],
+      maintenance_kcal: profile.maintenance_kcal?.toString() ?? '',
     })
   }, [profile])
 
@@ -87,9 +89,12 @@ export default function ProfilePage() {
     sleep_hours: numero(form.sleep_hours),
     stress_level: form.stress_level || null,
     joint_issues: form.joint_issues,
+    // Peso stabile = quelle calorie SONO la tua normocalorica: la si fissa, così resta valida
+    // anche quando poi sali o scendi di calorie (la scala si misura da lì).
+    maintenance_kcal: form.weight_trend === 'stable' && numero(form.daily_kcal) ? numero(form.daily_kcal) : numero(form.maintenance_kcal),
   }
   // Anteprima dal vivo: la fase si aggiorna mentre si compilano i campi, prima di salvare.
-  const fase = determinaFase(bozzaProfilo)
+  const fase = determinaFase(bozzaProfilo, calorieLog)
 
   async function save() {
     setStatus('saving')
@@ -142,7 +147,24 @@ export default function ProfilePage() {
           vale più della stima.
         </p>
         <div className="mt-4 space-y-4">
-          <Input label="Calorie al giorno (kcal)" value={form.daily_kcal} type="number" onChange={(daily_kcal) => setForm((old) => ({ ...old, daily_kcal }))} />
+          <Input
+            label="Calorie al giorno (kcal)"
+            value={form.daily_kcal}
+            type="number"
+            onChange={(daily_kcal) => setForm((old) => (
+              // Se il peso era stabile, le calorie di prima erano la normocalorica: la si conserva e
+              // l'andamento torna "non lo so" finché non vedi come risponde il peso alle nuove.
+              old.weight_trend === 'stable' && old.daily_kcal && daily_kcal !== old.daily_kcal
+                ? { ...old, daily_kcal, maintenance_kcal: old.daily_kcal, weight_trend: '' }
+                : { ...old, daily_kcal }
+            ))}
+          />
+          <Input
+            label="Normocalorica, se la conosci (kcal)"
+            value={form.maintenance_kcal}
+            type="number"
+            onChange={(maintenance_kcal) => setForm((old) => ({ ...old, maintenance_kcal }))}
+          />
           <Select
             label="Che lavoro fai"
             value={form.job_activity}
@@ -191,6 +213,24 @@ export default function ProfilePage() {
             ? fase.summary
             : 'Fase non ancora ricavabile: servono peso, altezza, età, lavoro e calorie, oppure l’andamento del peso.'}
         </p>
+        {calorieLog.length > 0 && (
+          <div className="mt-4">
+            <p className="field-label">Ultimi cambi di calorie</p>
+            <ul className="space-y-1 font-data text-[12px] text-slate2">
+              {calorieLog.slice(-5).reverse().map((entry) => (
+                <li key={entry.created_at} className="flex justify-between border-b border-edge/60 pb-1">
+                  <span>{new Date(entry.created_at).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })}</span>
+                  <span className="text-chalk">{entry.kcal} kcal</span>
+                  <span>gradino {entry.step > 0 ? '+' : ''}{entry.step}</span>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-2 text-xs leading-relaxed text-slate2">
+              Le calorie guidano, il volume segue: dopo un cambio la scheda resta com'è per 7 giorni, poi si
+              sposta di un gradino a settimana, sia in salita sia in discesa.
+            </p>
+          </div>
+        )}
       </section>
 
       <section className="mt-8 rounded-2xl border border-cyan-500/25 bg-cyan-500/5 p-4">

@@ -4,8 +4,48 @@
 > da qui. Va **aggiornato** a ogni sessione, non accodato all'infinito.
 > L'identità del progetto e il percorso di AI-OS stanno in `AIOS_PROJECT.json`.
 
-**Ultimo aggiornamento:** 2026-09-23 (programmazione di Rossi: fase nutrizionale, interleave, richiamo antagonista, analisi scheda, chiave DeepSeek sul server) - Claude (Opus 5.5)
+**Ultimo aggiornamento:** 2026-09-23 sera (piano "programmazione a scala", blocchi 1+2: gradini calorici, storico calorie, il volume segue) - Claude (Opus 5.5)
 
+### 2026-09-23 (2) — Piano "programmazione a scala": blocchi 1 e 2
+
+Piano concordato con Rossi in 5 blocchi (ordine 1+2 -> 5 -> 4 -> 3):
+1 livelli di volume + dip; 2 storico calorie e "il volume segue"; 5 scheda analizzata ->
+scheda salvata; 4 specializzazione (2 slot per carenze piccole, sedute A/B, 7 esercizi,
+richiamo carenza in slot 1 del giorno gambe); 3 diario peso/girovita e stallo -> proposta di
+mini cut / mini surplus a scala (l'app suggerisce, Rossi conferma). Scelte confermate: volume
+segue dopo 7 giorni, un gradino a settimana, seduta A 7 esercizi / B 6, nella scheda finale
+ogni slot preselezionato sul vincitore del confronto.
+
+1. **Problemi rilevati**
+   - Solo 3 livelli (deficit/normo/surplus): 3000 e 3500 kcal trattate uguali.
+   - Il dip (registrato come tricipiti) poteva finire all'ultimo slot: il vincolo "mai in
+     fondo" valeva solo per petto/dorso/gambe.
+   - Cambiando le calorie la scheda saltava subito al nuovo livello. Regola di Rossi (Principio
+     11): sempre a scala, in salita e in discesa; le calorie guidano, il volume segue.
+2. **Cosa è stato fatto (verificato)**
+   - DB (applicato): `profiles.maintenance_kcal`; tabella `calorie_log` (kcal, maintenance_kcal,
+     step, created_at) con RLS sulle proprie righe. Migration nel repo.
+   - `nutrition.ts`: gradini di 250 kcal dalla normocalorica (-500..+1000); normocalorica
+     dichiarata (peso stabile a quelle kcal, salvata in `maintenance_kcal`) > formula; il trend
+     del peso vince se contraddice la formula. `rampaVolume`: simulazione giorno per giorno,
+     il volume insegue il gradino tenuto da >=7 giorni, un gradino ogni 7 giorni, su e giù.
+     `PhaseInfo` ha `calorie_step`, `training_step` (volume effettivo, -1 gradino se sonno/stress),
+     `ramp` e un riassunto in italiano ("il volume è ancora al livello 2500 kcal e sale...").
+   - `programming.ts`: `applicaFase` usa la tabella master per gradino (serie carenze/
+     mantenimento, RIR, richiami, numero di drop set/rest-pause/myo-reps); il volume extra va
+     prima alle carenze. Nessun multiarticolare all'ultimo slot (dip compreso); composti
+     "piccoli" in fascia media. Da +750 la nota suggerisce 6° giorno e gambe 2x.
+   - Profilo: campo normocalorica, storico degli ultimi cambi; cambiando le kcal con peso
+     "stabile" le kcal di prima diventano la normocalorica e l'andamento torna "non lo so".
+     `useSettings.saveProfile` scrive in `calorie_log` a ogni cambio di calorie.
+   - Create/weeklyVolume/DeepSeek/Analizza usano il gradino (target volume per gradino,
+     Principio 11 nei prompt).
+   - Test: 351 verdi (+9 nuovi su scala, gradini, tecniche, dip), tsc ed eslint puliti, build ok.
+3. **Cosa resta da fare** — blocchi 5, 4, 3 del piano; mesociclo/deload fuori piano.
+4. **Legame con l'obiettivo** — la scheda segue la nutrizione reale dell'utente come una scala.
+5. **Cosa deve aspettarsi Rossi** — Profilo: salvando le calorie compare lo storico e la frase
+   sulla rampa. Genera: RIR/serie/tecniche del gradino effettivo (non di quello delle calorie
+   finché non sono passati 7 giorni). Il primo salvataggio non ha rampa (nessuno storico).
 ### 2026-09-23 — Prompt di programmazione di Rossi integrato (livelli A + B)
 
 1. **Problemi rilevati**

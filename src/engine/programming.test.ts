@@ -45,9 +45,9 @@ describe('gerarchia di posizione', () => {
 })
 
 describe('calibrazione per fase (Principio 5)', () => {
-  it('deficit: RIR 2 sui composti, nessuna tecnica, mantenimento ridotto', () => {
+  it('deficit: RIR 1-2 sui composti (tabella di Rossi), nessuna tecnica, mantenimento ridotto', () => {
     const legs = genera('legs', 'deficit')
-    expect(legs.filter((exercise) => exercise.role === 'compound').every((exercise) => exercise.rir === '2')).toBe(true)
+    expect(legs.filter((exercise) => exercise.role === 'compound').every((exercise) => exercise.rir === '1-2')).toBe(true)
     expect(legs.some((exercise) => exercise.technique)).toBe(false)
     expect(legs.filter((exercise) => exercise.role === 'isolation').every((exercise) => exercise.sets <= 2)).toBe(true)
   })
@@ -76,5 +76,47 @@ describe('calibrazione per fase (Principio 5)', () => {
   it('senza fase nota non cambia nulla rispetto a prima (nessun RIR, nessuna nota)', () => {
     const push = genera('push', null)
     expect(push.some((exercise) => exercise.rir)).toBe(false)
+  })
+})
+
+describe('tabella master per gradino e dip (23/09)', () => {
+  const gen = (split: Split, step: number, carenze: Muscle[] = [], seed = 5) =>
+    generaBodybuilding(cat, {
+      split, goal: 'hypertrophy', experience: 'advanced', equipment: 'full_gym', duration_min: 90,
+      priority_muscles: carenze, excluded_exercises: [], seed, nutrition_step: step,
+    }).blocks.find((block) => block.kind === 'main')!.exercises
+
+  it('nessun multiarticolare all ultimo slot, dip compreso, in tutte le fasi', () => {
+    for (const step of [-500, 0, 500, 1000]) {
+      for (const seed of [1, 5, 9]) {
+        for (const split of ['push', 'pull', 'legs', 'upper'] as Split[]) {
+          const main = gen(split, step, ['lateral_delts', 'triceps'], seed)
+          expect(main[main.length - 1].role).not.toBe('compound')
+        }
+      }
+    }
+  })
+
+  it('il volume extra va prima alle carenze: a +250 sale la carenza, non il mantenimento', () => {
+    const a = gen('pull', 0, ['biceps'])
+    const b = gen('pull', 250, ['biceps'])
+    const serie = (m: typeof a, muscle: Muscle) => m.filter((e) => e.muscle === muscle).reduce((t, e) => t + e.sets, 0)
+    expect(serie(b, 'back')).toBe(serie(a, 'back'))
+    expect(gen('pull', -500, ['biceps']).find((e) => e.muscle === 'biceps')!.sets).toBe(3)
+    expect(gen('pull', 1000, ['biceps']).find((e) => e.muscle === 'biceps')!.sets).toBe(5)
+  })
+
+  it('tecniche crescono coi gradini e restano sugli isolamenti carenti', () => {
+    const tecniche = (step: number) => gen('push', step, ['lateral_delts', 'triceps']).filter((e) => e.technique).length
+    expect(tecniche(-500)).toBe(0)
+    expect(tecniche(-250)).toBe(0)
+    expect(tecniche(0)).toBe(1)
+    expect(tecniche(1000)).toBeGreaterThanOrEqual(2)
+    expect(gen('push', 1000, ['lateral_delts']).filter((e) => e.role === 'compound').some((e) => e.technique)).toBe(false)
+  })
+
+  it('richiamo antagonista: 2 serie in deficit, 4 al gradino massimo', () => {
+    expect(gen('push', -500).find((e) => e.note === NOTA_ANTAGONISTA)?.sets).toBe(2)
+    expect(gen('push', 1000).find((e) => e.note === NOTA_ANTAGONISTA)?.sets).toBe(4)
   })
 })

@@ -51,10 +51,10 @@ const DEFAULT_CONFIG: WeeklyProgramConfig = {
 export default function Create() {
   const [searchParams, setSearchParams] = useSearchParams()
   const { user } = useAuth()
-  const { profile } = useSettings(user?.id)
+  const { profile, calorieLog } = useSettings(user?.id)
   // Fase nutrizionale e recupero (23/09): calibra volume/RIR/tecniche/interleave del motore
   // Bodybuilding e viaggia nel brief a DeepSeek. Null = dati non inseriti, motore come prima.
-  const phaseInfo = determinaFase(profile)
+  const phaseInfo = determinaFase(profile, calorieLog)
   const jointIssues = profile?.joint_issues ?? []
   const { weeklyProgram, setWeeklyProgram, setWorkout, setGenerationConfig, setCatalog, clearRejectedExercises } = useWorkout()
   const navigate = useNavigate()
@@ -175,6 +175,7 @@ export default function Create() {
       tabata: session.mode === 'tabata' ? global.tabata : undefined,
       protocol: session.mode === 'bodybuilding' ? global.protocol : undefined,
       nutrition_phase: phaseInfo?.training_phase ?? null,
+      nutrition_step: phaseInfo?.training_step ?? null,
     }
   }
 
@@ -290,7 +291,7 @@ export default function Create() {
           ? generaForza(dayCatalog, { ...common, priority_muscles: todayPriorities, priority_portions: todayPortions, target_muscles: todayTargets, split, method: global.strength_method, weekly_volume: weeklyState?.volume, last_trained_at: weeklyState?.last_trained_at })
           : session.mode === 'tabata'
             ? generaTabata(dayCatalog, { ...common, ...global.tabata })
-            : generaBodybuilding(dayCatalog, { ...common, priority_muscles: todayPriorities, priority_portions: todayPortions, target_muscles: todayTargets, split, goal: 'hypertrophy', weekly_volume: weeklyState?.volume, last_trained_at: weeklyState?.last_trained_at, protocol: global.protocol, fst7_preloading: global.fst7_preloading, nutrition_phase: phaseInfo?.training_phase ?? null })
+            : generaBodybuilding(dayCatalog, { ...common, priority_muscles: todayPriorities, priority_portions: todayPortions, target_muscles: todayTargets, split, goal: 'hypertrophy', weekly_volume: weeklyState?.volume, last_trained_at: weeklyState?.last_trained_at, protocol: global.protocol, fst7_preloading: global.fst7_preloading, nutrition_phase: phaseInfo?.training_phase ?? null, nutrition_step: phaseInfo?.training_step ?? null })
     return workout
   }
 
@@ -378,6 +379,9 @@ export default function Create() {
           sintesi_fase: phaseInfo?.summary ?? null,
           recupero_limitato: phaseInfo?.recovery_limited ?? false,
           fastidi_articolari: jointIssues,
+          gradino_calorie: phaseInfo?.calorie_step ?? null,
+          gradino_volume: phaseInfo?.training_step ?? null,
+          normocalorica: phaseInfo?.maintenance_kcal ?? null,
         },
       })
       const aiSessions = new Map(aiResult.sessions.map((item) => [item.session_id, item.workout]))
@@ -418,7 +422,7 @@ export default function Create() {
           estimateVolume={() => catalog.length === 0 ? null : stimaVolumeSettimanale(
             weeklyProgram,
             (session) => engineWorkoutFor(session, weeklyProgram, 1),
-            phaseInfo?.training_phase ?? null,
+            phaseInfo?.training_step ?? null,
           )}
           onReset={() => {
             setBuilderInitial({
@@ -1375,7 +1379,7 @@ function VolumeTable({ volume }: { volume: WeeklyVolume }) {
     <section className="rounded-2xl glass-card border border-edge p-4">
       <h2 className="font-display text-sm font-bold uppercase text-white">Volume settimanale stimato</h2>
       <p className="mt-1 text-xs leading-relaxed text-slate-400">
-        Serie per distretto contro il range della fase {volume.phase === 'deficit' ? 'deficit' : volume.phase === 'surplus' ? 'surplus' : volume.phase === 'maintenance' ? 'normocalorica' : 'normocalorica (fase non indicata nel Profilo)'}.
+        Serie per distretto contro il range del gradino {volume.step === null ? 'normocalorico (fase non indicata nel Profilo)' : `${volume.step > 0 ? '+' : ''}${volume.step} kcal`}. Range indicativi.
         Le carenze hanno un range più alto del mantenimento.
         {volume.skippedDays > 0 && ` ${volume.skippedDays} giornate metcon non contate.`}
       </p>

@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import type { Profile, UserSettings } from '../../types'
+import { gradinoCalorie, normocaloricaEffettiva, type CalorieLogEntry } from '../../engine/nutrition'
 
 interface State {
   profile: Profile | null
+  /** Storico delle calorie (23/09, la scala): da qui il volume segue le calorie con ritardo. */
+  calorieLog: CalorieLogEntry[]
   settings: UserSettings | null
   loading: boolean
   error: string | null
@@ -12,6 +15,7 @@ interface State {
 export function useSettings(userId: string | undefined) {
   const [state, setState] = useState<State>({
     profile: null,
+    calorieLog: [],
     settings: null,
     loading: true,
     error: null,
@@ -22,8 +26,9 @@ export function useSettings(userId: string | undefined) {
     setState((s) => ({ ...s, loading: true, error: null }))
 
     const results = await Promise.all([
-      supabase.from('profiles').select('id:user_id, display_name, weight_kg, height_cm, age, sex, daily_kcal, job_activity, weight_trend, sleep_hours, stress_level, joint_issues').eq('user_id', userId).maybeSingle(),
+      supabase.from('profiles').select('id:user_id, display_name, weight_kg, height_cm, age, sex, daily_kcal, job_activity, weight_trend, sleep_hours, stress_level, joint_issues, maintenance_kcal').eq('user_id', userId).maybeSingle(),
       supabase.from('user_settings').select('*').eq('user_id', userId).maybeSingle(),
+      supabase.from('calorie_log').select('kcal, maintenance_kcal, step, created_at').eq('user_id', userId).order('created_at', { ascending: false }).limit(60),
     ])
     const p = results[0]
     const settingsResult = results[1]
@@ -31,6 +36,7 @@ export function useSettings(userId: string | undefined) {
     if (p.error || settingsResult.error) {
       setState({
         profile: null,
+        calorieLog: [],
         settings: null,
         loading: false,
         error: 'Non riusciamo a leggere il tuo profilo. Controlla la connessione e riprova.',
@@ -40,6 +46,8 @@ export function useSettings(userId: string | undefined) {
 
     setState({
       profile: p.data as Profile | null,
+      // Lo storico è un di più: se la tabella non risponde il resto dell'app funziona uguale.
+      calorieLog: ((results[2].data ?? []) as CalorieLogEntry[]).slice().reverse(),
       settings: settingsResult.data as UserSettings | null,
       loading: false,
       error: null,
@@ -87,9 +95,22 @@ export function useSettings(userId: string | undefined) {
       .from('profiles')
       .upsert({ id: userId, user_id: userId, ...profilePatch }, { onConflict: 'user_id' })
     if (error) return false
-    setState((current) => current.profile ? { ...current, profile: { ...current.profile, ...patch } } : current)
+    // Scala (23/09): ogni cambio di calorie finisce nello storico con il gradino di quel momento,
+    // così il motore sa da quanti giorni sei alle nuove calorie e fa seguire il volume.
+    let nuovaVoce: CalorieLogEntry | null = null
+    const prima = state.profile
+    const dopo = { ...(prima ?? { id: userId, display_name: null }), ...patch } as Profile
+    const step = gradinoCalorie(dopo)
+    if (dopo.daily_kcal && step !== null && dopo.daily_kcal !== prima?.daily_kcal) {
+      const voce = { user_id: userId, kcal: dopo.daily_kcal, maintenance_kcal: normocaloricaEffettiva(dopo).kcal, step }
+      const inserted = await supabase.from('calorie_log').insert(voce).select('kcal, maintenance_kcal, step, created_at').maybeSingle()
+      if (!inserted.error && inserted.data) nuovaVoce = inserted.data as CalorieLogEntry
+    }
+    setState((current) => current.profile
+      ? { ...current, profile: { ...current.profile, ...patch }, calorieLog: nuovaVoce ? [...current.calorieLog, nuovaVoce] : current.calorieLog }
+      : current)
     return true
-  }, [userId])
+  }, [userId, state.profile])
 
   return { ...state, reload: load, saveSettings, saveName, saveProfile }
 }

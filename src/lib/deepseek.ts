@@ -21,6 +21,10 @@ interface DeepSeekWorkoutGenerationInput {
     sintesi_fase: string | null
     recupero_limitato: boolean
     fastidi_articolari: string[]
+    /** Scala (23/09): gradino delle calorie e gradino su cui è già il volume (-500..+1000). */
+    gradino_calorie?: number | null
+    gradino_volume?: number | null
+    normocalorica?: number | null
   }
 }
 
@@ -83,6 +87,7 @@ Programmazione Bodybuilding (regole di Rossi, valgono anche per il blocco Streng
 - Gerarchia di posizione: senza carenze i muscoli grandi (petto, dorso, quadricipiti, femorali, glutei) vanno per primi con manubri/bilanciere, i piccoli dopo. Se le carenze sono muscoli piccoli, la carenza piccola apre la sessione e i muscoli grandi stanno subito dopo in una fascia di fatica accettabile (slot 2-4 su 6, 2-5 su 7-8), MAI in fondo. Se è carente un muscolo grande: piccolo carente slot 1, grande carente slot 2-3. Manubri e bilanciere prima delle macchine: le macchine tollerano la fatica e vanno negli slot bassi.
 - Interleave secondo la fase ricevuta in programmazione.fase_per_volume: deficit = mai due esercizi dello stesso muscolo in fila; normocalorica = al massimo 2 in fila; surplus = fino a 3 in fila sui muscoli grandi. Sul muscolo carente l'interleave vale SEMPRE, anche in surplus.
 - Calibrazione per fase (stesso programma, cambiano solo volume, RIR e tecniche). Deficit: carenze 12-16 serie/settimana, mantenimento 6-8, composti RIR 2, zero tecniche di intensità. Normocalorica: carenze 16-20, mantenimento 8-10, composti RIR 1, un drop set solo sull'ultima serie delle carenze. Surplus: carenze 18-24, mantenimento 10-14, RIR 0-1, drop set/rest-pause/myo-reps sulle carenze. Se recupero_limitato è true il volume è già abbassato di una fase: rispettalo.
+- Scala calorica (Principio 11): i gradini sono di 250 kcal rispetto alla normocalorica, da -500 (deficit) a +1000 (surplus aggressivo). programmazione.gradino_volume è il gradino su cui calibrare serie, RIR e tecniche: segue le calorie con 7 giorni di ritardo e un gradino a settimana, in salita E in discesa (le calorie guidano, il volume segue). Se gradino_volume è diverso da gradino_calorie NON anticipare il volume. Il volume extra va prima alle carenze: i muscoli in mantenimento salgono solo dai gradini alti. Tabella indicativa per gradino -500/-250/0/+250/+500/+750/+1000: RIR multiarticolari 1-2/1-2/1/1/0-1/0-1/0-1; RIR isolamenti 0-1/0-1/0-1/0/0/0/0; serie richiamo 2/2/3/3/3/4/4; tecniche nessuna/nessuna/1 drop set/1-2 drop set/drop set + 1 rest-pause/drop set + rest-pause + myo-reps/tutte. Nessun multiarticolare, dip compreso, all'ultimo slot.
 - Richiamo antagonista: in Push 2 serie (deficit) o 3 serie (normo/surplus) di bicipiti a metà sessione (slot 4-5); in Pull le stesse di tricipiti a fine sessione. Solo isolamenti, RIR 1 fisso, mai a cedimento, mai tecniche. Scrivi note "antagonista" su quell'esercizio. Se quel muscolo è carente non è un richiamo, è un esercizio pieno.
 - Varianti: cambia variante per un muscolo carente fra le sedute della settimana solo se c'è un motivo biomeccanico (angolo, profilo di resistenza, allungamento vs accorciamento, unilaterale).
 - Fastidi articolari in programmazione.fastidi_articolari: evita i movimenti che caricano quell'articolazione e preferisci macchine o cavi a traiettoria guidata.
@@ -521,9 +526,9 @@ La programmazione non è scegliere gli esercizi: è DOVE metti ogni esercizio, C
 L'utente ti manda la SUA scheda. NON generare subito la tua versione: prima analizza la sua.
 1. Scrivi la sequenza dei muscoli: A → B → C...
 2. Interleave: ci sono esercizi dello stesso muscolo consecutivi? Regola per fase: deficit mai; normocalorica al massimo 2 in fila; surplus fino a 3 sui muscoli grandi. Sul muscolo carente l'interleave vale sempre. Fase sconosciuta: valuta come normocalorica e dillo.
-3. Priorità: le carenze sono nei primi slot? Se le carenze sono muscoli piccoli la carenza piccola apre e i muscoli grandi seguono subito in fascia accettabile (slot 2-4 su 6), mai in fondo. Senza carenze i grandi vanno per primi.
+3. Priorità: le carenze sono nei primi slot? Nessun multiarticolare, dip compreso, all'ultimo slot. Se le carenze sono muscoli piccoli la carenza piccola apre e i muscoli grandi seguono subito in fascia accettabile (slot 2-4 su 6), mai in fondo. Senza carenze i grandi vanno per primi.
 4. Dimensione: manubri e bilanciere sui muscoli grandi nei primi slot, macchine negli slot bassi (tollerano la fatica).
-5. Volume: serie per distretto coerenti con la fase (deficit carenze 12-16/sett e mantenimento 6-8; normo 16-20 e 8-10; surplus 18-24 e 10-14), richiamo antagonista max 2 serie in deficit / 3 in normo-surplus a RIR 1.
+5. Volume: valutalo sul gradino di programmazione.gradino_volume (scala di 250 kcal dalla normocalorica: il volume segue le calorie con 7 giorni di ritardo, un gradino a settimana, in salita e in discesa). Serie per distretto coerenti con la fase (deficit carenze 12-16/sett e mantenimento 6-8; normo 16-20 e 8-10; surplus 18-24 e 10-14), richiamo antagonista max 2 serie in deficit / 3 in normo-surplus a RIR 1.
 Poi confronta slot per slot la scheda dell'utente con la tua proposta e di' chi vince e perché. Se la scheda ha pregi e difetti proponi una versione IBRIDA che prende il meglio di entrambe. Mai dire "è sbagliata" senza spiegare perché e senza offrire l'alternativa. Rispetta i fastidi articolari ricevuti.
 Serie, ripetizioni e RIR sempre numeri precisi. Scrivi in italiano semplice.
 Rispondi SOLO con un JSON object con questa forma:

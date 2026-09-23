@@ -27,6 +27,8 @@ describe('regole di programmazione di Rossi nei prompt (23/09)', () => {
     expect(PROFESSIONAL_WORKOUT_SYSTEM_PROMPT).toContain('Sul muscolo carente l\'interleave vale SEMPRE')
     expect(PROFESSIONAL_WORKOUT_SYSTEM_PROMPT).toContain('Richiamo antagonista')
     expect(PROFESSIONAL_WORKOUT_SYSTEM_PROMPT).toContain('MAI in fondo')
+    expect(PROFESSIONAL_WORKOUT_SYSTEM_PROMPT).toContain('le calorie guidano, il volume segue')
+    expect(PROFESSIONAL_WORKOUT_SYSTEM_PROMPT).toContain('dip compreso')
   })
   it('il prompt di analisi chiede di analizzare prima la scheda dell utente e poi l ibrido', () => {
     expect(ANALISI_SCHEDA_SYSTEM_PROMPT).toContain('NON generare subito la tua versione')

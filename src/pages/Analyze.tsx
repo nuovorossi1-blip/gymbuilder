@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { determinaFase, PHASE_LABELS } from '../engine/nutrition'
+import { determinaFase } from '../engine/nutrition'
 import { useAuth } from '../features/auth/AuthProvider'
 import { loadLocalAiSettings } from '../features/profile/aiSettings'
 import { useSettings } from '../features/profile/useSettings'
@@ -25,14 +25,14 @@ const CHECK_LABELS: Record<keyof SchedaAnalysis['controlli'], string> = {
 export default function Analyze() {
   const navigate = useNavigate()
   const { user } = useAuth()
-  const { profile, settings } = useSettings(user?.id)
+  const { profile, settings, calorieLog } = useSettings(user?.id)
   const [scheda, setScheda] = useState('')
   const [seduta, setSeduta] = useState('Push')
   const [carenze, setCarenze] = useState<Muscle[]>([])
   const [stato, setStato] = useState<'idle' | 'loading' | 'error'>('idle')
   const [errore, setErrore] = useState('')
   const [analisi, setAnalisi] = useState<SchedaAnalysis | null>(null)
-  const fase = determinaFase(profile)
+  const fase = determinaFase(profile, calorieLog)
 
   useEffect(() => {
     if (settings?.priority_muscles?.length) setCarenze(settings.priority_muscles)
@@ -56,6 +56,9 @@ export default function Analyze() {
           sintesi_fase: fase?.summary ?? null,
           recupero_limitato: fase?.recovery_limited ?? false,
           fastidi_articolari: profile?.joint_issues ?? [],
+          gradino_calorie: fase?.calorie_step ?? null,
+          gradino_volume: fase?.training_step ?? null,
+          normocalorica: fase?.maintenance_kcal ?? null,
         },
       })
       setAnalisi(result)
@@ -77,7 +80,7 @@ export default function Analyze() {
 
       <p className="mt-5 rounded-xl border border-edge bg-steel/50 p-3.5 text-sm leading-relaxed text-chalk">
         {fase
-          ? `Fase: ${PHASE_LABELS[fase.phase]}. ${fase.summary}`
+          ? fase.summary
           : 'Fase sconosciuta: compila "Alimentazione e recupero" nel Profilo per un giudizio sul volume più preciso.'}
       </p>
 

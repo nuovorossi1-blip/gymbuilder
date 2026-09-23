@@ -245,6 +245,8 @@ export interface WorkoutGenerationConfig {
   protocol?: BodybuildingProtocol
   /** Fase usata per volume/RIR/interleave (engine/nutrition.ts): null se non ricavabile. */
   nutrition_phase?: NutritionPhase | null
+  /** Gradino calorico usato per il volume (-500..+1000, engine/nutrition.ts). */
+  nutrition_step?: number | null
 }
 
 /** Preferenze globali condivise da tutte le sessioni della settimana. */
@@ -367,6 +369,8 @@ export interface Profile {
   sleep_hours?: number | null
   stress_level?: StressLevel | null
   joint_issues?: JointIssue[] | null
+  /** Normocalorica dichiarata (calorie a cui il peso resta stabile): vince sulla formula. */
+  maintenance_kcal?: number | null
 }
 
 export interface UserSettings {
