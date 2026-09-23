@@ -34,6 +34,8 @@ import { isExerciseAvailable } from './equipment'
 import { isFst7FinisherEligible } from '../engine/replacement'
 import { PESO_DEFAULT_KG, stimaCalorieEsercizio } from './calories'
 import { minutiBlocco, minutiEsercizio, PORZIONE_ROTABILE, portaCompoundInApertura, rimuoviDuplicati, riordinaPerSinergie, rng, scegliRiscaldamento } from './shared'
+import { applicaFase, ordinaSessione } from '../engine/programming'
+import type { NutritionPhase } from '../types'
 
 export interface GenerationConfig {
   split: Split
@@ -62,6 +64,9 @@ export interface GenerationConfig {
   protocol?: BodybuildingProtocol
   /** Solo per protocol 'fst7': il blocco da 7 serie apre la sessione invece di chiuderla. */
   fst7_preloading?: boolean
+  /** Fase nutrizionale usata per volume/RIR/tecniche/interleave (engine/nutrition.ts, già
+   *  abbassata di un livello se sonno o stress limitano il recupero). Assente = come prima. */
+  nutrition_phase?: NutritionPhase | null
 }
 
 interface SlotDef {
@@ -740,7 +745,21 @@ export function generaBodybuilding(
 
   // 7b. Sequenziamento per fatica/sinergie (sez. Lagging Muscle Engine, Step 5): rifinisce
   // l'ordine appena costruito, non lo ricostruisce — vedi shared.ts.
-  riordinaPerSinergie(scelti, new Map(allenamento.map((exercise) => [exercise.id, exercise])))
+  const catalogById = new Map(allenamento.map((exercise) => [exercise.id, exercise]))
+  riordinaPerSinergie(scelti, catalogById)
+
+  // 7b-bis. Programmazione (23/09, prompt di Rossi): fase nutrizionale -> serie/RIR/tecniche e
+  // richiamo antagonista; poi ordine con gerarchia carenze piccole/grandi e interleave per fase.
+  // Solo protocollo Standard: FST-7 e CBum hanno un ordine e una prescrizione di protocollo.
+  const protocolloStandard = !cfg.protocol || cfg.protocol === 'standard'
+  let programmingNote: string | undefined
+  if (protocolloStandard && cfg.nutrition_phase) {
+    programmingNote = applicaFase(scelti, { phase: cfg.nutrition_phase, carenze: priorities, split: cfg.split })
+  }
+  const ordineProgrammato = protocolloStandard && (!!cfg.nutrition_phase || priorities.length > 0)
+  if (ordineProgrammato) {
+    ordinaSessione(scelti, { carenze: priorities, phase: cfg.nutrition_phase, split: cfg.split, catalogById })
+  }
 
   // 7c. Protocollo FST-7 (Hany Rambod): un 4° esercizio, esattamente 7 serie x 10-12 rep,
   // recupero fisso 30s, solo cavi/macchine/isolamenti puri (mai un bilanciere pesante — sez.
@@ -800,7 +819,12 @@ export function generaBodybuilding(
   // connection a freddo): non va scavalcato dal compound come farebbe di norma.
   const preserveWeakPointLead = (customTargets.length > 0 && scelti[0]?.note === 'carenza') ||
     (cfg.protocol === 'fst7' && cfg.fst7_preloading)
-  if (!preserveWeakPointLead && !portaCompoundInApertura(scelti)) warnings.push('Nessun esercizio multiarticolare disponibile con questa attrezzatura.')
+  // Con l'ordine programmato (carenze o fase nota) il primo esercizio lo decide ordinaSessione:
+  // può aprire una carenza su un muscolo piccolo (regola di Rossi del 23/09), quindi qui non si
+  // rimette davanti il compound — si segnala solo se un compound non c'è proprio.
+  if (ordineProgrammato) {
+    if (!scelti.some((exercise) => exercise.role === 'compound')) warnings.push('Nessun esercizio multiarticolare disponibile con questa attrezzatura.')
+  } else if (!preserveWeakPointLead && !portaCompoundInApertura(scelti)) warnings.push('Nessun esercizio multiarticolare disponibile con questa attrezzatura.')
   // FST-7 (3 base + 1 finisher) e Top Set & Back-Off (4-5 esercizi, moltiplicati x4: 2
   // avvicinamento + top set + back-off) non seguono il minimo di 6 esercizi dello split
   // standard: il conteggio atteso è diverso per costruzione, non un segnale di attrezzatura
@@ -845,6 +869,7 @@ export function generaBodybuilding(
     blocks: blocchi,
     warnings,
     est_kcal: kcalTotali,
+    programming_note: programmingNote,
   }
 }
 

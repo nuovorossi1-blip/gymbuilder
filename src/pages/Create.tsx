@@ -5,6 +5,9 @@ import { adaptiveExcludedIds } from '../engine/feedback'
 import { applyAutomaticProgramming, applyWorkoutRecovery, generateWeeklyProgram, selectProgramMode, updateWeeklySession } from '../engine/weeklyPlan'
 import { adaptPrescriptionForProfile, resolveEffectiveWeakPoints } from '../engine/biomechanics'
 import { validateWorkout } from '../engine/validator'
+import { determinaFase, escludiPerFastidi } from '../engine/nutrition'
+import { ordinaSessione, violazioniInterleave } from '../engine/programming'
+import { stimaVolumeSettimanale, type WeeklyVolume } from '../engine/weeklyVolume'
 import { useAuth } from '../features/auth/AuthProvider'
 import { loadLocalAiSettings } from '../features/profile/aiSettings'
 import { useSettings } from '../features/profile/useSettings'
@@ -49,6 +52,10 @@ export default function Create() {
   const [searchParams, setSearchParams] = useSearchParams()
   const { user } = useAuth()
   const { profile } = useSettings(user?.id)
+  // Fase nutrizionale e recupero (23/09): calibra volume/RIR/tecniche/interleave del motore
+  // Bodybuilding e viaggia nel brief a DeepSeek. Null = dati non inseriti, motore come prima.
+  const phaseInfo = determinaFase(profile)
+  const jointIssues = profile?.joint_issues ?? []
   const { weeklyProgram, setWeeklyProgram, setWorkout, setGenerationConfig, setCatalog, clearRejectedExercises } = useWorkout()
   const navigate = useNavigate()
   const [catalog, setLocalCatalog] = useState<Exercise[]>([])
@@ -167,6 +174,7 @@ export default function Create() {
       crossfit_benchmark: session.mode === 'crossfit' ? global.crossfit_benchmark : undefined,
       tabata: session.mode === 'tabata' ? global.tabata : undefined,
       protocol: session.mode === 'bodybuilding' ? global.protocol : undefined,
+      nutrition_phase: phaseInfo?.training_phase ?? null,
     }
   }
 
@@ -194,6 +202,26 @@ export default function Create() {
     if (global.selected_modes.includes('bodybuilding') && global.selected_modes.includes('strength') && session.mode === 'strength') workout.name = `Powerlifting · ${workout.name}`
     if (!workout.name.startsWith(DAY_LABELS[session.day])) workout.name = `${DAY_LABELS[session.day]} — ${workout.name}`
     workout.max_duration_min = Math.ceil(global.duration_min * 1.15)
+    // Programmazione (23/09): il motore ordina da sé; un workout scritto da DeepSeek passa dallo
+    // stesso ordinamento (gerarchia carenze piccole/grandi + interleave per fase), così le regole
+    // valgono uguali qualunque sia la fonte. Se l'interleave resta impossibile lo si dice.
+    const bbStandard = session.mode === 'bodybuilding' && (!global.protocol || global.protocol === 'standard')
+    if (bbStandard) {
+      const carenzeOggi = global.program_kind === 'single_session' ? global.weak_points : session.priority_muscles
+      const main = workout.blocks.find((block) => block.kind === 'main')
+      if (main && workoutBase === session.generated_workout) {
+        ordinaSessione(main.exercises, {
+          carenze: carenzeOggi, phase: phaseInfo?.training_phase, split: session.split,
+          catalogById: new Map(catalog.map((exercise) => [exercise.id, exercise])),
+        })
+      }
+      if (main && (phaseInfo || carenzeOggi.length > 0)) {
+        const violazioni = violazioniInterleave(main.exercises, carenzeOggi, phaseInfo?.training_phase)
+        if (violazioni.length > 0) workout.warnings.push('Con questi esercizi non è possibile alternare sempre i muscoli: ' + violazioni.join(' '))
+      }
+      if (phaseInfo && !workout.programming_note) workout.programming_note = phaseInfo.summary
+      else if (phaseInfo && workout.programming_note) workout.programming_note = `${phaseInfo.summary} ${workout.programming_note}`
+    }
     if (profile) {
       workout.blocks = workout.blocks.map((block) => ({
         ...block,
@@ -209,6 +237,61 @@ export default function Create() {
     setWorkout(workout)
     setError(null)
     navigate('/allenamento')
+  }
+
+  /** Genera col motore la seduta `session` (senza finalizzarla): usata da generateDay e dalla
+   *  stima del volume settimanale (seme fisso, così la tabella non cambia a ogni render). */
+  function engineWorkoutFor(session: WeeklySession, sourceProgram: WeeklyProgram, seed: number) {
+    const global = sourceProgram.config
+    const adaptiveExcluded = user ? adaptiveExcludedIds(user.id, catalog) : []
+    const excluded = [...new Set([...global.preferences.excluded_exercise_ids, ...adaptiveExcluded])]
+    const usableCatalog = escludiPerFastidi(filterExercisesByPreferences(catalog, { excludedExerciseIds: excluded }), jointIssues)
+    const dayCatalog = session.fatigue_avoid_muscles?.length
+      ? usableCatalog.filter((exercise) => exercise.systemic_fatigue <= 1 || !exercise.primary_muscles.some((muscle) => session.fatigue_avoid_muscles?.includes(muscle)))
+      : usableCatalog
+    const common = {
+      experience: global.experience,
+      equipment: global.equipment.preset,
+      available_equipment: global.equipment.available,
+      duration_min: global.duration_min,
+      priority_muscles: global.weak_points,
+      excluded_exercises: excluded,
+      preferred_exercises: global.preferences.preferred_exercise_ids,
+      intensity: global.intensity,
+      weight_kg: profile?.weight_kg ?? null,
+      seed,
+    }
+    // Bug reale segnalato dall'utente (19/08 sera): per un programma settimanale normale (non
+    // single_session) questo era erroneamente `session.priority_muscles` — le stesse carenze
+    // già passate correttamente a `priority_muscles`/`todayPriorities` sotto. Risultato: con
+    // qualunque carenza dichiarata compatibile con la seduta di oggi, `target_muscles` smetteva
+    // di essere vuoto e faceva scattare il percorso "gruppi scelti" (buildCustomTargetSlots in
+    // bodybuilding.ts, o l'equivalente negli altri generatori), che sostituisce INTERAMENTE lo
+    // split standard con solo i muscoli carenti — niente più petto in Push, niente più dorso in
+    // Pull. `target_muscles` ha senso solo per la sessione singola a gruppi scelti esplicitamente
+    // dall'utente (single_session_target_muscles): un programma settimanale usa sempre lo split
+    // standard, le carenze vanno solo in `priority_muscles` (richiamo, non sostituzione).
+    const todayTargets = global.program_kind === 'single_session'
+      ? (global.single_session_target_muscles?.length ? global.single_session_target_muscles : [])
+      : []
+    const todayPriorities = global.program_kind === 'single_session' ? global.weak_points : session.priority_muscles
+    // Assente in sessione singola (nessuna settimana su cui far ruotare la porzione): i
+    // generatori usano 'long_head' come default in quel caso (sez. Lagging Muscle Engine).
+    const todayPortions = global.program_kind === 'single_session' ? undefined : session.priority_portions
+    const split = session.split ?? 'full_body'
+    const forzaCrossFit = global.selected_modes.includes('strength') && global.selected_modes.includes('crossfit')
+    const workout = session.mode === 'crossfit'
+      ? forzaCrossFit
+        ? generaHybrid(dayCatalog, { ...common, format: session.metcon_format === 'emom' ? 'emom' : session.metcon_format === 'for_time' ? 'for_time' : 'amrap' })
+        : generaCrossFit(dayCatalog, { ...common, priority_muscles: todayPriorities, target_muscles: todayTargets, format: session.metcon_format ?? global.crossfit_format, benchmark: global.crossfit_benchmark })
+      : session.mode === 'crossfit_hybrid'
+        ? generaHybrid(dayCatalog, { ...common, priority_muscles: todayPriorities, target_muscles: todayTargets, method: global.program_kind === 'single_session' && todayTargets.length > 0 ? 'specialization' : global.program_kind === 'single_session' ? global.hybrid_method : session.priority_muscles.length > 0 ? 'specialization' : global.hybrid_method, format: (session.metcon_format === 'amrap' || session.metcon_format === 'emom' || session.metcon_format === 'for_time' || session.metcon_format === 'intervals') ? session.metcon_format : global.hybrid_format })
+        : session.mode === 'strength'
+          ? generaForza(dayCatalog, { ...common, priority_muscles: todayPriorities, priority_portions: todayPortions, target_muscles: todayTargets, split, method: global.strength_method, weekly_volume: weeklyState?.volume, last_trained_at: weeklyState?.last_trained_at })
+          : session.mode === 'tabata'
+            ? generaTabata(dayCatalog, { ...common, ...global.tabata })
+            : generaBodybuilding(dayCatalog, { ...common, priority_muscles: todayPriorities, priority_portions: todayPortions, target_muscles: todayTargets, split, goal: 'hypertrophy', weekly_volume: weeklyState?.volume, last_trained_at: weeklyState?.last_trained_at, protocol: global.protocol, fst7_preloading: global.fst7_preloading, nutrition_phase: phaseInfo?.training_phase ?? null })
+    return workout
   }
 
   function generateDay(session: WeeklySession, sourceProgram = weeklyProgram) {
@@ -260,54 +343,7 @@ export default function Create() {
       finalizeWorkout(session, sourceProgram, session.generated_workout)
       return
     }
-    const adaptiveExcluded = user ? adaptiveExcludedIds(user.id, catalog) : []
-    const excluded = [...new Set([...global.preferences.excluded_exercise_ids, ...adaptiveExcluded])]
-    const usableCatalog = filterExercisesByPreferences(catalog, { excludedExerciseIds: excluded })
-    const dayCatalog = session.fatigue_avoid_muscles?.length
-      ? usableCatalog.filter((exercise) => exercise.systemic_fatigue <= 1 || !exercise.primary_muscles.some((muscle) => session.fatigue_avoid_muscles?.includes(muscle)))
-      : usableCatalog
-    const common = {
-      experience: global.experience,
-      equipment: global.equipment.preset,
-      available_equipment: global.equipment.available,
-      duration_min: global.duration_min,
-      priority_muscles: global.weak_points,
-      excluded_exercises: excluded,
-      preferred_exercises: global.preferences.preferred_exercise_ids,
-      intensity: global.intensity,
-      weight_kg: profile?.weight_kg ?? null,
-      seed: Date.now() % 100000,
-    }
-    // Bug reale segnalato dall'utente (19/08 sera): per un programma settimanale normale (non
-    // single_session) questo era erroneamente `session.priority_muscles` — le stesse carenze
-    // già passate correttamente a `priority_muscles`/`todayPriorities` sotto. Risultato: con
-    // qualunque carenza dichiarata compatibile con la seduta di oggi, `target_muscles` smetteva
-    // di essere vuoto e faceva scattare il percorso "gruppi scelti" (buildCustomTargetSlots in
-    // bodybuilding.ts, o l'equivalente negli altri generatori), che sostituisce INTERAMENTE lo
-    // split standard con solo i muscoli carenti — niente più petto in Push, niente più dorso in
-    // Pull. `target_muscles` ha senso solo per la sessione singola a gruppi scelti esplicitamente
-    // dall'utente (single_session_target_muscles): un programma settimanale usa sempre lo split
-    // standard, le carenze vanno solo in `priority_muscles` (richiamo, non sostituzione).
-    const todayTargets = global.program_kind === 'single_session'
-      ? (global.single_session_target_muscles?.length ? global.single_session_target_muscles : [])
-      : []
-    const todayPriorities = global.program_kind === 'single_session' ? global.weak_points : session.priority_muscles
-    // Assente in sessione singola (nessuna settimana su cui far ruotare la porzione): i
-    // generatori usano 'long_head' come default in quel caso (sez. Lagging Muscle Engine).
-    const todayPortions = global.program_kind === 'single_session' ? undefined : session.priority_portions
-    const split = session.split ?? 'full_body'
-    const forzaCrossFit = global.selected_modes.includes('strength') && global.selected_modes.includes('crossfit')
-    const workout = session.mode === 'crossfit'
-      ? forzaCrossFit
-        ? generaHybrid(dayCatalog, { ...common, format: session.metcon_format === 'emom' ? 'emom' : session.metcon_format === 'for_time' ? 'for_time' : 'amrap' })
-        : generaCrossFit(dayCatalog, { ...common, priority_muscles: todayPriorities, target_muscles: todayTargets, format: session.metcon_format ?? global.crossfit_format, benchmark: global.crossfit_benchmark })
-      : session.mode === 'crossfit_hybrid'
-        ? generaHybrid(dayCatalog, { ...common, priority_muscles: todayPriorities, target_muscles: todayTargets, method: global.program_kind === 'single_session' && todayTargets.length > 0 ? 'specialization' : global.program_kind === 'single_session' ? global.hybrid_method : session.priority_muscles.length > 0 ? 'specialization' : global.hybrid_method, format: (session.metcon_format === 'amrap' || session.metcon_format === 'emom' || session.metcon_format === 'for_time' || session.metcon_format === 'intervals') ? session.metcon_format : global.hybrid_format })
-        : session.mode === 'strength'
-          ? generaForza(dayCatalog, { ...common, priority_muscles: todayPriorities, priority_portions: todayPortions, target_muscles: todayTargets, split, method: global.strength_method, weekly_volume: weeklyState?.volume, last_trained_at: weeklyState?.last_trained_at })
-          : session.mode === 'tabata'
-            ? generaTabata(dayCatalog, { ...common, ...global.tabata })
-            : generaBodybuilding(dayCatalog, { ...common, priority_muscles: todayPriorities, priority_portions: todayPortions, target_muscles: todayTargets, split, goal: 'hypertrophy', weekly_volume: weeklyState?.volume, last_trained_at: weeklyState?.last_trained_at, protocol: global.protocol, fst7_preloading: global.fst7_preloading })
+    const workout = engineWorkoutFor(session, sourceProgram, Date.now() % 100000)
     finalizeWorkout(session, sourceProgram, workout)
   }
 
@@ -324,7 +360,7 @@ export default function Create() {
       const skeletonProgram = generateWeeklyProgram(normalizedConfig)
       const adaptiveExcluded = user ? adaptiveExcludedIds(user.id, catalog) : []
       const excluded = [...new Set([...normalizedConfig.preferences.excluded_exercise_ids, ...adaptiveExcluded])]
-      const preferredCatalog = filterExercisesByPreferences(catalog, { excludedExerciseIds: excluded })
+      const preferredCatalog = escludiPerFastidi(filterExercisesByPreferences(catalog, { excludedExerciseIds: excluded }), jointIssues)
       const usableCatalog = preferredCatalog.filter((exercise) => isExerciseAvailable(
         exercise,
         normalizedConfig.equipment.preset,
@@ -336,6 +372,13 @@ export default function Create() {
         prompt: prompt.trim() || 'Genera un allenamento completo rispettando tutte le impostazioni selezionate.',
         program: skeletonProgram,
         catalog: usableCatalog,
+        programming: {
+          fase: phaseInfo?.phase ?? null,
+          fase_per_volume: phaseInfo?.training_phase ?? null,
+          sintesi_fase: phaseInfo?.summary ?? null,
+          recupero_limitato: phaseInfo?.recovery_limited ?? false,
+          fastidi_articolari: jointIssues,
+        },
       })
       const aiSessions = new Map(aiResult.sessions.map((item) => [item.session_id, item.workout]))
       const hydratedProgram: WeeklyProgram = {
@@ -372,6 +415,11 @@ export default function Create() {
           error={error}
           onUpdate={updateProgram}
           onGenerate={generateDay}
+          estimateVolume={() => catalog.length === 0 ? null : stimaVolumeSettimanale(
+            weeklyProgram,
+            (session) => engineWorkoutFor(session, weeklyProgram, 1),
+            phaseInfo?.training_phase ?? null,
+          )}
           onReset={() => {
             setBuilderInitial({
               ...DEFAULT_CONFIG,
@@ -1106,7 +1154,7 @@ function WizardBuilder({
 
           {!aiNotesOpen ? (
             <button
-              disabled={!valid || !loadLocalAiSettings().deepseek_api_key.trim() || aiState === 'loading'}
+              disabled={!valid || aiState === 'loading'}
               onClick={() => setAiNotesOpen(true)}
               className="w-full rounded-xl border border-cyan-500/40 bg-cyan-500/15 py-4 font-display font-bold uppercase text-cyan-200 shadow-md transition-transform active:scale-[0.98] disabled:opacity-40"
             >
@@ -1124,11 +1172,6 @@ function WizardBuilder({
                 onChange={(event) => setAiPrompt(event.target.value)}
                 placeholder="Esempio: oggi ho poco tempo e un fastidio alla spalla destra, evita distensioni sopra la testa."
               />
-              {!loadLocalAiSettings().deepseek_api_key.trim() && (
-                <p className="text-xs text-amber-300">
-                  Aggiungi prima la chiave API DeepSeek nella pagina Profilo.
-                </p>
-              )}
               {aiError && <p className="text-xs text-red-400">{aiError}</p>}
               <div className="flex gap-2">
                 <button
@@ -1139,7 +1182,7 @@ function WizardBuilder({
                   Annulla
                 </button>
                 <button
-                  disabled={!valid || !loadLocalAiSettings().deepseek_api_key.trim() || aiState === 'loading'}
+                  disabled={!valid || aiState === 'loading'}
                   onClick={() => { void generateWithAi() }}
                   className="w-2/3 rounded-xl border border-cyan-500/40 bg-cyan-500/15 py-3 font-display text-xs font-bold uppercase text-cyan-200 shadow-md transition-transform active:scale-[0.98] disabled:opacity-40"
                 >
@@ -1161,9 +1204,11 @@ function WeekView({
   onGenerate,
   onReset,
   onEditConfig,
+  estimateVolume,
 }: {
   program: WeeklyProgram
   error: string | null
+  estimateVolume: () => WeeklyVolume | null
   onUpdate: (program: WeeklyProgram) => void
   onGenerate: (session: WeeklySession) => void
   onReset: () => void
@@ -1171,6 +1216,9 @@ function WeekView({
 }) {
   const [editing, setEditing] = useState<string | null>(null)
   const [dayIndex, setDayIndex] = useState(0)
+  const [volume, setVolume] = useState<WeeklyVolume | null | undefined>(undefined)
+  // La stima si ricalcola se cambia la settimana (giorno/split modificati): mai una tabella vecchia.
+  useEffect(() => { setVolume(undefined) }, [program])
 
   const handleNextDay = () => {
     if (dayIndex < program.week.length - 1) {
@@ -1301,8 +1349,62 @@ function WeekView({
         )}
       </SwipeContainer>
 
+      {program.config.program_kind === 'program' && (
+        volume === undefined ? (
+          <button
+            onClick={() => setVolume(estimateVolume())}
+            className="w-full rounded-xl glass-card py-3 font-display text-xs font-bold uppercase text-slate-300 hover:text-white"
+          >
+            Mostra volume settimanale
+          </button>
+        ) : volume === null ? (
+          <p className="text-xs text-slate-400">Nessuna seduta Bodybuilding o Forza su cui calcolare il volume.</p>
+        ) : (
+          <VolumeTable volume={volume} />
+        )
+      )}
+
       {error && <p role="alert" className="text-red-400 text-sm">{error}</p>}
     </div>
+  )
+}
+
+function VolumeTable({ volume }: { volume: WeeklyVolume }) {
+  const statusClass = { basso: 'text-amber-300', ok: 'text-emerald-300', alto: 'text-amber-300' } as const
+  return (
+    <section className="rounded-2xl glass-card border border-edge p-4">
+      <h2 className="font-display text-sm font-bold uppercase text-white">Volume settimanale stimato</h2>
+      <p className="mt-1 text-xs leading-relaxed text-slate-400">
+        Serie per distretto contro il range della fase {volume.phase === 'deficit' ? 'deficit' : volume.phase === 'surplus' ? 'surplus' : volume.phase === 'maintenance' ? 'normocalorica' : 'normocalorica (fase non indicata nel Profilo)'}.
+        Le carenze hanno un range più alto del mantenimento.
+        {volume.skippedDays > 0 && ` ${volume.skippedDays} giornate metcon non contate.`}
+      </p>
+      <div className="mt-3 overflow-x-auto">
+        <table className="w-full min-w-[420px] text-left font-data text-[12px]">
+          <thead className="text-slate-400">
+            <tr>
+              <th className="py-1.5 pr-2 font-normal">Distretto</th>
+              {volume.days.map((day) => <th key={day.id} className="py-1.5 px-1 text-center font-normal">{DAY_LABELS[day.day].slice(0, 3)}</th>)}
+              <th className="py-1.5 px-1 text-center font-normal">Tot</th>
+              <th className="py-1.5 px-1 text-center font-normal">Freq</th>
+              <th className="py-1.5 pl-1 text-center font-normal">Target</th>
+            </tr>
+          </thead>
+          <tbody>
+            {volume.rows.map((row) => (
+              <tr key={row.muscle} className="border-t border-edge/60">
+                <td className="py-1.5 pr-2 text-slate-200">{MUSCLE_LABELS[row.muscle]}{row.carenza && <span className="ml-1 text-amber-300">★</span>}</td>
+                {row.perDay.map((n, i) => <td key={i} className="py-1.5 px-1 text-center text-slate-300">{n || '·'}</td>)}
+                <td className={`py-1.5 px-1 text-center font-bold ${statusClass[row.status]}`}>{row.total}</td>
+                <td className="py-1.5 px-1 text-center text-slate-300">{row.frequency}×</td>
+                <td className="py-1.5 pl-1 text-center text-slate-400">{row.target[0]}-{row.target[1]}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="mt-2 text-[11px] text-slate-500">★ carenza · verde nel range · giallo sotto o sopra</p>
+    </section>
   )
 }
 

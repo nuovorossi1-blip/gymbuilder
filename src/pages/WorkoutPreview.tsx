@@ -1,3 +1,4 @@
+import { NOTA_ANTAGONISTA } from '../engine/programming'
 import { useRef, useState, type PointerEvent, type ReactNode } from 'react'
 import { metconInstruction, metconSubtitle } from '../engine/metconInstructions'
 import { useNavigate } from 'react-router-dom'
@@ -191,6 +192,12 @@ export default function WorkoutPreview() {
         )}
       </div>
 
+      {displayed.programming_note && (
+        <p className="mt-4 rounded-lg border border-edge bg-steel/50 px-3 py-2.5 text-[13px] leading-relaxed text-chalk">
+          {displayed.programming_note}
+        </p>
+      )}
+
       {displayed.warnings.map((w, i) => (
         <p key={i} className="mt-4 rounded-lg border border-amber2/40 bg-amber2/10 px-3 py-2.5 text-[13px] text-amber2">
           {w}
@@ -238,20 +245,27 @@ export default function WorkoutPreview() {
                       <span className="text-chalk text-[15px]">
                         {e.sets}<span className="text-slate2 text-[12px]">×</span>{e.reps}
                       </span>
+                      {e.rir && <span className="text-chalk">RIR {e.rir}</span>}
                       <span>recupero {formattaRec(e.rest_sec)}</span>
                     </p>
+                    {e.technique && <p className="mt-1 text-[12px] text-amber2">{e.technique}</p>}
                   </div>
                   <span className="font-data text-[9px] uppercase tracking-[0.12em] text-slate2 shrink-0">
                     {e.role === 'compound' ? 'base' : e.role === 'metcon' ? 'cardio' : 'isol.'}
                   </span>
                   {handle}
                 </div>
-                {(e.muscle || isLaggingNote(e.note) || e.note === 'avvicinamento' || e.note === 'top_set' || e.note === 'back_off' || e.note === 'fst7_finisher') && (
+                {(e.muscle || isLaggingNote(e.note) || e.note === NOTA_ANTAGONISTA || e.note === 'avvicinamento' || e.note === 'top_set' || e.note === 'back_off' || e.note === 'fst7_finisher') && (
                   <p className="mt-1.5 pl-7 flex flex-wrap items-center gap-2 font-data text-[10px] uppercase tracking-[0.12em] text-slate2">
                     {e.muscle && <span>{MUSCLE_LABELS[e.muscle]}</span>}
                     {isLaggingNote(e.note) && (
                       <span className="rounded-full border border-amber2/40 bg-amber2/15 px-2 py-0.5 text-amber2">
                         {e.note?.includes('richiamo') ? 'Richiamo 3x · carenza' : 'Carenza'}
+                      </span>
+                    )}
+                    {e.note === NOTA_ANTAGONISTA && (
+                      <span className="rounded-full border border-cyan-400/40 bg-cyan-400/10 px-2 py-0.5 text-cyan-300">
+                        Richiamo antagonista · leggero, mai a cedimento
                       </span>
                     )}
                     {e.note === 'avvicinamento' && (

@@ -4,8 +4,69 @@
 > da qui. Va **aggiornato** a ogni sessione, non accodato all'infinito.
 > L'identità del progetto e il percorso di AI-OS stanno in `AIOS_PROJECT.json`.
 
-**Ultimo aggiornamento:** 2026-09-18 (audit C10: fixture dei test riallineata al catalogo vero) - Claude (Opus 5)
+**Ultimo aggiornamento:** 2026-09-23 (programmazione di Rossi: fase nutrizionale, interleave, richiamo antagonista, analisi scheda, chiave DeepSeek sul server) - Claude (Opus 5.5)
 
+### 2026-09-23 — Prompt di programmazione di Rossi integrato (livelli A + B)
+
+1. **Problemi rilevati**
+   - Il motore non conosceva la fase nutrizionale: stesso volume, nessun RIR, nessuna tecnica
+     per chi è in deficit o in surplus. Il prompt di Rossi ("coach bodybuilding natural") dice
+     che lo STESSO programma vale nelle tre fasi e cambiano solo volume, RIR e tecniche.
+   - Ordine: il compound apriva sempre, anche con carenze su muscoli piccoli. Regola di Rossi
+     (23/09): senza carenze grandi prima; con carenze piccole apre la carenza e i grandi stanno
+     in fascia accettabile (slot 2-4 su 6, 2-5 su 7-8), mai ultimi.
+   - Nessun interleave esplicito: Pull usciva sempre dorso-dorso-dorso anche in deficit.
+     Regola di Rossi: deficit mai due in fila, normo max 2, surplus fino a 3; sul muscolo
+     carente l'interleave vale SEMPRE, anche in surplus.
+   - C8 (seconda metà): la chiave DeepSeek passava dal browser.
+2. **Cosa è stato fatto (verificato)**
+   - DB: migration `20260923090000_profile_nutrition_recovery.sql` (applicata su Supabase):
+     `profiles` + daily_kcal, job_activity, weight_trend, sleep_hours, stress_level, joint_issues.
+   - `src/engine/nutrition.ts`: normocalorica Mifflin-St Jeor x fattore lavoro; fase dal
+     trend del peso se dichiarato (vince sulla formula), altrimenti <90% deficit / >110% surplus;
+     sonno <6h o stress alto = volume della fase inferiore (`training_phase`); fase ignota = null
+     e motore identico a prima. `escludiPerFastidi` toglie i movimenti stressanti per
+     spalle/gomiti/polsi/schiena bassa (axial_load>=2)/ginocchia.
+   - `src/engine/programming.ts`: `applicaFase` (RIR per fase, mantenimento -1 serie in deficit,
+     carenze +1 in surplus, drop set/rest-pause solo sulle carenze isolamento) e richiamo
+     antagonista (nota `antagonista`, NON "richiamo" per non attivare isLaggingNote): bicipiti in
+     Push, tricipiti in Pull, 2 serie deficit / 3 normo-surplus, RIR 1. `ordinaSessione`: ricerca
+     esaustiva con potatura su vincoli duri (apertura, interleave per fase, grande mai ultimo) e
+     costi morbidi (spostamento minimo, grandi in fascia, antagonista a metà Push/fine Pull,
+     sinergie). Vincoli allentati in ordine: prima "grande mai ultimo", poi limite di fase, per
+     ultimo l'interleave sulla carenza (es. Bro Petto: 5 petto, impossibile alternare).
+   - `bodybuilding.ts`: usa i due passaggi solo col protocollo Standard (FST-7/CBum/Density hanno
+     ordine di protocollo). Con ordine programmato `portaCompoundInApertura` non scatta più.
+   - `Create.tsx`: fase dal profilo, fastidi sul catalogo (motore e DeepSeek), workout DeepSeek
+     riordinati con le stesse regole, avviso se l'interleave è impossibile, nota di fase in
+     anteprima; `engineWorkoutFor` estratta da `generateDay`; tabella "Volume settimanale
+     stimato" nella vista settimana (`engine/weeklyVolume.ts`, target per fase, carenze ★).
+   - Profilo: sezione "Alimentazione e recupero" con fase calcolata dal vivo; tolto il campo chiave.
+   - Anteprima e Runner: RIR, tecnica sull'ultima serie, badge richiamo antagonista.
+   - DeepSeek: prompt con tutte le regole di Rossi + `programmazione` nel brief; nuova pagina
+     `/analizza` ("Analizza la mia scheda", card in Home) = Fase 3 del prompt: analisi, confronto
+     slot per slot, ibrido. Chiave SOLO su Vercel (`DEEPSEEK_API_KEY`, impostata il 23/09);
+     `api/deepseek.js` accetta solo utenti con sessione Supabase valida (senza, l'endpoint
+     sarebbe un proxy aperto sul credito di Rossi); una vecchia chiave salvata sul dispositivo
+     viene cancellata al primo avvio.
+   - Test: 6 test vecchi codificavano "il compound apre sempre" -> aggiornati alla regola del
+     23/09; +25 test nuovi (nutrition, programming, weeklyVolume, prompt). 342 verdi, tsc ed
+     eslint puliti, `vite build` ok.
+3. **Cosa resta da fare**
+   - Forza/CrossFit/Hybrid non usano ancora fase e interleave (solo Bodybuilding Standard).
+   - Varianti del mesociclo 8 settimane / double progression del prompt: non implementate.
+   - Nessun test end-to-end su browser vero: `/analizza` e la chiamata DeepSeek autenticata vanno
+     provate da Rossi. Restano aperti C6 (CRON_SECRET) e C12 (crash Tabata).
+   - Punto 4 del 18/09 (etichetta del muscolo carente nella scheda) ancora da decidere.
+4. **Legame con l'obiettivo** — la sessione ora non sceglie solo gli esercizi ma li programma:
+   dove stanno, cosa c'è prima e dopo, quanto volume a carenze e mantenimento secondo le calorie.
+5. **Cosa deve aspettarsi Rossi** — dopo il deploy: Profilo -> compilare "Alimentazione e
+   recupero" (la fase compare subito sotto). Senza quei dati l'app si comporta come prima,
+   TRANNE l'ordine con carenze piccole (ora apre la carenza). In anteprima RIR e nota di fase;
+   in Pull in deficit si vede dorso -> posteriore -> dorso -> bicipiti -> dorso -> tricipiti.
+   Settimana: "Mostra volume settimanale". Home: "Analizza la mia scheda". DeepSeek funziona
+   senza chiave nel Profilo. Il token GitHub e la chiave DeepSeek incollati in chat vanno
+   rigenerati (la chiave nuova si sostituisce su Vercel).
 ### 2026-09-18 (3) — Fixture dei test riallineata al catalogo Supabase (C10)
 
 1. **Problema rilevato** — `src/generators/__tests__/fixtures/exercises.json` era fermo

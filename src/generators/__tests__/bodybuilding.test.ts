@@ -25,14 +25,34 @@ function mainBlock(w: ReturnType<typeof generaBodybuilding>) {
 }
 
 describe('generaBodybuilding — struttura di base (sez. 3, 21 della specifica)', () => {
-  it('apre sempre con un compound multiarticolare, anche con carenze', () => {
+  it('senza carenze apre sempre con un compound multiarticolare', () => {
     for (const split of TUTTI_GLI_SPLIT) {
       const w = generaBodybuilding(catalogo, {
         split, goal: 'hypertrophy', experience: 'advanced', equipment: 'full_gym',
-        duration_min: 60, priority_muscles: ['lateral_delts', 'biceps', 'triceps'],
-        excluded_exercises: [], seed: 17,
+        duration_min: 60, priority_muscles: [], excluded_exercises: [], seed: 17,
       })
       expect(mainBlock(w).exercises[0]?.role).toBe('compound')
+    }
+  })
+
+  it('con carenze su muscoli piccoli apre la carenza e i grandi multiarticolari non finiscono in fondo (regola di Rossi, 23/09)', () => {
+    // Cambiato il 23/09: prima il compound apriva SEMPRE, anche con carenze piccole. Rossi:
+    // "se le carenze sono i muscoli piccoli non puoi mettere i muscoli grandi come ultimi
+    // esercizi ma in una fascia accettabile di sforzo/stanchezza". Ora apre la carenza piccola e
+    // i multiarticolari su petto/dorso/gambe non stanno mai all'ultimo posto.
+    const carenze: Muscle[] = ['lateral_delts', 'biceps', 'triceps']
+    const grandi: Muscle[] = ['chest', 'back', 'quads', 'hamstrings', 'glutes']
+    for (const split of TUTTI_GLI_SPLIT) {
+      const w = generaBodybuilding(catalogo, {
+        split, goal: 'hypertrophy', experience: 'advanced', equipment: 'full_gym',
+        duration_min: 60, priority_muscles: carenze, excluded_exercises: [], seed: 17,
+      })
+      const main = mainBlock(w).exercises
+      const haCarenza = main.some((exercise) => exercise.muscle && carenze.includes(exercise.muscle))
+      if (haCarenza) expect(carenze).toContain(main[0].muscle)
+      else expect(main[0].role).toBe('compound')
+      const ultimo = main[main.length - 1]
+      expect(ultimo.role === 'compound' && ultimo.muscle && grandi.includes(ultimo.muscle)).toBe(false)
     }
   })
 
@@ -189,8 +209,9 @@ describe('generaBodybuilding — priorità assegnate dalla settimana', () => {
     })
     const main = mainBlock(w).exercises
     expect(main.filter((exercise) => exercise.muscle === 'chest')).toHaveLength(2)
+    // 23/09: la carenza piccola (laterali) apre, il petto segue subito (fascia 2-3).
     expect(main.map((exercise) => exercise.muscle)).toEqual([
-      'chest', 'chest', 'lateral_delts', 'front_delts', 'biceps', 'triceps',
+      'lateral_delts', 'chest', 'chest', 'front_delts', 'biceps', 'triceps',
     ])
     expect(main.find((exercise) => exercise.muscle === 'front_delts')?.note).toBe('carenza')
     expect(main.find((exercise) => exercise.muscle === 'lateral_delts')?.note).toBe('carenza')
@@ -273,7 +294,8 @@ describe('generaBodybuilding — priorità assegnate dalla settimana', () => {
     })
     const main = mainBlock(w).exercises
     expect(main.filter((exercise) => exercise.muscle === 'chest').length).toBeGreaterThanOrEqual(2)
-    expect(main[0].muscle).toBe('chest')
+    // 23/09: apre la carenza piccola (regola di Rossi); il petto resta nei primi slot, non in fondo.
+    expect(main.findIndex((exercise) => exercise.muscle === 'chest')).toBeLessThanOrEqual(2)
   })
 
   it('Push 60 minuti riserva gli slot alle carenze prima di raddoppiare il petto', () => {
@@ -399,7 +421,10 @@ describe('generaBodybuilding — scenario critico sez. 28 della correzione', () 
     // non serve, non è utile ed è controproducente"). Il 3° slot è ora alzate laterali
     // (isolamento), il 4° un composto tricipiti che allena anche petto e deltoide anteriore
     // (dip), non più uno shoulder press fisso.
-    expect(main.slice(0, 4).map((exercise) => [exercise.muscle, exercise.role])).toEqual([
+    // 23/09: la carenza bicipiti apre la seduta (regola di Rossi sulle carenze piccole); dopo di
+    // lei la struttura Push resta quella voluta: due press petto, alzate laterali, dip.
+    expect(main[0].muscle).toBe('biceps')
+    expect(main.slice(1, 5).map((exercise) => [exercise.muscle, exercise.role])).toEqual([
       ['chest', 'compound'], ['chest', 'compound'], ['lateral_delts', 'isolation'], ['triceps', 'compound'],
     ])
     // Il tricipiti composto (dip, 4° slot) fa parte della struttura standard di Push — viene
@@ -491,7 +516,8 @@ describe('generaBodybuilding — scenario critico sez. 28 della correzione', () 
     expect(main.length).toBeGreaterThanOrEqual(5)
     expect(main.length).toBeLessThanOrEqual(6)
     expect(main.map((exercise) => exercise.muscle)).toEqual(expect.arrayContaining(['front_delts', 'triceps', 'biceps']))
-    expect(main[0].muscle).toBe('front_delts')
+    // 23/09: apre la carenza (tricipiti), non più il primo gruppo scelto.
+    expect(main[0].muscle).toBe('triceps')
   })
 
   it('petto + tre deltoidi + braccia mantiene sei slot distinti e dà priorità alle carenze', () => {
@@ -509,7 +535,9 @@ describe('generaBodybuilding — scenario critico sez. 28 della correzione', () 
 
     const muscles = mainBlock(w).exercises.map((exercise) => exercise.muscle)
     expect(mainBlock(w).exercises).toHaveLength(6)
-    expect(muscles).toEqual(['chest', 'front_delts', 'lateral_delts', 'rear_delts', 'biceps', 'triceps'])
+    // 23/09: apre la carenza piccola (deltoide anteriore, composto), il petto — unico grande e
+    // non carente — segue subito in slot 2.
+    expect(muscles).toEqual(['front_delts', 'chest', 'lateral_delts', 'rear_delts', 'biceps', 'triceps'])
     expect(mainBlock(w).exercises.map((exercise) => exercise.role)).toEqual([
       'compound', 'compound', 'isolation', 'isolation', 'isolation', 'isolation',
     ])

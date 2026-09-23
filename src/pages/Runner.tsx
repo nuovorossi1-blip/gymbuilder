@@ -1192,6 +1192,8 @@ export default function Runner() {
           {fase.serie}<span className="text-slate2 text-[2rem]">/{es.sets}</span>
         </p>
         <p className="mt-6 font-data text-2xl">{es.reps} <span className="text-slate2 text-base">ripetizioni</span></p>
+        {es.rir && <p className="mt-2 font-data text-base text-chalk">RIR {es.rir} <span className="text-slate2 text-sm">· ripetizioni lasciate in riserva</span></p>}
+        {es.technique && fase.serie === es.sets && <p className="mt-2 text-sm text-amber2">{es.technique}</p>}
         {/* Nessun sensore collegato: architettura predisposta (sez. 55-58), mai un valore inventato. */}
         <p className="mt-5 flex items-center justify-center gap-4 font-data text-[12px] text-slate2">
           <span>♡ FC non disponibile</span>

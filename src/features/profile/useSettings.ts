@@ -22,7 +22,7 @@ export function useSettings(userId: string | undefined) {
     setState((s) => ({ ...s, loading: true, error: null }))
 
     const results = await Promise.all([
-      supabase.from('profiles').select('id:user_id, display_name, weight_kg, height_cm, age, sex').eq('user_id', userId).maybeSingle(),
+      supabase.from('profiles').select('id:user_id, display_name, weight_kg, height_cm, age, sex, daily_kcal, job_activity, weight_trend, sleep_hours, stress_level, joint_issues').eq('user_id', userId).maybeSingle(),
       supabase.from('user_settings').select('*').eq('user_id', userId).maybeSingle(),
     ])
     const p = results[0]

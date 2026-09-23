@@ -134,6 +134,11 @@ export interface PrescribedExercise {
    *  singola serie (coerente con come l'utente lo inserisce: vicino al nome dell'esercizio,
    *  non ripetuto per ogni serie). */
   logged_weight_kg?: number
+  /** Ripetizioni in riserva a fine serie (es. '2', '0-1'): presente quando la fase nutrizionale
+   *  è nota — la calibra engine/programming.ts (Principio 5 del prompt di programmazione). */
+  rir?: string
+  /** Tecnica di intensità sull'ultima serie (drop set, rest-pause): mai in deficit. */
+  technique?: string
 }
 
 export interface WorkoutBlock {
@@ -169,6 +174,8 @@ export interface GeneratedWorkout {
   warnings: string[]
   /** Calorie attive stimate per l'intera sessione (sez. 60-61): sempre una stima, mai un valore esatto. */
   est_kcal?: number
+  /** Nota di programmazione (fase nutrizionale, RIR, tecniche) mostrata in anteprima. */
+  programming_note?: string
 }
 
 export interface ActiveWorkoutSession {
@@ -236,6 +243,8 @@ export interface WorkoutGenerationConfig {
   /** Solo bodybuilding: FST-7 e Top Set & Back-Off hanno un numero di esercizi
    *  atteso diverso dallo standard — il validatore deve saperlo per non rigettarli. */
   protocol?: BodybuildingProtocol
+  /** Fase usata per volume/RIR/interleave (engine/nutrition.ts): null se non ricavabile. */
+  nutrition_phase?: NutritionPhase | null
 }
 
 /** Preferenze globali condivise da tutte le sessioni della settimana. */
@@ -338,6 +347,12 @@ export interface WorkoutSession {
   estimated_calories: number | null
 }
 
+export type NutritionPhase = 'deficit' | 'maintenance' | 'surplus'
+export type JobActivity = 'sedentary' | 'active' | 'very_active'
+export type WeightTrend = 'losing' | 'stable' | 'gaining'
+export type StressLevel = 'low' | 'medium' | 'high'
+export type JointIssue = 'shoulders' | 'elbows' | 'wrists' | 'lower_back' | 'knees'
+
 export interface Profile {
   id: string
   display_name: string | null
@@ -345,6 +360,13 @@ export interface Profile {
   height_cm?: number | null
   age?: number | null
   sex?: Sex
+  /** Alimentazione e recupero (23/09): da qui engine/nutrition.ts ricava la fase. */
+  daily_kcal?: number | null
+  job_activity?: JobActivity | null
+  weight_trend?: WeightTrend | null
+  sleep_hours?: number | null
+  stress_level?: StressLevel | null
+  joint_issues?: JointIssue[] | null
 }
 
 export interface UserSettings {

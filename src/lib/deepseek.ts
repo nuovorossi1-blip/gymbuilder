@@ -14,6 +14,14 @@ interface DeepSeekWorkoutGenerationInput {
   prompt: string
   program: WeeklyProgram
   catalog: Exercise[]
+  /** Fase nutrizionale, recupero e fastidi (engine/nutrition.ts): regole di programmazione. */
+  programming?: {
+    fase: string | null
+    fase_per_volume: string | null
+    sintesi_fase: string | null
+    recupero_limitato: boolean
+    fastidi_articolari: string[]
+  }
 }
 
 interface CatalogExerciseSnapshot {
@@ -70,6 +78,15 @@ Gestione del carico e ordine degli esercizi (Bodybuilding/Strength, vale anche p
 - Non concatenare più di due esercizi ad alta fatica sistemica/locale senza intervallarli con un esercizio più leggero su un gruppo diverso: l'accumulo di fatica in una singola sessione non è sostenibile, alza lo stress percepito e compromette la progressione nelle sessioni successive.
 - Alcuni esercizi hanno focus_portion (bicipiti/tricipiti: quale capo lavorano di più). Se generi più sessioni nella stessa settimana con lo stesso muscolo carente, fai lavorare capi diversi in sessioni diverse invece di ripetere lo stesso angolo.
 - Se devi sostituire un esercizio (in chat o rigenerando), scegli un'alternativa con lo stesso muscolo primario, la stessa focus_portion se presente, e local_fatigue/technical_complexity comparabili: altrimenti si perde l'effort allenante dell'esercizio originale.
+Programmazione Bodybuilding (regole di Rossi, valgono anche per il blocco Strength di CrossFit Hybrid):
+- La programmazione non è scegliere gli esercizi: è DOVE metti ogni esercizio, COSA metti prima e dopo, QUANTO volume dai alle carenze e QUANTO POCO ai muscoli in mantenimento.
+- Gerarchia di posizione: senza carenze i muscoli grandi (petto, dorso, quadricipiti, femorali, glutei) vanno per primi con manubri/bilanciere, i piccoli dopo. Se le carenze sono muscoli piccoli, la carenza piccola apre la sessione e i muscoli grandi stanno subito dopo in una fascia di fatica accettabile (slot 2-4 su 6, 2-5 su 7-8), MAI in fondo. Se è carente un muscolo grande: piccolo carente slot 1, grande carente slot 2-3. Manubri e bilanciere prima delle macchine: le macchine tollerano la fatica e vanno negli slot bassi.
+- Interleave secondo la fase ricevuta in programmazione.fase_per_volume: deficit = mai due esercizi dello stesso muscolo in fila; normocalorica = al massimo 2 in fila; surplus = fino a 3 in fila sui muscoli grandi. Sul muscolo carente l'interleave vale SEMPRE, anche in surplus.
+- Calibrazione per fase (stesso programma, cambiano solo volume, RIR e tecniche). Deficit: carenze 12-16 serie/settimana, mantenimento 6-8, composti RIR 2, zero tecniche di intensità. Normocalorica: carenze 16-20, mantenimento 8-10, composti RIR 1, un drop set solo sull'ultima serie delle carenze. Surplus: carenze 18-24, mantenimento 10-14, RIR 0-1, drop set/rest-pause/myo-reps sulle carenze. Se recupero_limitato è true il volume è già abbassato di una fase: rispettalo.
+- Richiamo antagonista: in Push 2 serie (deficit) o 3 serie (normo/surplus) di bicipiti a metà sessione (slot 4-5); in Pull le stesse di tricipiti a fine sessione. Solo isolamenti, RIR 1 fisso, mai a cedimento, mai tecniche. Scrivi note "antagonista" su quell'esercizio. Se quel muscolo è carente non è un richiamo, è un esercizio pieno.
+- Varianti: cambia variante per un muscolo carente fra le sedute della settimana solo se c'è un motivo biomeccanico (angolo, profilo di resistenza, allungamento vs accorciamento, unilaterale).
+- Fastidi articolari in programmazione.fastidi_articolari: evita i movimenti che caricano quell'articolazione e preferisci macchine o cavi a traiettoria guidata.
+- Per ogni esercizio compila anche "rir" (stringa, es. "2" o "0-1") e, solo quando previsto dalla fase, "technique" (es. "Drop set sull'ultima serie"). Serie, ripetizioni e RIR sono sempre numeri precisi, mai termini vaghi.
 Regole inderogabili sul numero di esercizi allenanti, senza contare il warm-up: Bodybuilding e CrossFit Hybrid almeno 6; Strength almeno 5; CrossFit Standard segue la struttura per componenti e non deve essere gonfiato per raggiungere sei esercizi; Tabata conserva esattamente il protocollo scelto.`
 
 const VALID_EXPERIENCE = new Set<Experience>(['beginner', 'intermediate', 'advanced'])
@@ -99,13 +116,21 @@ async function requestDeepSeek(
   settings: LocalAiSettings,
   messages: Array<{ role: 'system' | 'user'; content: string }>
 ): Promise<{ choices?: Array<{ message?: { content?: string } }> }> {
+  // La chiave DeepSeek sta solo sul server (variabile DEEPSEEK_API_KEY su Vercel, 23/09): dal
+  // browser parte il token di sessione Supabase, che api/deepseek.js verifica prima di spendere
+  // credito — senza, l'endpoint sarebbe un proxy aperto a chiunque.
+  // Import dinamico: il client Supabase richiede le variabili d'ambiente e non deve caricarsi
+  // quando questo modulo viene solo importato (test, prompt).
+  const { supabase } = await import('./supabase')
+  const { data } = await supabase.auth.getSession()
+  const token = data.session?.access_token
+  if (!token) throw new Error('Accedi di nuovo per usare DeepSeek.')
   let response: Response
   try {
     response = await fetch('/api/deepseek', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({
-        apiKey: settings.deepseek_api_key.trim(),
         payload: {
           model: settings.deepseek_model,
           temperature: 0.2,
@@ -229,6 +254,8 @@ function sanitizeBlockExercises(
       reps: asString(candidate.reps, fallbackRole === 'metcon' ? '10' : catalogExercise.default_reps),
       rest_sec: asPositiveInt(candidate.rest_sec, fallbackRole === 'metcon' ? 0 : catalogExercise.default_rest),
       note: asOptionalString(candidate.note),
+      rir: asOptionalString(candidate.rir) ?? (typeof candidate.rir === 'number' ? String(candidate.rir) : undefined),
+      technique: asOptionalString(candidate.technique),
       instructions: catalogExercise.instructions || undefined,
     })
   }
@@ -287,9 +314,6 @@ export async function suggestWorkoutConfigWithDeepSeek(
   settings: LocalAiSettings,
   input: DeepSeekPlannerInput
 ): Promise<PlannerPatch> {
-  const apiKey = settings.deepseek_api_key.trim()
-  if (!apiKey) throw new Error('Inserisci prima la chiave API DeepSeek nel profilo.')
-
   const payload = await requestDeepSeek(settings, [
         {
           role: 'system',
@@ -321,9 +345,6 @@ export async function generateWorkoutsWithDeepSeek(
   settings: LocalAiSettings,
   input: DeepSeekWorkoutGenerationInput
 ): Promise<DeepSeekWorkoutGenerationResult> {
-  const apiKey = settings.deepseek_api_key.trim()
-  if (!apiKey) throw new Error('Inserisci prima la chiave API DeepSeek nel profilo.')
-
   const payload = await requestDeepSeek(settings, [
         {
           role: 'system',
@@ -356,6 +377,7 @@ export async function generateWorkoutsWithDeepSeek(
               esercizi_preferiti: input.config.preferences.preferred_exercise_ids,
               esercizi_esclusi: input.config.preferences.excluded_exercise_ids,
             },
+            programmazione: input.programming ?? null,
             configurazione: input.config,
             sessioni_da_compilare: input.program.week.map((session) => ({
               session_id: session.id,
@@ -398,6 +420,8 @@ export async function generateWorkoutsWithDeepSeek(
                             sets: 4,
                             reps: '8-10',
                             rest_sec: 90,
+                            rir: '1',
+                            technique: 'string opzionale',
                             note: 'string'
                           }
                         ]
@@ -464,4 +488,107 @@ export async function generateWorkoutsWithDeepSeek(
   }
 
   return { sessions }
+}
+
+// ---------------------------------------------------------------------------------------------
+// "Analizza la mia scheda" (23/09, Fase 3 del prompt di programmazione di Rossi): l'utente scrive
+// il proprio ordine di esercizi e l'LLM lo analizza PRIMA di proporre la sua versione, poi offre
+// un ibrido. È ragionamento su testo libero, l'unico punto dove un LLM rende più del motore.
+// ---------------------------------------------------------------------------------------------
+
+export interface SchedaAnalysisInput {
+  scheda: string
+  seduta?: string
+  carenze: Muscle[]
+  programmazione: DeepSeekWorkoutGenerationInput['programming'] | null
+  livello?: Experience
+}
+
+export interface SchedaCheck { ok: boolean; nota: string }
+
+export interface SchedaAnalysis {
+  sequenza: string
+  controlli: { interleave: SchedaCheck; priorita: SchedaCheck; dimensione: SchedaCheck; volume: SchedaCheck }
+  confronto: Array<{ slot: number; utente: string; proposta: string; vincitore: 'utente' | 'proposta' | 'pari'; perche: string }>
+  ibrida: Array<{ slot: number; esercizio: string; muscolo: string; serie_reps: string; rir: string; nota?: string }>
+  pregi: string[]
+  difetti: string[]
+  conclusione: string
+}
+
+export const ANALISI_SCHEDA_SYSTEM_PROMPT = `Sei un coach di bodybuilding natural specializzato in programmazione per l'ipertrofia.
+La programmazione non è scegliere gli esercizi: è DOVE metti ogni esercizio, COSA metti prima e dopo, QUANTO dai alle carenze e QUANTO POCO ai muscoli in mantenimento, per QUANTO TEMPO è sostenibile.
+L'utente ti manda la SUA scheda. NON generare subito la tua versione: prima analizza la sua.
+1. Scrivi la sequenza dei muscoli: A → B → C...
+2. Interleave: ci sono esercizi dello stesso muscolo consecutivi? Regola per fase: deficit mai; normocalorica al massimo 2 in fila; surplus fino a 3 sui muscoli grandi. Sul muscolo carente l'interleave vale sempre. Fase sconosciuta: valuta come normocalorica e dillo.
+3. Priorità: le carenze sono nei primi slot? Se le carenze sono muscoli piccoli la carenza piccola apre e i muscoli grandi seguono subito in fascia accettabile (slot 2-4 su 6), mai in fondo. Senza carenze i grandi vanno per primi.
+4. Dimensione: manubri e bilanciere sui muscoli grandi nei primi slot, macchine negli slot bassi (tollerano la fatica).
+5. Volume: serie per distretto coerenti con la fase (deficit carenze 12-16/sett e mantenimento 6-8; normo 16-20 e 8-10; surplus 18-24 e 10-14), richiamo antagonista max 2 serie in deficit / 3 in normo-surplus a RIR 1.
+Poi confronta slot per slot la scheda dell'utente con la tua proposta e di' chi vince e perché. Se la scheda ha pregi e difetti proponi una versione IBRIDA che prende il meglio di entrambe. Mai dire "è sbagliata" senza spiegare perché e senza offrire l'alternativa. Rispetta i fastidi articolari ricevuti.
+Serie, ripetizioni e RIR sempre numeri precisi. Scrivi in italiano semplice.
+Rispondi SOLO con un JSON object con questa forma:
+{"sequenza":"string","controlli":{"interleave":{"ok":true,"nota":"string"},"priorita":{"ok":true,"nota":"string"},"dimensione":{"ok":true,"nota":"string"},"volume":{"ok":true,"nota":"string"}},"confronto":[{"slot":1,"utente":"string","proposta":"string","vincitore":"utente|proposta|pari","perche":"string"}],"ibrida":[{"slot":1,"esercizio":"string","muscolo":"string","serie_reps":"3x8-12","rir":"1","nota":"string opzionale"}],"pregi":["string"],"difetti":["string"],"conclusione":"string"}`
+
+function sanitizeCheck(value: unknown): SchedaCheck {
+  const v = value && typeof value === 'object' ? value as Record<string, unknown> : {}
+  return { ok: v.ok === true, nota: asString(v.nota, '') }
+}
+
+export function sanitizeSchedaAnalysis(raw: unknown): SchedaAnalysis {
+  const c = raw && typeof raw === 'object' ? raw as Record<string, unknown> : {}
+  const controlli = c.controlli && typeof c.controlli === 'object' ? c.controlli as Record<string, unknown> : {}
+  const list = (value: unknown) => (Array.isArray(value) ? value : []).filter((item) => item && typeof item === 'object') as Record<string, unknown>[]
+  const strings = (value: unknown) => (Array.isArray(value) ? value : []).filter((item): item is string => typeof item === 'string' && !!item.trim())
+  const vincitore = (value: unknown): 'utente' | 'proposta' | 'pari' => value === 'utente' || value === 'proposta' ? value : 'pari'
+  const result: SchedaAnalysis = {
+    sequenza: asString(c.sequenza, ''),
+    controlli: {
+      interleave: sanitizeCheck(controlli.interleave),
+      priorita: sanitizeCheck(controlli.priorita),
+      dimensione: sanitizeCheck(controlli.dimensione),
+      volume: sanitizeCheck(controlli.volume),
+    },
+    confronto: list(c.confronto).map((row, index) => ({
+      slot: asPositiveInt(row.slot, index + 1),
+      utente: asString(row.utente, '—'),
+      proposta: asString(row.proposta, '—'),
+      vincitore: vincitore(row.vincitore),
+      perche: asString(row.perche, ''),
+    })),
+    ibrida: list(c.ibrida).map((row, index) => ({
+      slot: asPositiveInt(row.slot, index + 1),
+      esercizio: asString(row.esercizio, '—'),
+      muscolo: asString(row.muscolo, ''),
+      serie_reps: asString(row.serie_reps, ''),
+      rir: typeof row.rir === 'number' ? String(row.rir) : asString(row.rir, ''),
+      nota: asOptionalString(row.nota),
+    })),
+    pregi: strings(c.pregi),
+    difetti: strings(c.difetti),
+    conclusione: asString(c.conclusione, ''),
+  }
+  if (!result.sequenza && result.confronto.length === 0 && result.ibrida.length === 0) {
+    throw new Error("DeepSeek non ha restituito un'analisi utilizzabile. Riprova.")
+  }
+  return result
+}
+
+export async function analyzeSchedaWithDeepSeek(settings: LocalAiSettings, input: SchedaAnalysisInput): Promise<SchedaAnalysis> {
+  if (!input.scheda.trim()) throw new Error('Scrivi prima la tua scheda, un esercizio per riga.')
+  const payload = await requestDeepSeek(settings, [
+    { role: 'system', content: ANALISI_SCHEDA_SYSTEM_PROMPT },
+    {
+      role: 'user',
+      content: JSON.stringify({
+        scheda_utente: input.scheda.trim(),
+        seduta: input.seduta || 'non specificata',
+        muscoli_carenti: input.carenze,
+        livello: input.livello ?? 'non specificato',
+        programmazione: input.programmazione,
+      }),
+    },
+  ])
+  const content = payload.choices?.[0]?.message?.content
+  if (!content) throw new Error('DeepSeek non ha restituito contenuto utile.')
+  return sanitizeSchedaAnalysis(JSON.parse(extractJsonObject(content)))
 }

@@ -5,7 +5,11 @@ import { useSettings } from '../features/profile/useSettings'
 import { clearNativeCrashLog, isNativeDiagnosticsAvailable, readNativeCrashLog } from '../native/diagnostics'
 import { clearJsErrorLog, formatJsErrorLog, readJsErrorLog } from '../lib/jsErrorLog'
 import { loadTimerSettings, saveTimerSettings } from '../features/profile/timerSettings'
-import type { Sex } from '../types'
+import {
+  determinaFase, JOB_ACTIVITY_LABELS, JOINT_LABELS, STRESS_LABELS, WEIGHT_TREND_LABELS,
+  type JobActivity, type JointIssue, type StressLevel, type WeightTrend,
+} from '../engine/nutrition'
+import type { Profile, Sex } from '../types'
 
 const SEX_LABELS: Record<Sex, string> = {
   female: 'Donna',
@@ -28,6 +32,12 @@ export default function ProfilePage() {
     height_cm: '',
     age: '',
     sex: 'unspecified' as Sex,
+    daily_kcal: '',
+    job_activity: '' as JobActivity | '',
+    weight_trend: '' as WeightTrend | '',
+    sleep_hours: '',
+    stress_level: '' as StressLevel | '',
+    joint_issues: [] as JointIssue[],
   })
   const [aiForm, setAiForm] = useState(() => loadLocalAiSettings())
   const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
@@ -54,20 +64,47 @@ export default function ProfilePage() {
       height_cm: profile.height_cm?.toString() ?? '',
       age: profile.age?.toString() ?? '',
       sex: profile.sex ?? 'unspecified',
+      daily_kcal: profile.daily_kcal?.toString() ?? '',
+      job_activity: profile.job_activity ?? '',
+      weight_trend: profile.weight_trend ?? '',
+      sleep_hours: profile.sleep_hours?.toString() ?? '',
+      stress_level: profile.stress_level ?? '',
+      joint_issues: profile.joint_issues ?? [],
     })
   }, [profile])
 
+  const numero = (value: string) => (value.trim() ? Number(value.replace(',', '.')) : null)
+  const bozzaProfilo: Profile = {
+    id: profile?.id ?? '',
+    display_name: form.display_name.trim() || null,
+    weight_kg: numero(form.weight_kg),
+    height_cm: numero(form.height_cm),
+    age: numero(form.age),
+    sex: form.sex,
+    daily_kcal: numero(form.daily_kcal),
+    job_activity: form.job_activity || null,
+    weight_trend: form.weight_trend || null,
+    sleep_hours: numero(form.sleep_hours),
+    stress_level: form.stress_level || null,
+    joint_issues: form.joint_issues,
+  }
+  // Anteprima dal vivo: la fase si aggiorna mentre si compilano i campi, prima di salvare.
+  const fase = determinaFase(bozzaProfilo)
+
   async function save() {
     setStatus('saving')
-    const ok = await saveProfile({
-      display_name: form.display_name.trim() || null,
-      weight_kg: form.weight_kg ? Number(form.weight_kg) : null,
-      height_cm: form.height_cm ? Number(form.height_cm) : null,
-      age: form.age ? Number(form.age) : null,
-      sex: form.sex,
-    })
-    if (ok) saveLocalAiSettings({ ...aiForm, deepseek_api_key: aiForm.deepseek_api_key.trim() })
+    const patch = { ...bozzaProfilo }
+    delete (patch as Partial<Profile>).id
+    const ok = await saveProfile(patch)
+    if (ok) saveLocalAiSettings(aiForm)
     setStatus(ok ? 'saved' : 'error')
+  }
+
+  function toggleJoint(joint: JointIssue) {
+    setForm((old) => ({
+      ...old,
+      joint_issues: old.joint_issues.includes(joint) ? old.joint_issues.filter((item) => item !== joint) : [...old.joint_issues, joint],
+    }))
   }
 
   if (loading) return <div className="grid min-h-[60vh] place-items-center text-slate2">Caricamento profilo...</div>
@@ -78,7 +115,7 @@ export default function ProfilePage() {
       <h1 className="font-display text-[2.4rem] font-extrabold uppercase leading-none">Profilo</h1>
       <p className="mt-2 font-data text-xs text-slate2">{user?.email}</p>
       <p className="mt-5 text-sm leading-relaxed text-slate2">
-        Qui conservi account, dati fisici usati per le calorie stimate e la chiave AI locale del dispositivo.
+        Qui conservi account, dati fisici, alimentazione e recupero: servono a stimare le calorie e a calibrare volume e intensità.
         Split, durata, attrezzatura e preferenze appartengono a Genera.
       </p>
 
@@ -97,19 +134,71 @@ export default function ProfilePage() {
         </label>
       </div>
 
+      <section className="mt-8 rounded-2xl border border-edge p-4">
+        <h2 className="font-display text-lg font-bold uppercase text-white">Alimentazione e recupero</h2>
+        <p className="mt-2 text-sm leading-relaxed text-slate2">
+          Da qui l'app capisce se sei in deficit, normocalorica o surplus, e calibra serie, RIR,
+          tecniche e ordine degli esercizi. Se sai che il peso scende, resta fermo o sale, indicalo:
+          vale più della stima.
+        </p>
+        <div className="mt-4 space-y-4">
+          <Input label="Calorie al giorno (kcal)" value={form.daily_kcal} type="number" onChange={(daily_kcal) => setForm((old) => ({ ...old, daily_kcal }))} />
+          <Select
+            label="Che lavoro fai"
+            value={form.job_activity}
+            options={JOB_ACTIVITY_LABELS}
+            onChange={(job_activity) => setForm((old) => ({ ...old, job_activity: job_activity as JobActivity | '' }))}
+          />
+          <Select
+            label="Andamento del peso"
+            value={form.weight_trend}
+            options={WEIGHT_TREND_LABELS}
+            emptyLabel="Non lo so"
+            onChange={(weight_trend) => setForm((old) => ({ ...old, weight_trend: weight_trend as WeightTrend | '' }))}
+          />
+          <Input label="Ore di sonno per notte" value={form.sleep_hours} type="number" onChange={(sleep_hours) => setForm((old) => ({ ...old, sleep_hours }))} />
+          <Select
+            label="Stress percepito"
+            value={form.stress_level}
+            options={STRESS_LABELS}
+            onChange={(stress_level) => setForm((old) => ({ ...old, stress_level: stress_level as StressLevel | '' }))}
+          />
+          <fieldset>
+            <legend className="field-label">Fastidi articolari</legend>
+            <div className="flex flex-wrap gap-2">
+              {(Object.keys(JOINT_LABELS) as JointIssue[]).map((joint) => {
+                const on = form.joint_issues.includes(joint)
+                return (
+                  <button
+                    key={joint}
+                    type="button"
+                    aria-pressed={on}
+                    onClick={() => toggleJoint(joint)}
+                    className={`rounded-full border px-3 py-1.5 text-sm ${on ? 'border-amber2/60 bg-amber2/15 text-amber2' : 'border-edge text-slate2'}`}
+                  >
+                    {JOINT_LABELS[joint]}
+                  </button>
+                )
+              })}
+            </div>
+            <p className="mt-2 text-xs leading-relaxed text-slate2">
+              Il motore evita i movimenti più stressanti per quell'articolazione e preferisce macchine e cavi.
+            </p>
+          </fieldset>
+        </div>
+        <p className="mt-4 rounded-xl border border-edge bg-steel/50 p-3.5 text-sm leading-relaxed text-chalk" role="status">
+          {fase
+            ? fase.summary
+            : 'Fase non ancora ricavabile: servono peso, altezza, età, lavoro e calorie, oppure l’andamento del peso.'}
+        </p>
+      </section>
+
       <section className="mt-8 rounded-2xl border border-cyan-500/25 bg-cyan-500/5 p-4">
         <h2 className="font-display text-lg font-bold uppercase text-white">DeepSeek AI</h2>
         <p className="mt-2 text-sm leading-relaxed text-slate2">
-          La chiave API viene salvata solo in locale su questo dispositivo.
-          Viene usata per suggerire configurazioni di allenamento o programma da Genera.
+          La chiave è configurata sul server: qui scegli solo il modello, salvato su questo dispositivo.
         </p>
         <div className="mt-4 space-y-4">
-          <Input
-            label="Chiave API DeepSeek"
-            value={aiForm.deepseek_api_key}
-            type="password"
-            onChange={(deepseek_api_key) => setAiForm((old) => ({ ...old, deepseek_api_key }))}
-          />
           <label className="block">
             <span className="field-label">Modello</span>
             <select className="input" value={aiForm.deepseek_model} onChange={(event) => setAiForm((old) => ({ ...old, deepseek_model: event.target.value as DeepSeekModel }))}>
@@ -217,6 +306,26 @@ export default function ProfilePage() {
         Disconnetti
       </button>
     </main>
+  )
+}
+
+function Select({ label, value, options, onChange, emptyLabel = 'Non indicato' }: {
+  label: string
+  value: string
+  options: Record<string, string>
+  onChange: (value: string) => void
+  emptyLabel?: string
+}) {
+  return (
+    <label className="block">
+      <span className="field-label">{label}</span>
+      <select className="input" value={value} onChange={(event) => onChange(event.target.value)}>
+        <option value="">{emptyLabel}</option>
+        {Object.entries(options).map(([key, text]) => (
+          <option key={key} value={key}>{text}</option>
+        ))}
+      </select>
+    </label>
   )
 }
 
