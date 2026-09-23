@@ -371,6 +371,8 @@ export interface Profile {
   joint_issues?: JointIssue[] | null
   /** Normocalorica dichiarata (calorie a cui il peso resta stabile): vince sulla formula. */
   maintenance_kcal?: number | null
+  /** Scala accettata (mini cut / mini surplus, blocco 3): engine/stallo.ts LadderPlan. */
+  ladder_plan?: { tipo: 'mini_cut' | 'mini_surplus'; base_kcal: number; gradini: { kcal: number; giorni: number }[]; started_at: string } | null
 }
 
 export interface UserSettings {

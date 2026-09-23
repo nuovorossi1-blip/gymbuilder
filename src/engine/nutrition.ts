@@ -191,6 +191,20 @@ export interface PhaseInfo {
   summary: string
 }
 
+/**
+ * Patch del profilo per un cambio di calorie fatto dall'app (gradino della scala): se il peso era
+ * "stabile" le calorie di prima erano la normocalorica e vanno conservate, e l'andamento torna
+ * "non lo so" finché non si vede come risponde il peso. Stessa logica del campo nel Profilo.
+ */
+export function patchCambioCalorie(profile: Profile, kcal: number): Partial<Profile> {
+  const patch: Partial<Profile> = { daily_kcal: kcal }
+  if (profile.weight_trend === 'stable' && profile.daily_kcal && profile.daily_kcal !== kcal) {
+    patch.weight_trend = null
+    if (!profile.maintenance_kcal) patch.maintenance_kcal = profile.daily_kcal
+  }
+  return patch
+}
+
 export function recuperoLimitato(profile: Pick<Profile, 'sleep_hours' | 'stress_level'>): boolean {
   return (profile.sleep_hours != null && profile.sleep_hours < 6) || profile.stress_level === 'high'
 }

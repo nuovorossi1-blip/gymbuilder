@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../features/auth/AuthProvider'
+import { useSettings } from '../features/profile/useSettings'
+import { determinaFase } from '../engine/nutrition'
+import { analizzaStallo, gradinoDiOggi } from '../engine/stallo'
 import { useWorkout } from '../features/workout/WorkoutContext'
 import { elencoSalvati, elencoStorico } from '../lib/api'
 import type { CompletedWorkout, Goal, Mode, SavedWorkout, Split } from '../types'
@@ -9,6 +12,14 @@ import { SwipeContainer } from '../components/SwipeContainer'
 export default function HomeDashboard() {
   const navigate = useNavigate()
   const { user } = useAuth()
+  // Blocco 3: avviso in Home solo quando serve (gradino della scala da applicare o stallo).
+  const { profile, calorieLog, bodyLog } = useSettings(user?.id)
+  const gradino = gradinoDiOggi(profile?.ladder_plan)
+  const avvisoScala = gradino && profile?.daily_kcal !== gradino.kcal
+    ? `Scala in corso: oggi passa a ${gradino.kcal} kcal`
+    : !gradino && analizzaStallo(bodyLog, determinaFase(profile, calorieLog)?.calorie_step ?? null, profile?.daily_kcal ?? null, calorieLog.length ? calorieLog[calorieLog.length - 1].created_at : null)
+      ? 'Possibile stallo: c’è una proposta di scala per le calorie'
+      : null
   const {
     activeSession, resumeActiveSession, setWorkout, setGenerationConfig,
     weeklyProgram, setWeeklyProgram, clearRejectedExercises, catalog,
@@ -267,6 +278,29 @@ export default function HomeDashboard() {
                 </div>
                 <div className="text-xs text-slate-400">
                   Genera una scheda al volo per la giornata di oggi
+                </div>
+              </div>
+            </div>
+            <span className="text-slate-400 group-hover:text-cyan-400 transition-transform group-hover:translate-x-1">
+              ➔
+            </span>
+          </button>
+
+          {/* Card 4: Peso e girovita (blocco 3) */}
+          <button
+            onClick={() => navigate('/peso')}
+            className="group relative flex items-center justify-between rounded-xl glass-card p-4 border border-edge text-left transition-all hover:border-cyan-500/40 active:scale-[0.99]"
+          >
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500/20 to-cyan-500/20 text-2xl border border-emerald-500/30">
+                ⚖️
+              </div>
+              <div>
+                <div className="font-display font-bold text-white group-hover:text-cyan-300 transition-colors">
+                  Peso e girovita
+                </div>
+                <div className={`text-xs ${avvisoScala ? 'text-amber-300' : 'text-slate-400'}`}>
+                  {avvisoScala ?? 'Una misura a settimana: l’app riconosce lo stallo e propone la scala'}
                 </div>
               </div>
             </div>

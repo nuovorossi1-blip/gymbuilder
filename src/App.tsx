@@ -13,6 +13,7 @@ import Saved from './pages/Saved'
 import History from './pages/History'
 import ProfilePage from './pages/ProfilePage'
 import Analyze from './pages/Analyze'
+import BodyLog from './pages/BodyLog'
 import { ActiveTimerBanner } from './components/ActiveTimerBanner'
 import NativeUpdater from './components/NativeUpdater'
 import InstallBanner from './components/InstallBanner'
@@ -80,6 +81,7 @@ function Guscio() {
         <Route path="/storico" element={<Navigate to="/ultimo" replace />} />
         <Route path="/profilo" element={<ProfilePage />} />
         <Route path="/analizza" element={<Analyze />} />
+        <Route path="/peso" element={<BodyLog />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       {conNav && <BottomNav />}

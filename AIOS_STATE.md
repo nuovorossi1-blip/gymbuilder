@@ -4,8 +4,31 @@
 > da qui. Va **aggiornato** a ogni sessione, non accodato all'infinito.
 > L'identità del progetto e il percorso di AI-OS stanno in `AIOS_PROJECT.json`.
 
-**Ultimo aggiornamento:** 2026-09-23 notte (piano "programmazione a scala": blocchi 1+2, 5 e 4) - Claude (Opus 5.5)
+**Ultimo aggiornamento:** 2026-09-23 notte (piano "programmazione a scala" COMPLETO: blocchi 1+2, 5, 4, 3) - Claude (Opus 5.5)
 
+### 2026-09-23 (5) — Blocco 3: diario peso/girovita, stallo e scala proposta
+
+1. **Problema** — l'app non sapeva quando proporre mini cut / mini surplus (Principio 11).
+2. **Fatto (verificato)** — DB (applicato): tabella `body_log` (peso, girovita, "mi sento
+   piatto") con RLS; `profiles.ladder_plan` (jsonb). Migration nel repo; aggiunta anche quella di
+   `calorie_log`, che era stata applicata al DB ma mancava nel repo.
+   `engine/stallo.ts`: pendenza del peso in kg/sett (regressione) sulle ultime 2 settimane, solo
+   dopo 14+ giorni dall'ultimo cambio di calorie. Cut (gradino <0): peso fermo (calo <0,1
+   kg/sett) o "piatto" nell'ultima settimana -> mini surplus K+250, K+500, K+250, K. Bulk
+   (gradino >0): >0,5 kg/sett o girovita +2 cm -> mini cut K-250, K-500, K-250, K. Normo: nulla.
+   7 giorni per gradino; `gradinoDiOggi` dice le calorie previste dal piano accettato.
+   Pagina `/peso` (card "Peso e girovita" in Home): registrazione, grafico, proposta con
+   "Accetta la scala" (imposta subito il primo gradino), piano in corso con "Aggiorna le calorie a
+   X" e "Interrompi". `patchCambioCalorie` conserva la normocalorica se il peso era "stabile".
+   La card in Home diventa gialla quando c'è un gradino da applicare o uno stallo.
+   Il volume della scheda segue da solo (rampaVolume, blocco 2). 369 test verdi (+8), tsc/eslint
+   puliti, build ok.
+3. **Da fare** — prova su browser reale di tutto il piano; mesociclo/deload (fuori piano).
+4. **Obiettivo** — la scala di Rossi è completa: calorie a gradini decise da lui con dati reali,
+   volume che segue, scheda specializzata.
+5. **Cosa aspettarsi** — dopo 2 settimane di misure settimanali, se il peso stalla in cut (o
+   sale troppo in bulk) la card in Home lo segnala e `/peso` mostra la scala; nulla cambia
+   senza "Accetta".
 ### 2026-09-23 (4) — Blocco 4: specializzazione (esempio di Rossi)
 
 1. **Problema** — il motore dava una carenza = uno slot e sempre 6 esercizi: l'esempio di Rossi

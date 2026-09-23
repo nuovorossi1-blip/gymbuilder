@@ -2,11 +2,14 @@ import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import type { Profile, UserSettings } from '../../types'
 import { gradinoCalorie, normocaloricaEffettiva, type CalorieLogEntry } from '../../engine/nutrition'
+import type { BodyEntry } from '../../engine/stallo'
 
 interface State {
   profile: Profile | null
   /** Storico delle calorie (23/09, la scala): da qui il volume segue le calorie con ritardo. */
   calorieLog: CalorieLogEntry[]
+  /** Diario peso/girovita (blocco 3), in ordine cronologico. */
+  bodyLog: BodyEntry[]
   settings: UserSettings | null
   loading: boolean
   error: string | null
@@ -16,6 +19,7 @@ export function useSettings(userId: string | undefined) {
   const [state, setState] = useState<State>({
     profile: null,
     calorieLog: [],
+    bodyLog: [],
     settings: null,
     loading: true,
     error: null,
@@ -26,9 +30,10 @@ export function useSettings(userId: string | undefined) {
     setState((s) => ({ ...s, loading: true, error: null }))
 
     const results = await Promise.all([
-      supabase.from('profiles').select('id:user_id, display_name, weight_kg, height_cm, age, sex, daily_kcal, job_activity, weight_trend, sleep_hours, stress_level, joint_issues, maintenance_kcal').eq('user_id', userId).maybeSingle(),
+      supabase.from('profiles').select('id:user_id, display_name, weight_kg, height_cm, age, sex, daily_kcal, job_activity, weight_trend, sleep_hours, stress_level, joint_issues, maintenance_kcal, ladder_plan').eq('user_id', userId).maybeSingle(),
       supabase.from('user_settings').select('*').eq('user_id', userId).maybeSingle(),
       supabase.from('calorie_log').select('kcal, maintenance_kcal, step, created_at').eq('user_id', userId).order('created_at', { ascending: false }).limit(60),
+      supabase.from('body_log').select('weight_kg, waist_cm, feels_flat, created_at').eq('user_id', userId).order('created_at', { ascending: false }).limit(60),
     ])
     const p = results[0]
     const settingsResult = results[1]
@@ -37,6 +42,7 @@ export function useSettings(userId: string | undefined) {
       setState({
         profile: null,
         calorieLog: [],
+        bodyLog: [],
         settings: null,
         loading: false,
         error: 'Non riusciamo a leggere il tuo profilo. Controlla la connessione e riprova.',
@@ -48,6 +54,7 @@ export function useSettings(userId: string | undefined) {
       profile: p.data as Profile | null,
       // Lo storico è un di più: se la tabella non risponde il resto dell'app funziona uguale.
       calorieLog: ((results[2].data ?? []) as CalorieLogEntry[]).slice().reverse(),
+      bodyLog: ((results[3].data ?? []) as BodyEntry[]).map((entry) => ({ ...entry, weight_kg: Number(entry.weight_kg), waist_cm: entry.waist_cm == null ? null : Number(entry.waist_cm) })).reverse(),
       settings: settingsResult.data as UserSettings | null,
       loading: false,
       error: null,
@@ -112,5 +119,14 @@ export function useSettings(userId: string | undefined) {
     return true
   }, [userId, state.profile])
 
-  return { ...state, reload: load, saveSettings, saveName, saveProfile }
+  const addBodyEntry = useCallback(async (entry: Omit<BodyEntry, 'created_at'>) => {
+    if (!userId) return false
+    const { data, error } = await supabase.from('body_log').insert({ ...entry, user_id: userId }).select('weight_kg, waist_cm, feels_flat, created_at').maybeSingle()
+    if (error || !data) return false
+    const voce = { ...(data as BodyEntry), weight_kg: Number(data.weight_kg), waist_cm: data.waist_cm == null ? null : Number(data.waist_cm) }
+    setState((current) => ({ ...current, bodyLog: [...current.bodyLog, voce] }))
+    return true
+  }, [userId])
+
+  return { ...state, reload: load, saveSettings, saveName, saveProfile, addBodyEntry }
 }
