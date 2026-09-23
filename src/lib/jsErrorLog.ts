@@ -3,7 +3,7 @@ const MAX_ENTRIES = 30
 
 export interface JsErrorEntry {
   at: string
-  source: 'window.onerror' | 'unhandledrejection' | 'react'
+  source: 'window.onerror' | 'unhandledrejection' | 'react' | 'genera'
   message: string
   stack?: string
 }

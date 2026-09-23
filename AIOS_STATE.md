@@ -4,8 +4,31 @@
 > da qui. Va **aggiornato** a ogni sessione, non accodato all'infinito.
 > L'identità del progetto e il percorso di AI-OS stanno in `AIOS_PROJECT.json`.
 
-**Ultimo aggiornamento:** 2026-09-23 notte (piano "programmazione a scala" COMPLETO: blocchi 1+2, 5, 4, 3) - Claude (Opus 5.5)
+**Ultimo aggiornamento:** 2026-09-24 (indagine "Genera non fa nulla": non riprodotto, errori ora visibili e registrati) - Claude (Opus 5.5)
 
+### 2026-09-24 — "Clicco su Genera e non succede niente" (PPL + CBum, carenze spalle/braccia)
+
+1. **Segnalazione** — Rossi: dopo aver compilato il profilo, sessione singola e programma
+   PPL + CBum con carenze spalle e braccia, "Genera" non fa nulla.
+2. **Indagine (verificato)** — riprodotto con i SUOI dati reali (profilo 82 kg, 2000 kcal, peso
+   in calo, fastidi spalle + schiena bassa, preferiti e carenze salvate) in Chromium headless con
+   Supabase simulato, sia in dev sia sulla build di produzione: sessione singola Spinta/Tirata/
+   Gambe e programma PPL + CBum con "Genera & Apri" su Lun/Mar/Mer -> tutto genera e apre
+   l'anteprima. Anche il motore puro (tutte le combinazioni fase/variante/protocollo, con i
+   fastidi applicati al catalogo con axial_load reale) genera e passa il validatore. Nel DB c'è
+   un programma CBum salvato stanotte alle 22:23 UTC: "Genera Programma" è arrivato al server.
+   NON riprodotto: causa ancora ignota.
+   Punto debole trovato: `generateDay` chiamato da "Genera & Apri" non aveva try/catch (un
+   errore finiva solo in console) e l'errore della settimana era in FONDO alla pagina (sul
+   telefono sotto "Mostra volume settimanale", invisibile).
+3. **Fatto** — try/catch in generateDay con messaggio "Generazione non riuscita: ..." ;
+   rifiuti del validatore ed errori di creazione programma registrati nel log errori (sorgente
+   'genera', Profilo -> Errori JavaScript); errore della settimana spostato in cima con
+   scorrimento automatico; catalogo non caricato ora dà un messaggio invece di non fare nulla.
+   369 test verdi, tsc/eslint puliti, build ok.
+4. **Da fare** — con il prossimo tentativo di Rossi: leggere il messaggio rosso o copiare
+   Profilo -> Errori JavaScript per trovare la causa vera.
+5. **Cosa aspettarsi** — se qualcosa fallisce ora si vede SEMPRE un messaggio rosso in alto.
 ### 2026-09-23 (5) — Blocco 3: diario peso/girovita, stallo e scala proposta
 
 1. **Problema** — l'app non sapeva quando proporre mini cut / mini surplus (Principio 11).

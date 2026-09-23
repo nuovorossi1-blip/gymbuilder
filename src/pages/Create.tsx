@@ -5,6 +5,7 @@ import { adaptiveExcludedIds } from '../engine/feedback'
 import { applyAutomaticProgramming, applyWorkoutRecovery, generateWeeklyProgram, selectProgramMode, updateWeeklySession } from '../engine/weeklyPlan'
 import { adaptPrescriptionForProfile, resolveEffectiveWeakPoints } from '../engine/biomechanics'
 import { validateWorkout } from '../engine/validator'
+import { logJsError } from '../lib/jsErrorLog'
 import { determinaFase, escludiPerFastidi } from '../engine/nutrition'
 import { ordinaSessione, violazioniInterleave } from '../engine/programming'
 import { stimaVolumeSettimanale, type WeeklyVolume } from '../engine/weeklyVolume'
@@ -140,7 +141,11 @@ export default function Create() {
       const program = automaticConfig.program_kind === 'program' && user ? await salvaProgramma(user.id, generated) : generated
       setWeeklyProgram(program); setError(null)
     }
-    catch (reason) { setError(reason instanceof Error ? reason.message : 'Configurazione settimanale non valida.') }
+    catch (reason) {
+      const message = reason instanceof Error ? reason.message : 'Configurazione settimanale non valida.'
+      logJsError('genera', `Creazione programma: ${message}`, reason instanceof Error ? reason.stack : undefined)
+      setError(message)
+    }
   }
 
   function updateProgram(program: WeeklyProgram) {
@@ -231,7 +236,13 @@ export default function Create() {
     }
     const generationConfig = buildGenerationConfig(sourceProgram, session, excluded, llmPrompt)
     const validation = validateWorkout(workout, generationConfig, catalog)
-    if (!validation.valid) { setError(validation.errors.join(' ')); return }
+    if (!validation.valid) {
+      // 24/09: un rifiuto del validatore finisce anche nel registro errori (Profilo -> Errori
+      // JavaScript), così da un telefono si può copiare e mandare il motivo esatto.
+      logJsError('genera', `Scheda rifiutata dal validatore (${session.label}): ${validation.errors.join(' ')}`)
+      setError(validation.errors.join(' '))
+      return
+    }
     clearRejectedExercises()
     updateProgram(applyWorkoutRecovery(sourceProgram, session.id, workout, catalog))
     setGenerationConfig(generationConfig)
@@ -297,8 +308,22 @@ export default function Create() {
     return workout
   }
 
+  /** 24/09 (Rossi: "clicco su genera e non succede niente"): un'eccezione dentro la generazione
+   *  chiamata da un clic non mostrava nulla. Ora l'errore compare in cima alla pagina e resta
+   *  nel registro errori del Profilo. */
   function generateDay(session: WeeklySession, sourceProgram = weeklyProgram) {
-    if (!sourceProgram || catalog.length === 0) return
+    try {
+      generateDayUnsafe(session, sourceProgram)
+    } catch (reason) {
+      const message = reason instanceof Error ? reason.message : String(reason)
+      logJsError('genera', `Generazione ${session.label}: ${message}`, reason instanceof Error ? reason.stack : undefined)
+      setError(`Generazione non riuscita: ${message}`)
+    }
+  }
+
+  function generateDayUnsafe(session: WeeklySession, sourceProgram = weeklyProgram) {
+    if (!sourceProgram) return
+    if (catalog.length === 0) { setError('Catalogo esercizi non ancora caricato: riprova tra qualche secondo.'); return }
     const global = sourceProgram.config
     // Density Tri-Set 3-6-9 (21/08, integrato nel programma settimanale il 21/08 sera su
     // richiesta di Rossi): motore e modello dati completamente diversi da generaBodybuilding
@@ -1223,6 +1248,9 @@ function WeekView({
   const [editing, setEditing] = useState<string | null>(null)
   const [dayIndex, setDayIndex] = useState(0)
   const [volume, setVolume] = useState<WeeklyVolume | null | undefined>(undefined)
+  // Un errore compare in cima e la pagina ci scorre sopra: sul telefono in fondo non si vedeva.
+  const errorRef = useRef<HTMLParagraphElement>(null)
+  useEffect(() => { if (error) errorRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' }) }, [error])
   // La stima si ricalcola se cambia la settimana (giorno/split modificati): mai una tabella vecchia.
   useEffect(() => { setVolume(undefined) }, [program])
 
@@ -1266,6 +1294,12 @@ function WeekView({
           </button>
         </div>
       </header>
+
+      {error && (
+        <p role="alert" ref={errorRef} className="rounded-xl border border-red-500/50 bg-red-500/10 p-3 text-sm text-red-300">
+          {error}
+        </p>
+      )}
 
       {program.warnings.map((warning) => (
         <p
@@ -1370,7 +1404,6 @@ function WeekView({
         )
       )}
 
-      {error && <p role="alert" className="text-red-400 text-sm">{error}</p>}
     </div>
   )
 }
