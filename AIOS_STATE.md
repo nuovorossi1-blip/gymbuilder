@@ -4,8 +4,36 @@
 > da qui. Va **aggiornato** a ogni sessione, non accodato all'infinito.
 > L'identità del progetto e il percorso di AI-OS stanno in `AIOS_PROJECT.json`.
 
-**Ultimo aggiornamento:** 2026-09-23 sera (piano "programmazione a scala": blocchi 1+2 e 5) - Claude (Opus 5.5)
+**Ultimo aggiornamento:** 2026-09-23 notte (piano "programmazione a scala": blocchi 1+2, 5 e 4) - Claude (Opus 5.5)
 
+### 2026-09-23 (4) — Blocco 4: specializzazione (esempio di Rossi)
+
+1. **Problema** — il motore dava una carenza = uno slot e sempre 6 esercizi: l'esempio di Rossi
+   (Pull A/B, Push A/B con bicipiti e laterali in 2 slot, richiamo laterali ad aprire le gambe)
+   specializzava molto di più.
+2. **Fatto (verificato)** — `GenerationConfig` + `specializzazione`, `variante` (A/B, già in
+   `WeeklySession.variant`), `carenze_globali`; Create la attiva quando ci sono carenze
+   (protocollo Standard). `specializzaSlot` in bodybuilding.ts:
+   - una sola carenza piccola raddoppiata per seduta, nella sua "casa" (push: laterali,
+     tricipiti, anteriori; pull: bicipiti, posteriori; legs: polpacci), tetto spalle a 2;
+   - seduta A = 7 esercizi se durata >= 65 min, B = 6; se non c'è posto si sostituisce un
+     doppione non carente (mai il petto/dorso sotto 2, preferito un isolamento): Pull B passa a
+     2 dorsi + 2 bicipiti come nell'esempio;
+   - giorno gambe: la prima carenza superiore apre come richiamo;
+   - varianti con motivo: 1ª volta del muscolo = pesi liberi in A, cavo/macchina in B; 2ª volta
+     = profilo opposto e capo diverso (curl inclinata -> Scott, alzate manubri -> macchina).
+   Fix trovati strada facendo: con il solo `nutrition_step` l'interleave non si attivava
+   (ora fase ricavata dal gradino); un composto può chiudere la seduta solo se a cavo/macchina
+   ("pulley slot 6, regge la fatica") e solo quando serve; prima di mettere un peso libero in
+   fondo si accetta una coppia di un muscolo NON carente (avviso in anteprima).
+   Test: 361 verdi (+7 specializzazione), tsc/eslint puliti, build ok.
+3. **Da fare** — blocco 3 (diario peso/girovita e stallo). Qualità catalogo gambe: per
+   `full_gym` il motore può scegliere thruster come composto quadricipiti (pre-esistente).
+4. **Obiettivo** — la settimana ora specializza come un coach: più slot e frequenza alle
+   carenze piccole, varianti A/B motivate, mantenimento al minimo efficace.
+5. **Cosa aspettarsi** — con carenze dichiarate: Pull/Push A a 7 esercizi (con 65+ minuti),
+   B a 6, la carenza della seduta compare 2 volte con attrezzi diversi, le gambe aprono con le
+   alzate laterali (se carenti). Senza carenze nulla cambia.
 ### 2026-09-23 (3) — Blocco 5: dalla scheda analizzata alla scheda salvata
 
 1. **Problema** — "Analizza la mia scheda" dava solo un parere: la scheda corretta non si poteva

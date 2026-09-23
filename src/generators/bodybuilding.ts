@@ -35,6 +35,7 @@ import { isFst7FinisherEligible } from '../engine/replacement'
 import { PESO_DEFAULT_KG, stimaCalorieEsercizio } from './calories'
 import { minutiBlocco, minutiEsercizio, PORZIONE_ROTABILE, portaCompoundInApertura, rimuoviDuplicati, riordinaPerSinergie, rng, scegliRiscaldamento } from './shared'
 import { applicaFase, ordinaSessione, stepDaFase } from '../engine/programming'
+import { stepDaOffset, stepToPhase } from '../engine/nutrition'
 import type { NutritionPhase } from '../types'
 
 export interface GenerationConfig {
@@ -70,6 +71,15 @@ export interface GenerationConfig {
   /** Gradino calorico del volume (-500..+1000): se presente vince su nutrition_phase per serie,
    *  RIR e tecniche (tabella master di Rossi); nutrition_phase resta per l'interleave. */
   nutrition_step?: number | null
+  /** Blocco 4 (23/09, specializzazione di Rossi): con carenze e protocollo Standard la carenza
+   *  piccola prende 2 slot nella sua seduta "di casa", la seduta A arriva a 7 esercizi (durata
+   *  >= 65 min) e la B resta a 6, e il giorno gambe apre con un richiamo della carenza superiore. */
+  specializzazione?: boolean
+  /** Variante della seduta nella settimana (Pull A / Pull B): A pesi liberi, B cavi/macchine. */
+  variante?: 'A' | 'B'
+  /** Tutte le carenze dichiarate (non solo quelle assegnate a questa seduta): servono al
+   *  richiamo in apertura del giorno gambe. */
+  carenze_globali?: Muscle[]
 }
 
 interface SlotDef {
@@ -560,6 +570,55 @@ function buildCustomTargetSlots(targets: Muscle[], priority: Muscle[]): SlotDef[
   return slots
 }
 
+/** Muscoli piccoli e la loro seduta "di casa" (dove una carenza prende 2 slot, blocco 4). */
+const CASA_CARENZA: Partial<Record<Split, Muscle[]>> = {
+  push: ['lateral_delts', 'triceps', 'front_delts'],
+  pull: ['biceps', 'rear_delts'],
+  legs: ['calves'],
+}
+const MUSCOLI_GRANDI = new Set<Muscle>(['chest', 'back', 'quads', 'hamstrings', 'glutes'])
+const SPLIT_GAMBE = new Set<Split>(['legs', 'lower', 'bro_legs'])
+
+/**
+ * Inserisce uno slot rispettando il tetto della seduta: se c'è posto lo aggiunge, altrimenti
+ * sostituisce un doppione non carente (mai sotto 2 copie per il muscolo identitario dello split,
+ * mai il richiamo antagonista come unico esemplare), preferendo un isolamento. Senza candidati
+ * non fa nulla: la carenza ha comunque il suo slot e la settimana la richiama altrove.
+ */
+function inserisciSlot(slots: SlotDef[], nuovo: SlotDef, limite: number, identitario: Muscle | undefined): boolean {
+  if (slots.length < limite) { slots.push(nuovo); return true }
+  const copie = (m: Muscle) => slots.filter((slot) => slot.muscle === m).length
+  const candidati = slots
+    .map((slot, index) => ({ slot, index, n: copie(slot.muscle) }))
+    .filter(({ slot, n }) => !slot.weakPoint && n >= 2 && (slot.muscle !== identitario || n >= 3))
+    .sort((a, b) => b.n - a.n || Number(a.slot.compound) - Number(b.slot.compound))
+  const bersaglio = candidati[0]
+  if (!bersaglio) return false
+  slots[bersaglio.index] = nuovo
+  return true
+}
+
+/** Specializzazione (blocco 4, esempio di Rossi): ritorna le priorità aggiornate della seduta. */
+function specializzaSlot(slots: SlotDef[], cfg: GenerationConfig, priorities: Muscle[]): Muscle[] {
+  const limite = cfg.variante === 'B' ? 6 : cfg.duration_min >= 65 ? 7 : 6
+  const identitario = BASE_SLOTS[cfg.split]?.[0]?.muscle
+  let out = [...priorities]
+  // Giorno gambe: apre con un richiamo della carenza superiore (zero impatto sulle gambe).
+  if (SPLIT_GAMBE.has(cfg.split)) {
+    const sup = (cfg.carenze_globali ?? []).find((m) => !MUSCOLI_GRANDI.has(m) && !SPLIT_MUSCLE_POOL[cfg.split].includes(m) && !slots.some((slot) => slot.muscle === m))
+    if (sup && inserisciSlot(slots, { muscle: sup, compound: false, weakPoint: true }, limite, identitario)) out = [...new Set([...out, sup])]
+  }
+  // Una sola carenza raddoppiata per seduta: quella dichiarata per prima che ha qui la sua casa.
+  const casa = CASA_CARENZA[cfg.split] ?? []
+  const spalle = (m: Muscle) => SHOULDER_MUSCLES.includes(m)
+  const doppia = out.find((m) => casa.includes(m) &&
+    slots.filter((slot) => slot.muscle === m).length === 1 &&
+    !(spalle(m) && slots.filter((slot) => spalle(slot.muscle)).length >= 2) &&
+    !MUSCOLI_SENZA_ISOLAMENTO.has(m))
+  if (doppia) inserisciSlot(slots, { muscle: doppia, compound: false, weakPoint: true }, limite, identitario)
+  return out
+}
+
 export function generaBodybuilding(
   catalogo: Exercise[],
   cfg: GenerationConfig
@@ -579,7 +638,7 @@ export function generaBodybuilding(
   const riscaldamentoPool = disponibili.filter((e) => e.roles.includes('warmup'))
 
   // 4. Struttura: 5 slot fissi + un sesto secondo tempo e priorità settimanali.
-  const priorities = cfg.priority_muscles ?? []
+  let priorities = cfg.priority_muscles ?? []
   const customTargets = cfg.target_muscles?.length ? [...new Set(cfg.target_muscles)] : []
   const pool = customTargets.length > 0 ? customTargets : SPLIT_MUSCLE_POOL[cfg.split]
   const base = BASE_SLOTS[cfg.split]
@@ -587,6 +646,8 @@ export function generaBodybuilding(
     ? { slots: buildCustomTargetSlots(customTargets, priorities), requirements: customTargets }
     : applicaPrioritaAssegnate(base, priorities)
   const baseSlot = structured.slots
+  const specializza = !!cfg.specializzazione && customTargets.length === 0 && (!cfg.protocol || cfg.protocol === 'standard')
+  if (specializza) priorities = specializzaSlot(baseSlot, cfg, priorities)
   // FST-7 vuole ESATTAMENTE 3 esercizi base (il 7° arriva a parte): a differenza degli altri
   // protocolli, qui il target non può salire per via dei 5 slot fissi dello split (baseSlot
   // ne ha sempre almeno 5), altrimenti il ciclo di completamento più sotto ne aggiunge fino a 5.
@@ -619,6 +680,7 @@ export function generaBodybuilding(
       : slotOrdinato
 
   // 7. Selezione esercizi per slot
+  const perIdAllenamento = new Map(allenamento.map((exercise) => [exercise.id, exercise]))
   const scelti: PrescribedExercise[] = []
   const usati = new Set<string>()
   let faticaSistemica = 0
@@ -651,12 +713,32 @@ export function generaBodybuilding(
         // Niente movimenti tecnici quando la stanchezza rende la tecnica inaffidabile (sez. 33)
         .filter((e) => !(faticaSistemica >= 8 && e.technical_complexity >= 3))
 
+      // Specializzazione (blocco 4): la 2ª volta dello stesso muscolo carente nella seduta usa un
+      // profilo diverso dalla 1ª (manubri <-> cavo/macchina, capo diverso: es. curl inclinata e poi
+      // hammer), la 1ª segue la variante della seduta (A pesi liberi = carico e allungamento,
+      // B cavi/macchine = tensione costante). Motivo biomeccanico, non varietà per sé.
+      const primaVolta = specializza && isRichiamo && !MUSCOLI_GRANDI.has(m)
+        ? scelti.map((voce) => (voce.muscle === m ? perIdAllenamento.get(voce.exercise_id) : undefined)).find(Boolean)
+        : undefined
+      if (specializza && isRichiamo && !MUSCOLI_GRANDI.has(m)) {
+        // Pesi liberi = carico e allungamento; cavo/macchina = tensione costante. L'elastico non è
+        // né l'uno né l'altro: resta solo come ripiego.
+        const libero = (e: Exercise) => e.equipment === 'dumbbell' || e.equipment === 'barbell'
+        const guidato = (e: Exercise) => e.equipment === 'cable' || e.equipment === 'machine'
+        const vuoleLibero = primaVolta ? !libero(primaVolta) : cfg.variante !== 'B'
+        const profilo = (e: Exercise) => (vuoleLibero ? libero(e) : guidato(e))
+        const preferiti_ = candidati.filter((e) => profilo(e) && (!primaVolta?.focus_portion || e.focus_portion !== primaVolta.focus_portion))
+        const ripiego = candidati.filter(profilo)
+        if (preferiti_.length > 0) candidati = preferiti_
+        else if (ripiego.length > 0) candidati = ripiego
+      }
+
       // Rotazione per porzione (sez. Lagging Muscle Engine): un richiamo bicipiti/tricipiti
       // preferisce il capo assegnato a questa seduta (weeklyPlan.ts la ruota fra le sedute
       // della settimana; senza programma settimanale, sez. sessione singola, si usa 'long_head'
       // come primo colpo, il più efficace in singola esposizione). Se nessun esercizio del pool
       // ha ancora quel tag, si torna al pool intero: mai far fallire lo slot per questo.
-      if (isRichiamo && PORZIONE_ROTABILE.has(m)) {
+      if (isRichiamo && PORZIONE_ROTABILE.has(m) && !primaVolta) {
         const porzione: FocusPortion = cfg.priority_portions?.[m] ?? 'long_head'
         const conPorzione = candidati.filter((e) => e.focus_portion === porzione)
         if (conPorzione.length > 0) candidati = conPorzione
@@ -729,7 +811,7 @@ export function generaBodybuilding(
 
   // Se uno slot molto specifico non è disponibile, completa comunque il
   // minimo con un isolamento sicuro e coerente con i muscoli dello split.
-  while (scelti.length < Math.min(target, 6)) {
+  while (scelti.length < Math.min(target, specializza ? slot.length : 6)) {
     const fallback = allenamento.find((exercise) =>
       !usati.has(exercise.id) && exercise.roles.includes('isolation') &&
       exercise.technical_complexity <= 2 &&
@@ -762,7 +844,8 @@ export function generaBodybuilding(
   }
   const ordineProgrammato = protocolloStandard && (!!cfg.nutrition_phase || priorities.length > 0)
   if (ordineProgrammato) {
-    ordinaSessione(scelti, { carenze: priorities, phase: cfg.nutrition_phase, split: cfg.split, catalogById })
+    const fase = cfg.nutrition_phase ?? (cfg.nutrition_step != null ? stepToPhase(stepDaOffset(cfg.nutrition_step)) : null)
+    ordinaSessione(scelti, { carenze: priorities, phase: fase, split: cfg.split, catalogById })
   }
 
   // 7c. Protocollo FST-7 (Hany Rambod): un 4° esercizio, esattamente 7 serie x 10-12 rep,

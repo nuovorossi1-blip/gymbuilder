@@ -157,6 +157,9 @@ interface Item {
   carenza: boolean
   smallCarenza: boolean
   bigCarenza: boolean
+  /** Cavo o macchina: traiettoria guidata, tollera la fatica (esempio di Rossi: "pulley slot 6,
+   *  GRANDE ma CAVO, regge la fatica"). */
+  guidato: boolean
 }
 
 const FATICA_LOCALE_ALTA = 2
@@ -179,6 +182,7 @@ export function ordinaSessione(scelti: PrescribedExercise[], opts: OrdinaOpts): 
       e, orig, muscle, big, carenza,
       smallCarenza: carenza && !!muscle && !MUSCOLI_GRANDI.has(muscle),
       bigCarenza: carenza && !!muscle && MUSCOLI_GRANDI.has(muscle),
+      guidato: ['cable', 'machine'].includes(String(opts.catalogById?.get(e.exercise_id)?.equipment ?? '')),
     }
   })
 
@@ -200,6 +204,7 @@ export function ordinaSessione(scelti: PrescribedExercise[], opts: OrdinaOpts): 
   const positionCost = (item: Item, pos: number): number => {
     let cost = Math.abs(pos - item.orig)
     if (item.big && pos > lastAllowed) cost += 6 * (pos - lastAllowed)
+    if (item.e.role === 'compound' && pos === n - 1 && n >= 5) cost += 8
     // Multiarticolari "piccoli" (dip, shoulder press): fascia media, al massimo uno slot dopo i grandi.
     else if (item.e.role === 'compound' && pos > lastAllowed + 1) cost += 4 * (pos - lastAllowed - 1)
     // Prompt, "eccezione importante": piccolo carente slot 1 -> grande carente slot 2-3.
@@ -241,7 +246,9 @@ export function ordinaSessione(scelti: PrescribedExercise[], opts: OrdinaOpts): 
         if (pos === 0 && !leadOk(item)) continue
         // Nessun multiarticolare in fondo (23/09): vale anche per dip e shoulder press, che il
         // catalogo registra come tricipiti/deltoidi ma sono composti che caricano le spalle.
-        if (!bigLastAllowed && pos === n - 1 && n >= 5 && item.e.role === 'compound') continue
+        // Eccezione: un multiarticolare a cavo/macchina può chiudere se è l'unico modo di rispettare
+        // l'interleave (es. Pull in deficit con 3 dorsi su 6 slot), e comunque costa di più.
+        if (!bigLastAllowed && pos === n - 1 && n >= 5 && item.e.role === 'compound' && !item.guidato) continue
         const limit = item.carenza ? limitCarenza : limitNonCarenza
         if (runLength(item) > limit) continue
         const add = positionCost(item, pos) + (pos > 0 ? sinergiaPenalty(seq[pos - 1], item) : 0)
@@ -255,12 +262,13 @@ export function ordinaSessione(scelti: PrescribedExercise[], opts: OrdinaOpts): 
   }
 
   // Vincoli allentati in ordine di importanza: l'interleave sul muscolo carente è la regola
-  // confermata da Rossi e cede per ultima; prima cede "mai un grande all'ultimo posto" (es. Pull
-  // con dorso carente: tre dorsi alternati finiscono per forza all'ultimo slot), poi il limite
-  // di fase sui muscoli non carenti.
+  // confermata da Rossi e cede per ultima.
   const INF = Number.POSITIVE_INFINITY
-  const result = solve(phaseLimit, 1) ?? solve(phaseLimit, 1, true) ?? solve(INF, 1) ?? solve(INF, 1, true) ??
-    solve(INF, INF) ?? solve(INF, INF, true)
+  // Aggiornato col blocco 4: prima di mettere un multiarticolare a PESI LIBERI in fondo si accetta
+  // una coppia dello stesso muscolo non carente (limite di fase +1): la qualità dell'interleave
+  // costa meno del rischio di un bilanciere/manubrio pesante da stanchi (caso dip di Rossi).
+  const result = solve(phaseLimit, 1) ?? solve(phaseLimit + 1, 1) ?? solve(phaseLimit, 1, true) ??
+    solve(INF, 1) ?? solve(INF, 1, true) ?? solve(INF, INF) ?? solve(INF, INF, true)
   if (!result) return false
   const changed = result.some((item, idx) => item.orig !== idx)
   if (changed) {

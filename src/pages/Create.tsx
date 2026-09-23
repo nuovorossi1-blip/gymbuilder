@@ -291,7 +291,9 @@ export default function Create() {
           ? generaForza(dayCatalog, { ...common, priority_muscles: todayPriorities, priority_portions: todayPortions, target_muscles: todayTargets, split, method: global.strength_method, weekly_volume: weeklyState?.volume, last_trained_at: weeklyState?.last_trained_at })
           : session.mode === 'tabata'
             ? generaTabata(dayCatalog, { ...common, ...global.tabata })
-            : generaBodybuilding(dayCatalog, { ...common, priority_muscles: todayPriorities, priority_portions: todayPortions, target_muscles: todayTargets, split, goal: 'hypertrophy', weekly_volume: weeklyState?.volume, last_trained_at: weeklyState?.last_trained_at, protocol: global.protocol, fst7_preloading: global.fst7_preloading, nutrition_phase: phaseInfo?.training_phase ?? null, nutrition_step: phaseInfo?.training_step ?? null })
+            : generaBodybuilding(dayCatalog, { ...common, priority_muscles: todayPriorities, priority_portions: todayPortions, target_muscles: todayTargets, split, goal: 'hypertrophy', weekly_volume: weeklyState?.volume, last_trained_at: weeklyState?.last_trained_at, protocol: global.protocol, fst7_preloading: global.fst7_preloading, nutrition_phase: phaseInfo?.training_phase ?? null, nutrition_step: phaseInfo?.training_step ?? null,
+        // Blocco 4: specializzazione attiva quando ci sono carenze (protocollo Standard).
+        specializzazione: global.weak_points.length > 0, variante: session.variant ?? 'A', carenze_globali: global.weak_points })
     return workout
   }
 

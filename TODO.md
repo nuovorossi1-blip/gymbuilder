@@ -1,6 +1,7 @@
 # Todo
 
-- [ ] Piano "programmazione a scala" (23/09): fatti blocchi 1+2 e 5. Restano: 4 (specializzazione: 2 slot carenze piccole, sedute A/B 7/6 esercizi, richiamo carenza slot 1 gambe), 3 (diario peso/girovita, stallo -> proposta mini cut/mini surplus a scala).
+- [ ] Catalogo gambe (visto il 23/09): con full_gym il motore può scegliere thruster come composto quadricipiti in un Legs da bodybuilding; valutare di escluderli dal pool Bodybuilding.
+- [ ] Piano "programmazione a scala" (23/09): fatti blocchi 1+2, 5 e 4. Resta: 3 (diario peso/girovita, stallo -> proposta mini cut/mini surplus a scala).
 - [ ] Verificare in produzione (23/09) la programmazione di Rossi: Profilo -> "Alimentazione e recupero" mostra la fase; Pull in deficit alterna dorso/altro; Push con carenza laterali apre con le alzate; RIR e nota di fase in anteprima; "Mostra volume settimanale" nella settimana; "Analizza la mia scheda" dalla Home risponde (DeepSeek autenticato).
 - [ ] Estendere fase nutrizionale e interleave anche a Forza e al blocco Strength di Hybrid (oggi solo Bodybuilding Standard).
 - [ ] Mesociclo 8 settimane / double progression del prompt di Rossi: non implementato.

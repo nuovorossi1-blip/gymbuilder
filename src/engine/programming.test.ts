@@ -91,7 +91,12 @@ describe('tabella master per gradino e dip (23/09)', () => {
       for (const seed of [1, 5, 9]) {
         for (const split of ['push', 'pull', 'legs', 'upper'] as Split[]) {
           const main = gen(split, step, ['lateral_delts', 'triceps'], seed)
-          expect(main[main.length - 1].role).not.toBe('compound')
+          const last = main[main.length - 1]
+          // Ammesso solo un multiarticolare a cavo/macchina (tollera la fatica), mai il dip né i pesi liberi.
+          if (last.role === 'compound') {
+            expect(['cable', 'machine']).toContain(cat.find((e) => e.id === last.exercise_id)!.equipment)
+            expect(last.exercise_id.startsWith('dip')).toBe(false)
+          }
         }
       }
     }
@@ -118,5 +123,55 @@ describe('tabella master per gradino e dip (23/09)', () => {
   it('richiamo antagonista: 2 serie in deficit, 4 al gradino massimo', () => {
     expect(gen('push', -500).find((e) => e.note === NOTA_ANTAGONISTA)?.sets).toBe(2)
     expect(gen('push', 1000).find((e) => e.note === NOTA_ANTAGONISTA)?.sets).toBe(4)
+  })
+})
+
+describe('specializzazione (blocco 4, esempio di Rossi)', () => {
+  const car: Muscle[] = ['lateral_delts', 'rear_delts', 'biceps', 'triceps']
+  const spec = (split: Split, pri: Muscle[], variante: 'A' | 'B', duration = 75, seed = 7) =>
+    generaBodybuilding(cat, {
+      split, goal: 'hypertrophy', experience: 'advanced', equipment: 'full_gym', duration_min: duration,
+      priority_muscles: pri, excluded_exercises: [], seed, nutrition_step: -500,
+      specializzazione: true, variante, carenze_globali: car,
+    }).blocks.find((block) => block.kind === 'main')!.exercises
+  const conta = (m: ReturnType<typeof spec>, muscle: Muscle) => m.filter((e) => e.muscle === muscle).length
+
+  it('Pull A: 7 esercizi, bicipiti carenti in 2 slot, dorso a 3', () => {
+    const pull = spec('pull', ['biceps', 'rear_delts', 'triceps'], 'A')
+    expect(pull.length).toBe(7)
+    expect(conta(pull, 'biceps')).toBe(2)
+    expect(conta(pull, 'back')).toBe(3)
+  })
+  it('Pull B: 6 esercizi, il secondo bicipite prende il posto di un dorso (mai sotto 2)', () => {
+    const pull = spec('pull', ['biceps', 'rear_delts', 'triceps'], 'B')
+    expect(pull.length).toBe(6)
+    expect(conta(pull, 'biceps')).toBe(2)
+    expect(conta(pull, 'back')).toBe(2)
+  })
+  it('Push A/B: deltoidi laterali in 2 slot, petto sempre a 2', () => {
+    for (const v of ['A', 'B'] as const) {
+      const push = spec('push', ['lateral_delts', 'triceps', 'biceps'], v)
+      expect(conta(push, 'lateral_delts')).toBe(2)
+      expect(conta(push, 'chest')).toBe(2)
+    }
+  })
+  it('le due volte dello stesso muscolo usano profili diversi (pesi liberi vs cavo/macchina)', () => {
+    const libero = (id: string) => ['dumbbell', 'barbell'].includes(cat.find((e) => e.id === id)!.equipment as string)
+    for (const seed of [1, 7, 11]) {
+      const push = spec('push', ['lateral_delts'], 'A', 75, seed).filter((e) => e.muscle === 'lateral_delts')
+      expect(libero(push[0].exercise_id)).not.toBe(libero(push[1].exercise_id))
+    }
+  })
+  it('giorno gambe: apre con il richiamo della carenza superiore', () => {
+    const legs = spec('legs', [], 'A')
+    expect(legs[0].muscle).toBe('lateral_delts')
+  })
+  it('in deficit la specializzazione rispetta comunque l interleave', () => {
+    for (const [split, pri] of [['pull', ['biceps', 'rear_delts', 'triceps']], ['push', ['lateral_delts', 'triceps', 'biceps']]] as [Split, Muscle[]][]) {
+      for (const v of ['A', 'B'] as const) expect(violazioniInterleave(spec(split, pri, v), pri, 'deficit')).toEqual([])
+    }
+  })
+  it('sotto i 65 minuti anche la seduta A resta a 6 esercizi', () => {
+    expect(spec('pull', ['biceps'], 'A', 60).length).toBe(6)
   })
 })
