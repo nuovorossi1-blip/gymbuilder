@@ -4,8 +4,26 @@
 > da qui. Va **aggiornato** a ogni sessione, non accodato all'infinito.
 > L'identità del progetto e il percorso di AI-OS stanno in `AIOS_PROJECT.json`.
 
-**Ultimo aggiornamento:** 2026-09-23 sera (piano "programmazione a scala", blocchi 1+2: gradini calorici, storico calorie, il volume segue) - Claude (Opus 5.5)
+**Ultimo aggiornamento:** 2026-09-23 sera (piano "programmazione a scala": blocchi 1+2 e 5) - Claude (Opus 5.5)
 
+### 2026-09-23 (3) — Blocco 5: dalla scheda analizzata alla scheda salvata
+
+1. **Problema** — "Analizza la mia scheda" dava solo un parere: la scheda corretta non si poteva
+   salvare né eseguire.
+2. **Fatto (verificato)** — DeepSeek riceve il catalogo e restituisce `tua` (le righe
+   dell'utente abbinate a exercise_id, nel SUO ordine) e `proposta` (la sua versione con id).
+   In `/analizza` nuovo riquadro "Scheda finale": per ogni slot Mia/Proposta (default =
+   vincitore del confronto, pari -> la tua), tasti "Tutta la mia"/"Tutta la proposta", select
+   per cambiare esercizio (stesso muscolo primario), righe non abbinate evidenziate e Salva
+   bloccato finché mancano. `engine/schedaUtente.ts` compone il GeneratedWorkout (ruolo dal
+   catalogo, recuperi di default, RIR, nota carenza, riscaldamento contestuale) SENZA riordinare:
+   aggiunge solo avvisi (interleave per fase, composto all'ultimo slot). Salva -> Salvati;
+   Inizia subito -> anteprima. 354 test verdi, tsc/eslint puliti, build ok.
+3. **Da fare** — blocchi 4 (specializzazione) e 3 (diario peso/stallo). La scheda salvata non
+   entra in un programma settimanale (scelta dichiarata del piano).
+4. **Obiettivo** — la scheda scritta e confermata dall'utente diventa una scheda vera dell'app.
+5. **Cosa aspettarsi** — Home -> Analizza -> scrivere la scheda -> Analizza -> in fondo
+   "Scheda finale" -> Salva (la ritrovi in Salvati) o Inizia subito. Non verificato su browser.
 ### 2026-09-23 (2) — Piano "programmazione a scala": blocchi 1 e 2
 
 Piano concordato con Rossi in 5 blocchi (ordine 1+2 -> 5 -> 4 -> 3):

@@ -507,7 +507,11 @@ export interface SchedaAnalysisInput {
   carenze: Muscle[]
   programmazione: DeepSeekWorkoutGenerationInput['programming'] | null
   livello?: Experience
+  /** Catalogo dell'app: DeepSeek abbina ogni riga a un exercise_id (blocco 5, scheda salvabile). */
+  catalogo?: Exercise[]
 }
+
+export interface SchedaRiga { slot: number; testo: string; exercise_id: string | null; sets: number; reps: string; rir: string }
 
 export interface SchedaCheck { ok: boolean; nota: string }
 
@@ -519,6 +523,10 @@ export interface SchedaAnalysis {
   pregi: string[]
   difetti: string[]
   conclusione: string
+  /** La scheda dell'utente abbinata al catalogo, nel SUO ordine. */
+  tua: SchedaRiga[]
+  /** La versione del coach, abbinata al catalogo, slot per slot. */
+  proposta: SchedaRiga[]
 }
 
 export const ANALISI_SCHEDA_SYSTEM_PROMPT = `Sei un coach di bodybuilding natural specializzato in programmazione per l'ipertrofia.
@@ -531,12 +539,25 @@ L'utente ti manda la SUA scheda. NON generare subito la tua versione: prima anal
 5. Volume: valutalo sul gradino di programmazione.gradino_volume (scala di 250 kcal dalla normocalorica: il volume segue le calorie con 7 giorni di ritardo, un gradino a settimana, in salita e in discesa). Serie per distretto coerenti con la fase (deficit carenze 12-16/sett e mantenimento 6-8; normo 16-20 e 8-10; surplus 18-24 e 10-14), richiamo antagonista max 2 serie in deficit / 3 in normo-surplus a RIR 1.
 Poi confronta slot per slot la scheda dell'utente con la tua proposta e di' chi vince e perché. Se la scheda ha pregi e difetti proponi una versione IBRIDA che prende il meglio di entrambe. Mai dire "è sbagliata" senza spiegare perché e senza offrire l'alternativa. Rispetta i fastidi articolari ricevuti.
 Serie, ripetizioni e RIR sempre numeri precisi. Scrivi in italiano semplice.
+Ti arriva anche il catalogo esercizi dell'app: abbina OGNI riga della scheda dell'utente all'exercise_id del catalogo più vicino (stesso movimento e attrezzo; se non c'è nulla di sensato metti null) in "tua", rispettando esattamente il suo ordine, le sue serie e ripetizioni. In "proposta" metti la tua versione slot per slot, SOLO con exercise_id del catalogo, lo stesso numero di slot di "confronto".
 Rispondi SOLO con un JSON object con questa forma:
-{"sequenza":"string","controlli":{"interleave":{"ok":true,"nota":"string"},"priorita":{"ok":true,"nota":"string"},"dimensione":{"ok":true,"nota":"string"},"volume":{"ok":true,"nota":"string"}},"confronto":[{"slot":1,"utente":"string","proposta":"string","vincitore":"utente|proposta|pari","perche":"string"}],"ibrida":[{"slot":1,"esercizio":"string","muscolo":"string","serie_reps":"3x8-12","rir":"1","nota":"string opzionale"}],"pregi":["string"],"difetti":["string"],"conclusione":"string"}`
+{"tua":[{"slot":1,"testo":"riga originale","exercise_id":"id|null","sets":3,"reps":"8-12","rir":"1"}],"proposta":[{"slot":1,"testo":"nome esercizio","exercise_id":"id","sets":3,"reps":"8-12","rir":"1"}],"sequenza":"string","controlli":{"interleave":{"ok":true,"nota":"string"},"priorita":{"ok":true,"nota":"string"},"dimensione":{"ok":true,"nota":"string"},"volume":{"ok":true,"nota":"string"}},"confronto":[{"slot":1,"utente":"string","proposta":"string","vincitore":"utente|proposta|pari","perche":"string"}],"ibrida":[{"slot":1,"esercizio":"string","muscolo":"string","serie_reps":"3x8-12","rir":"1","nota":"string opzionale"}],"pregi":["string"],"difetti":["string"],"conclusione":"string"}`
 
 function sanitizeCheck(value: unknown): SchedaCheck {
   const v = value && typeof value === 'object' ? value as Record<string, unknown> : {}
   return { ok: v.ok === true, nota: asString(v.nota, '') }
+}
+
+function sanitizeRiga(row: Record<string, unknown>, index: number): SchedaRiga {
+  const id = typeof row.exercise_id === 'string' && row.exercise_id.trim() && row.exercise_id !== 'null' ? row.exercise_id.trim() : null
+  return {
+    slot: asPositiveInt(row.slot, index + 1),
+    testo: asString(row.testo, ''),
+    exercise_id: id,
+    sets: asPositiveInt(row.sets, 3),
+    reps: typeof row.reps === 'number' ? String(row.reps) : asString(row.reps, '8-12'),
+    rir: typeof row.rir === 'number' ? String(row.rir) : asString(row.rir, ''),
+  }
 }
 
 export function sanitizeSchedaAnalysis(raw: unknown): SchedaAnalysis {
@@ -571,6 +592,8 @@ export function sanitizeSchedaAnalysis(raw: unknown): SchedaAnalysis {
     pregi: strings(c.pregi),
     difetti: strings(c.difetti),
     conclusione: asString(c.conclusione, ''),
+    tua: list(c.tua).map((row, index) => sanitizeRiga(row, index)),
+    proposta: list(c.proposta).map((row, index) => sanitizeRiga(row, index)),
   }
   if (!result.sequenza && result.confronto.length === 0 && result.ibrida.length === 0) {
     throw new Error("DeepSeek non ha restituito un'analisi utilizzabile. Riprova.")
@@ -590,6 +613,9 @@ export async function analyzeSchedaWithDeepSeek(settings: LocalAiSettings, input
         muscoli_carenti: input.carenze,
         livello: input.livello ?? 'non specificato',
         programmazione: input.programmazione,
+        catalogo: (input.catalogo ?? []).filter((e) => !e.roles.includes('warmup')).map((e) => ({
+          id: e.id, name: e.name, primary_muscles: e.primary_muscles, equipment: e.equipment, compound: e.roles.includes('compound'),
+        })),
       }),
     },
   ])

@@ -5,7 +5,12 @@ import { useAuth } from '../features/auth/AuthProvider'
 import { loadLocalAiSettings } from '../features/profile/aiSettings'
 import { useSettings } from '../features/profile/useSettings'
 import { analyzeSchedaWithDeepSeek, type SchedaAnalysis, type SchedaCheck } from '../lib/deepseek'
-import { MUSCLE_LABELS, type Muscle } from '../types'
+import { componiSchedaSalvabile, righeMancanti, type RigaScheda } from '../engine/schedaUtente'
+import { useWorkout } from '../features/workout/WorkoutContext'
+import { caricaCatalogo, salvaAllenamento } from '../lib/api'
+import { MUSCLE_LABELS, type Exercise, type Muscle } from '../types'
+import type { SchedaRiga } from '../lib/deepseek'
+import type { PhaseInfo } from '../engine/nutrition'
 
 /**
  * "Analizza la mia scheda" (23/09, Fase 3 del prompt di programmazione di Rossi).
@@ -33,6 +38,13 @@ export default function Analyze() {
   const [errore, setErrore] = useState('')
   const [analisi, setAnalisi] = useState<SchedaAnalysis | null>(null)
   const fase = determinaFase(profile, calorieLog)
+  const { catalog: ctxCatalog, setCatalog } = useWorkout()
+  const [catalog, setLocalCatalog] = useState<Exercise[]>(ctxCatalog ?? [])
+
+  useEffect(() => {
+    if (catalog.length > 0) return
+    caricaCatalogo().then((items) => { setLocalCatalog(items); setCatalog(items) }).catch(() => undefined)
+  }, [catalog.length, setCatalog])
 
   useEffect(() => {
     if (settings?.priority_muscles?.length) setCarenze(settings.priority_muscles)
@@ -50,6 +62,7 @@ export default function Analyze() {
         seduta,
         carenze,
         livello: settings?.experience,
+        catalogo: catalog,
         programmazione: {
           fase: fase?.phase ?? null,
           fase_per_volume: fase?.training_phase ?? null,
@@ -127,6 +140,18 @@ export default function Analyze() {
       {errore && <p role="alert" className="mt-3 text-sm text-amber2">{errore}</p>}
 
       {analisi && <Risultato analisi={analisi} />}
+      {analisi && (analisi.tua.length > 0 || analisi.proposta.length > 0) && catalog.length > 0 && (
+        <SchedaFinale
+          key={analisi.sequenza + analisi.tua.length}
+          analisi={analisi}
+          catalog={catalog}
+          seduta={seduta}
+          carenze={carenze}
+          fase={fase}
+          experience={settings?.experience ?? 'intermediate'}
+          userId={user?.id}
+        />
+      )}
     </main>
   )
 }
@@ -228,6 +253,140 @@ function Risultato({ analisi }: { analisi: SchedaAnalysis }) {
       )}
 
       {analisi.conclusione && <p className="text-sm leading-relaxed text-chalk">{analisi.conclusione}</p>}
+    </section>
+  )
+}
+
+type Scelta = 'tua' | 'proposta'
+
+/**
+ * Blocco 5 (23/09): scheda finale slot per slot. Default = vincitore del confronto (pari -> la tua).
+ * L'ordine resta quello degli slot: niente riordino automatico di una scheda confermata.
+ */
+function SchedaFinale({ analisi, catalog, seduta, carenze, fase, experience, userId }: {
+  analisi: SchedaAnalysis
+  catalog: Exercise[]
+  seduta: string
+  carenze: Muscle[]
+  fase: PhaseInfo | null
+  experience: 'beginner' | 'intermediate' | 'advanced'
+  userId?: string
+}) {
+  const navigate = useNavigate()
+  const { setWorkout, setGenerationConfig } = useWorkout()
+  const byId = new Map(catalog.map((e) => [e.id, e]))
+  const allenanti = catalog.filter((e) => !e.roles.includes('warmup')).sort((a, b) => a.name.localeCompare(b.name, 'it'))
+  const n = Math.max(analisi.tua.length, analisi.proposta.length)
+  const [scelte, setScelte] = useState<Scelta[]>(() => Array.from({ length: n }, (_, i) => {
+    const vince = analisi.confronto.find((row) => row.slot === i + 1)?.vincitore
+    if (vince === 'proposta' && analisi.proposta[i]) return 'proposta'
+    return analisi.tua[i] ? 'tua' : 'proposta'
+  }))
+  const [override, setOverride] = useState<Record<number, string>>({})
+  const [nome, setNome] = useState(`${seduta} — mia scheda`)
+  const [stato, setStato] = useState<'idle' | 'salvo' | 'salvato' | 'errore'>('idle')
+  const [msg, setMsg] = useState('')
+
+  const rigaDi = (i: number): SchedaRiga | undefined => (scelte[i] === 'proposta' ? analisi.proposta[i] : analisi.tua[i]) ?? analisi.tua[i] ?? analisi.proposta[i]
+  const righe: RigaScheda[] = Array.from({ length: n }, (_, i) => {
+    const r = rigaDi(i)!
+    return { exercise_id: override[i] ?? r.exercise_id, sets: r.sets, reps: r.reps, rir: r.rir }
+  })
+  const mancanti = righeMancanti(righe, byId)
+
+  function costruisci() {
+    return componiSchedaSalvabile(righe, catalog, {
+      nome, seduta, carenze, phase: fase?.training_phase ?? null, experience, note: fase?.summary,
+    })
+  }
+
+  async function salva() {
+    if (!userId) return
+    setStato('salvo')
+    try {
+      await salvaAllenamento(userId, costruisci(), nome)
+      setStato('salvato'); setMsg('Salvata: la trovi in Salvati.')
+    } catch (e) {
+      setStato('errore'); setMsg(e instanceof Error ? e.message : 'Non salvata.')
+    }
+  }
+
+  function inizia() {
+    setGenerationConfig(null)
+    setWorkout(costruisci())
+    navigate('/allenamento')
+  }
+
+  return (
+    <section className="mt-10 rounded-2xl border border-cyan-500/30 bg-cyan-500/5 p-4">
+      <h2 className="font-display text-lg font-bold uppercase text-white">Scheda finale</h2>
+      <p className="mt-1 text-sm leading-relaxed text-slate2">
+        Per ogni slot scegli la tua versione o la proposta (preselezionata quella che ha vinto il confronto).
+        L'ordine resta questo: se qualcosa va contro le regole ti avviso, ma decidi tu.
+      </p>
+      <div className="mt-3 flex gap-2">
+        <button type="button" className="rounded-lg border border-edge px-3 py-1.5 text-xs text-slate2" onClick={() => setScelte((old) => old.map((_, i) => (analisi.tua[i] ? 'tua' : 'proposta')))}>Tutta la mia</button>
+        <button type="button" className="rounded-lg border border-edge px-3 py-1.5 text-xs text-slate2" onClick={() => setScelte((old) => old.map((_, i) => (analisi.proposta[i] ? 'proposta' : 'tua')))}>Tutta la proposta</button>
+      </div>
+      <ol className="mt-4 space-y-3">
+        {righe.map((riga, i) => {
+          const ex = riga.exercise_id ? byId.get(riga.exercise_id) : undefined
+          const r = rigaDi(i)
+          const stessoMuscolo = ex ? allenanti.filter((e) => e.primary_muscles.some((m) => ex.primary_muscles.includes(m))) : allenanti
+          return (
+            <li key={i} className="border-b border-edge/60 pb-3">
+              <div className="flex items-baseline gap-3">
+                <span className="w-4 shrink-0 font-data text-[13px] text-slate2">{i + 1}</span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex gap-1.5">
+                    {(['tua', 'proposta'] as Scelta[]).map((v) => {
+                      const disponibile = v === 'tua' ? !!analisi.tua[i] : !!analisi.proposta[i]
+                      return (
+                        <button
+                          key={v}
+                          type="button"
+                          disabled={!disponibile}
+                          aria-pressed={scelte[i] === v}
+                          onClick={() => { setScelte((old) => old.map((x, k) => (k === i ? v : x))); setOverride((old) => { const next = { ...old }; delete next[i]; return next }) }}
+                          className={`rounded-full border px-2.5 py-0.5 text-[11px] disabled:opacity-30 ${scelte[i] === v ? 'border-cyan-400/60 bg-cyan-400/15 text-cyan-200' : 'border-edge text-slate2'}`}
+                        >
+                          {v === 'tua' ? 'Mia' : 'Proposta'}
+                        </button>
+                      )
+                    })}
+                  </div>
+                  {r?.testo && <p className="mt-1 text-[12px] text-slate2">Scritto: {r.testo}</p>}
+                  <select
+                    className={`input mt-1.5 ${ex ? '' : 'border-amber2/60'}`}
+                    value={riga.exercise_id && ex ? riga.exercise_id : ''}
+                    onChange={(event) => setOverride((old) => ({ ...old, [i]: event.target.value }))}
+                  >
+                    {!ex && <option value="">Scegli l'esercizio del catalogo…</option>}
+                    {(stessoMuscolo.length ? stessoMuscolo : allenanti).map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
+                  </select>
+                  <p className="mt-1 font-data text-[12px] text-slate2">{riga.sets}×{riga.reps}{riga.rir ? ` · RIR ${riga.rir}` : ''}</p>
+                </div>
+              </div>
+            </li>
+          )
+        })}
+      </ol>
+      {mancanti.length > 0 && (
+        <p className="mt-3 text-sm text-amber2">Abbina ancora {mancanti.length === 1 ? 'la riga' : 'le righe'} {mancanti.map((i) => i + 1).join(', ')} a un esercizio del catalogo.</p>
+      )}
+      <label className="mt-4 block">
+        <span className="field-label">Nome della scheda</span>
+        <input className="input" value={nome} onChange={(event) => setNome(event.target.value)} />
+      </label>
+      <div className="mt-4 flex gap-2">
+        <button className="btn flex-1" disabled={mancanti.length > 0 || !userId || stato === 'salvo'} onClick={() => { void salva() }}>
+          {stato === 'salvo' ? 'Salvataggio…' : 'Salva'}
+        </button>
+        <button className="flex-1 rounded-xl border border-cyan-500/40 bg-cyan-500/15 py-3 font-display text-sm font-bold uppercase text-cyan-200 disabled:opacity-40" disabled={mancanti.length > 0} onClick={inizia}>
+          Inizia subito
+        </button>
+      </div>
+      {msg && <p role="status" className={`mt-3 text-sm ${stato === 'errore' ? 'text-amber2' : 'text-slate2'}`}>{msg}</p>}
     </section>
   )
 }

@@ -1,6 +1,6 @@
 # Todo
 
-- [ ] Piano "programmazione a scala" (23/09): fatti blocchi 1+2. Restano: 5 (scheda analizzata -> salvata), 4 (specializzazione: 2 slot carenze piccole, sedute A/B 7/6 esercizi, richiamo carenza slot 1 gambe), 3 (diario peso/girovita, stallo -> proposta mini cut/mini surplus a scala).
+- [ ] Piano "programmazione a scala" (23/09): fatti blocchi 1+2 e 5. Restano: 4 (specializzazione: 2 slot carenze piccole, sedute A/B 7/6 esercizi, richiamo carenza slot 1 gambe), 3 (diario peso/girovita, stallo -> proposta mini cut/mini surplus a scala).
 - [ ] Verificare in produzione (23/09) la programmazione di Rossi: Profilo -> "Alimentazione e recupero" mostra la fase; Pull in deficit alterna dorso/altro; Push con carenza laterali apre con le alzate; RIR e nota di fase in anteprima; "Mostra volume settimanale" nella settimana; "Analizza la mia scheda" dalla Home risponde (DeepSeek autenticato).
 - [ ] Estendere fase nutrizionale e interleave anche a Forza e al blocco Strength di Hybrid (oggi solo Bodybuilding Standard).
 - [ ] Mesociclo 8 settimane / double progression del prompt di Rossi: non implementato.
