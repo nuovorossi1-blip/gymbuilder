@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../features/auth/AuthProvider'
 import { useSettings } from '../features/profile/useSettings'
+import { useCoach } from '../features/coach/useCoach'
 import { determinaFase } from '../engine/nutrition'
 import { analizzaStallo, gradinoDiOggi } from '../engine/stallo'
 import { useWorkout } from '../features/workout/WorkoutContext'
@@ -14,6 +15,8 @@ export default function HomeDashboard() {
   const { user } = useAuth()
   // Blocco 3: avviso in Home solo quando serve (gradino della scala da applicare o stallo).
   const { profile, calorieLog, bodyLog } = useSettings(user?.id)
+  const { piano: pianoCoach } = useCoach(user?.id)
+  const prossimaSeduta = pianoCoach?.plan.sedute[pianoCoach.next_index % Math.max(1, pianoCoach.plan.sedute.length)]?.nome ?? null
   const gradino = gradinoDiOggi(profile?.ladder_plan)
   const avvisoScala = gradino && profile?.daily_kcal !== gradino.kcal
     ? `Scala in corso: oggi passa a ${gradino.kcal} kcal`
@@ -155,6 +158,22 @@ export default function HomeDashboard() {
               <span>▶ CONTINUA ALLENAMENTO</span>
             </button>
           </>
+        ) : pianoCoach && prossimaSeduta ? (
+          <>
+            <div className="flex items-center justify-between mb-3">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-cyan-500/20 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-cyan-300">
+                🧑‍🏫 Il tuo programma · v{pianoCoach.version}
+              </span>
+            </div>
+            <h2 className="font-display text-xl font-bold text-white mb-1">Oggi: {prossimaSeduta}</h2>
+            <p className="text-xs text-slate-300 mb-5">{pianoCoach.plan.titolo} · fai sempre la prossima della lista.</p>
+            <button
+              onClick={() => navigate('/coach')}
+              className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 py-3.5 px-4 font-display text-sm font-bold uppercase tracking-wider text-white shadow-lg glow-cyan transition-transform active:scale-[0.98]"
+            >
+              <span>▶ VAI AL PROGRAMMA</span>
+            </button>
+          </>
         ) : weeklyProgram && weeklyProgram.config.program_kind === 'program' && weeklyProgram.week.length > 1 ? (
           <>
             <div className="flex items-center justify-between mb-3">
@@ -235,133 +254,65 @@ export default function HomeDashboard() {
         )}
       </div>
 
-      {/* 2 Main Selection Action Cards */}
+      {/* Fase 5 (25/09): tre ingressi principali + Strumenti (richiesta di Rossi). */}
       <section className="space-y-3">
-        <h3 className="eyebrow text-slate-400">Genera Nuovo Allenamento</h3>
-
+        <h3 className="eyebrow text-slate-400">Il tuo allenamento</h3>
         <div className="grid grid-cols-1 gap-3">
-          {/* Card 1: Settimana */}
-          <button
-            onClick={() => createFreshWorkout('program')}
-            className="group relative flex items-center justify-between rounded-xl glass-card p-4 border border-edge text-left transition-all hover:border-cyan-500/40 active:scale-[0.99]"
-          >
-            <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 text-2xl border border-purple-500/30">
-                🗓️
-              </div>
-              <div>
-                <div className="font-display font-bold text-white group-hover:text-cyan-300 transition-colors">
-                  Pianifica Settimana
-                </div>
-                <div className="text-xs text-slate-400">
-                  Programma 3-7 giorni (PPL, Upper/Lower, Hybrid)
-                </div>
-              </div>
-            </div>
-            <span className="text-slate-400 group-hover:text-cyan-400 transition-transform group-hover:translate-x-1">
-              ➔
-            </span>
-          </button>
-
-          {/* Card 2: Sessione Singola */}
-          <button
-            onClick={() => createFreshWorkout('single_session')}
-            className="group relative flex items-center justify-between rounded-xl glass-card p-4 border border-edge text-left transition-all hover:border-cyan-500/40 active:scale-[0.99]"
-          >
-            <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500/20 to-emerald-500/20 text-2xl border border-cyan-500/30">
-                ⚡
-              </div>
-              <div>
-                <div className="font-display font-bold text-white group-hover:text-cyan-300 transition-colors">
-                  Allenamento Singolo Rapido
-                </div>
-                <div className="text-xs text-slate-400">
-                  Genera una scheda al volo per la giornata di oggi
-                </div>
-              </div>
-            </div>
-            <span className="text-slate-400 group-hover:text-cyan-400 transition-transform group-hover:translate-x-1">
-              ➔
-            </span>
-          </button>
-
-          {/* Card 6: Il mio piano (Coach, Fase 3) */}
           <button
             onClick={() => navigate('/coach')}
             className="group relative flex items-center justify-between rounded-xl glass-card p-4 border border-cyan-500/40 text-left transition-all hover:border-cyan-400 active:scale-[0.99]"
           >
             <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500/30 to-blue-600/30 text-2xl border border-cyan-500/40">🧑‍🏫</div>
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500/30 to-blue-600/30 text-2xl border border-cyan-500/30">🧑‍🏫</div>
               <div>
-                <div className="font-display font-bold text-white group-hover:text-cyan-300 transition-colors">Il mio piano (Coach)</div>
-                <div className="text-xs text-slate-400">Colloquio con il tuo coach LLM e piano su misura a rotazione</div>
+                <div className="font-display font-bold text-white group-hover:text-cyan-300 transition-colors">Coach LLM</div>
+                <div className="text-xs text-slate-400">{pianoCoach ? `Il tuo programma: ${pianoCoach.plan.titolo}` : 'Colloquio e programma cucito su di te'}</div>
+                {prossimaSeduta && <div className="mt-0.5 text-xs font-bold text-emerald-300">Oggi: {prossimaSeduta}</div>}
               </div>
             </div>
             <span className="text-slate-400 group-hover:text-cyan-400 transition-transform group-hover:translate-x-1">➔</span>
           </button>
-
-          {/* Card 5: La mia cartella (Fase 2, 25/09) */}
           <button
-            onClick={() => navigate('/cartella')}
-            className="group relative flex items-center justify-between rounded-xl glass-card p-4 border border-edge text-left transition-all hover:border-cyan-500/40 active:scale-[0.99]"
+            onClick={() => createFreshWorkout('single_session')}
+            className="group relative flex items-center justify-between rounded-xl glass-card p-4 border border-edge text-left transition-all hover:border-cyan-400 active:scale-[0.99]"
           >
             <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500/20 to-cyan-500/20 text-2xl border border-indigo-500/30">
-                📋
-              </div>
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500/20 to-emerald-500/20 text-2xl border border-cyan-500/30">⚡</div>
               <div>
-                <div className="font-display font-bold text-white group-hover:text-cyan-300 transition-colors">La mia cartella</div>
-                <div className="text-xs text-slate-400">Carenze, vincoli, esercizi e obiettivi per il Coach · scarica il file .md</div>
+                <div className="font-display font-bold text-white group-hover:text-cyan-300 transition-colors">Allenamento rapido</div>
+                <div className="text-xs text-slate-400">Una seduta al volo, generata per oggi</div>
               </div>
             </div>
             <span className="text-slate-400 group-hover:text-cyan-400 transition-transform group-hover:translate-x-1">➔</span>
           </button>
-
-          {/* Card 4: Peso e girovita (blocco 3) */}
-          <button
-            onClick={() => navigate('/peso')}
-            className="group relative flex items-center justify-between rounded-xl glass-card p-4 border border-edge text-left transition-all hover:border-cyan-500/40 active:scale-[0.99]"
-          >
-            <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500/20 to-cyan-500/20 text-2xl border border-emerald-500/30">
-                ⚖️
-              </div>
-              <div>
-                <div className="font-display font-bold text-white group-hover:text-cyan-300 transition-colors">
-                  Peso e girovita
-                </div>
-                <div className={`text-xs ${avvisoScala ? 'text-amber-300' : 'text-slate-400'}`}>
-                  {avvisoScala ?? 'Una misura a settimana: l’app riconosce lo stallo e propone la scala'}
-                </div>
-              </div>
-            </div>
-            <span className="text-slate-400 group-hover:text-cyan-400 transition-transform group-hover:translate-x-1">
-              ➔
-            </span>
-          </button>
-
-          {/* Card 3: Analizza la mia scheda (23/09) */}
           <button
             onClick={() => navigate('/analizza')}
-            className="group relative flex items-center justify-between rounded-xl glass-card p-4 border border-edge text-left transition-all hover:border-cyan-500/40 active:scale-[0.99]"
+            className="group relative flex items-center justify-between rounded-xl glass-card p-4 border border-edge text-left transition-all hover:border-cyan-400 active:scale-[0.99]"
           >
             <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500/20 to-cyan-500/20 text-2xl border border-amber-500/30">
-                🔍
-              </div>
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500/20 to-cyan-500/20 text-2xl border border-cyan-500/30">🔍</div>
               <div>
-                <div className="font-display font-bold text-white group-hover:text-cyan-300 transition-colors">
-                  Analizza la mia scheda
-                </div>
-                <div className="text-xs text-slate-400">
-                  Scrivi la tua scheda: ordine, alternanza e volume valutati da DeepSeek
-                </div>
+                <div className="font-display font-bold text-white group-hover:text-cyan-300 transition-colors">Analizza la mia scheda</div>
+                <div className="text-xs text-slate-400">Scrivi la tua scheda: il coach la valuta e la salvi</div>
               </div>
             </div>
-            <span className="text-slate-400 group-hover:text-cyan-400 transition-transform group-hover:translate-x-1">
-              ➔
-            </span>
+            <span className="text-slate-400 group-hover:text-cyan-400 transition-transform group-hover:translate-x-1">➔</span>
+          </button>
+        </div>
+      </section>
+
+      <section className="space-y-3">
+        <h3 className="eyebrow text-slate-400">Strumenti</h3>
+        <div className="grid grid-cols-2 gap-3">
+          <button onClick={() => navigate('/peso')} className="rounded-xl glass-card border border-edge p-3.5 text-left active:scale-[0.99]">
+            <div className="text-2xl">⚖️</div>
+            <div className="mt-1 font-display text-sm font-bold text-white">Peso e girovita</div>
+            <div className={`text-[11px] ${avvisoScala ? 'text-amber-300' : 'text-slate-400'}`}>{avvisoScala ?? 'Diario e stallo'}</div>
+          </button>
+          <button onClick={() => navigate('/cartella')} className="rounded-xl glass-card border border-edge p-3.5 text-left active:scale-[0.99]">
+            <div className="text-2xl">📋</div>
+            <div className="mt-1 font-display text-sm font-bold text-white">La mia cartella</div>
+            <div className="text-[11px] text-slate-400">Chi sei, obiettivi, storico</div>
           </button>
         </div>
       </section>

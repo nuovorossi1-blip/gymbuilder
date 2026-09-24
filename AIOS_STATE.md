@@ -4,8 +4,43 @@
 > da qui. Va **aggiornato** a ogni sessione, non accodato all'infinito.
 > L'identità del progetto e il percorso di AI-OS stanno in `AIOS_PROJECT.json`.
 
-**Ultimo aggiornamento:** 2026-09-25 (modelli gratuiti OpenRouter, una chiave per fornitore) - Claude (Opus 5.5)
+**Ultimo aggiornamento:** 2026-09-25 (Fase 5 + correzioni dal primo colloquio vero di Rossi) - Claude (Opus 5.5)
 
+### 2026-09-25 (6) — Primo colloquio vero di Rossi + Fase 5 (Home)
+
+1. **Segnalazione** — Rossi ha fatto il colloquio con DeepSeek (dopo aver caricato il suo .md):
+   il coach ha scritto "Ora ti preparo il piano" e si è fermato, senza piano. Richieste: una
+   schermata finale "ecco il programma" con salva / domande; il programma deve restare come
+   base delle sessioni successive (come mi sono trovato, a che punto sono con l'obiettivo);
+   .md scaricabile e caricabile con qualunque LLM; Home con Coach LLM, Allenamento rapido,
+   Analizza la mia scheda, e il resto (peso e girovita, cartella) in Strumenti.
+2. **Fatto (verificato)** —
+   - Prompt: "REGOLA FERREA" (il piano va nella stessa risposta in cui lo si annuncia).
+     Coach.tsx: se la risposta annuncia il piano senza consegnarlo (categoria >= 8 o frasi tipo
+     "ti preparo", "a breve") il piano viene richiesto in automatico una volta; pulsante
+     "📋 Genera il programma adesso" nel colloquio (dopo 6 messaggi senza piano) — sblocca anche
+     la conversazione già ferma di Rossi.
+   - Proposta: "📋 Ecco il tuo programma" con la logica, sedute, errori/avvisi, volume;
+     "✅ Mi piace, salvalo", "❓ Ho una domanda / cambio qualcosa" (porta al campo di testo),
+     "⬇ Scarica .md".
+   - Chat: il coach vede l'ultimo programma e gli allenamenti fatti (ultimi 15: nome, data,
+     minuti, voto); prompt: riparti da lì, chiedi come si è trovato, a che punto è con
+     l'obiettivo. Suggerimenti rapidi all'apertura della chat.
+   - File .md: il blocco nascosto ora porta `{cartella, piano}`; `leggiMarkdown` restituisce
+     anche il piano (compatibile con i file vecchi); la lettura via LLM estrae anche il
+     programma. Nuovo componente `FileCartella` (Scarica / Carica .md, anteprima, "Usa questi
+     dati" = salva la cartella e rende attivo il programma del file come nuova versione) usato
+     nella cartella e nella pagina del piano.
+   - Fase 5: Home = card grande "Oggi: <prossima seduta>" se c'è il programma del Coach; "Il tuo
+     allenamento": Coach LLM (con "Oggi: …"), Allenamento rapido, Analizza la mia scheda;
+     "Strumenti": Peso e girovita, La mia cartella. Tolta "Pianifica settimana": il wizard crea
+     solo la sessione singola (programmi vecchi ancora apribili da Salvati -> Programmi).
+   Provato in Chromium con Supabase e LLM simulati: Home -> Coach -> piano annunciato ->
+   richiesto in automatico -> proposta -> scarica .md -> salva -> Home "Oggi: Push A".
+   338 test verdi, tsc/eslint puliti, build ok.
+3. **Da fare** — "Scrivila tu" come voce separata non fatta: "Analizza la mia scheda" copre già
+   il caso (scrivi, abbini al catalogo, salvi). Da decidere con Rossi.
+4. **Cosa aspettarsi** — Coach: se la conversazione è ferma, "📋 Genera il programma adesso".
 ### 2026-09-25 (5) — Modelli gratuiti di OpenRouter e una chiave per fornitore
 
 1. **Richiesta di Rossi** — usare i modelli gratuiti di OpenRouter (elenco: Laguna S/XS 2.1,

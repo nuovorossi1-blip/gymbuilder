@@ -47,6 +47,18 @@ describe('cartella del cliente (Fase 2)', () => {
     const md = cartellaInMarkdown({ cartella: esempio, profile, calorieLog: [], bodyLog: [], program: null })
     const modificato = md.replace('V-shape', 'V-shape e braccia')
     expect(leggiMarkdown(modificato, cat).testoModificato).toBe(true)
-    expect(leggiMarkdown('# una cartella scritta a mano', cat)).toEqual({ cartella: null, testoModificato: true })
+    expect(leggiMarkdown('# una cartella scritta a mano', cat)).toEqual({ cartella: null, piano: null, testoModificato: true })
+  })
+})
+
+describe('file .md con il programma del Coach (25/09)', () => {
+  it('contiene il programma e lo ricarica insieme alla cartella', () => {
+    const piano = { titolo: 'PPL', giorni_settimana: 5, sedute: [{ nome: 'Push A', esercizi: [{ nome: 'Alzate laterali', serie: 3, reps: '12-15', rir: '1' }] }] }
+    const md = cartellaInMarkdown({ cartella: esempio, profile, calorieLog: [], bodyLog: [], program: null, coachPlan: piano })
+    expect(md).toContain('### Push A')
+    const letto = leggiMarkdown(md, cat)
+    expect(letto.testoModificato).toBe(false)
+    expect(letto.piano).toEqual(piano)
+    expect(letto.cartella).toEqual(esempio)
   })
 })

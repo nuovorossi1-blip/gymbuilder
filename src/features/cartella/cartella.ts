@@ -198,12 +198,17 @@ export function cartellaInMarkdown(d: DatiExport): string {
     '3. Scheda aggiornata solo dei giorni che cambiano, con la logica di interleave. 4. Obiettivi delle prossime 4 settimane.',
     '5. Il file intero aggiornato, con il controllo aggiunto allo storico.', '')
   const testo = out.join('\n')
-  return [testo, `${INIZIO_JSON} ${FIRMA}${impronta(testo)}`, JSON.stringify(c), FINE_JSON, ''].join('\n')
+  // Il blocco nascosto porta cartella E programma: il file si ricarica identico in qualsiasi
+  // momento, indipendentemente dall'LLM scelto.
+  const dati = { cartella: c, piano: d.coachPlan ?? null }
+  return [testo, `${INIZIO_JSON} ${FIRMA}${impronta(testo)}`, JSON.stringify(dati), FINE_JSON, ''].join('\n')
 }
 
 export interface LetturaMarkdown {
   /** Dati esatti del blocco JSON, se presente e leggibile. */
   cartella: CartellaCliente | null
+  /** Programma del Coach contenuto nel file (grezzo: va normalizzato con il catalogo). */
+  piano: unknown
   /** true se il testo è stato cambiato dopo l'esportazione: va letto dall'LLM. */
   testoModificato: boolean
 }
@@ -213,12 +218,19 @@ export interface LetturaMarkdown {
 export function leggiMarkdown(md: string, catalog?: Exercise[]): LetturaMarkdown {
   const i = md.indexOf(INIZIO_JSON)
   const j = md.indexOf(FINE_JSON)
-  if (i < 0 || j < i) return { cartella: null, testoModificato: true }
+  if (i < 0 || j < i) return { cartella: null, piano: null, testoModificato: true }
   const intestazione = md.slice(i, md.indexOf('\n', i))
   const firma = intestazione.split(FIRMA)[1]?.trim()
   const corpo = md.slice(i + intestazione.length, j).trim()
   const testo = md.slice(0, i).replace(/\n+$/, '')
   let cartella: CartellaCliente | null
-  try { cartella = normalizzaCartella(JSON.parse(corpo), catalog) } catch { cartella = null }
-  return { cartella, testoModificato: !firma || impronta(testo) !== firma }
+  let piano: unknown = null
+  try {
+    const dati = JSON.parse(corpo) as Record<string, unknown>
+    // Formato del 25/09 {cartella, piano}; i file precedenti contengono solo la cartella.
+    const conPiano = dati && typeof dati === 'object' && 'cartella' in dati
+    cartella = normalizzaCartella(conPiano ? dati.cartella : dati, catalog)
+    piano = conPiano ? dati.piano ?? null : null
+  } catch { cartella = null }
+  return { cartella, piano, testoModificato: !firma || impronta(testo) !== firma }
 }

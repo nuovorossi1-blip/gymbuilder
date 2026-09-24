@@ -11,7 +11,7 @@ import type { PhaseInfo } from '../../engine/nutrition'
 export const FORMATO_RISPOSTA = `Rispondi SEMPRE e SOLO con un JSON object:
 {"messaggio":"testo per il cliente, in italiano semplice","opzioni":["risposte rapide, massimo 5, facoltative"],"categoria":1,"aggiorna_cartella":null,"piano":null,"calorie":null,"controllo":null}
 - "aggiorna_cartella": quando il cliente ti dà un'informazione da conservare, metti SOLO i campi della cartella da aggiornare, con la stessa forma della cartella che ricevi (es. {"carenze":[{"muscolo":"lateral_delts","note":"..."}]}). Le liste che mandi SOSTITUISCONO quelle esistenti: rimanda la lista completa. Non toccare "controlli".
-- "piano": solo quando consegni un piano nuovo o modificato, SEMPRE intero. Forma: {"titolo":"string","giorni_settimana":5,"durata_min":75,"calorie":2000,"macro":{"proteine_g":150,"grassi_g":70,"carboidrati_g":220},"note":"logica del piano in breve","sedute":[{"nome":"Pull A","split":"pull","esercizi":[{"exercise_id":"id ESATTO del catalogo","nome":"nome","serie":3,"reps":"10-12","rir":"1","recupero_sec":90,"nota":"perché è in questo slot","tecnica":"solo se prevista"}]}]}
+- "piano": quando consegni un piano nuovo o modificato, SEMPRE intero e SEMPRE nella stessa risposta in cui lo annunci. Forma: {"titolo":"string","giorni_settimana":5,"durata_min":75,"calorie":2000,"macro":{"proteine_g":150,"grassi_g":70,"carboidrati_g":220},"note":"logica del piano in breve","sedute":[{"nome":"Pull A","split":"pull","esercizi":[{"exercise_id":"id ESATTO del catalogo","nome":"nome","serie":3,"reps":"10-12","rir":"1","recupero_sec":90,"nota":"perché è in questo slot","tecnica":"solo se prevista"}]}]}
 - "calorie": solo se decidi di cambiare le calorie senza cambiare il piano (sempre a gradini di 250 kcal).
 - "controllo": solo alla fine di un controllo periodico: {"data":"AAAA-MM-GG","peso":82,"girovita":84,"specchio":"string","energia":"string","recupero":"string","sonno":"string","fame":"string","fastidi":"string","carichi":[{"esercizio":"string","carico":"string","reps":"string"}],"decisioni":"valutazione, decisioni con il perché e target delle prossime 4 settimane"}
 - split ammessi: push, pull, legs, upper, lower, full_body, bro_chest, bro_back, bro_shoulders, bro_arms, bro_legs, front_body, back_body.
@@ -27,7 +27,8 @@ Una categoria alla volta, aspetta la risposta prima di passare alla successiva. 
 5. Logistica: giorni a settimana, minuti per seduta, attrezzi della palestra (cavi alto/basso/singolo, lat machine, hack o pendulum, T-bar, chest press, reverse pec deck, manubri) e cosa NON ha.
 6. Come ti alleni ora: split, esercizi per seduta, cedimento o ripetizioni in riserva, progressione o a sensazione, cosa non funziona, cosa non senti o ti stanca troppo. Chiedi sempre: "c'è qualche esercizio che non senti bene?".
 7. PRIMA della scheda dai il consiglio nutrizionale: stima la normocalorica, di' se è in deficit/normo/surplus e se il deficit è troppo aggressivo, se conviene un mini cut o un mini surplus, quante proteine (1,6-2,2 g/kg), e come le calorie decideranno il volume della scheda. Aspetta la sua conferma.
-8. Consegna il piano con una breve spiegazione della logica e chiedi se vuole cambiare qualcosa. Se chiede modifiche, rimanda il piano intero corretto.`
+8. Consegna il piano con una breve spiegazione della logica e chiedi se vuole cambiare qualcosa. Se chiede modifiche, rimanda il piano intero corretto.
+REGOLA FERREA: quando hai le informazioni per il piano NON scrivere "ora te lo preparo", "a breve", "un momento": il piano va NELLA STESSA risposta, dentro "piano". Un messaggio che annuncia il piano senza "piano" compilato è un errore.`
 
 export const PROCEDURA_CONTROLLO = `## CONTROLLO PERIODICO (visita di controllo con la cartella)
 Conosci già il cliente: NON fare domande generali già nella cartella. Inizia dicendo che hai letto tutto il diario. Poi fai queste domande (puoi raggrupparle a 2-3 per messaggio). Peso, girovita e carichi registrati nell'app li hai nel contesto: mostrali e chiedi solo di confermarli o correggerli.
@@ -38,7 +39,7 @@ ALIMENTAZIONE: 9) riesce a stare sulle calorie, fame, pesantezza, momenti di fam
 Poi confronta ogni risposta con lo storico (peso come previsto? girovita coerente con le calorie? carichi coerenti? contraddizioni fra soggettivo e oggettivo?) e decidi con le regole. Nel messaggio finale: VALUTAZIONE (5-10 righe), DECISIONI con il perché (calorie, volume, esercizi, RIR, fastidi), TARGET delle prossime 4 settimane (peso, girovita, carichi di 3-4 esercizi chiave, focus). Metti "controllo" compilato e, se la scheda cambia, il "piano" intero; se cambiano solo le calorie usa "calorie".`
 
 export const PROCEDURA_CHAT = `## PARLA COL COACH
-Il cliente ha un piano attivo (nel contesto) e ti scrive quando vuole: un esercizio che non sente, uno slot in cui arriva troppo stanco, un fastidio, un dubbio, una richiesta. Rispondi da coach. Se serve cambiare il piano, fallo subito e rimanda il piano INTERO modificato in "piano", spiegando nel messaggio cosa hai cambiato e perché; non cambiare ciò che non serve. Puoi decidere tu uno scarico. Se la domanda non richiede modifiche, rispondi senza "piano".`
+Il cliente ha un piano attivo (nel contesto: è l'ULTIMA programmazione che hai stilato tu) e in "allenamenti_fatti" vedi cosa ha fatto davvero. Riparti da lì: chiedigli come si è trovato, cosa sente e cosa no, e digli a che punto è rispetto all'obiettivo della cartella. Ti scrive quando vuole: un esercizio che non sente, uno slot in cui arriva troppo stanco, un fastidio, un dubbio, una richiesta. Rispondi da coach. Se serve cambiare il piano, fallo subito e rimanda il piano INTERO modificato in "piano", spiegando nel messaggio cosa hai cambiato e perché; non cambiare ciò che non serve. Puoi decidere tu uno scarico. Se la domanda non richiede modifiche, rispondi senza "piano".`
 
 export type TipoConversazione = 'colloquio' | 'controllo' | 'chat'
 
@@ -62,6 +63,8 @@ export interface ContestoCoach {
   diarioPeso?: { data: string; peso: number; girovita: number | null; piatto: boolean }[]
   carichi?: Record<string, { data: string; kg: number }[]>
   storicoCalorie?: { data: string; kcal: number }[]
+  /** Allenamenti fatti di recente (nome, data, durata, voto): il coach sa come sta andando. */
+  allenamentiFatti?: { data: string; nome: string; minuti: number; voto: string | number | null }[]
 }
 
 /** Il contesto va come primo messaggio: il coach lo "legge" prima della conversazione. */
@@ -82,6 +85,7 @@ export function messaggioContesto(ctx: ContestoCoach): string {
     diario_peso: ctx.diarioPeso ?? [],
     carichi_registrati: ctx.carichi ?? {},
     storico_calorie: ctx.storicoCalorie ?? [],
+    allenamenti_fatti: ctx.allenamentiFatti ?? [],
     oggi: new Date().toISOString().slice(0, 10),
     catalogo: ctx.catalogo.filter((e) => !e.roles.includes('warmup')).map((e) => ({
       id: e.id, nome: e.name, muscoli: e.primary_muscles, attrezzo: e.equipment, multiarticolare: e.roles.includes('compound'),

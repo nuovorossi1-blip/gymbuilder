@@ -14,7 +14,8 @@ import { useCoach, type MessaggioCoach } from '../features/coach/useCoach'
 import { useWorkout } from '../features/workout/WorkoutContext'
 import { controllaPiano, differenzePiani, normalizzaPiano, sedutaComeWorkout, type CoachPlan, type EsitoControlli } from '../features/coach/plan'
 import { leggiRispostaCoach, messaggioContesto, promptSistema, unisciCartella, type TipoConversazione } from '../features/coach/prompt'
-import { normalizzaCartella, vietatiDallaCartella } from '../features/cartella/cartella'
+import { cartellaInMarkdown, normalizzaCartella, vietatiDallaCartella } from '../features/cartella/cartella'
+import { FileCartella } from '../features/cartella/FileCartella'
 import { chiediJsonAlLlm, type LlmMessage } from '../lib/deepseek'
 import { caricaCatalogo, elencoStorico } from '../lib/api'
 import { determinaFase, escludiPerFastidi, patchCambioCalorie } from '../engine/nutrition'
@@ -106,6 +107,7 @@ export default function Coach() {
   /** Conversazione aperta sopra il piano attivo (null = si vede il piano). */
   const [aperta, setAperta] = useState<TipoConversazione | null>(null)
   const fondo = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLTextAreaElement>(null)
   const fase = determinaFase(profile, calorieLog)
 
   useEffect(() => {
@@ -144,6 +146,7 @@ export default function Coach() {
         diarioPeso: bodyLog.slice(-12).map((e) => ({ data: e.created_at.slice(0, 10), peso: e.weight_kg, girovita: e.waist_cm, piatto: e.feels_flat })),
         carichi: carichiDelPiano(piano?.plan, storico),
         storicoCalorie: calorieLog.slice(-10).map((e) => ({ data: e.created_at.slice(0, 10), kcal: e.kcal })),
+        allenamentiFatti: storico.slice(0, 15).map((w) => ({ data: w.completed_at.slice(0, 10), nome: w.name, minuti: Math.round(w.duration_sec / 60), voto: w.rating })),
       })
       const risposta = leggiRispostaCoach(await chiediJsonAlLlm([
         { role: 'system', content: promptSistema(kind) },
@@ -159,6 +162,13 @@ export default function Coach() {
         role: 'coach', kind, content: risposta.messaggio,
         meta: { opzioni: risposta.opzioni, categoria: risposta.categoria, piano: plan, esito, differenze, calorie: risposta.calorie, controllo: risposta.controllo },
       })
+      // Alcuni modelli annunciano il piano ("ora te lo preparo") senza consegnarlo: glielo si
+      // richiede subito, una volta, senza che il cliente debba insistere.
+      const annunciato = kind === 'colloquio' && !plan && ((risposta.categoria ?? 0) >= 8 || /prepar|ecco il (tuo )?(piano|programma)|costruisco|elaboro|a breve|un momento/i.test(risposta.messaggio))
+      if (annunciato && !tentativo) {
+        await invia(kind, 'Consegna adesso il piano completo dentro "piano", in questa stessa risposta, con una breve spiegazione della logica.', true, true, [...base, mio, suo])
+        return
+      }
       if (plan && esito && esito.errori.length && !tentativo) {
         await invia(kind, `Il controllo dell'app ha trovato questi errori nel piano: ${esito.errori.join(' ')} Correggili e rimanda il piano intero.`, true, true, [...base, mio, suo])
       }
@@ -187,6 +197,15 @@ export default function Coach() {
     } catch (e) {
       setErrore(e instanceof Error ? e.message : 'Non salvato.')
     }
+  }
+
+  function scaricaProposta(plan: CoachPlan) {
+    if (!cartella) return
+    const md = cartellaInMarkdown({ cartella, profile, calorieLog, bodyLog, program: null, coachPlan: plan })
+    const url = URL.createObjectURL(new Blob([md], { type: 'text/markdown;charset=utf-8' }))
+    const a = document.createElement('a')
+    a.href = url; a.download = `coaching_${new Date().toISOString().slice(0, 10)}.md`; a.click()
+    URL.revokeObjectURL(url)
   }
 
   function inizia(i: number) {
@@ -248,6 +267,11 @@ export default function Coach() {
             </ul>
           </section>
         )}
+        <section className="mt-8">
+          <h2 className="field-label">Il tuo file (cartella + programma)</h2>
+          <p className="mb-2 text-xs text-slate2">Lo puoi scaricare e ricaricare in qualsiasi momento, qualunque LLM usi.</p>
+          <FileCartella catalog={catalogo} cartella={cartella} onCartella={async (c) => { await salvaCartella(c) }} compatto />
+        </section>
         <button className="mt-8 w-full rounded-xl border border-edge py-3 text-sm text-slate2" onClick={() => { if (confirm('Rifare il primo colloquio da capo? Il piano attuale resta valido finché non ne accetti uno nuovo.')) { void cancellaConversazione('colloquio'); setAperta('colloquio') } }}>
           Rifai il colloquio da capo
         </button>
@@ -274,10 +298,25 @@ export default function Coach() {
         {kind === 'colloquio' && visibili.length === 0 && (
           <button className="btn" disabled={attesa || !catalogo.length} onClick={() => { void invia('colloquio', 'Ciao, iniziamo il colloquio.') }}>Inizia il colloquio</button>
         )}
-        {kind === 'chat' && visibili.length === 0 && <p className="text-sm text-slate2">Scrivi qui sotto la tua domanda.</p>}
+        {kind === 'chat' && visibili.length === 0 && (
+          <div className="space-y-2">
+            <p className="text-sm text-slate2">Il coach ha davanti l'ultimo programma che ti ha dato e gli allenamenti che hai fatto. Da dove partiamo?</p>
+            <div className="flex flex-wrap gap-2">
+              {['Com’è andata con il programma: ti racconto', 'A che punto sono con il mio obiettivo?', 'Un esercizio non lo sento bene', 'Arrivo troppo stanco a un esercizio'].map((o) => (
+                <button key={o} disabled={attesa} className="rounded-full border border-cyan-500/40 px-3 py-1.5 text-xs text-cyan-200" onClick={() => { void invia('chat', o) }}>{o}</button>
+              ))}
+            </div>
+          </div>
+        )}
+        {kind === 'colloquio' && !attesa && visibili.length >= 6 && !visibili.some((m) => (m.meta as MetaCoach | null)?.piano) && (
+          <button className="w-full rounded-xl border border-amber-400/50 bg-amber-400/10 py-3 text-sm font-bold text-amber-200" onClick={() => { void invia('colloquio', 'Consegna adesso il piano completo dentro "piano", con una breve spiegazione della logica.', true) }}>
+            📋 Genera il programma adesso
+          </button>
+        )}
         {visibili.map((m) => (
           <Bolla key={m.id} m={m} ultimo={m === ultimo} attesa={attesa} haPiano={!!piano}
-            onOpzione={(o) => { void invia(kind, o) }} onAccetta={(meta) => { void accetta(kind, meta) }} />
+            onOpzione={(o) => { void invia(kind, o) }} onAccetta={(meta) => { void accetta(kind, meta) }}
+            onDomanda={() => inputRef.current?.focus()} onScarica={scaricaProposta} />
         ))}
         {attesa && <p className="text-sm text-slate2" role="status">Il coach sta scrivendo…</p>}
         {errore && <p className="text-sm text-amber2" role="alert">{errore}</p>}
@@ -286,7 +325,7 @@ export default function Coach() {
 
       {(visibili.length > 0 || kind === 'chat') && (
         <div className="fixed inset-x-0 bottom-20 z-10 mx-auto flex max-w-lg gap-2 bg-ink/95 px-4 py-2">
-          <textarea className="input min-h-12 flex-1" rows={2} placeholder="Scrivi al coach…" value={testo} onChange={(e) => setTesto(e.target.value)} />
+          <textarea ref={inputRef} className="input min-h-12 flex-1" rows={2} placeholder="Scrivi al coach…" value={testo} onChange={(e) => setTesto(e.target.value)} />
           <button className="rounded-xl bg-cyan-500/25 px-4 font-bold text-cyan-200 disabled:opacity-40" disabled={attesa || !testo.trim()} onClick={() => { const t = testo.trim(); setTesto(''); void invia(kind, t) }}>Invia</button>
         </div>
       )}
@@ -304,15 +343,16 @@ interface MetaCoach {
   accettato?: boolean
 }
 
-function Bolla({ m, ultimo, attesa, haPiano, onOpzione, onAccetta }: {
+function Bolla({ m, ultimo, attesa, haPiano, onOpzione, onAccetta, onDomanda, onScarica }: {
   m: MessaggioCoach; ultimo: boolean; attesa: boolean; haPiano: boolean
   onOpzione: (o: string) => void; onAccetta: (meta: MetaCoach) => void
+  onDomanda: () => void; onScarica: (p: CoachPlan) => void
 }) {
   const meta = (m.meta ?? {}) as MetaCoach
   if (m.role === 'utente') return <p className={`ml-10 rounded-2xl rounded-br-sm p-3 text-sm ${meta.accettato ? 'bg-emerald-500/15 text-emerald-200' : 'bg-cyan-500/15 text-chalk'}`}>{m.content}</p>
   const proposta = !!meta.piano || !!meta.calorie || !!meta.controllo
   const bloccato = !!meta.esito?.errori.length
-  const etichetta = meta.piano ? (haPiano ? 'Accetta le modifiche' : 'Accetta il piano') : meta.controllo ? 'Salva il controllo' : `Passa a ${meta.calorie} kcal`
+  const etichetta = meta.piano ? (haPiano ? '✅ Mi piace, salva le modifiche' : '✅ Mi piace, salvalo') : meta.controllo ? 'Salva il controllo' : `Passa a ${meta.calorie} kcal`
   return (
     <div className="mr-6 space-y-2">
       <p className="whitespace-pre-line rounded-2xl rounded-bl-sm border border-edge bg-steel/60 p-3 text-sm leading-relaxed text-chalk">{m.content}</p>
@@ -324,14 +364,19 @@ function Bolla({ m, ultimo, attesa, haPiano, onOpzione, onAccetta }: {
               <ul className="space-y-1 text-[12px] text-chalk">{meta.differenze.map((d, i) => <li key={i}>• {d}</li>)}</ul>
             </div>
           )}
-          {meta.piano && <><p className="font-display text-sm font-bold uppercase">{haPiano ? 'Piano aggiornato' : 'Proposta'}: {meta.piano.titolo}</p><Sedute plan={meta.piano} /></>}
+          {meta.piano && <><p className="font-display text-base font-bold uppercase text-cyan-200">📋 {haPiano ? 'Ecco il programma aggiornato' : 'Ecco il tuo programma'}: {meta.piano.titolo}</p>{meta.piano.note && <p className="text-[12px] leading-relaxed text-slate2">{meta.piano.note}</p>}<Sedute plan={meta.piano} /></>}
           {meta.calorie && !meta.piano && <p className="text-sm text-chalk">Nuove calorie proposte: <span className="font-data">{meta.calorie} kcal</span> (il volume della scheda seguirà dopo una settimana).</p>}
           {meta.controllo && <p className="text-[12px] text-slate2">Il controllo verrà salvato nello storico della tua cartella.</p>}
           {meta.esito && meta.esito.errori.length > 0 && <ul className="space-y-1 text-[12px] text-red-300">{meta.esito.errori.map((e, i) => <li key={i}>✕ {e}</li>)}</ul>}
           {meta.esito && meta.esito.avvisi.length > 0 && <ul className="space-y-1 text-[12px] text-amber2">{meta.esito.avvisi.map((e, i) => <li key={i}>! {e}</li>)}</ul>}
           {meta.esito && <TabellaVolume esito={meta.esito} />}
           {ultimo && <button className="btn" disabled={attesa || bloccato} onClick={() => onAccetta(meta)}>{bloccato ? 'Il coach deve correggere gli errori' : etichetta}</button>}
-          {ultimo && <p className="text-[11px] text-slate2">Vuoi cambiare qualcosa? Scrivilo qui sotto.</p>}
+          {ultimo && (
+            <div className="grid grid-cols-2 gap-2">
+              <button className="rounded-xl border border-edge py-2.5 text-xs" onClick={onDomanda}>❓ Ho una domanda / cambio qualcosa</button>
+              {meta.piano && <button className="rounded-xl border border-edge py-2.5 text-xs" onClick={() => onScarica(meta.piano!)}>⬇ Scarica .md</button>}
+            </div>
+          )}
         </div>
       )}
       {ultimo && !attesa && meta.opzioni && meta.opzioni.length > 0 && (

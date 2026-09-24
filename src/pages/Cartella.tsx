@@ -7,15 +7,13 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../features/auth/AuthProvider'
 import { useSettings } from '../features/profile/useSettings'
 import { useCartella } from '../features/cartella/useCartella'
-import { abbinaEsercizio, cartellaInMarkdown, leggiMarkdown, normalizzaCartella } from '../features/cartella/cartella'
+import { abbinaEsercizio, normalizzaCartella } from '../features/cartella/cartella'
+import { FileCartella } from '../features/cartella/FileCartella'
 import { CARTELLA_VUOTA, type CartellaCliente, type EsercizioNota, type NotaMuscolo } from '../features/cartella/types'
 import { useWorkout } from '../features/workout/WorkoutContext'
-import { loadLocalAiSettings } from '../features/profile/aiSettings'
-import { leggiCartellaConLlm } from '../lib/deepseek'
-import { caricaCatalogo, elencoProgrammi } from '../lib/api'
-import { useCoach } from '../features/coach/useCoach'
+import { caricaCatalogo } from '../lib/api'
 import { determinaFase } from '../engine/nutrition'
-import { MUSCLE_LABELS, type Exercise, type Muscle, type WeeklyProgram } from '../types'
+import { MUSCLE_LABELS, type Exercise, type Muscle } from '../types'
 
 const MUSCOLI = Object.keys(MUSCLE_LABELS) as Muscle[]
 
@@ -88,15 +86,12 @@ function ListaEsercizi({ valori, onChange, catalog, etichetta, notaPlaceholder, 
 export default function Cartella() {
   const navigate = useNavigate()
   const { user } = useAuth()
-  const { profile, calorieLog, bodyLog } = useSettings(user?.id)
+  const { profile, calorieLog } = useSettings(user?.id)
   const { cartella: salvata, aggiornata, errore, salva } = useCartella(user?.id)
-  const { piano: pianoCoach } = useCoach(user?.id)
   const { catalog: ctxCatalog, setCatalog } = useWorkout()
   const [catalog, setLocalCatalog] = useState<Exercise[]>(ctxCatalog ?? [])
   const [c, setC] = useState<CartellaCliente>(CARTELLA_VUOTA)
   const [stato, setStato] = useState<'idle' | 'salvo' | 'salvata'>('idle')
-  const [programma, setProgramma] = useState<WeeklyProgram | null>(null)
-  const [importa, setImporta] = useState<{ stato: 'idle' | 'leggo' | 'anteprima' | 'errore'; msg?: string; proposta?: CartellaCliente; fonte?: string }>({ stato: 'idle' })
   const fase = determinaFase(profile, calorieLog)
 
   useEffect(() => { if (salvata) setC(salvata) }, [salvata])
@@ -104,11 +99,6 @@ export default function Cartella() {
     if (catalog.length) return
     caricaCatalogo().then((items) => { setLocalCatalog(items); setCatalog(items) }).catch(() => undefined)
   }, [catalog.length, setCatalog])
-  useEffect(() => {
-    if (!user) return
-    elencoProgrammi(user.id).then((lista) => setProgramma(lista[0]?.program ?? null)).catch(() => undefined)
-  }, [user])
-
   const patch = <K extends keyof CartellaCliente>(k: K, v: CartellaCliente[K]) => { setC((old) => ({ ...old, [k]: v })); setStato('idle') }
 
   async function salvaTutto() {
@@ -117,38 +107,8 @@ export default function Cartella() {
     setStato(ok ? 'salvata' : 'idle')
   }
 
-  function scarica() {
-    const md = cartellaInMarkdown({ cartella: normalizzaCartella(c, catalog), profile, calorieLog, bodyLog, program: programma, coachPlan: pianoCoach?.plan ?? null })
-    const url = URL.createObjectURL(new Blob([md], { type: 'text/markdown;charset=utf-8' }))
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `cartella_${new Date().toISOString().slice(0, 10)}.md`
-    a.click()
-    URL.revokeObjectURL(url)
-  }
-
-  async function caricaFile(file: File) {
-    setImporta({ stato: 'leggo' })
-    try {
-      const md = await file.text()
-      const letto = leggiMarkdown(md, catalog)
-      if (letto.cartella && !letto.testoModificato) {
-        setImporta({ stato: 'anteprima', proposta: letto.cartella, fonte: 'File di GymBuilder non modificato: dati esatti.' })
-        return
-      }
-      const raw = await leggiCartellaConLlm(loadLocalAiSettings(), md, letto.cartella ?? c)
-      setImporta({
-        stato: 'anteprima', proposta: normalizzaCartella(raw, catalog),
-        fonte: letto.cartella ? 'Il testo è stato modificato dopo l’esportazione: l’ho letto con DeepSeek.' : 'File senza dati di GymBuilder: l’ho letto con DeepSeek.',
-      })
-    } catch (e) {
-      setImporta({ stato: 'errore', msg: e instanceof Error ? e.message : 'File non leggibile.' })
-    }
-  }
-
   if (!salvata) return <main className="px-5 pt-12"><p className="text-slate2">Carico la cartella…</p></main>
 
-  const p = importa.proposta
   return (
     <main className="px-5 pb-32 pt-10">
       <datalist id="catalogo-esercizi">{catalog.filter((e) => !e.roles.includes('warmup')).map((e) => <option key={e.id} value={e.name} />)}</datalist>
@@ -159,29 +119,7 @@ export default function Cartella() {
         peso e girovita nel loro diario. {aggiornata && `Ultimo salvataggio: ${new Date(aggiornata).toLocaleDateString('it-IT')}.`}
       </p>
 
-      <div className="mt-5 grid grid-cols-2 gap-2">
-        <button className="rounded-xl border border-edge py-3 text-sm" onClick={scarica}>⬇ Scarica .md</button>
-        <label className="cursor-pointer rounded-xl border border-edge py-3 text-center text-sm">
-          ⬆ Carica .md
-          <input type="file" accept=".md,.txt,text/markdown,text/plain" className="sr-only" onChange={(e) => { const f = e.target.files?.[0]; if (f) void caricaFile(f); e.target.value = '' }} />
-        </label>
-      </div>
-      {importa.stato === 'leggo' && <p className="mt-3 text-sm text-slate2" role="status">Leggo il file…</p>}
-      {importa.stato === 'errore' && <p className="mt-3 text-sm text-amber2" role="alert">{importa.msg}</p>}
-      {importa.stato === 'anteprima' && p && (
-        <div className="mt-4 rounded-2xl border border-cyan-500/40 bg-cyan-500/5 p-4" role="status">
-          <p className="text-sm text-chalk">{importa.fonte}</p>
-          <p className="mt-2 font-data text-[12px] text-slate2">
-            {p.carenze.length} carenze · {p.punti_forti.length} punti forti · {p.vincoli.length} vincoli · {p.esercizi_ok.length} esercizi ok ·
-            {' '}{p.obbligatori.length} obbligatori · {p.controlli.length} controlli
-          </p>
-          <div className="mt-3 flex gap-2">
-            <button className="btn flex-1" onClick={() => { setC(p); setImporta({ stato: 'idle' }); setStato('idle') }}>Usa questi dati</button>
-            <button className="flex-1 rounded-xl border border-edge py-3 text-sm" onClick={() => setImporta({ stato: 'idle' })}>Annulla</button>
-          </div>
-          <p className="mt-2 text-[11px] text-slate2">Dopo "Usa questi dati" controlla e premi Salva in fondo.</p>
-        </div>
-      )}
+      <FileCartella catalog={catalog} cartella={c} onCartella={async (nuova: CartellaCliente) => { setC(nuova); await salva(nuova) }} />
 
       <Sezione titolo="Dal profilo" spiegazione="Letti dal Profilo: modificali lì.">
         <p className="rounded-xl border border-edge bg-steel/50 p-3 text-sm leading-relaxed text-chalk">

@@ -70,7 +70,9 @@ export default function Create() {
   const preferitiCartella = preferitiDallaCartella(cartella)
   const [error, setError] = useState<string | null>(null)
 
-  const initialKind = searchParams.get('program_kind') === 'single_session' ? 'single_session' : 'program'
+  // 25/09 (Fase 5): il piano settimanale lo fa solo il Coach. Il wizard crea solo l'allenamento
+  // rapido (sessione singola); i programmi settimanali già salvati si riaprono ancora da Salvati.
+  const initialKind = 'single_session' as const
   // Congelati al PRIMO mount di questa pagina (useState lazy init, mai riletti dopo): l'effect
   // sotto ripulisce fresh=1 dall'URL subito dopo averlo usato, così se l'utente torna qui col
   // tasto/gesto Indietro nativo di Android (che riapre la stessa voce di cronologia, non naviga
@@ -85,7 +87,7 @@ export default function Create() {
     // feedback utente 19/08 sera: "la pagina successiva non mi deve chiedere di nuovo"): lo step
     // 2 del wizard, che ripropone la stessa scelta, va saltato solo in questo caso — un ingresso
     // diretto sull'URL senza quel parametro deve poterla ancora fare.
-    skipKindStep: searchParams.get('fresh') === '1' && searchParams.has('program_kind'),
+    skipKindStep: true,
   }))
   const [builderInitial, setBuilderInitial] = useState<WeeklyProgramConfig>(() =>
     weeklyProgram && !freshEntry
