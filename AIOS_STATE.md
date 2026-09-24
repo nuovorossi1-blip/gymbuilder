@@ -4,8 +4,22 @@
 > da qui. Va **aggiornato** a ogni sessione, non accodato all'infinito.
 > L'identità del progetto e il percorso di AI-OS stanno in `AIOS_PROJECT.json`.
 
-**Ultimo aggiornamento:** 2026-09-25 (Coach: cliente conosciuto vs nuovo, perché delle scelte, regole di decisione dal file di Rossi) - Claude (Opus 5.5)
+**Ultimo aggiornamento:** 2026-09-25 (fix Sostituisci senza configurazione) - Claude (Opus 5.5)
 
+### 2026-09-25 (9) — Fix: "Sostituisci" diceva sempre "Nessuna alternativa compatibile"
+
+1. **Segnalazione di Rossi** — sostituendo un esercizio (es. Curl ai cavi) in una scheda del
+   Coach: "Nessuna alternativa compatibile disponibile con questa attrezzatura".
+2. **Causa (verificata nel codice)** — `WorkoutPreview.candidatiSostituzione` e
+   `applicaSostituzione` uscivano subito se `generationConfig` era null. Le sedute del Coach
+   (`sedutaComeWorkout`), le schede di "Analizza" e alcuni salvati non hanno configurazione di
+   generazione -> lista sempre vuota.
+3. **Fatto (verificato)** — `configRiserva()` in WorkoutPreview: senza configurazione se ne
+   ricava una dal profilo (attrezzatura e attrezzi disponibili, esperienza, intensità, esclusi e
+   preferiti dalle impostazioni + vietati e preferiti della cartella, carenze della cartella,
+   split e durata della scheda). Le alternative escludono anche i fastidi articolari del profilo.
+   Provato in Chromium: seduta del Coach -> Sostituisci -> elenco di alternative per gruppo di
+   attrezzi. 345 test verdi, tsc/eslint puliti, build ok.
 ### 2026-09-25 (8) — Coach: cliente conosciuto o nuovo, il perché delle scelte, regole di decisione
 
 1. **Richiesta di Rossi** — se il coach conosce già l'utente (programma già avuto / cartella)

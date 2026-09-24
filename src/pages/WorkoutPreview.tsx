@@ -4,6 +4,12 @@ import { metconInstruction, metconSubtitle } from '../engine/metconInstructions'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../features/auth/AuthProvider'
 import { useWorkout } from '../features/workout/WorkoutContext'
+import { useSettings } from '../features/profile/useSettings'
+import { useCartella } from '../features/cartella/useCartella'
+import { preferitiDallaCartella, vietatiDallaCartella } from '../features/cartella/cartella'
+import { escludiPerFastidi } from '../engine/nutrition'
+import { PRESET_EQUIPMENT } from '../generators/equipment'
+import type { WorkoutGenerationConfig } from '../types'
 import { aggiornaProgramma, salvaAllenamento } from '../lib/api'
 import { findExerciseReplacements, type ReplacementCandidate } from '../engine/replacement'
 import { recordExerciseFeedback } from '../engine/feedback'
@@ -26,6 +32,8 @@ export default function WorkoutPreview() {
   // (displayed) riflette il riordino ma workout/weeklyProgram restano quelli confermati - da qui
   // il pulsante Salva/Annulla che compare solo quando c'e' un pendingWorkout.
   const [pendingWorkout, setPendingWorkout] = useState<GeneratedWorkout | null>(null)
+  const { settings, profile } = useSettings(user?.id)
+  const { cartella } = useCartella(user?.id)
   const exerciseKey = useStableKeys<PrescribedExercise>()
 
   if (!workout) {
@@ -43,6 +51,31 @@ export default function WorkoutPreview() {
   }
 
   const displayed = pendingWorkout ?? workout
+
+  // 25/09 (Rossi: "Sostituisci dice sempre nessuna alternativa"): le sedute del Coach, le schede
+  // di "Analizza" e i salvati vecchi non hanno una configurazione di generazione, e la
+  // sostituzione si fermava subito. Senza configurazione se ne ricava una dal profilo: la tua
+  // attrezzatura, esclusi e preferiti, vietati e preferiti della cartella.
+  function configRiserva(): WorkoutGenerationConfig | null {
+    if (!displayed) return null
+    const preset = settings?.equipment ?? 'full_gym'
+    return {
+      program_kind: 'single_session',
+      mode: displayed.mode as WorkoutGenerationConfig['mode'],
+      goal: displayed.goal,
+      training_days: 1,
+      current_day: displayed.split,
+      experience: settings?.experience ?? displayed.experience,
+      duration_min: displayed.duration_min,
+      equipment: { preset, available: settings?.available_equipment ?? PRESET_EQUIPMENT[preset] },
+      weak_points: cartella?.carenze.map((c) => c.muscolo) ?? [],
+      preferences: {
+        excluded_exercise_ids: [...new Set([...(settings?.excluded_exercises ?? []), ...vietatiDallaCartella(cartella, catalog)])],
+        preferred_exercise_ids: [...new Set([...(settings?.favorite_exercises ?? []), ...preferitiDallaCartella(cartella)])],
+      },
+      intensity: settings?.default_intensity ?? 'medium',
+    }
+  }
   const riscaldamento = displayed.blocks.find((b) => b.kind === 'warmup')
   const principale = displayed.blocks.find((b) => b.kind === 'main')
   const metcon = displayed.blocks.find((b) => b.kind === 'metcon')
@@ -106,44 +139,47 @@ export default function WorkoutPreview() {
    *  (motivo, attrezzatura disponibile, esclusi, apprendimento adattivo) ma restituisce la
    *  lista intera (findExerciseReplacements) invece di applicare subito il primo risultato. */
   function candidatiSostituzione(): ReplacementCandidate[] {
-    if (!feedbackTarget || !generationConfig || !swapReason || !user) return []
+    const cfg = generationConfig ?? configRiserva()
+    if (!feedbackTarget || !cfg || !swapReason || !user) return []
     const current = displayed.blocks[feedbackTarget.block].exercises[feedbackTarget.exercise]
     const original = catalog.find((exercise) => exercise.id === current.exercise_id)
     if (!original) return []
     const { reason } = swapReason
     const available = reason === 'unavailable'
-      ? generationConfig.equipment.available.filter((item) => !original.required_equipment.includes(item))
-      : generationConfig.equipment.available
-    const equipment = { ...generationConfig.equipment, available }
+      ? cfg.equipment.available.filter((item) => !original.required_equipment.includes(item))
+      : cfg.equipment.available
+    const equipment = { ...cfg.equipment, available }
     const used = new Set(displayed.blocks.flatMap((block) => block.exercises.map((exercise) => exercise.exercise_id)))
     const adaptive = recordExerciseFeedback(user.id, original, reason, swapReason.permanent)
-    return findExerciseReplacements(current, catalog, equipment, {
-      excludedExerciseIds: generationConfig.preferences.excluded_exercise_ids,
-    }, used, { reason, rejectedIds: new Set([...rejectedExerciseIds, original.id]), adaptivePreferences: adaptive, experience: generationConfig.experience, preferredIds: new Set(generationConfig.preferences.preferred_exercise_ids), split: generationConfig.current_day })
+    // I fastidi articolari del profilo valgono anche per le sostituzioni.
+    return findExerciseReplacements(current, escludiPerFastidi(catalog, profile?.joint_issues), equipment, {
+      excludedExerciseIds: cfg.preferences.excluded_exercise_ids,
+    }, used, { reason, rejectedIds: new Set([...rejectedExerciseIds, original.id]), adaptivePreferences: adaptive, experience: cfg.experience, preferredIds: new Set(cfg.preferences.preferred_exercise_ids), split: cfg.current_day })
   }
 
   /** Passo 2: applica l'alternativa scelta dall'utente. Serie/ripetizioni/recupero non
    *  cambiano — restano quelle già prescritte, solo l'identità dell'esercizio cambia. */
   function applicaSostituzione(replacement: Exercise) {
-    if (!feedbackTarget || !generationConfig || !swapReason) return
+    const cfg = generationConfig ?? configRiserva()
+    if (!feedbackTarget || !cfg || !swapReason) return
     const { block: blockIndex, exercise: exerciseIndex } = feedbackTarget
     const { reason, permanent } = swapReason
     const current = displayed.blocks[blockIndex].exercises[exerciseIndex]
     const original = catalog.find((exercise) => exercise.id === current.exercise_id)
     if (!original) return
     const available = reason === 'unavailable'
-      ? generationConfig.equipment.available.filter((item) => !original.required_equipment.includes(item))
-      : generationConfig.equipment.available
-    const equipment = { ...generationConfig.equipment, available }
+      ? cfg.equipment.available.filter((item) => !original.required_equipment.includes(item))
+      : cfg.equipment.available
+    const equipment = { ...cfg.equipment, available }
     const blocks = displayed.blocks.map((block, index) => index !== blockIndex ? block : {
       ...block, exercises: block.exercises.map((exercise, itemIndex) => itemIndex !== exerciseIndex ? exercise : {
         ...exercise, exercise_id: replacement.id, name: replacement.name,
         muscle: replacement.primary_muscles[0] ?? null, instructions: replacement.instructions,
       }),
     })
-    const excluded = permanent || reason === 'discomfort' ? [...new Set([...generationConfig.preferences.excluded_exercise_ids, original.id])] : generationConfig.preferences.excluded_exercise_ids
-    setGenerationConfig({ ...generationConfig, equipment, preferences: { ...generationConfig.preferences, excluded_exercise_ids: excluded } })
-    void persistWorkout({ ...displayed, blocks }, { equipment, preferences: { ...generationConfig.preferences, excluded_exercise_ids: excluded } })
+    const excluded = permanent || reason === 'discomfort' ? [...new Set([...cfg.preferences.excluded_exercise_ids, original.id])] : cfg.preferences.excluded_exercise_ids
+    setGenerationConfig({ ...cfg, equipment, preferences: { ...cfg.preferences, excluded_exercise_ids: excluded } })
+    void persistWorkout({ ...displayed, blocks }, { equipment, preferences: { ...cfg.preferences, excluded_exercise_ids: excluded } })
     setFeedbackTarget(null)
     setSwapReason(null)
     setMessaggio(reason === 'discomfort' ? `${current.name} sostituito con ${replacement.name}. Se il dolore persiste, interrompi l’esercizio e valuta un professionista qualificato.` : `${current.name} sostituito con ${replacement.name}. Il resto del workout non è cambiato.`)
