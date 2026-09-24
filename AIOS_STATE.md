@@ -4,8 +4,32 @@
 > da qui. Va **aggiornato** a ogni sessione, non accodato all'infinito.
 > L'identità del progetto e il percorso di AI-OS stanno in `AIOS_PROJECT.json`.
 
-**Ultimo aggiornamento:** 2026-09-25 (piano "Coach personale": Fase 4 completata, Coach sempre disponibile) - Claude (Opus 5.5)
+**Ultimo aggiornamento:** 2026-09-25 (modelli gratuiti OpenRouter, una chiave per fornitore) - Claude (Opus 5.5)
 
+### 2026-09-25 (5) — Modelli gratuiti di OpenRouter e una chiave per fornitore
+
+1. **Richiesta di Rossi** — usare i modelli gratuiti di OpenRouter (elenco: Laguna S/XS 2.1,
+   Inkling, North Mini Code, GLM 5.2, Nemotron 3 Ultra/Super/Nano Omni, Gemma 4 26B/31B; esclusi
+   embedding, rerank, moderazione) accanto alla chiave DeepSeek che già usa.
+2. **Fatto (verificato)** —
+   - DB (applicato, migration nel repo): `user_llm_keys.deepseek_key` e `openrouter_key` (una
+     chiave per fornitore, `api_key` resta per compatibilità), funzione `llm_keys_stato()` che
+     restituisce solo SE le chiavi ci sono (il browser non rilegge mai i valori).
+   - Chiavi di Rossi salvate nel suo account (OpenRouter incollata in chat il 25/09: da
+     rigenerare). Il suo fornitore attivo era già OpenRouter con `deepseek/deepseek-chat`
+     (NON gratuito): lasciato com'è, lo sceglie lui dal Profilo.
+   - `api/deepseek.js`: usa la chiave del fornitore attivo; messaggi per 402 (modello a pagamento
+     senza credito) e 429 (limite dei gratuiti). `api/llm-models.js`: elenco LIVE dei modelli
+     `:free` di OpenRouter (prezzo 0, output testo, esclusi embed/rerank/safety/guard),
+     ordinati per contesto, cache 1 h.
+   - Profilo "Il tuo LLM": fornitore attivo, modello (DeepSeek Flash/Pro, oppure elenco gratuito
+     OpenRouter con contesto, oppure id scritto a mano, avviso se non è gratuito), due chiavi.
+   Provato in Chromium: elenco, scelta di `z-ai/glm-5.2:free`, salvataggio. NB: in sviluppo il
+   service worker (public/sw.js) inoltra i GET /api/* e Playwright non li intercetta: nei test
+   serve `serviceWorkers: 'block'`. In produzione non è un problema.
+   NON verificato dal vivo: chiamata reale a OpenRouter e compatibilità di ogni modello gratuito
+   con risposte JSON (response_format) e con prompt lunghi (GLM 5.2 dichiara 33K di contesto).
+3. **Cosa aspettarsi** — Profilo -> Il tuo LLM -> OpenRouter -> modello gratuito -> Salva.
 ### 2026-09-25 (4) — Piano "Coach personale", Fase 4: Coach sempre disponibile
 
 Nuovo materiale di Rossi integrato: (a) "carenze vs punti forti": range serie/settimana

@@ -37,7 +37,7 @@ async function utenteAutenticato(token) {
 async function chiaveUtente(token, userId) {
   const { url, anon } = supabaseEnv()
   try {
-    const res = await fetch(`${url}/rest/v1/user_llm_keys?select=provider,model,api_key&user_id=eq.${encodeURIComponent(userId)}`, {
+    const res = await fetch(`${url}/rest/v1/user_llm_keys?select=provider,model,api_key,deepseek_key,openrouter_key&user_id=eq.${encodeURIComponent(userId)}`, {
       headers: { Authorization: `Bearer ${token}`, apikey: anon },
       signal: AbortSignal.timeout(10_000),
     })
@@ -65,9 +65,11 @@ export default async function handler(request, response) {
   let key = ''
   let model = payload.model
   const propria = await chiaveUtente(token, user.id)
-  if (propria && PROVIDER_URL[propria.provider]) {
+  // Una chiave per fornitore (25/09): si usa quella del fornitore scelto come attivo.
+  const chiavePropria = propria && (propria.provider === 'openrouter' ? propria.openrouter_key : propria.deepseek_key) || propria?.api_key
+  if (propria && PROVIDER_URL[propria.provider] && chiavePropria) {
     provider = propria.provider
-    key = propria.api_key
+    key = chiavePropria
     model = propria.model
   } else if (user.id === (process.env.LLM_FALLBACK_USER_ID || '').trim()) {
     key = (process.env.DEEPSEEK_API_KEY || '').trim()
@@ -91,7 +93,8 @@ export default async function handler(request, response) {
     if (upstream.status === 401 || upstream.status === 403) {
       return response.status(400).json({ error: `La chiave ${provider === 'openrouter' ? 'OpenRouter' : 'DeepSeek'} è stata rifiutata: controllala nel Profilo.` })
     }
-    if (upstream.status === 402) return response.status(400).json({ error: 'Credito del tuo LLM esaurito: ricaricalo sul sito del fornitore.' })
+    if (upstream.status === 402) return response.status(400).json({ error: 'Credito del tuo LLM esaurito (o modello a pagamento senza credito): ricaricalo o scegli un modello gratuito nel Profilo.' })
+    if (upstream.status === 429 && provider === 'openrouter') return response.status(429).json({ error: 'Limite dei modelli gratuiti di OpenRouter raggiunto: riprova tra un minuto o scegli un altro modello nel Profilo.' })
     response.status(upstream.status)
     response.setHeader('Content-Type', upstream.headers.get('content-type') || 'application/json; charset=utf-8')
     return response.send(body)
