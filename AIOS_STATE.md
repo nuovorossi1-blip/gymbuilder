@@ -4,8 +4,49 @@
 > da qui. Va **aggiornato** a ogni sessione, non accodato all'infinito.
 > L'identità del progetto e il percorso di AI-OS stanno in `AIOS_PROJECT.json`.
 
-**Ultimo aggiornamento:** 2026-09-25 (piano "Coach personale": Fase 2 completata, cartella del cliente) - Claude (Opus 5.5)
+**Ultimo aggiornamento:** 2026-09-25 (piano "Coach personale": Fase 3 completata, Coach primo colloquio + LLM per utente) - Claude (Opus 5.5)
 
+### 2026-09-25 (3) — Piano "Coach personale", Fase 3: Coach (primo colloquio) e LLM per utente
+
+1. **Obiettivo** — il piano settimanale nasce da un colloquio con il Coach LLM; ogni utente
+   usa il suo LLM e la sua chiave (decisione di Rossi: DeepSeek + OpenRouter, nessun limite).
+2. **Fatto (verificato)** —
+   - DB (applicato, migration nel repo): `user_llm_keys` (provider deepseek|openrouter, model,
+     api_key; RLS propria riga), `coach_plans` (versioni, status attivo/archiviato, source,
+     plan jsonb, next_index della rotazione), `coach_messages` (role coach/utente, kind
+     colloquio/controllo/chat, meta con opzioni, piano, esito dei controlli).
+   - Vercel: `LLM_FALLBACK_USER_ID` = utente di Rossi. `api/deepseek.js` ora: verifica la
+     sessione, legge la chiave dell'utente con il SUO token (RLS), chiama DeepSeek o OpenRouter
+     con il modello scelto; la chiave del server solo per Rossi se non ha la sua; messaggi chiari
+     per chiave rifiutata / credito esaurito / chiave mancante.
+   - Profilo: sezione "Il tuo LLM" (fornitore, modello con suggerimenti, chiave mai riletta dal
+     browser, rimuovi). Tolta la vecchia scelta del modello DeepSeek.
+   - `features/coach/plan.ts`: CoachPlan (rotazione di sedute con esercizi del catalogo, calorie,
+     macro, durata, giorni/settimana), `normalizzaPiano` (abbina per nome se manca l'id, non
+     inventa), `sedutaComeWorkout` (riscaldamento FISSO della cartella), `controllaPiano`:
+     ERRORI (fuori catalogo, vietati dalla cartella, fastidi articolari, doppioni) che bloccano
+     "Accetta"; AVVISI (interleave per fase, multiarticolare a pesi liberi in fondo, durata,
+     carenza assente); volume settimanale calcolato dal codice (serie per giro x giorni/sedute).
+   - `features/coach/prompt.ts`: sistema = REGOLE_COACH + procedura del colloquio (6 categorie
+     del prompt di Rossi, niente domande su dati già noti, "c'è qualche esercizio che non senti
+     bene?") + formato JSON (messaggio, opzioni rapide, categoria, aggiorna_cartella, piano);
+     contesto = profilo, fase, cartella, catalogo compatto già filtrato per attrezzatura,
+     fastidi e vietati; `unisciCartella` applica gli aggiornamenti del coach alla cartella.
+   - Pagina `/coach` (card "Il mio piano (Coach)" in Home): chat con risposte rapide; se il
+     piano proposto ha errori il coach lo corregge da solo una volta (messaggio nascosto con gli
+     errori); proposta con sedute, errori, avvisi, tabella volume, "Accetta il piano" (salva
+     nuova versione, archivia la precedente, macro nella cartella, calorie nel Profilo con
+     `patchCambioCalorie` quindi con lo storico della scala). Piano attivo: sedute A, B, C...
+     con la PROSSIMA evidenziata, "Inizia" apre l'anteprima e sposta la rotazione avanti;
+     "Rifai il colloquio da capo".
+   Provato in Chromium con Supabase e LLM simulati: colloquio -> risposta rapida -> proposta ->
+   aggiornamento cartella -> accetta -> piano -> inizia -> anteprima con riscaldamento fisso.
+   333 test verdi (+8), tsc/eslint puliti, build ok. NON provato con un LLM vero.
+3. **Da fare** — Fase 4: controlli ogni 4 settimane, "Parla col coach" in qualsiasi momento,
+   modifiche con versioni e differenze. Fase 5: Home e rimozione wizard settimanale.
+4. **Obiettivo** — il piano settimanale ora è del Coach, verificato dal codice.
+5. **Cosa aspettarsi** — Home -> "Il mio piano (Coach)" -> "Inizia il colloquio". Senza chiave
+   propria funziona solo per Rossi (chiave del server); gli altri utenti la mettono nel Profilo.
 ### 2026-09-25 (2) — Piano "Coach personale", Fase 2: cartella del cliente
 
 1. **Obiettivo** — la "cartella clinica" del file unico di Rossi dentro l'app, una per utente,

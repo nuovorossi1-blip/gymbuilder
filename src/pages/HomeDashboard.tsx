@@ -286,6 +286,21 @@ export default function HomeDashboard() {
             </span>
           </button>
 
+          {/* Card 6: Il mio piano (Coach, Fase 3) */}
+          <button
+            onClick={() => navigate('/coach')}
+            className="group relative flex items-center justify-between rounded-xl glass-card p-4 border border-cyan-500/40 text-left transition-all hover:border-cyan-400 active:scale-[0.99]"
+          >
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500/30 to-blue-600/30 text-2xl border border-cyan-500/40">🧑‍🏫</div>
+              <div>
+                <div className="font-display font-bold text-white group-hover:text-cyan-300 transition-colors">Il mio piano (Coach)</div>
+                <div className="text-xs text-slate-400">Colloquio con il tuo coach LLM e piano su misura a rotazione</div>
+              </div>
+            </div>
+            <span className="text-slate-400 group-hover:text-cyan-400 transition-transform group-hover:translate-x-1">➔</span>
+          </button>
+
           {/* Card 5: La mia cartella (Fase 2, 25/09) */}
           <button
             onClick={() => navigate('/cartella')}

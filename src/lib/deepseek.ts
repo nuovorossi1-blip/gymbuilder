@@ -110,16 +110,20 @@ function deepSeekError(status: number, payload: unknown): Error {
     ? (payload as { error?: string | { message?: string } }).error
     : undefined
   const detail = typeof apiMessage === 'string' ? apiMessage : apiMessage?.message
-  if (status === 401 || status === 403) return new Error('Chiave API DeepSeek non valida o non autorizzata. Controllala nel Profilo.')
-  if (status === 402) return new Error('Il credito DeepSeek è insufficiente. Controlla il saldo del tuo account.')
-  if (status === 429) return new Error('DeepSeek ha ricevuto troppe richieste. Attendi un minuto e riprova.')
-  if (status === 504) return new Error('DeepSeek sta impiegando troppo tempo. Riprova o usa il modello Flash.')
+  // Il proxy (api/deepseek.js) risponde 400/401 con un messaggio già in italiano.
+  if ((status === 400 || status === 401) && detail) return new Error(detail)
+  if (status === 401 || status === 403) return new Error('Chiave LLM non valida o non autorizzata. Controllala nel Profilo.')
+  if (status === 402) return new Error('Il credito del tuo LLM è insufficiente. Controlla il saldo del tuo account.')
+  if (status === 429) return new Error('L’LLM ha ricevuto troppe richieste. Attendi un minuto e riprova.')
+  if (status === 504) return new Error('L’LLM sta impiegando troppo tempo. Riprova.')
   return new Error(detail || `DeepSeek ha risposto con errore ${status}.`)
 }
 
+export type LlmMessage = { role: 'system' | 'user' | 'assistant'; content: string }
+
 async function requestDeepSeek(
   settings: LocalAiSettings,
-  messages: Array<{ role: 'system' | 'user'; content: string }>
+  messages: LlmMessage[]
 ): Promise<{ choices?: Array<{ message?: { content?: string } }> }> {
   // La chiave DeepSeek sta solo sul server (variabile DEEPSEEK_API_KEY su Vercel, 23/09): dal
   // browser parte il token di sessione Supabase, che api/deepseek.js verifica prima di spendere
@@ -129,7 +133,7 @@ async function requestDeepSeek(
   const { supabase } = await import('./supabase')
   const { data } = await supabase.auth.getSession()
   const token = data.session?.access_token
-  if (!token) throw new Error('Accedi di nuovo per usare DeepSeek.')
+  if (!token) throw new Error('Accedi di nuovo per usare il Coach.')
   let response: Response
   try {
     response = await fetch('/api/deepseek', {
@@ -149,9 +153,9 @@ async function requestDeepSeek(
     })
   } catch (error) {
     if (error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError')) {
-      throw Object.assign(new Error('DeepSeek sta impiegando troppo tempo. Riprova o usa il modello Flash.'), { cause: error })
+      throw Object.assign(new Error('L’LLM sta impiegando troppo tempo. Riprova.'), { cause: error })
     }
-    throw Object.assign(new Error('Impossibile contattare DeepSeek. Controlla la connessione e riprova.'), { cause: error })
+    throw Object.assign(new Error('Impossibile contattare l’LLM. Controlla la connessione e riprova.'), { cause: error })
   }
   const payload = await response.json().catch(() => ({})) as { choices?: Array<{ message?: { content?: string } }> }
   if (!response.ok) throw deepSeekError(response.status, payload)
@@ -642,4 +646,13 @@ export async function leggiCartellaConLlm(settings: LocalAiSettings, markdown: s
   const content = payload.choices?.[0]?.message?.content
   if (!content) throw new Error('DeepSeek non ha restituito contenuto utile.')
   return JSON.parse(extractJsonObject(content))
+}
+
+/** Chiamata generica (Coach, Fase 3): risponde con l'oggetto JSON prodotto dall'LLM. */
+export async function chiediJsonAlLlm(messages: LlmMessage[]): Promise<Record<string, unknown>> {
+  const { loadLocalAiSettings } = await import('../features/profile/aiSettings')
+  const payload = await requestDeepSeek(loadLocalAiSettings(), messages)
+  const content = payload.choices?.[0]?.message?.content
+  if (!content) throw new Error('L’LLM non ha restituito una risposta.')
+  return JSON.parse(extractJsonObject(content)) as Record<string, unknown>
 }

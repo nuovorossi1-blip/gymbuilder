@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../features/auth/AuthProvider'
-import { loadLocalAiSettings, saveLocalAiSettings, type DeepSeekModel } from '../features/profile/aiSettings'
 import { useSettings } from '../features/profile/useSettings'
 import { clearNativeCrashLog, isNativeDiagnosticsAvailable, readNativeCrashLog } from '../native/diagnostics'
 import { clearJsErrorLog, formatJsErrorLog, readJsErrorLog } from '../lib/jsErrorLog'
@@ -10,17 +9,13 @@ import {
   type JobActivity, type JointIssue, type StressLevel, type WeightTrend,
 } from '../engine/nutrition'
 import type { Profile, Sex } from '../types'
+import { LlmSettings } from '../features/profile/LlmSettings'
 
 const SEX_LABELS: Record<Sex, string> = {
   female: 'Donna',
   male: 'Uomo',
   other: 'Altro',
   unspecified: 'Non specificato',
-}
-
-const DEEPSEEK_MODEL_LABELS: Record<DeepSeekModel, string> = {
-  'deepseek-v4-flash': 'DeepSeek V4 Flash',
-  'deepseek-v4-pro': 'DeepSeek V4 Pro',
 }
 
 export default function ProfilePage() {
@@ -40,7 +35,6 @@ export default function ProfilePage() {
     joint_issues: [] as JointIssue[],
     maintenance_kcal: '',
   })
-  const [aiForm, setAiForm] = useState(() => loadLocalAiSettings())
   const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const [crashLog, setCrashLog] = useState('')
   const [crashLogCopied, setCrashLogCopied] = useState(false)
@@ -101,7 +95,6 @@ export default function ProfilePage() {
     const patch = { ...bozzaProfilo }
     delete (patch as Partial<Profile>).id
     const ok = await saveProfile(patch)
-    if (ok) saveLocalAiSettings(aiForm)
     setStatus(ok ? 'saved' : 'error')
   }
 
@@ -233,22 +226,7 @@ export default function ProfilePage() {
         )}
       </section>
 
-      <section className="mt-8 rounded-2xl border border-cyan-500/25 bg-cyan-500/5 p-4">
-        <h2 className="font-display text-lg font-bold uppercase text-white">DeepSeek AI</h2>
-        <p className="mt-2 text-sm leading-relaxed text-slate2">
-          La chiave è configurata sul server: qui scegli solo il modello, salvato su questo dispositivo.
-        </p>
-        <div className="mt-4 space-y-4">
-          <label className="block">
-            <span className="field-label">Modello</span>
-            <select className="input" value={aiForm.deepseek_model} onChange={(event) => setAiForm((old) => ({ ...old, deepseek_model: event.target.value as DeepSeekModel }))}>
-              {(Object.keys(DEEPSEEK_MODEL_LABELS) as DeepSeekModel[]).map((model) => (
-                <option key={model} value={model}>{DEEPSEEK_MODEL_LABELS[model]}</option>
-              ))}
-            </select>
-          </label>
-        </div>
-      </section>
+      <LlmSettings userId={user?.id} />
 
       <section className="mt-8 rounded-2xl border border-edge p-4">
         <h2 className="font-display text-lg font-bold uppercase text-white">Notifiche Timer</h2>
