@@ -27,16 +27,18 @@ export interface WeeklyVolume {
   step: number | null
 }
 
-/** Range indicativi per gradino calorico (tabella di Rossi): carenze e mantenimento. */
-const TARGET: Record<number, { carenza: [number, number]; mantenimento: [number, number] }> = {
-  [-500]: { carenza: [12, 16], mantenimento: [6, 8] },
-  [-250]: { carenza: [12, 16], mantenimento: [6, 8] },
-  0: { carenza: [16, 20], mantenimento: [8, 10] },
-  250: { carenza: [16, 20], mantenimento: [8, 10] },
-  500: { carenza: [18, 24], mantenimento: [10, 14] },
-  750: { carenza: [20, 26], mantenimento: [12, 16] },
-  1000: { carenza: [22, 28], mantenimento: [12, 16] },
+/** Range indicativi per gradino calorico (tabella "carenze vs punti forti" di Rossi, 25/09):
+ *  la carenza prende 2-2,5 volte il volume del punto forte; il forte sta al MEV o poco sopra. */
+export const TARGET_VOLUME: Record<number, { carenza: [number, number]; mantenimento: [number, number] }> = {
+  [-500]: { carenza: [14, 18], mantenimento: [5, 12] },
+  [-250]: { carenza: [14, 18], mantenimento: [5, 12] },
+  0: { carenza: [18, 22], mantenimento: [6, 12] },
+  250: { carenza: [18, 22], mantenimento: [6, 12] },
+  500: { carenza: [20, 24], mantenimento: [8, 14] },
+  750: { carenza: [20, 24], mantenimento: [8, 14] },
+  1000: { carenza: [20, 24], mantenimento: [8, 14] },
 }
+const TARGET = TARGET_VOLUME
 
 const NOTE_NON_ALLENANTI = new Set(['avvicinamento'])
 

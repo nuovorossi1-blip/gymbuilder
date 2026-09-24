@@ -4,8 +4,44 @@
 > da qui. Va **aggiornato** a ogni sessione, non accodato all'infinito.
 > L'identità del progetto e il percorso di AI-OS stanno in `AIOS_PROJECT.json`.
 
-**Ultimo aggiornamento:** 2026-09-25 (piano "Coach personale": Fase 3 completata, Coach primo colloquio + LLM per utente) - Claude (Opus 5.5)
+**Ultimo aggiornamento:** 2026-09-25 (piano "Coach personale": Fase 4 completata, Coach sempre disponibile) - Claude (Opus 5.5)
 
+### 2026-09-25 (4) — Piano "Coach personale", Fase 4: Coach sempre disponibile
+
+Nuovo materiale di Rossi integrato: (a) "carenze vs punti forti": range serie/settimana
+CARENZA 14-18 deficit / 18-22 normo / 20-24 surplus, PUNTO FORTE 5-12 / 6-12 / 8-14, MEV ~6,
+rapporto 2-2,5x, 85% delle serie extra alle carenze, carenza che diventa forte -> scende al MEV;
+(b) "due scenari": primo incontro con 6 categorie (chi sei, cosa mangi, corpo e obiettivo,
+problemi e fastidi, logistica, come ti alleni ora) + consiglio nutrizionale PRIMA della scheda;
+controllo con le 10 domande (corpo 2, specchio 3, palestra 3, alimentazione e sonno 2) e
+output valutazione/decisioni/target 4 settimane. Tenute le decisioni già prese da Rossi dove il
+file le contraddice: nessun limite di cambi per controllo; interleave per fase (in surplus
+consentite coppie sui muscoli non carenti).
+
+1. **Fatto (verificato)** —
+   - `weeklyVolume.TARGET_VOLUME` e Principio 6 delle regole del coach con i nuovi range.
+   - `controllaPiano`: range per gradino, avvisi solo per scostamenti netti (carenza sotto il
+     minimo di oltre 2 serie, punto forte sopra il massimo di oltre 3); tabella con colonna range.
+   - `differenzePiani`: calorie, giorni, sedute nuove/tolte, esercizi tolti/aggiunti, serie,
+     ripetizioni, RIR, tecniche, ordine. Il piano salvato si normalizza prima del confronto.
+   - Prompt: `promptSistema(tipo)` per colloquio / controllo / chat; formato JSON con
+     `calorie` (solo calorie, a gradini di 250) e `controllo` (dati + decisioni). Contesto con
+     piano attivo, diario peso (ultimi 12), carichi registrati per gli esercizi del piano
+     (ultime 3 volte), storico calorie.
+   - `/coach`: dal piano attivo "💬 Parla col coach" (conversazione continua, il coach può
+     cambiare il piano subito) e "📋 Controllo" (dovuto 28 giorni dopo il piano o l'ultimo
+     controllo: pulsante giallo "È ora del controllo"; riparte da una conversazione pulita).
+     Proposte con "Cosa cambia", sedute, errori/avvisi, volume; un solo pulsante applica tutto:
+     nuova versione del piano (sorgente chat/controllo, nota = differenze), calorie nel Profilo con
+     la scala, controllo aggiunto a `cartella.controlli`. Elenco "Versioni del piano".
+   - Export .md: la "scheda attuale" è il piano del Coach se esiste.
+   Provato in Chromium con Supabase e LLM simulati: chat -> modifica -> "Push A: tolto Chest
+   press alla macchina; aggiunto Croci ai cavi" -> v2 attiva, v1 archiviata; controllo -> dati
+   salvati nella cartella. 337 test verdi, tsc/eslint puliti, build ok.
+2. **Da fare** — Fase 5: Home (Il mio piano / Allenamento singolo / Strumenti), togliere il
+   wizard settimanale, "Scrivila tu". Prova con un LLM vero.
+3. **Cosa aspettarsi** — Coach -> piano: "Parla col coach" e "Controllo"; ogni cambio mostra
+   cosa cambia e diventa una nuova versione.
 ### 2026-09-25 (3) — Piano "Coach personale", Fase 3: Coach (primo colloquio) e LLM per utente
 
 1. **Obiettivo** — il piano settimanale nasce da un colloquio con il Coach LLM; ogni utente

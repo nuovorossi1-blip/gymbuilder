@@ -1,7 +1,7 @@
 # Todo
 
 - [ ] Rossi: provare il Coach con un LLM vero (colloquio completo, qualità del piano, tempi di risposta).
-- [ ] Piano "Coach personale" (24/09): Fasi 0-3 fatte. Restano: 4 Coach sempre disponibile, 5 riorganizzazione Home e rimozione wizard settimanale.
+- [ ] Piano "Coach personale" (24/09): Fasi 0-4 fatte. Resta: 5 riorganizzazione Home e rimozione wizard settimanale.
 - [ ] Rossi: Supabase -> Authentication -> URL Configuration, Site URL https://gymbuilder-lemon.vercel.app e Redirect URLs https://gymbuilder-lemon.vercel.app/** (per il link del recupero password).
 - [ ] Catalogo gambe (visto il 23/09): con full_gym il motore può scegliere thruster come composto quadricipiti in un Legs da bodybuilding; valutare di escluderli dal pool Bodybuilding.
 - [x] Piano "programmazione a scala" (23/09): blocchi 1+2, 5, 4, 3 tutti pubblicati.

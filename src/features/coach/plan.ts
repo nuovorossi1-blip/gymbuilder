@@ -7,7 +7,7 @@
 import { minutiBlocco } from '../../generators/shared'
 import { escludiPerFastidi } from '../../engine/nutrition'
 import { violazioniInterleave } from '../../engine/programming'
-import { contaSerie } from '../../engine/weeklyVolume'
+import { contaSerie, TARGET_VOLUME } from '../../engine/weeklyVolume'
 import { MUSCLE_LABELS, type Exercise, type GeneratedWorkout, type JointIssue, type Muscle, type NutritionPhase, type PrescribedExercise, type Split } from '../../types'
 import { abbinaEsercizio, vietatiDallaCartella } from '../cartella/cartella'
 import type { CartellaCliente } from '../cartella/types'
@@ -132,7 +132,7 @@ export interface EsitoControlli {
   errori: string[]
   /** Si può accettare lo stesso, ma vanno lette. */
   avvisi: string[]
-  volume: { muscolo: Muscle; serie: number; frequenza: number; carenza: boolean }[]
+  volume: { muscolo: Muscle; serie: number; frequenza: number; carenza: boolean; target: [number, number] }[]
 }
 
 export interface ContestoControlli {
@@ -140,6 +140,8 @@ export interface ContestoControlli {
   cartella: CartellaCliente | null
   fastidi: JointIssue[]
   phase: NutritionPhase | null
+  /** Gradino calorico del volume (-500..+1000) per i range carenza/punto forte. */
+  step?: number | null
 }
 
 export function controllaPiano(plan: CoachPlan, ctx: ContestoControlli): EsitoControlli {
@@ -176,9 +178,57 @@ export function controllaPiano(plan: CoachPlan, ctx: ContestoControlli): EsitoCo
     }
   })
   const fattore = plan.giorni_settimana / plan.sedute.length
-  const righe = [...volume.entries()].map(([muscolo, v]) => ({
-    muscolo, serie: Math.round(v.serie * fattore), frequenza: Math.round(v.sedute.size * fattore * 10) / 10, carenza: carenze.includes(muscolo),
-  })).sort((a, b) => Number(b.carenza) - Number(a.carenza) || b.serie - a.serie)
+  const step = ctx.step ?? (ctx.phase === 'deficit' ? -500 : ctx.phase === 'surplus' ? 500 : 0)
+  const range = TARGET_VOLUME[Math.max(-500, Math.min(1000, Math.round(step / 250) * 250))] ?? TARGET_VOLUME[0]
+  const righe = [...volume.entries()].map(([muscolo, v]) => {
+    const carenza = carenze.includes(muscolo)
+    return {
+      muscolo, carenza, target: carenza ? range.carenza : range.mantenimento,
+      serie: Math.round(v.serie * fattore), frequenza: Math.round(v.sedute.size * fattore * 10) / 10,
+    }
+  }).sort((a, b) => Number(b.carenza) - Number(a.carenza) || b.serie - a.serie)
   for (const c of carenze) if (!volume.has(c)) avvisi.push(`La carenza ${MUSCLE_LABELS[c]} non compare in nessuna seduta.`)
+  // Range indicativi (tabella di Rossi): si segnalano solo gli scostamenti netti.
+  for (const r of righe) {
+    if (r.carenza && r.serie < r.target[0] - 2) avvisi.push(`${MUSCLE_LABELS[r.muscolo]} (carenza): ${r.serie} serie a settimana, sotto il range ${r.target[0]}-${r.target[1]}.`)
+    if (!r.carenza && r.serie > r.target[1] + 3) avvisi.push(`${MUSCLE_LABELS[r.muscolo]} (non carente): ${r.serie} serie a settimana, sopra il range ${r.target[0]}-${r.target[1]}: toglie recupero alle carenze.`)
+  }
   return { errori, avvisi, volume: righe }
+}
+
+/** Cosa cambia fra due versioni del piano, in italiano semplice (Fase 4). */
+export function differenzePiani(prima: CoachPlan, dopo: CoachPlan): string[] {
+  const out: string[] = []
+  if (prima.calorie !== dopo.calorie && dopo.calorie) out.push(`Calorie: ${prima.calorie ?? '—'} → ${dopo.calorie} kcal.`)
+  if (prima.giorni_settimana !== dopo.giorni_settimana) out.push(`Giorni a settimana: ${prima.giorni_settimana} → ${dopo.giorni_settimana}.`)
+  const nomiPrima = prima.sedute.map((sd) => sd.nome)
+  const nomiDopo = dopo.sedute.map((sd) => sd.nome)
+  for (const n of nomiDopo) if (!nomiPrima.includes(n)) out.push(`Nuova seduta: ${n}.`)
+  for (const n of nomiPrima) if (!nomiDopo.includes(n)) out.push(`Seduta tolta: ${n}.`)
+  for (const sd of dopo.sedute) {
+    const vecchia = prima.sedute.find((x) => x.nome === sd.nome)
+    if (!vecchia) continue
+    const idVecchi = vecchia.esercizi.map((e) => e.exercise_id)
+    const idNuovi = sd.esercizi.map((e) => e.exercise_id)
+    const cambi: string[] = []
+    const tolti = vecchia.esercizi.filter((e) => !idNuovi.includes(e.exercise_id)).map((e) => e.nome || e.exercise_id).filter(Boolean)
+    const aggiunti = sd.esercizi.filter((e) => !idVecchi.includes(e.exercise_id)).map((e) => e.nome || e.exercise_id).filter(Boolean)
+    if (tolti.length) cambi.push(`tolto ${tolti.join(', ')}`)
+    if (aggiunti.length) cambi.push(`aggiunto ${aggiunti.join(', ')}`)
+    for (const e of sd.esercizi) {
+      const v = vecchia.esercizi.find((x) => x.exercise_id === e.exercise_id)
+      if (!v) continue
+      const d: string[] = []
+      if (v.serie !== e.serie) d.push(`serie ${v.serie}→${e.serie}`)
+      if (v.reps !== e.reps) d.push(`rip ${v.reps}→${e.reps}`)
+      if (v.rir !== e.rir) d.push(`RIR ${v.rir || '—'}→${e.rir || '—'}`)
+      if ((v.tecnica ?? '') !== (e.tecnica ?? '')) d.push(e.tecnica ? `tecnica: ${e.tecnica}` : 'tecnica tolta')
+      if (d.length) cambi.push(`${e.nome} (${d.join(', ')})`)
+    }
+    const comuniPrima = idVecchi.filter((id) => idNuovi.includes(id))
+    const comuniDopo = idNuovi.filter((id) => idVecchi.includes(id))
+    if (comuniPrima.join() !== comuniDopo.join()) cambi.push('ordine cambiato')
+    if (cambi.length) out.push(`${sd.nome}: ${cambi.join('; ')}.`)
+  }
+  return out.length ? out : ['Nessuna modifica alle sedute.']
 }

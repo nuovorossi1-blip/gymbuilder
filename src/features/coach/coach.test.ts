@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { controllaPiano, normalizzaPiano, sedutaComeWorkout } from './plan'
-import { leggiRispostaCoach, messaggioContesto, promptSistemaColloquio, unisciCartella } from './prompt'
+import { controllaPiano, differenzePiani, normalizzaPiano, sedutaComeWorkout } from './plan'
+import { leggiRispostaCoach, messaggioContesto, promptSistema, promptSistemaColloquio, unisciCartella } from './prompt'
 import { normalizzaCartella } from '../cartella/cartella'
 import { CARTELLA_VUOTA } from '../cartella/types'
 import type { Exercise } from '../../types'
@@ -68,7 +68,8 @@ describe('Coach: prompt e risposte', () => {
   it('il prompt contiene regole, le 6 categorie e il formato JSON', () => {
     const p = promptSistemaColloquio()
     expect(p).toContain('PRINCIPIO 2')
-    expect(p).toContain('6. Distribuzione')
+    expect(p).toContain('6. Come ti alleni ora')
+    expect(p).toContain('consiglio nutrizionale')
     expect(p).toContain('"aggiorna_cartella"')
   })
   it('il contesto passa profilo, cartella e catalogo compatto', () => {
@@ -89,5 +90,35 @@ describe('Coach: prompt e risposte', () => {
     expect(u.obiettivo.primario).toBe('V-shape')
     expect(u.controlli).toEqual([])
     expect(unisciCartella(CARTELLA_VUOTA, null, cat)).toEqual(CARTELLA_VUOTA)
+  })
+})
+
+describe('Coach: Fase 4', () => {
+  const plan = normalizzaPiano(rawPiano, cat)!
+  it('il controllo usa le 10 domande, la chat può modificare il piano', () => {
+    const c = promptSistema('controllo')
+    for (const q of ['CORPO', 'SPECCHIO', 'PALESTRA', 'ALIMENTAZIONE', '10) sonno']) expect(c).toContain(q)
+    expect(promptSistema('chat')).toContain('rimanda il piano INTERO')
+  })
+  it('le differenze tra versioni sono leggibili', () => {
+    const dopo = JSON.parse(JSON.stringify(plan))
+    dopo.calorie = 2250
+    dopo.sedute[0].esercizi[0].serie = 4
+    dopo.sedute[0].esercizi.splice(3, 1)
+    const d = differenzePiani(plan, dopo).join(' ')
+    expect(d).toContain('Calorie: 2000 → 2250')
+    expect(d).toContain('serie 3→4')
+    expect(d).toContain('tolto Chest press')
+    expect(differenzePiani(plan, plan)).toEqual(['Nessuna modifica alle sedute.'])
+  })
+  it('i range carenza/punto forte producono avvisi solo per scostamenti netti', () => {
+    const esito = controllaPiano(plan, { catalog: cat, cartella, fastidi: [], phase: 'deficit', step: -500 })
+    expect(esito.volume.find((r) => r.muscolo === 'lateral_delts')!.target).toEqual([14, 18])
+    expect(esito.volume.find((r) => r.muscolo === 'chest')!.target).toEqual([5, 12])
+  })
+  it('legge calorie e controllo dalla risposta', () => {
+    const r = leggiRispostaCoach({ messaggio: 'ok', calorie: 2250, controllo: { data: '2026-10-20' } })
+    expect(r.calorie).toBe(2250)
+    expect(r.controllo).toEqual({ data: '2026-10-20' })
   })
 })

@@ -23,13 +23,16 @@ export interface PianoSalvato {
 export function useCoach(userId: string | undefined) {
   const [messaggi, setMessaggi] = useState<MessaggioCoach[] | null>(null)
   const [piano, setPiano] = useState<PianoSalvato | null | undefined>(undefined)
+  const [versioni, setVersioni] = useState<{ id: string; version: number; source: string; note: string | null; created_at: string }[]>([])
 
   const carica = useCallback(async () => {
     if (!userId) return
-    const [m, p] = await Promise.all([
+    const [m, p, v] = await Promise.all([
       supabase.from('coach_messages').select('id, role, kind, content, meta, created_at').eq('user_id', userId).order('created_at', { ascending: true }).limit(400),
       supabase.from('coach_plans').select('id, version, plan, next_index, created_at').eq('user_id', userId).eq('status', 'attivo').order('created_at', { ascending: false }).limit(1),
+      supabase.from('coach_plans').select('id, version, source, note, created_at').eq('user_id', userId).order('version', { ascending: false }).limit(30),
     ])
+    setVersioni((v.data ?? []) as typeof versioni)
     setMessaggi((m.data ?? []) as MessaggioCoach[])
     setPiano(((p.data ?? [])[0] as PianoSalvato | undefined) ?? null)
   }, [userId])
@@ -59,6 +62,7 @@ export function useCoach(userId: string | undefined) {
       .select('id, version, plan, next_index, created_at').single()
     if (error || !data) throw new Error('Piano non salvato. Riprova.')
     setPiano(data as PianoSalvato)
+    setVersioni((old) => [{ id: data.id as string, version, source, note: note ?? null, created_at: data.created_at as string }, ...old])
     return data as PianoSalvato
   }, [userId])
 
@@ -68,5 +72,5 @@ export function useCoach(userId: string | undefined) {
     setPiano({ ...piano, next_index: index })
   }, [userId, piano])
 
-  return { messaggi, piano, aggiungi, cancellaConversazione, accettaPiano, impostaProssima, ricarica: carica }
+  return { messaggi, piano, versioni, aggiungi, cancellaConversazione, accettaPiano, impostaProssima, ricarica: carica }
 }

@@ -124,6 +124,8 @@ export interface DatiExport {
   calorieLog: CalorieLogEntry[]
   bodyLog: BodyEntry[]
   program: WeeklyProgram | null
+  /** Piano del Coach attivo (Fase 4): se c'è, è lui la "scheda attuale" del file. */
+  coachPlan?: { titolo: string; giorni_settimana: number; sedute: { nome: string; esercizi: { nome: string; serie: number; reps: string; rir: string; tecnica?: string; nota?: string }[] }[] } | null
   nome?: string
 }
 
@@ -166,7 +168,12 @@ export function cartellaInMarkdown(d: DatiExport): string {
   out.push('## Storico calorie', tabella(['Data', 'Kcal', 'Gradino'], d.calorieLog.slice(-10).map((e) => [e.created_at.slice(0, 10), e.kcal, e.step])), '')
   out.push('## Peso e girovita', tabella(['Data', 'Peso', 'Girovita', 'Piatto'], d.bodyLog.slice(-12).map((e) => [e.created_at.slice(0, 10), e.weight_kg, e.waist_cm, e.feels_flat ? 'sì' : ''])), '')
   out.push('# PARTE 4 — LA SCHEDA ATTUALE', '')
-  if (d.program) {
+  if (d.coachPlan) {
+    out.push(`**${d.coachPlan.titolo}** — rotazione di ${d.coachPlan.sedute.length} sedute, ${d.coachPlan.giorni_settimana} a settimana (si fa sempre la prossima della lista).`)
+    for (const sd of d.coachPlan.sedute) {
+      out.push('', `### ${sd.nome}`, tabella(['#', 'Esercizio', 'Serie×Reps', 'RIR', 'Tecnica / nota'], sd.esercizi.map((e, i) => [i + 1, e.nome, `${e.serie}×${e.reps}`, e.rir, [e.tecnica, e.nota].filter(Boolean).join(' · ')])))
+    }
+  } else if (d.program) {
     out.push(tabella(['#', 'Seduta', 'Disciplina', 'Carenze'], d.program.week.map((s, i) => [i + 1, s.label, s.mode, s.priority_muscles.map((m) => MUSCLE_LABELS[m]).join(', ')])))
     for (const s of d.program.week) {
       const main = s.generated_workout?.blocks.find((b) => b.kind === 'main')

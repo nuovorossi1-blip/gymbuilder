@@ -13,6 +13,7 @@ import { useWorkout } from '../features/workout/WorkoutContext'
 import { loadLocalAiSettings } from '../features/profile/aiSettings'
 import { leggiCartellaConLlm } from '../lib/deepseek'
 import { caricaCatalogo, elencoProgrammi } from '../lib/api'
+import { useCoach } from '../features/coach/useCoach'
 import { determinaFase } from '../engine/nutrition'
 import { MUSCLE_LABELS, type Exercise, type Muscle, type WeeklyProgram } from '../types'
 
@@ -89,6 +90,7 @@ export default function Cartella() {
   const { user } = useAuth()
   const { profile, calorieLog, bodyLog } = useSettings(user?.id)
   const { cartella: salvata, aggiornata, errore, salva } = useCartella(user?.id)
+  const { piano: pianoCoach } = useCoach(user?.id)
   const { catalog: ctxCatalog, setCatalog } = useWorkout()
   const [catalog, setLocalCatalog] = useState<Exercise[]>(ctxCatalog ?? [])
   const [c, setC] = useState<CartellaCliente>(CARTELLA_VUOTA)
@@ -116,7 +118,7 @@ export default function Cartella() {
   }
 
   function scarica() {
-    const md = cartellaInMarkdown({ cartella: normalizzaCartella(c, catalog), profile, calorieLog, bodyLog, program: programma })
+    const md = cartellaInMarkdown({ cartella: normalizzaCartella(c, catalog), profile, calorieLog, bodyLog, program: programma, coachPlan: pianoCoach?.plan ?? null })
     const url = URL.createObjectURL(new Blob([md], { type: 'text/markdown;charset=utf-8' }))
     const a = document.createElement('a')
     a.href = url

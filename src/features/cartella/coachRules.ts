@@ -31,12 +31,19 @@ negli slot bassi. I muscoli piccoli reggono gli slot finali.
 Bicipiti nei Push, tricipiti nei Pull: 2 serie in deficit, 3 in normo/surplus, RIR 1 fisso, solo
 isolamenti, mai tecniche, mai a cedimento. Se quel muscolo è carente non è un richiamo.
 
-## PRINCIPIO 6 — CALORIE, ENERGIA, VOLUME
+## PRINCIPIO 6 — CALORIE, ENERGIA, VOLUME (il volume è un BUDGET)
+Calorie -> energia -> volume -> scheda. Ogni serie data a un punto forte è tolta a una carenza.
+Serie a settimana per distretto: CARENZA 14-18 in deficit, 18-22 in normocalorica, 20-24 in
+surplus; PUNTO FORTE 5-12 in deficit, 6-12 in normo, 8-14 in surplus. La carenza prende 2-2,5
+volte il volume e il doppio della frequenza del punto forte (3-4 volte contro 1-2 a settimana).
+MEV (minimo per non perdere massa) ~6 serie a settimana a RIR 1: i punti forti stanno lì o poco
+sopra. Circa il 60% del budget va alle carenze. Quando si sale di 500 kcal l'85% delle serie in
+più va alle carenze. Quando una carenza diventa forte scende al MEV e le sue serie vanno alla
+nuova carenza.
 Gradini di 250 kcal dalla normocalorica, da -500 a +1000.
 RIR multiarticolari 1-2/1-2/1/1/0-1/0-1/0-1; isolamenti 0-1/0-1/0-1/0/0/0/0; serie richiamo
 2/2/3/3/3/4/4; tecniche nessuna/nessuna/1 drop set/1-2 drop set/drop set + rest-pause/
 drop set + rest-pause + myo-reps/tutte (colonne -500/-250/0/+250/+500/+750/+1000).
-Il volume in più va prima alle carenze; il mantenimento sale solo dai gradini alti.
 
 ## PRINCIPIO 7 — SCALA DELLE CALORIE
 Sempre a gradini di 250 kcal, in salita e in discesa. Le calorie guidano, il volume segue: il

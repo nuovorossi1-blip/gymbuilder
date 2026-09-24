@@ -23,7 +23,7 @@ describe('volume settimanale', () => {
     } as unknown as WeeklyProgram
     const vol = stimaVolumeSettimanale(program, () => workout([['lateral_delts', 3], ['chest', 4]]), -500)!
     const lat = vol.rows.find((row) => row.muscle === 'lateral_delts')!
-    expect(lat).toMatchObject({ total: 6, frequency: 2, carenza: true, target: [12, 16], status: 'basso' })
+    expect(lat).toMatchObject({ total: 6, frequency: 2, carenza: true, target: [14, 18], status: 'basso' })
     expect(vol.rows.find((row) => row.muscle === 'chest')).toMatchObject({ total: 8, status: 'ok' })
     expect(vol.skippedDays).toBe(1)
   })
