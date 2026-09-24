@@ -139,6 +139,8 @@ export interface PrescribedExercise {
   rir?: string
   /** Tecnica di intensità sull'ultima serie (drop set, rest-pause): mai in deficit. */
   technique?: string
+  /** Density 3-6-9 EDT (25/09): dati della zona, salvati nello storico per record e rotazione. */
+  edt?: { zone_key: string; fase: 9 | 6 | 3 | 'scarico'; rep_target: number; reps_done: number }
 }
 
 export interface WorkoutBlock {
@@ -458,8 +460,8 @@ export const SPLIT_SYSTEM_LABELS: Record<SplitSystem, string> = {
 export const BODYBUILDING_PROTOCOL_LABELS: Record<BodybuildingProtocol, string> = {
   standard: 'Standard',
   fst7: 'FST-7 (Hany Rambod)',
-  cbum_top_backoff: 'Top Set & Back-Off (CBum)',
-  density_369: 'Density Tri-Set 3-6-9',
+  cbum_top_backoff: 'Stile CBum (top set + back-off)',
+  density_369: 'Density 3-6-9 (EDT)',
 }
 
 

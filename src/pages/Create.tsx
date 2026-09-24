@@ -14,7 +14,7 @@ import { loadLocalAiSettings } from '../features/profile/aiSettings'
 import { useSettings } from '../features/profile/useSettings'
 import { useWorkout } from '../features/workout/WorkoutContext'
 import { generaBodybuilding } from '../generators/bodybuilding'
-import { DENSITY_SPLIT_SUPPORTATI, density369ComeGeneratedWorkout, generaDensity369, type DensitySplit } from '../generators/density369'
+import { DENSITY_SPLIT_SUPPORTATI, densityEdtComeGeneratedWorkout, generaDensityEdt, type DensitySplit } from '../generators/densityEdt'
 import { FORMATI_CROSSFIT, generaCrossFit } from '../generators/crossfit'
 import { isExerciseAvailable, PRESET_EQUIPMENT } from '../generators/equipment'
 import { generaHybrid } from '../generators/hybrid'
@@ -251,6 +251,18 @@ export default function Create() {
     navigate('/allenamento')
   }
 
+  /** Quota settimanale FST-7 (25/09): 0 blocchi in deficit, 2 in normocalorica, 4 in surplus.
+   *  Vanno alle prime sedute Bodybuilding con carenze della settimana, poi alle altre. La sessione
+   *  singola lo ha sempre (salvo deficit, che il motore gestisce da sé). */
+  function fst7Attivo(session: WeeklySession, sourceProgram: WeeklyProgram): boolean {
+    if (sourceProgram.config.program_kind === 'single_session') return true
+    const step = phaseInfo?.training_step ?? 0
+    const quota = step <= -250 ? 0 : step <= 250 ? 2 : 4
+    const bb = sourceProgram.week.filter((s) => s.mode === 'bodybuilding')
+    const ordinate = [...bb.filter((s) => s.priority_muscles.length > 0), ...bb.filter((s) => s.priority_muscles.length === 0)]
+    return ordinate.slice(0, quota).some((s) => s.id === session.id)
+  }
+
   /** Genera col motore la seduta `session` (senza finalizzarla): usata da generateDay e dalla
    *  stima del volume settimanale (seme fisso, così la tabella non cambia a ogni render). */
   function engineWorkoutFor(session: WeeklySession, sourceProgram: WeeklyProgram, seed: number) {
@@ -302,7 +314,7 @@ export default function Create() {
           ? generaForza(dayCatalog, { ...common, priority_muscles: todayPriorities, priority_portions: todayPortions, target_muscles: todayTargets, split, method: global.strength_method, weekly_volume: weeklyState?.volume, last_trained_at: weeklyState?.last_trained_at })
           : session.mode === 'tabata'
             ? generaTabata(dayCatalog, { ...common, ...global.tabata })
-            : generaBodybuilding(dayCatalog, { ...common, priority_muscles: todayPriorities, priority_portions: todayPortions, target_muscles: todayTargets, split, goal: 'hypertrophy', weekly_volume: weeklyState?.volume, last_trained_at: weeklyState?.last_trained_at, protocol: global.protocol, fst7_preloading: global.fst7_preloading, nutrition_phase: phaseInfo?.training_phase ?? null, nutrition_step: phaseInfo?.training_step ?? null,
+            : generaBodybuilding(dayCatalog, { ...common, priority_muscles: todayPriorities, priority_portions: todayPortions, target_muscles: todayTargets, split, goal: 'hypertrophy', weekly_volume: weeklyState?.volume, last_trained_at: weeklyState?.last_trained_at, protocol: global.protocol, fst7_attivo: fst7Attivo(session, sourceProgram), nutrition_phase: phaseInfo?.training_phase ?? null, nutrition_step: phaseInfo?.training_step ?? null,
         // Blocco 4: specializzazione attiva quando ci sono carenze (protocollo Standard).
         specializzazione: global.weak_points.length > 0, variante: session.variant ?? 'A', carenze_globali: global.weak_points })
     return workout
@@ -325,46 +337,37 @@ export default function Create() {
     if (!sourceProgram) return
     if (catalog.length === 0) { setError('Catalogo esercizi non ancora caricato: riprova tra qualche secondo.'); return }
     const global = sourceProgram.config
-    // Density Tri-Set 3-6-9 (21/08, integrato nel programma settimanale il 21/08 sera su
-    // richiesta di Rossi): motore e modello dati completamente diversi da generaBodybuilding
-    // (blocchi/stazioni/giri, non serie singole). `session.bb_protocol`, se impostato, vince
-    // sul protocollo globale della settimana — permette un PPL a 5 giorni dove solo un giorno
-    // (es. Gambe) usa il Density 3-6-9, gli altri restano Standard/FST-7/CBum come sempre.
-    // Genera qui (non solo dentro DensityRunner.tsx) apposta: serve un GeneratedWorkout
-    // "appiattito" (density369ComeGeneratedWorkout) da passare ad applyWorkoutRecovery, così
-    // il giorno risulta davvero generato agli occhi della settimana (pallino pieno, stima di
-    // recupero aggiornata) — non solo un redirect a schermo nero per la settimana. La
-    // generazione è deterministica (stesso split+attrezzatura => stessi esercizi, fix del
-    // 21/08 pomeriggio): DensityRunner.tsx la rifà per conto suo all'apertura, ottenendo lo
-    // stesso risultato — nessun rischio di disallineamento, a meno che l'utente sostituisca un
-    // esercizio lì dentro (quella sostituzione non si riflette qui, resta solo nella sessione
-    // eseguita/salvata: limite noto, non un bug — vedi TODO.md).
+    // Density 3-6-9 EDT (25/09, sostituisce il tri-set del 21/08): motore e modello dati diversi
+    // da generaBodybuilding (zone a tempo con coppie di esercizi). Qui si genera solo la versione
+    // "appiattita" per la settimana (recupero, pallino pieno); la seduta vera, con la fase della
+    // rotazione 9-6-3 e i record letti dallo storico, la compone DensityRunner all'apertura.
     const protocolloDelGiorno = session.mode === 'bodybuilding' ? (session.bb_protocol ?? global.protocol) : undefined
     if (session.mode === 'bodybuilding' && protocolloDelGiorno === 'density_369') {
       const split = session.split as DensitySplit
       if (!DENSITY_SPLIT_SUPPORTATI.includes(split)) {
-        setError('Density Tri-Set 3-6-9 non è ancora disponibile per questo split — prova Push, Pull, Legs, Upper, Lower, Petto, Dorso, Braccia, Gambe, Front o Back.')
+        setError('Density 3-6-9 è disponibile per Push, Pull, Legs, Upper, Lower e Full Body.')
         return
       }
       const adaptiveExcluded = user ? adaptiveExcludedIds(user.id, catalog) : []
       const excluded = [...new Set([...global.preferences.excluded_exercise_ids, ...adaptiveExcluded])]
-      const generato = generaDensity369(catalog, {
+      const generato = generaDensityEdt(catalog, {
         split,
+        duration_min: global.duration_min,
         equipment: global.equipment.preset,
         available_equipment: global.equipment.available,
         excluded_exercises: excluded,
         preferred_exercises: global.preferences.preferred_exercise_ids,
       })
       if (!generato) {
-        setError("Density Tri-Set 3-6-9 non è generabile con l'attrezzatura/esclusioni attuali per questo giorno.")
+        setError("Density 3-6-9 non è componibile con l'attrezzatura e le esclusioni attuali per questo giorno.")
         return
       }
-      const workoutAppiattito = density369ComeGeneratedWorkout(generato, generato.estimated_duration_min * 60)
+      const workoutAppiattito = densityEdtComeGeneratedWorkout(generato)
       updateProgram(applyWorkoutRecovery(sourceProgram, session.id, workoutAppiattito, catalog))
       setGenerationConfig(buildGenerationConfig(sourceProgram, session, excluded))
       setWorkout(workoutAppiattito)
       setError(null)
-      navigate(`/density-369?split=${split}`)
+      navigate(`/density-369?split=${split}&min=${global.duration_min}`)
       return
     }
     if (session.generated_workout) {
@@ -778,21 +781,6 @@ function WizardBuilder({
                       </Choice>
                     ))}
                   </Grid>
-                </Field>
-              )}
-
-              {showBodybuildingProtocol && config.protocol === 'fst7' && (
-                <Field title="Pre-Loading">
-                  <p className="mb-2 text-[13px] text-slate2">
-                    Sposta il blocco da 7 serie come primo esercizio della sessione (mind-muscle
-                    connection a freddo), invece che a chiusura.
-                  </p>
-                  <Choice
-                    active={!!config.fst7_preloading}
-                    onClick={() => patch('fst7_preloading', !config.fst7_preloading)}
-                  >
-                    {config.fst7_preloading ? 'Pre-Loading attivo' : 'Pre-Loading disattivo'}
-                  </Choice>
                 </Field>
               )}
 
@@ -1514,7 +1502,7 @@ function SessionEditor({
             <option value="">Come il resto della settimana</option>
             {(Object.keys(BODYBUILDING_PROTOCOL_LABELS) as BodybuildingProtocol[])
               // Density 3-6-9 non ha ancora un template per tutti gli split (es. Spalle da sola
-              // nel Bro Split, sez. density369.ts) — non proporlo per uno split che non lo
+              // nel Bro Split, sez. densityEdt.ts) — non proporlo per uno split che non lo
               // supporta, invece di lasciarlo scegliere e fallire solo dopo.
               .filter((p) => p !== 'density_369' || (session.split && DENSITY_SPLIT_SUPPORTATI.includes(session.split as DensitySplit)))
               .map((p) => (

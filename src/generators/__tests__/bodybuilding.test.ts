@@ -659,77 +659,70 @@ describe('generaBodybuilding — riscaldamento contestuale (sez. 5)', () => {
   })
 })
 
-describe('generaBodybuilding — protocollo FST-7 (Hany Rambod)', () => {
-  it('produce esattamente 3 esercizi base + 1 finisher da 7 serie, in coda di default', () => {
-    for (const split of TUTTI_GLI_SPLIT) {
-      const w = generaBodybuilding(catalogo, {
-        split, goal: 'hypertrophy', experience: 'advanced', equipment: 'full_gym',
-        duration_min: 60, priority_muscles: [], excluded_exercises: [], seed: 7, protocol: 'fst7',
-      })
-      const exercises = mainBlock(w).exercises
-      expect(exercises).toHaveLength(4)
-      expect(exercises.slice(0, 3).every((e) => e.note !== 'fst7_finisher')).toBe(true)
-      const finisher = exercises[3]
-      expect(finisher.note).toBe('fst7_finisher')
-      expect(finisher.sets).toBe(7)
-      expect(finisher.reps).toBe('10-12')
-      expect(finisher.rest_sec).toBe(30)
-    }
+describe('generaBodybuilding — protocollo FST-7 (Hany Rambod, rivisto il 25/09)', () => {
+  const fst7 = (extra: Record<string, unknown> = {}) => generaBodybuilding(catalogo, {
+    split: 'push', goal: 'hypertrophy', experience: 'advanced', equipment: 'full_gym',
+    duration_min: 75, priority_muscles: ['lateral_delts'], excluded_exercises: [], seed: 7, protocol: 'fst7',
+    nutrition_step: 0, ...extra,
   })
-
-  it('il finisher è sempre cavo, macchina o isolamento — mai un bilanciere pesante', () => {
+  it('seduta normale (6+ esercizi) con UN blocco da 7x8-12, 30-45 s, sull ultimo esercizio della carenza', () => {
+    const exercises = mainBlock(fst7()).exercises
+    expect(new Set(exercises.map((e) => e.exercise_id)).size).toBeGreaterThanOrEqual(6)
+    const blocchi = exercises.filter((e) => e.note === 'fst7_finisher')
+    expect(blocchi).toHaveLength(1)
+    expect(blocchi[0]).toMatchObject({ sets: 7, reps: '8-12', muscle: 'lateral_delts' })
+    expect(blocchi[0].rest_sec).toBeGreaterThanOrEqual(30)
+    expect(blocchi[0].rest_sec).toBeLessThanOrEqual(45)
+    const ultimoLaterale = exercises.map((e) => e.muscle).lastIndexOf('lateral_delts')
+    expect(exercises[ultimoLaterale].note).toBe('fst7_finisher')
+  })
+  it('il blocco FST-7 è sempre su cavi o macchine', () => {
     const byId = new Map(catalogo.map((e) => [e.id, e]))
-    for (const split of TUTTI_GLI_SPLIT) {
+    for (const split of ['push', 'pull', 'legs', 'upper'] as Split[]) for (const seed of [1, 3, 7]) {
       const w = generaBodybuilding(catalogo, {
         split, goal: 'hypertrophy', experience: 'advanced', equipment: 'full_gym',
-        duration_min: 60, priority_muscles: [], excluded_exercises: [], seed: 3, protocol: 'fst7',
+        duration_min: 75, priority_muscles: [], excluded_exercises: [], seed, protocol: 'fst7', nutrition_step: 500,
       })
       const finisher = mainBlock(w).exercises.find((e) => e.note === 'fst7_finisher')
-      if (!finisher) continue // attrezzatura/catalogo possono non offrire un candidato per ogni split
-      const exercise = byId.get(finisher.exercise_id)!
-      expect(exercise.equipment === 'cable' || exercise.equipment === 'machine' || exercise.roles.includes('isolation')).toBe(true)
+      if (!finisher) continue
+      expect(['cable', 'machine']).toContain(byId.get(finisher.exercise_id)!.equipment)
     }
   })
-
-  it('fst7_preloading sposta il finisher in testa alla sessione', () => {
-    const w = generaBodybuilding(catalogo, {
-      split: 'push', goal: 'hypertrophy', experience: 'advanced', equipment: 'full_gym',
-      duration_min: 60, priority_muscles: [], excluded_exercises: [], seed: 7,
-      protocol: 'fst7', fst7_preloading: true,
-    })
-    expect(mainBlock(w).exercises[0]?.note).toBe('fst7_finisher')
+  it('in deficit niente blocco FST-7, e niente se la quota settimanale è usata', () => {
+    expect(mainBlock(fst7({ nutrition_step: -500 })).exercises.some((e) => e.note === 'fst7_finisher')).toBe(false)
+    expect(mainBlock(fst7({ fst7_attivo: false })).exercises.some((e) => e.note === 'fst7_finisher')).toBe(false)
+  })
+  it('anche FST-7 ha il top set + back-off sul multiarticolare', () => {
+    const exercises = mainBlock(fst7()).exercises
+    expect(exercises.filter((e) => e.note === 'top_set')).toHaveLength(1)
   })
 })
 
-describe('generaBodybuilding — protocollo Top Set & Back-Off (stile CBum)', () => {
-  it('ogni esercizio diventa un gruppo di 4 serie: 2x Avvicinamento a carico crescente + Top Set (1x6-8 @ RIR0) + Back-Off (1x10-12)', () => {
-    // sez. feedback utente 19/08 ("devi dire avvicinamento"): il vero protocollo CBum precede
-    // sempre la serie a cedimento con serie di riscaldamento specifico a carico crescente.
-    const w = generaBodybuilding(catalogo, {
-      split: 'push', goal: 'hypertrophy', experience: 'advanced', equipment: 'full_gym',
-      duration_min: 90, priority_muscles: [], excluded_exercises: [], seed: 7,
-      protocol: 'cbum_top_backoff',
-    })
-    const exercises = mainBlock(w).exercises
-    expect(exercises.length % 4).toBe(0)
-    expect(exercises.length).toBeGreaterThanOrEqual(16) // 4-5 esercizi -> 16-20 voci
-    for (let i = 0; i < exercises.length; i += 4) {
-      const [avvicinamento1, avvicinamento2, topSet, backOff] = exercises.slice(i, i + 4)
-      expect(avvicinamento1.exercise_id).toBe(topSet.exercise_id)
-      expect(avvicinamento2.exercise_id).toBe(topSet.exercise_id)
-      expect(backOff.exercise_id).toBe(topSet.exercise_id)
-      expect(avvicinamento1.note).toBe('avvicinamento')
-      expect(avvicinamento1.sets).toBe(1)
-      expect(avvicinamento1.reps).toBe('12-15')
-      expect(avvicinamento2.note).toBe('avvicinamento')
-      expect(avvicinamento2.sets).toBe(1)
-      expect(avvicinamento2.reps).toBe('8-10')
-      expect(topSet.note).toBe('top_set')
-      expect(topSet.sets).toBe(1)
-      expect(topSet.reps).toBe('6-8')
-      expect(backOff.note).toBe('back_off')
-      expect(backOff.sets).toBe(1)
-      expect(backOff.reps).toBe('10-12')
-    }
+describe('generaBodybuilding — Stile CBum (rivisto il 25/09)', () => {
+  const cbum = (carenze: Muscle[], extra: Record<string, unknown> = {}) => generaBodybuilding(catalogo, {
+    split: 'push', goal: 'hypertrophy', experience: 'advanced', equipment: 'full_gym',
+    duration_min: 75, priority_muscles: carenze, excluded_exercises: [], seed: 7,
+    protocol: 'cbum_top_backoff', nutrition_step: 0, ...extra,
+  })
+  it('top set + back-off su UN solo multiarticolare, preceduto da 2 avvicinamenti', () => {
+    const exercises = mainBlock(cbum([])).exercises
+    const top = exercises.filter((e) => e.note === 'top_set')
+    expect(top).toHaveLength(1)
+    const i = exercises.indexOf(top[0])
+    expect(exercises[i - 2]).toMatchObject({ note: 'avvicinamento', exercise_id: top[0].exercise_id, reps: '12-15' })
+    expect(exercises[i - 1]).toMatchObject({ note: 'avvicinamento', reps: '8-10' })
+    expect(exercises[i + 1]).toMatchObject({ note: 'back_off', exercise_id: top[0].exercise_id })
+    expect(top[0].role).toBe('compound')
+    expect(new Set(exercises.map((e) => e.exercise_id)).size).toBeGreaterThanOrEqual(6)
+  })
+  it('se il multiarticolare è carente, il top set va su di lui (regola di Rossi)', () => {
+    const exercises = mainBlock(cbum(['triceps'])).exercises
+    expect(exercises.find((e) => e.note === 'top_set')?.muscle).toBe('triceps')
+  })
+  it('la nota spiega discesa controllata, movimento completo e posa', () => {
+    expect(cbum([]).programming_note).toContain('discesa controllata')
+  })
+  it('in deficit niente superserie', () => {
+    expect(mainBlock(cbum(['lateral_delts', 'biceps'], { nutrition_step: -500 })).exercises.some((e) => e.technique?.startsWith('Superserie'))).toBe(false)
   })
 })

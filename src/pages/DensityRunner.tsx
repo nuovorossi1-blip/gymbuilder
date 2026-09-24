@@ -1,64 +1,30 @@
 /**
- * Esecuzione dal vivo del protocollo Density Tri-Set 3-6-9 (Fase 2, 21/08).
+ * Esecuzione dal vivo del Density 3-6-9 EDT (25/09, sostituisce il runner del tri-set).
  *
- * Isolata di proposito da Runner.tsx (vedi AIOS_STATE.md per la discussione col utente): non
- * tocca la sua macchina a stati né il suo `RunnerProgress`. Riusa però le stesse utility
- * condivise già testate sul resto dell'app — timer.ts (TimerClock, deterministico via
- * timestamp), backgroundTimer.ts (stesso servizio nativo Android, stesso pattern "non
- * fermarlo mai fra una fase e l'altra" del fix crash già in AIOS_STATE.md), audio.ts — così
- * eredita il comportamento in background senza reinventarlo né rischiare di romperlo altrove.
- *
- * Non ancora verificato in un browser o dispositivo reale (nessun tool di automazione
- * browser disponibile in questa sessione): il flusso a schermo bloccato in particolare va
- * provato con attenzione da un dispositivo Android vero prima di fidarsene per un allenamento.
- *
- * Raggiungibile dal wizard (Sessione Singola: step Protocollo; Programma Settimanale: scelta
- * per singolo giorno in "Modifica Slot") — non più da una card separata in Home, tolta il
- * 21/08 sera perché ridondante ora che la scelta vive nel wizard come gli altri protocolli.
+ * Fasi: intro (zone, esercizi, record, sostituzioni) -> zona a tempo (15 min: due esercizi
+ * alternati a mini-serie, un tocco aggiunge le ripetizioni fatte) -> pausa (5 min) -> ... ->
+ * riepilogo (totali contro record, pesi usati, salva). Il tempo segue il timestamp (timer.ts),
+ * il servizio in background e i suoni sono quelli già usati dal resto dell'app.
  */
-
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../features/auth/AuthProvider'
 import { useWorkout } from '../features/workout/WorkoutContext'
 import { useSettings } from '../features/profile/useSettings'
-import { registraCompletato, elencoStorico } from '../lib/api'
-import { density369ComeGeneratedWorkout, generaDensity369, type DensitySplit, type Density369Workout } from '../generators/density369'
-import { ultimiPesiPerEsercizio } from '../engine/weightHistory'
+import { elencoStorico, registraCompletato } from '../lib/api'
 import {
-  avanza, durataFaseSec, progressoTesto, statoIniziale, stazioneCorrente, type DensityRunnerState,
-} from '../engine/densityRunnerEngine'
-import { type TimerClock, remainingSeconds, pauseClock, resumeClock, countdownEvents } from '../engine/timer'
+  densityEdtComeGeneratedWorkout, generaDensityEdt, leggiStoricoEdt,
+  type DensityEdtWorkout, type DensitySplit, type StoricoEdt,
+} from '../generators/densityEdt'
+import { ultimiPesiPerEsercizio } from '../engine/weightHistory'
+import { countdownEvents, pauseClock, remainingSeconds, resumeClock, type TimerClock } from '../engine/timer'
 import { loadAudioSettings, TimerAudio } from '../engine/audio'
 import { notifyTimerEvent, publishBackgroundTimer, requestTimerNotifications, resetBackgroundTimer } from '../engine/backgroundTimer'
+import { SPLIT_LABELS } from '../types'
 
-const NOME_SPLIT: Record<DensitySplit, string> = {
-  push: 'Push', pull: 'Pull', legs: 'Legs', upper: 'Upper', lower: 'Lower',
-  bro_chest: 'Petto', bro_back: 'Dorso', bro_arms: 'Braccia', bro_legs: 'Gambe',
-  front_body: 'Front', back_body: 'Back',
-}
+type Fase = { tipo: 'intro' } | { tipo: 'zona'; i: number } | { tipo: 'pausa'; i: number } | { tipo: 'fine' }
 
-// Sez. 5 della spec originale di Rossi (21/08): prima vivevano in una pagina di scelta a
-// parte (Density369Scegli.tsx, rimossa il 21/08 sera perché ridondante col wizard) — spostate
-// qui, in un pannello pieghevole, per non perderle.
-const REGOLE = [
-  {
-    titolo: 'Autoregolazione dei Carichi',
-    testo: 'Non usare pesi standard nelle stazioni 2 e 3: riduci il carico del 20-25% nella Stazione 2 e usa carichi leggeri (~50%) nella Stazione 3.',
-  },
-  {
-    titolo: 'Regola del Buffer (RIR)',
-    testo: 'Nella Stazione 1 tieni sempre 1-2 ripetizioni di margine — mai a cedimento concentrico, comprometterebbe il volume del circuito.',
-  },
-  {
-    titolo: 'Doppia Progressione',
-    testo: 'Aumenta il peso nella Stazione 1 solo quando chiudi 6 ripetizioni pulite in tutti i round previsti.',
-  },
-  {
-    titolo: 'Logistica Salva-Postazione',
-    testo: 'Tieni Blocco A e Blocco B nello stesso metro quadro (es. panca con manubri vicini) per rispettare i 10-15s di cambio stazione.',
-  },
-]
+const mmss = (sec: number) => `${Math.floor(sec / 60)}:${String(Math.max(0, sec) % 60).padStart(2, '0')}`
 
 export default function DensityRunner() {
   const { user } = useAuth()
@@ -66,172 +32,121 @@ export default function DensityRunner() {
   const { settings } = useSettings(user?.id)
   const [searchParams] = useSearchParams()
   const naviga = useNavigate()
-
   const split = (searchParams.get('split') as DensitySplit) ?? 'push'
+  const durata = Number(searchParams.get('min')) || settings?.default_duration || 60
+
+  const [storico, setStorico] = useState<StoricoEdt | null>(null)
+  const [pesi, setPesi] = useState<Record<string, number>>({})
+  useEffect(() => {
+    if (!user) return
+    elencoStorico(user.id)
+      .then((lista) => { setStorico(leggiStoricoEdt(lista)); setPesi(ultimiPesiPerEsercizio(lista)) })
+      .catch(() => setStorico({ ultimaFase: null, totali: {} }))
+  }, [user])
 
   const generato = useMemo(() => {
-    if (!catalog || catalog.length === 0) return null
-    return generaDensity369(catalog, {
-      split,
+    if (!catalog?.length || !storico) return null
+    return generaDensityEdt(catalog, {
+      split, duration_min: durata, storico,
       equipment: settings?.equipment ?? 'full_gym',
       available_equipment: settings?.available_equipment ?? null,
       excluded_exercises: settings?.excluded_exercises ?? [],
       preferred_exercises: settings?.favorite_exercises ?? [],
     })
-  }, [catalog, split, settings])
+  }, [catalog, split, durata, settings, storico])
 
-  // Stato separato dal risultato "grezzo" del generatore: la sostituzione manuale di un
-  // esercizio (sotto) modifica questo, non `generato` — così un ricalcolo di `generato` (es.
-  // le impostazioni finiscono di caricare) non cancella una sostituzione già fatta dall'utente.
-  const [workout, setWorkout] = useState<Density369Workout | null>(null)
+  const [workout, setWorkout] = useState<DensityEdtWorkout | null>(null)
+  useEffect(() => { setWorkout((w) => w ?? generato) }, [generato])
   useEffect(() => {
-    setWorkout((attuale) => attuale ?? generato)
-  }, [generato])
-
-  const sostituisciEsercizio = useCallback((blockIndex: 0 | 1, stationIndex: 0 | 1 | 2, nuovoId: string) => {
-    setWorkout((attuale) => {
-      if (!attuale) return attuale
-      const blocco = attuale.blocks[blockIndex]
-      const stazione = blocco.stations[stationIndex]
-      const nuovo = stazione.alternatives.find((a) => a.exercise_id === nuovoId)
-      if (!nuovo) return attuale
-      const stazioneAggiornata = {
-        ...stazione,
-        exercise_id: nuovo.exercise_id,
-        name: nuovo.name,
-        // L'esercizio appena lasciato torna fra le alternative, quello appena scelto ne esce.
-        alternatives: [
-          { exercise_id: stazione.exercise_id, name: stazione.name },
-          ...stazione.alternatives.filter((a) => a.exercise_id !== nuovoId),
-        ],
-      }
-      const stazioniAggiornate = blocco.stations.map((s, i) => (i === stationIndex ? stazioneAggiornata : s))
-      const blocchiAggiornati = attuale.blocks.map((b, i) => (i === blockIndex ? { ...b, stations: stazioniAggiornate } : b))
-      return { ...attuale, blocks: blocchiAggiornati }
+    setWorkout((w) => w && {
+      ...w,
+      zones: w.zones.map((z) => ({ ...z, pair: z.pair.map((e) => (e.logged_weight_kg === undefined && pesi[e.exercise_id] ? { ...e, logged_weight_kg: pesi[e.exercise_id] } : e)) as typeof z.pair })),
     })
-  }, [])
+  }, [pesi])
 
-  const impostaPesoStazione = useCallback((blockIndex: 0 | 1, stationIndex: 0 | 1 | 2, peso: number | undefined) => {
-    setWorkout((attuale) => {
-      if (!attuale) return attuale
-      const blocco = attuale.blocks[blockIndex]
-      const stazioniAggiornate = blocco.stations.map((s, i) => (i === stationIndex ? { ...s, logged_weight_kg: peso } : s))
-      const blocchiAggiornati = attuale.blocks.map((b, i) => (i === blockIndex ? { ...b, stations: stazioniAggiornate } : b))
-      return { ...attuale, blocks: blocchiAggiornati }
-    })
-  }, [])
-
-  const [stato, setStato] = useState<DensityRunnerState>(statoIniziale)
-  const [mostraAlternative, setMostraAlternative] = useState(false)
-  const [mostraRegole, setMostraRegole] = useState(false)
+  const [fase, setFase] = useState<Fase>({ tipo: 'intro' })
   const [clock, setClock] = useState<TimerClock | null>(null)
   const [paused, setPaused] = useState(false)
-  const [, forceRender] = useState(0)
+  const [, ridisegna] = useState(0)
   const [salvataggio, setSalvataggio] = useState<'fermo' | 'salvo' | 'errore'>('fermo')
-  const inizioRef = useRef(Date.now())
   const audioRef = useRef<TimerAudio | null>(null)
-  const ultimoRimanenteRef = useRef<number | null>(null)
+  const ultimoRef = useRef<number | null>(null)
+  const inizioRef = useRef(Date.now())
+  if (!audioRef.current) audioRef.current = new TimerAudio(loadAudioSettings())
 
-  useEffect(() => {
-    audioRef.current = new TimerAudio(loadAudioSettings())
-    void requestTimerNotifications()
-    return () => { resetBackgroundTimer(true) }
-  }, [])
+  const avvia = (nuova: Fase) => {
+    setFase(nuova)
+    setPaused(false)
+    if (!workout || nuova.tipo === 'intro' || nuova.tipo === 'fine') { setClock(null); return }
+    const sec = nuova.tipo === 'zona' ? workout.zones[nuova.i].minutes * 60 : workout.rest_between_min * 60
+    setClock({ startedAt: Date.now(), durationSec: sec, pausedTotalMs: 0 })
+    ultimoRef.current = sec
+    void audioRef.current?.unlock()
+    audioRef.current?.play({ type: nuova.tipo === 'zona' ? 'WORK_STARTED' : 'REST_STARTED', at: Date.now(), phase: nuova.tipo === 'zona' ? 'work' : 'rest' })
+  }
 
-  // Precompila il peso di ogni stazione con l'ultima volta usata (21/08, stesso tracciamento
-  // del Runner normale — vedi AIOS_STATE.md). Qui `setWorkout` è stato locale (useState), non
-  // context: supporta già la forma funzionale, non serve il ref usato in Runner.tsx.
-  const preRiempimentoPesoFatto = useRef(false)
-  useEffect(() => {
-    if (preRiempimentoPesoFatto.current) return
-    if (!user || !workout) return
-    preRiempimentoPesoFatto.current = true
-    elencoStorico(user.id)
-      .then((storico) => {
-        const pesi = ultimiPesiPerEsercizio(storico)
-        if (Object.keys(pesi).length === 0) return
-        setWorkout((attuale) => {
-          if (!attuale) return attuale
-          const blocchiAggiornati = attuale.blocks.map((blocco) => ({
-            ...blocco,
-            stations: blocco.stations.map((s) =>
-              s.logged_weight_kg === undefined && s.exercise_id in pesi
-                ? { ...s, logged_weight_kg: pesi[s.exercise_id] }
-                : s
-            ),
-          }))
-          return { ...attuale, blocks: blocchiAggiornati }
-        })
-      })
-      .catch(() => { /* nessun peso precompilato se lo storico non si legge: non blocca l'allenamento */ })
-  }, [user, workout])
-
-  // Ogni volta che si entra in una fase di riposo si crea un nuovo orologio con la durata
-  // giusta; le fasi 'lavoro'/'completato' non hanno orologio (avanzamento manuale).
-  useEffect(() => {
+  const avanti = useCallback(() => {
     if (!workout) return
-    const durata = durataFaseSec(stato, workout)
-    if (durata > 0) {
-      setClock({ startedAt: Date.now(), durationSec: durata, pausedTotalMs: 0 })
-      ultimoRimanenteRef.current = durata
-      void audioRef.current?.unlock()
-    } else {
-      setClock(null)
-    }
-  }, [stato, workout])
-
-  const avanzaFase = useCallback(() => {
-    if (!workout) return
-    setStato((s) => avanza(s, workout))
-    setMostraAlternative(false)
+    setFase((f) => {
+      let next: Fase = f
+      if (f.tipo === 'zona') next = f.i + 1 < workout.zones.length ? { tipo: 'pausa', i: f.i } : { tipo: 'fine' }
+      else if (f.tipo === 'pausa') next = { tipo: 'zona', i: f.i + 1 }
+      setTimeout(() => avvia(next), 0)
+      return f
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workout])
 
-  // Tick: ridisegna ogni secondo e avanza da sola quando un riposo arriva a zero. Lo stesso
-  // pattern "il timestamp è la verità, l'intervallo serve solo a ridisegnare" di Runner.tsx.
   useEffect(() => {
     if (!clock || paused) return
     const id = setInterval(() => {
-      forceRender((n) => n + 1)
-      const rimanente = remainingSeconds(clock)
-      if (ultimoRimanenteRef.current !== null) {
-        for (const evento of countdownEvents(ultimoRimanenteRef.current, rimanente, 'rest')) audioRef.current?.play(evento)
-      }
-      ultimoRimanenteRef.current = rimanente
-      if (rimanente <= 0) avanzaFase()
+      ridisegna((n) => n + 1)
+      const r = remainingSeconds(clock)
+      if (ultimoRef.current !== null) for (const ev of countdownEvents(ultimoRef.current, r, 'rest')) audioRef.current?.play(ev)
+      ultimoRef.current = r
+      if (r <= 0) { setClock(null); avanti() }
     }, 250)
     return () => clearInterval(id)
-  }, [clock, paused, avanzaFase])
+  }, [clock, paused, avanti])
 
-  // Sincronizza col servizio in background — stesso meccanismo del resto dell'app, mai
-  // fermato fra una fase e l'altra (solo alla fine, sopra). L'href puntato dal tocco su una
-  // notifica in background resta '/avvia' (limite noto, non ancora generalizzato — vedi
-  // AIOS_STATE.md): qui serve solo a tenere vivo il servizio nativo e aggiornare titolo/media
-  // session, non a riportare l'utente nel punto esatto.
   useEffect(() => {
-    if (!workout) return
-    const label = stato.phase === 'lavoro'
-      ? `${stazioneCorrente(stato, workout).name} · ${progressoTesto(stato, workout)}`
-      : `Recupero · ${progressoTesto(stato, workout)}`
-    const rimanente = clock ? remainingSeconds(clock) : 0
-    publishBackgroundTimer(label, rimanente, paused, stato.phase === 'lavoro' ? 'work' : 'rest')
-  }, [stato, workout, clock, paused])
+    if (!workout || fase.tipo === 'intro' || fase.tipo === 'fine') return
+    const label = fase.tipo === 'zona' ? `Density · Zona ${fase.i + 1}` : `Pausa · poi Zona ${fase.i + 2}`
+    publishBackgroundTimer(label, clock ? remainingSeconds(clock) : 0, paused, fase.tipo === 'zona' ? 'work' : 'rest')
+  }, [fase, workout, clock, paused])
 
-  const togglePausa = () => {
-    setPaused((p) => !p)
-    setClock((c) => {
-      if (!c) return c
-      return paused ? resumeClock(c) : pauseClock(c)
+  const aggiungi = (zi: number, ei: 0 | 1, delta: number) => setWorkout((w) => w && {
+    ...w,
+    zones: w.zones.map((z, i) => (i !== zi ? z : { ...z, pair: z.pair.map((e, j) => (j === ei ? { ...e, reps_done: Math.max(0, e.reps_done + delta) } : e)) as typeof z.pair })),
+  })
+  const impostaPeso = (zi: number, ei: 0 | 1, kg: number | undefined) => setWorkout((w) => w && {
+    ...w,
+    zones: w.zones.map((z, i) => (i !== zi ? z : { ...z, pair: z.pair.map((e, j) => (j === ei ? { ...e, logged_weight_kg: kg } : e)) as typeof z.pair })),
+  })
+  const sostituisci = (zi: number, ei: 0 | 1, id: string) => setWorkout((w) => {
+    if (!w) return w
+    const zones = w.zones.map((z, i) => {
+      if (i !== zi) return z
+      const e = z.pair[ei]
+      const nuovo = e.alternatives.find((a) => a.exercise_id === id)
+      if (!nuovo) return z
+      const pair = z.pair.map((x, j) => (j === ei ? { ...x, exercise_id: nuovo.exercise_id, name: nuovo.name, alternatives: [{ exercise_id: e.exercise_id, name: e.name }, ...e.alternatives.filter((a) => a.exercise_id !== id)] } : x)) as typeof z.pair
+      // Coppia cambiata = record diverso: si confronta solo con la stessa coppia.
+      const key = `${pair[0].exercise_id}+${pair[1].exercise_id}`
+      return { ...z, pair, key, record: storico?.totali[`${key}|${w.rep_target}`]?.reduce((a, b) => Math.max(a, b), 0) || null, suggerisci_carico: false }
     })
-  }
+    return { ...w, zones }
+  })
 
-  const salvaEEsci = async () => {
+  async function salva() {
     if (!workout || !user) { naviga('/'); return }
     setSalvataggio('salvo')
     try {
-      const durataSec = Math.floor((Date.now() - inizioRef.current) / 1000)
-      await registraCompletato(user.id, density369ComeGeneratedWorkout(workout, durataSec), durataSec, null, null)
+      const sec = Math.floor((Date.now() - inizioRef.current) / 1000)
+      await registraCompletato(user.id, densityEdtComeGeneratedWorkout(workout, sec), sec, null, null)
+      resetBackgroundTimer(true)
       void notifyTimerEvent('TIMER_COMPLETED', 'Allenamento completato')
-      naviga('/salvati')
+      naviga('/ultimo')
     } catch {
       setSalvataggio('errore')
     }
@@ -239,129 +154,130 @@ export default function DensityRunner() {
 
   if (!workout) {
     return (
-      <div className="px-5 pt-12 pb-8">
-        <p className="text-slate-300">
-          Non riesco a generare questa sessione con l'attrezzatura/esclusioni attuali — prova a
-          cambiarle dal profilo.
-        </p>
+      <main className="px-5 pt-12 pb-8">
+        <p className="text-slate-300">{storico ? 'Non riesco a comporre il Density con l’attrezzatura e le esclusioni attuali.' : 'Carico lo storico…'}</p>
         <button className="btn mt-6" onClick={() => naviga('/')}>Torna alla Home</button>
-      </div>
+      </main>
     )
   }
 
-  if (stato.phase === 'completato') {
-    return (
-      <div className="px-5 pt-12 pb-8 text-center">
-        <p className="eyebrow mb-2">Density Tri-Set 3-6-9</p>
-        <h1 className="font-display text-2xl font-bold text-white mb-6">Sessione completata 💪</h1>
-        <div className="space-y-2">
-          <button
-            onClick={salvaEEsci}
-            disabled={salvataggio === 'salvo'}
-            className="w-full rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 py-3.5 font-display text-sm font-bold uppercase text-white shadow-lg glow-emerald disabled:opacity-60"
-          >
-            {salvataggio === 'salvo' ? 'Salvo…' : '💾 Salva e vai alla Libreria'}
-          </button>
-          {salvataggio === 'errore' && (
-            <p className="text-xs text-rose-300">Salvataggio non riuscito — riprova, o torna alla Home senza salvare.</p>
-          )}
-          <button onClick={() => naviga('/')} className="w-full rounded-xl glass-card py-3.5 font-display text-sm font-bold uppercase text-slate-300 hover:text-white">
-            Torna alla Home senza salvare
-          </button>
-        </div>
-      </div>
-    )
-  }
-
-  const st = stazioneCorrente(stato, workout)
-  const inRiposo = stato.phase !== 'lavoro'
   const rimanente = clock ? remainingSeconds(clock) : 0
+  const totaleZona = (i: number) => workout.zones[i].pair.reduce((t, e) => t + e.reps_done, 0)
 
-  return (
-    <div className="px-5 pt-12 pb-8">
-      <div className="mb-1 flex items-center justify-between">
-        <p className="eyebrow">{NOME_SPLIT[workout.split]} · Density Tri-Set 3-6-9</p>
-        <button onClick={() => setMostraRegole((v) => !v)} className="text-xs text-cyan-300 hover:text-white">
-          ℹ️ Regole
-        </button>
-      </div>
-      {mostraRegole && (
-        <div className="mb-4 space-y-2">
-          {REGOLE.map((r) => (
-            <div key={r.titolo} className="rounded-xl glass-card border border-edge p-3">
-              <div className="text-[11px] font-bold uppercase tracking-wide text-purple-300 mb-0.5">{r.titolo}</div>
-              <p className="text-xs text-slate-300">{r.testo}</p>
+  if (fase.tipo === 'intro') {
+    return (
+      <main className="px-5 pt-10 pb-10">
+        <button className="font-data text-xs text-slate2" onClick={() => naviga(-1)}>← Indietro</button>
+        <p className="eyebrow mt-3">Density 3-6-9 · {SPLIT_LABELS[workout.split]}</p>
+        <h1 className="mt-1 font-display text-[2rem] font-extrabold uppercase leading-none">
+          {workout.fase === 'scarico' ? 'Scarico' : `Mini-serie da ${workout.rep_target}`}
+        </h1>
+        <p className="mt-3 text-sm leading-relaxed text-slate2">
+          {workout.zones.length} zone da {workout.zones[0].minutes} minuti, {workout.rest_between_min} minuti di pausa fra una e l’altra.
+          In ogni zona alterni i due esercizi senza sosta: {workout.rep_target} ripetizioni, poi l’altro, e così via.
+          Usa {workout.load_hint}, lascia {workout.rir} ripetizioni in riserva: mai a cedimento. ~{workout.estimated_duration_min} min con il riscaldamento.
+        </p>
+        <ol className="mt-6 space-y-4">
+          {workout.zones.map((z, zi) => (
+            <li key={zi} className="rounded-2xl border border-edge p-4">
+              <div className="flex items-baseline justify-between">
+                <span className="font-display text-sm font-bold uppercase text-white">Zona {zi + 1}</span>
+                <span className="font-data text-[12px] text-slate2">{z.record ? `record ${z.record} rip` : 'nessun record ancora'}</span>
+              </div>
+              {z.suggerisci_carico && <p className="mt-1 text-[12px] text-emerald-300">L’ultima volta hai superato il record del 20%: oggi +5% di carico.</p>}
+              {z.pair.map((e, ei) => (
+                <div key={ei} className="mt-3">
+                  <p className="text-[15px] font-medium">{ei === 0 ? 'A' : 'B'} · {e.name}</p>
+                  {e.alternatives.length > 0 && (
+                    <select className="input mt-1 text-sm" value="" onChange={(ev) => sostituisci(zi, ei as 0 | 1, ev.target.value)}>
+                      <option value="">Sostituisci…</option>
+                      {e.alternatives.map((a) => <option key={a.exercise_id} value={a.exercise_id}>{a.name}</option>)}
+                    </select>
+                  )}
+                </div>
+              ))}
+            </li>
+          ))}
+        </ol>
+        <button className="btn mt-8" onClick={() => { void requestTimerNotifications(); inizioRef.current = Date.now(); avvia({ tipo: 'zona', i: 0 }) }}>Inizia la Zona 1</button>
+      </main>
+    )
+  }
+
+  if (fase.tipo === 'zona') {
+    const z = workout.zones[fase.i]
+    const tot = totaleZona(fase.i)
+    return (
+      <main className="flex min-h-dvh flex-col px-5 pt-8 pb-8">
+        <p className="eyebrow">Zona {fase.i + 1} di {workout.zones.length} · mini-serie da {workout.rep_target}</p>
+        <p className="mt-2 font-data text-[3.6rem] leading-none text-white" aria-live="off">{mmss(rimanente)}</p>
+        <p className="mt-2 font-data text-sm text-slate2">
+          Totale <span className="text-chalk">{tot}</span>{z.record ? ` · record ${z.record}` : ''}{z.record && tot > z.record ? ' · nuovo record!' : ''}
+        </p>
+        <div className="mt-6 grid flex-1 gap-3">
+          {z.pair.map((e, ei) => (
+            <div key={ei} className="flex flex-col justify-between rounded-2xl border border-edge p-4">
+              <div className="flex items-baseline justify-between gap-2">
+                <p className="text-[16px] font-medium">{ei === 0 ? 'A' : 'B'} · {e.name}</p>
+                <p className="font-data text-xl text-chalk">{e.reps_done}</p>
+              </div>
+              <div className="mt-3 flex gap-2">
+                <button className="w-14 rounded-xl border border-edge py-3 font-data text-lg" aria-label="Una ripetizione in meno" onClick={() => aggiungi(fase.i, ei as 0 | 1, -1)}>−1</button>
+                <button className="flex-1 rounded-xl bg-cyan-500/20 py-3 font-display text-lg font-bold text-cyan-200" onClick={() => aggiungi(fase.i, ei as 0 | 1, workout.rep_target)}>
+                  +{workout.rep_target} fatte
+                </button>
+                <button className="w-14 rounded-xl border border-edge py-3 font-data text-lg" aria-label="Una ripetizione in più" onClick={() => aggiungi(fase.i, ei as 0 | 1, 1)}>+1</button>
+              </div>
             </div>
           ))}
         </div>
-      )}
-      <p className="text-xs text-slate-400 mb-6">{progressoTesto(stato, workout)}</p>
-
-      {inRiposo ? (
-        <div className="text-center">
-          <p className="text-sm uppercase tracking-wider text-cyan-300 mb-2">
-            {stato.phase === 'riposo_giro' ? 'Fine giro' : 'Cambio blocco'}
-          </p>
-          <p className="font-data text-6xl font-bold text-white mb-4">{rimanente}s</p>
-          <p className="text-sm text-slate-300 mb-8">Prossima: {st.name} · {st.reps} rep</p>
-          <button onClick={togglePausa} className="rounded-xl glass-card px-6 py-3 text-sm font-bold uppercase text-slate-300 hover:text-white">
-            {paused ? '▶ Riprendi' : '⏸ Pausa'}
-          </button>
+        <div className="mt-4 flex gap-2">
+          <button className="flex-1 rounded-xl border border-edge py-3 text-sm" onClick={() => { setPaused((p) => !p); setClock((c) => (c ? (paused ? resumeClock(c) : pauseClock(c)) : c)) }}>{paused ? 'Riprendi' : 'Pausa'}</button>
+          <button className="flex-1 rounded-xl border border-edge py-3 text-sm text-slate2" onClick={() => { setClock(null); avanti() }}>Chiudi zona</button>
         </div>
-      ) : (
-        <div className="text-center">
-          <p className="text-sm uppercase tracking-wider text-purple-300 mb-2">Stazione {st.role} · {st.reps} rep</p>
-          <h2 className="font-display text-3xl font-bold text-white mb-3">{st.name}</h2>
+      </main>
+    )
+  }
 
-          <label className="mb-4 block text-left">
-            <span className="eyebrow mb-1.5 block text-slate-400">Peso usato (kg)</span>
-            <input
-              type="number"
-              inputMode="decimal"
-              step="0.5"
-              min="0"
-              placeholder="es. 40"
-              value={st.logged_weight_kg ?? ''}
-              onChange={(e) => impostaPesoStazione(
-                stato.position.blockIndex, stato.position.stationIndex,
-                e.target.value === '' ? undefined : Number(e.target.value)
-              )}
-              className="w-full rounded-xl border border-edge bg-steel px-4 py-3 font-data text-lg text-white placeholder:text-slate-500 focus:border-purple-400 focus:outline-none"
-            />
-          </label>
+  if (fase.tipo === 'pausa') {
+    return (
+      <main className="flex min-h-dvh flex-col items-center justify-center px-5 text-center">
+        <p className="eyebrow">Pausa · poi Zona {fase.i + 2}</p>
+        <p className="mt-3 font-data text-[4rem] leading-none">{mmss(rimanente)}</p>
+        <p className="mt-3 text-sm text-slate2">Zona {fase.i + 1}: {totaleZona(fase.i)} ripetizioni.</p>
+        <p className="mt-6 text-sm text-chalk">Prossima: {workout.zones[fase.i + 1].pair.map((e) => e.name).join(' + ')}</p>
+        <button className="btn mt-8" onClick={() => { setClock(null); avanti() }}>Inizia subito</button>
+      </main>
+    )
+  }
 
-          {st.alternatives.length > 0 && (
-            <button
-              onClick={() => setMostraAlternative((v) => !v)}
-              className="mb-5 text-xs font-bold uppercase text-cyan-300 hover:text-white"
-            >
-              🔄 Sostituisci esercizio
-            </button>
-          )}
-          {mostraAlternative && st.alternatives.length > 0 && (
-            <div className="mb-5 space-y-1.5">
-              {st.alternatives.map((alt) => (
-                <button
-                  key={alt.exercise_id}
-                  onClick={() => {
-                    sostituisciEsercizio(stato.position.blockIndex, stato.position.stationIndex, alt.exercise_id)
-                    setMostraAlternative(false)
-                  }}
-                  className="w-full rounded-xl glass-card border border-edge py-3 text-sm text-slate-200 hover:border-cyan-500/50 hover:text-white"
-                >
-                  {alt.name}
-                </button>
+  return (
+    <main className="px-5 pt-10 pb-10">
+      <p className="eyebrow">Density 3-6-9 completato</p>
+      <h1 className="mt-1 font-display text-2xl font-bold">Riepilogo</h1>
+      <ul className="mt-5 space-y-4">
+        {workout.zones.map((z, zi) => {
+          const tot = totaleZona(zi)
+          return (
+            <li key={zi} className="rounded-2xl border border-edge p-4">
+              <p className="font-display text-sm font-bold uppercase">Zona {zi + 1}: {tot} ripetizioni {z.record !== null && tot > z.record ? '· nuovo record' : ''}</p>
+              {z.record !== null && <p className="text-[12px] text-slate2">Record precedente {z.record}{tot >= z.record * 1.2 ? ' · oltre il +20%: la prossima volta +5% di carico' : ''}</p>}
+              {z.pair.map((e, ei) => (
+                <label key={ei} className="mt-3 flex items-center justify-between gap-3 text-sm">
+                  <span>{e.name} · {e.reps_done} rip</span>
+                  <input
+                    className="input w-24 text-right" inputMode="decimal" placeholder="kg"
+                    value={e.logged_weight_kg ?? ''}
+                    onChange={(ev) => impostaPeso(zi, ei as 0 | 1, ev.target.value ? Number(ev.target.value.replace(',', '.')) : undefined)}
+                  />
+                </label>
               ))}
-            </div>
-          )}
-          <button
-            onClick={avanzaFase}
-            className="w-full rounded-xl bg-gradient-to-r from-purple-500 to-indigo-600 py-4 font-display text-base font-bold uppercase text-white shadow-lg"
-          >
-            ✓ Fatto — prossima
-          </button>
-        </div>
-      )}
-    </div>
+            </li>
+          )
+        })}
+      </ul>
+      <button className="btn mt-8" disabled={salvataggio === 'salvo'} onClick={() => { void salva() }}>{salvataggio === 'salvo' ? 'Salvataggio…' : 'Salva e chiudi'}</button>
+      {salvataggio === 'errore' && <p role="alert" className="mt-3 text-sm text-amber2">Non salvato. Riprova.</p>}
+    </main>
   )
 }

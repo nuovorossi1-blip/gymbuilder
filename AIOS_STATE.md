@@ -4,8 +4,41 @@
 > da qui. Va **aggiornato** a ogni sessione, non accodato all'infinito.
 > L'identità del progetto e il percorso di AI-OS stanno in `AIOS_PROJECT.json`.
 
-**Ultimo aggiornamento:** 2026-09-24 (piano "Coach personale": Fase 0 completata) - Claude (Opus 5.5)
+**Ultimo aggiornamento:** 2026-09-25 (piano "Coach personale": Fase 1 completata, protocolli) - Claude (Opus 5.5)
 
+### 2026-09-25 — Piano "Coach personale", Fase 1: protocolli corretti
+
+1. **Problemi** — "CBum" = top set/back-off su OGNI esercizio (20 voci, sedute lunghissime);
+   FST-7 = 3 esercizi + finisher (seduta troppo corta); Density = tri-set a 3 stazioni del
+   21/08, non il metodo EDT 3-6-9 che Rossi intende (definizione nella sua chat del 24/09).
+2. **Fatto (verificato)** —
+   - Stile CBum e FST-7 seguono ora la programmazione dello Standard (fase, carenze, interleave,
+     specializzazione). Top set + back-off (2 avvicinamenti 12-15 e 8-10, top 6-8, back-off
+     10-12, 1 in deficit / 2 altrimenti) su UN solo multiarticolare: quello carente se c'è
+     (regola di Rossi), altrimenti il primo.
+   - Stile CBum: -1 serie sugli isolamenti in mantenimento, superserie finale sugli ultimi due
+     isolamenti se uno è carente (mai in deficit), nota con discesa controllata 3 s, movimento
+     completo, posa tra le serie.
+   - FST-7: l'ultimo esercizio del muscolo carente (o del principale) diventa 7x8-12, 40 s, su
+     cavi/macchine (sostituito se serve); un blocco per seduta; niente in deficit; quota a
+     settimana in Create (`fst7Attivo`: 0 deficit, 2 normo/+250, 4 da +500), prima alle sedute con
+     carenze. Tolto il pre-loading (UI e motore).
+   - Density 3-6-9 EDT: nuovo `generators/densityEdt.ts` (zone da 15 min, 3 se >= 60 min, 2
+     sotto; pausa 5 min; coppie antagoniste o non interferenti per push/pull/legs/upper/lower/
+     full_body; scelta deterministica; rotazione 9 -> 6 -> 3 -> scarico (2 zone da 10 min, 6 rip,
+     RIR 3) letta dallo storico degli allenamenti completati; record per coppia e ripetizioni;
+     suggerimento +5% quando l'ultimo totale supera il record precedente del 20%).
+     `PrescribedExercise.edt` salva zona/fase/ripetizioni fatte nello storico. Nuova
+     `DensityRunner.tsx`: intro con sostituzioni, zona con timer e "+N fatte"/±1, pausa, riepilogo
+     con pesi e salvataggio. Rimossi density369.ts, densityRunnerEngine.ts e i loro test.
+     Provato in Chromium con Supabase simulato: dal wizard alla zona, al riepilogo, al salvataggio.
+   - Etichette: "Stile CBum (top set + back-off)", "Density 3-6-9 (EDT)".
+   320 test verdi (i ~55 del vecchio tri-set rimossi, +10 nuovi), tsc/eslint puliti, build ok.
+3. **Da fare** — Fasi 2-5. Density: il runner usa attrezzatura/esclusioni delle impostazioni
+   utente, non quelle del wizard (come il vecchio); bro split non supportati.
+4. **Obiettivo** — i protocolli ora corrispondono ai metodi reali indicati da Rossi.
+5. **Cosa aspettarsi** — CBum: una sola alzata con top set, il resto normale; FST-7: seduta
+   completa con un blocco da 7 serie (non in deficit); Density: schermata a zone con timer.
 ### 2026-09-24 (2) — Piano "Coach personale", Fase 0
 
 **Piano confermato da Rossi (6 fasi):** 0 correzioni; 1 protocolli corretti (Stile CBum con

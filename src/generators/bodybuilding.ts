@@ -29,7 +29,7 @@ import type {
   BodybuildingProtocol, Equipment, EquipmentItem, Exercise, Experience, FocusPortion, GeneratedWorkout, Goal, Intensity, Muscle,
   PrescribedExercise, Split, WorkoutBlock,
 } from '../types'
-import { isLaggingNote, SPLIT_LABELS } from '../types'
+import { isLaggingNote, MUSCLE_LABELS, SPLIT_LABELS } from '../types'
 import { isExerciseAvailable } from './equipment'
 import { isFst7FinisherEligible } from '../engine/replacement'
 import { PESO_DEFAULT_KG, stimaCalorieEsercizio } from './calories'
@@ -63,8 +63,12 @@ export interface GenerationConfig {
   seed?: number
   /** Protocollo di esecuzione: 'standard' (default) usa la prescrizione legata all'obiettivo. */
   protocol?: BodybuildingProtocol
-  /** Solo per protocol 'fst7': il blocco da 7 serie apre la sessione invece di chiuderla. */
+  /** Non più usato (25/09, Rossi: il blocco FST-7 va in fondo al lavoro del muscolo, mai in
+   *  apertura). Lasciato nel tipo solo perché programmi salvati vecchi lo contengono. */
   fst7_preloading?: boolean
+  /** Quota settimanale FST-7 (Create): false = questa seduta non ha il blocco da 7 serie
+   *  (0 blocchi in deficit, 1-2 in normocalorica, 3-4 in surplus a settimana). */
+  fst7_attivo?: boolean
   /** Fase nutrizionale usata per volume/RIR/tecniche/interleave (engine/nutrition.ts, già
    *  abbassata di un livello se sonno o stress limitano il recupero). Assente = come prima. */
   nutrition_phase?: NutritionPhase | null
@@ -339,21 +343,10 @@ const RANK_EXP: Record<Experience, number> = { beginner: 1, intermediate: 2, adv
 /** Quanti esercizi principali punta ad avere la sessione: 6 di default, 3 per
  *  FST-7 (il 7° arriva a parte come finisher, non conta qui), 5 per il basso
  *  volume di Top Set & Back-Off. */
-function targetEsercizi(protocol?: BodybuildingProtocol): number {
-  if (protocol === 'fst7') return 3
-  if (protocol === 'cbum_top_backoff') return 5
+function targetEsercizi(): number {
   return 6
 }
 
-/** Base FST-7 (sez. protocollo): 8-12 rep fisse, non la prescrizione standard
- *  legata all'obiettivo — il protocollo prescrive il rep range, non lo split. */
-function prescrizioneFst7Base(compound: boolean, exp: Experience, intensity: Intensity = 'medium') {
-  const base = compound ? { sets: 4, reps: '8-12', rest: 105 } : { sets: 3, reps: '8-12', rest: 90 }
-  const fattoreRecupero = { low: 0.75, medium: 1, high: 1.25 }[intensity]
-  const risultato = { ...base, rest: Math.round(base.rest * fattoreRecupero) }
-  if (exp === 'beginner' && compound) return { ...risultato, sets: Math.max(3, risultato.sets - 1) }
-  return risultato
-}
 
 /** Avvicinamento (2x carico crescente) + Top Set (1x6-8 @ RIR0) + Back-Off (1x10-12 @ RIR0),
  *  stile CBum: il carico non è calcolabile qui (nessun peso registrato in nessuna parte
@@ -646,7 +639,7 @@ export function generaBodybuilding(
     ? { slots: buildCustomTargetSlots(customTargets, priorities), requirements: customTargets }
     : applicaPrioritaAssegnate(base, priorities)
   const baseSlot = structured.slots
-  const specializza = !!cfg.specializzazione && customTargets.length === 0 && (!cfg.protocol || cfg.protocol === 'standard')
+  const specializza = !!cfg.specializzazione && customTargets.length === 0 && (!cfg.protocol || cfg.protocol === 'standard' || cfg.protocol === 'fst7' || cfg.protocol === 'cbum_top_backoff')
   if (specializza) priorities = specializzaSlot(baseSlot, cfg, priorities)
   // FST-7 vuole ESATTAMENTE 3 esercizi base (il 7° arriva a parte): a differenza degli altri
   // protocolli, qui il target non può salire per via dei 5 slot fissi dello split (baseSlot
@@ -655,11 +648,9 @@ export function generaBodybuilding(
   // 6 slot fissi (standard PPL a 6 slot, sez. spec utente 19/08 pomeriggio), senza questo tetto
   // l'espansione CBum (x4 voci) partirebbe da 6 invece che da 5, sforando sempre il budget di
   // tempo (24 voci tracciate, mai adattabili a una durata ragionevole).
-  const target = cfg.protocol === 'fst7'
-    ? 3
-    : cfg.protocol === 'cbum_top_backoff'
-      ? Math.min(targetEsercizi(cfg.protocol), baseSlot.length)
-      : Math.max(targetEsercizi(cfg.protocol), baseSlot.length)
+  // 25/09: FST-7 e Stile CBum partono da una seduta NORMALE (6-7 esercizi): il blocco da 7
+  // serie e il top set sono pezzi della seduta, non la sostituiscono.
+  const target = Math.max(targetEsercizi(), baseSlot.length)
 
   // 6. Sesto slot: prima le priorità assegnate dalla settimana, poi l'extra dello split.
   const extraSlot: SlotDef[] = []
@@ -673,11 +664,7 @@ export function generaBodybuilding(
   // massimo 5: tronca dopo l'ordinamento, così restano gli N a priorità più alta (compound e
   // carenze in testa), non i primi N dichiarati nello split.
   const slotOrdinato = ordinaSlot(cfg.split, [...baseSlot, ...extraSlot])
-  const slot = cfg.protocol === 'fst7'
-    ? slotOrdinato.slice(0, 3)
-    : cfg.protocol === 'cbum_top_backoff'
-      ? slotOrdinato.slice(0, targetEsercizi(cfg.protocol))
-      : slotOrdinato
+  const slot = slotOrdinato
 
   // 7. Selezione esercizi per slot
   const perIdAllenamento = new Map(allenamento.map((exercise) => [exercise.id, exercise]))
@@ -786,10 +773,8 @@ export function generaBodybuilding(
 
     if (!scelto) continue // nessun esercizio disponibile per questo slot con questa attrezzatura
 
-    const pBase = cfg.protocol === 'fst7'
-      ? prescrizioneFst7Base(s.compound, cfg.experience, cfg.intensity)
-      : prescrizione(cfg.goal, s.compound, cfg.experience, cfg.intensity)
-    const p = s.maxSets && cfg.protocol !== 'fst7' ? { ...pBase, sets: Math.min(pBase.sets, s.maxSets) } : pBase
+    const pBase = prescrizione(cfg.goal, s.compound, cfg.experience, cfg.intensity)
+    const p = s.maxSets ? { ...pBase, sets: Math.min(pBase.sets, s.maxSets) } : pBase
     const voce: PrescribedExercise = {
       exercise_id: scelto.id,
       name: scelto.name,
@@ -836,7 +821,9 @@ export function generaBodybuilding(
   // 7b-bis. Programmazione (23/09, prompt di Rossi): fase nutrizionale -> serie/RIR/tecniche e
   // richiamo antagonista; poi ordine con gerarchia carenze piccole/grandi e interleave per fase.
   // Solo protocollo Standard: FST-7 e CBum hanno un ordine e una prescrizione di protocollo.
-  const protocolloStandard = !cfg.protocol || cfg.protocol === 'standard'
+  // 25/09: Stile CBum e FST-7 seguono la stessa programmazione dello Standard (fase, carenze,
+  // interleave, specializzazione); i loro pezzi si aggiungono dopo (7c/7d).
+  const protocolloStandard = !cfg.protocol || cfg.protocol === 'standard' || cfg.protocol === 'fst7' || cfg.protocol === 'cbum_top_backoff'
   let programmingNote: string | undefined
   if (protocolloStandard && (cfg.nutrition_phase || cfg.nutrition_step != null)) {
     const step = cfg.nutrition_step ?? stepDaFase(cfg.nutrition_phase!)
@@ -848,50 +835,82 @@ export function generaBodybuilding(
     ordinaSessione(scelti, { carenze: priorities, phase: fase, split: cfg.split, catalogById })
   }
 
-  // 7c. Protocollo FST-7 (Hany Rambod): un 4° esercizio, esattamente 7 serie x 10-12 rep,
-  // recupero fisso 30s, solo cavi/macchine/isolamenti puri (mai un bilanciere pesante — sez.
-  // isFst7FinisherEligible). In coda di default; in testa se fst7_preloading (mind-muscle
-  // connection su muscolo carente, prima che la sessione affatichi altro).
-  if (cfg.protocol === 'fst7') {
-    const muscoloIdentitario = base[0]?.muscle ?? pool[0]
-    const candidatiFinisher = allenamento
-      .filter((e) => !usati.has(e.id) && isFst7FinisherEligible(e))
-      .filter((e) => e.primary_muscles.includes(muscoloIdentitario))
-    const poolFinisher = candidatiFinisher.length > 0
-      ? candidatiFinisher
-      : allenamento.filter((e) => !usati.has(e.id) && isFst7FinisherEligible(e) && e.primary_muscles.some((m) => pool.includes(m)))
-    const finisher = poolFinisher[Math.floor(random() * poolFinisher.length)]
-    if (finisher) {
-      usati.add(finisher.id)
-      const voceFinisher: PrescribedExercise = {
-        exercise_id: finisher.id, name: finisher.name, role: 'isolation',
-        muscle: finisher.primary_muscles.find((m) => pool.includes(m)) ?? finisher.primary_muscles[0] ?? null,
-        sets: 7, reps: '10-12', rest_sec: 30, note: 'fst7_finisher',
-        instructions: finisher.instructions || undefined,
-      }
-      if (cfg.fst7_preloading) scelti.unshift(voceFinisher)
-      else scelti.push(voceFinisher)
-    } else {
-      warnings.push('Nessun esercizio a cavi/macchine/isolamento disponibile per il blocco FST-7 da 7 serie con questa attrezzatura.')
+  // 7c. Top set + back-off (25/09, Rossi: "è un pezzo della seduta, lo usano sia CBum sia
+  // Rambod"): SOLO su un multiarticolare — quello del muscolo carente se c'è, altrimenti il
+  // primo — con due serie di avvicinamento, 1 top set pesante e 1 back-off più leggero.
+  const stepFase = cfg.nutrition_step ?? (cfg.nutrition_phase ? stepDaFase(cfg.nutrition_phase) : null)
+  const inDeficit = stepFase !== null && stepFase <= -250
+  if (cfg.protocol === 'cbum_top_backoff' || cfg.protocol === 'fst7') {
+    const composti = scelti.filter((voce) => voce.role === 'compound')
+    const bersaglio = composti.find((voce) => voce.muscle && priorities.includes(voce.muscle)) ?? composti[0]
+    if (bersaglio) {
+      const cbum = prescrizioneCbum(cfg.intensity)
+      const i = scelti.indexOf(bersaglio)
+      const base = { ...bersaglio, technique: undefined }
+      scelti.splice(i, 1,
+        { ...base, sets: cbum.avvicinamento[0].sets, reps: cbum.avvicinamento[0].reps, rest_sec: cbum.avvicinamento[0].rest, note: 'avvicinamento', rir: undefined },
+        { ...base, sets: cbum.avvicinamento[1].sets, reps: cbum.avvicinamento[1].reps, rest_sec: cbum.avvicinamento[1].rest, note: 'avvicinamento', rir: undefined },
+        { ...base, sets: cbum.topSet.sets, reps: cbum.topSet.reps, rest_sec: cbum.topSet.rest, note: 'top_set', rir: inDeficit ? '1' : '0-1' },
+        { ...base, sets: inDeficit ? 1 : 2, reps: cbum.backOff.reps, rest_sec: cbum.backOff.rest, note: 'back_off', rir: '1' },
+      )
     }
   }
 
-  // 7d. Protocollo Top Set & Back-Off (stile CBum): ogni esercizio scelto sopra diventa quattro
-  // serie tracciate separate — 2x Avvicinamento a carico crescente, poi Top Set a cedimento
-  // (1x6-8 @ RIR0) e Back-Off (1x10-12 @ RIR0) subito dopo. Il carico non è calcolabile (nessun
-  // peso registrato da nessuna parte dell'app): resta un'indicazione testuale mostrata in UI
-  // (WorkoutPreview/Runner).
-  const cbumBaseCount = scelti.length
+  // 7d. Stile CBum: volume un po' più basso sui muscoli in mantenimento e una superserie finale
+  // sulla carenza (mai in deficit: è una tecnica di intensità). Discesa controllata, movimento
+  // completo e posa tra le serie valgono per tutta la seduta: stanno nella nota.
   if (cfg.protocol === 'cbum_top_backoff') {
-    const cbum = prescrizioneCbum(cfg.intensity)
-    const espansi = scelti.flatMap((voce): PrescribedExercise[] => [
-      { ...voce, sets: cbum.avvicinamento[0].sets, reps: cbum.avvicinamento[0].reps, rest_sec: cbum.avvicinamento[0].rest, note: 'avvicinamento' },
-      { ...voce, sets: cbum.avvicinamento[1].sets, reps: cbum.avvicinamento[1].reps, rest_sec: cbum.avvicinamento[1].rest, note: 'avvicinamento' },
-      { ...voce, sets: cbum.topSet.sets, reps: cbum.topSet.reps, rest_sec: cbum.topSet.rest, note: 'top_set' },
-      { ...voce, sets: cbum.backOff.sets, reps: cbum.backOff.reps, rest_sec: cbum.backOff.rest, note: 'back_off' },
-    ])
-    scelti.length = 0
-    scelti.push(...espansi)
+    for (const voce of scelti) {
+      const carente = !!voce.muscle && priorities.includes(voce.muscle)
+      if (voce.role === 'isolation' && !carente && voce.note !== NOTA_ANTAGONISTA && !voce.note?.startsWith('avv')) voce.sets = Math.max(2, voce.sets - 1)
+    }
+    const [penultimo, ultimo] = scelti.slice(-2)
+    const coppiaValida = penultimo && ultimo && penultimo.role === 'isolation' && ultimo.role === 'isolation' &&
+      penultimo.muscle !== ultimo.muscle && [penultimo, ultimo].some((voce) => !!voce.muscle && priorities.includes(voce.muscle))
+    if (!inDeficit && coppiaValida) {
+      penultimo.technique = `Superserie con ${ultimo.name}: nessun recupero tra i due`
+      ultimo.technique = `Superserie con ${penultimo.name}: recupero solo dopo la coppia`
+      penultimo.rest_sec = 0
+    }
+    const nota = 'Stile CBum: discesa controllata in 3 secondi, movimento completo, posa del muscolo tra le serie. ' +
+      'Top set e back-off sul multiarticolare principale.'
+    programmingNote = programmingNote ? `${nota} ${programmingNote}` : nota
+  }
+
+  // 7e. FST-7 (Hany Rambod, 25/09): la seduta è normale; l'ULTIMO esercizio della carenza (o
+  // del muscolo principale della seduta) diventa 7 serie x 8-12 con 30-45 s di recupero, su
+  // cavi o macchine. Un blocco per seduta; la quota settimanale la decide Create (fst7_attivo):
+  // 0 in deficit, 1-2 in normocalorica, 3-4 in surplus.
+  if (cfg.protocol === 'fst7') {
+    if (inDeficit || cfg.fst7_attivo === false) {
+      const motivo = inDeficit ? 'In deficit niente blocco FST-7 (regola delle calorie)' : 'Blocco FST-7 non previsto oggi: la quota della settimana è già usata'
+      programmingNote = programmingNote ? `${motivo}. ${programmingNote}` : `${motivo}.`
+    } else {
+      const muscoloBersaglio = priorities.find((m) => scelti.some((voce) => voce.muscle === m && voce.role === 'isolation')) ??
+        priorities.find((m) => scelti.some((voce) => voce.muscle === m)) ??
+        base[0]?.muscle
+      const indici = scelti.map((voce, i) => (voce.muscle === muscoloBersaglio && !['avvicinamento', 'top_set', 'back_off'].includes(voce.note ?? '') ? i : -1)).filter((i) => i >= 0)
+      const idx = indici[indici.length - 1]
+      if (idx !== undefined && muscoloBersaglio) {
+        const attuale = perIdAllenamento.get(scelti[idx].exercise_id)
+        const idoneo = attuale && isFst7FinisherEligible(attuale)
+        const sostituto = idoneo ? attuale : allenamento
+          .filter((e) => !usati.has(e.id) && isFst7FinisherEligible(e) && e.primary_muscles.includes(muscoloBersaglio))
+          .sort((a, b) => Number(preferiti.has(b.id)) - Number(preferiti.has(a.id)))[0]
+        if (sostituto) {
+          usati.add(sostituto.id)
+          scelti[idx] = {
+            ...scelti[idx], exercise_id: sostituto.id, name: sostituto.name, role: 'isolation',
+            sets: 7, reps: '8-12', rest_sec: 40, note: 'fst7_finisher', technique: undefined, rir: '0-1',
+            instructions: sostituto.instructions || undefined,
+          }
+        } else {
+          warnings.push('Nessun esercizio a cavi o macchine per il blocco FST-7 con questa attrezzatura.')
+        }
+      }
+      const nota = `FST-7: blocco da 7 serie sull'ultimo esercizio ${muscoloBersaglio ? `(${MUSCLE_LABELS[muscoloBersaglio] ?? muscoloBersaglio})` : ''}, 30-45 s di recupero, posa o allungamento tra le serie.`
+      programmingNote = programmingNote ? `${nota} ${programmingNote}` : nota
+    }
   }
 
   // 8. Adattamento al tempo: si riducono prima i recuperi, poi le serie
@@ -904,8 +923,7 @@ export function generaBodybuilding(
   rimuoviDuplicati(scelti)
   // Il preloading FST-7 vuole di proposito il blocco da 7 serie in apertura (mind-muscle
   // connection a freddo): non va scavalcato dal compound come farebbe di norma.
-  const preserveWeakPointLead = (customTargets.length > 0 && scelti[0]?.note === 'carenza') ||
-    (cfg.protocol === 'fst7' && cfg.fst7_preloading)
+  const preserveWeakPointLead = customTargets.length > 0 && scelti[0]?.note === 'carenza'
   // Con l'ordine programmato (carenze o fase nota) il primo esercizio lo decide ordinaSessione:
   // può aprire una carenza su un muscolo piccolo (regola di Rossi del 23/09), quindi qui non si
   // rimette davanti il compound — si segnala solo se un compound non c'è proprio.
@@ -916,10 +934,10 @@ export function generaBodybuilding(
   // avvicinamento + top set + back-off) non seguono il minimo di 6 esercizi dello split
   // standard: il conteggio atteso è diverso per costruzione, non un segnale di attrezzatura
   // insufficiente. cbumBaseCount è il numero di esercizi scelti PRIMA dell'espansione.
-  const minimoAtteso = cfg.protocol === 'fst7' ? 4 : cfg.protocol === 'cbum_top_backoff' ? cbumBaseCount * 4 : 6
-  if (scelti.length < minimoAtteso) {
+  const eserciziUnici = new Set(scelti.map((voce) => voce.exercise_id)).size
+  if (eserciziUnici < 6 && !warnings.some((w) => w.startsWith('Per stare nei minuti'))) {
     warnings.push(
-      `Con questa attrezzatura escono solo ${scelti.length} esercizi. ` +
+      `Con questa attrezzatura escono solo ${eserciziUnici} esercizi. ` +
         `Aggiungendo attrezzi nel profilo la sessione diventa più completa.`
     )
   }
@@ -947,7 +965,7 @@ export function generaBodybuilding(
   ]
 
   return {
-    name: `${SPLIT_LABELS[cfg.split]} — ${scelti.length} esercizi`,
+    name: `${SPLIT_LABELS[cfg.split]} — ${new Set(scelti.map((voce) => voce.exercise_id)).size} esercizi`,
     mode: 'bodybuilding',
     split: cfg.split,
     goal: cfg.goal,

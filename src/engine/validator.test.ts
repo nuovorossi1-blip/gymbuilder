@@ -91,23 +91,17 @@ describe('validateWorkout — coerenza dello split', () => {
     expect(result.errors).toEqual([])
   })
 
-  it('FST-7 (3 esercizi base + 1 finisher) non viene rifiutato per numero minimo di esercizi', () => {
-    // Bug reale segnalato dall'utente ("seduta vuota/con errore" selezionando FST-7"): il
-    // minimo generico di 6 esercizi per una sessione bodybuilding standard rigettava SEMPRE
-    // una scheda FST-7, che ne fa apposta solo 4 (3 base + il finisher da 7 serie). Causa:
-    // WorkoutGenerationConfig non portava mai il protocollo fino al validatore (Create.tsx non
-    // lo passava in buildGenerationConfig). Qui si verifica sia che il generatore produca
-    // davvero solo 4 esercizi, sia che il validatore — informato del protocollo — li accetti.
+  it('FST-7 (seduta normale + blocco da 7 serie) passa il validatore', () => {
+    // 25/09: FST-7 non è più "3 esercizi + finisher" ma una seduta normale con l'ultimo
+    // esercizio della carenza trasformato in 7 serie: il validatore deve accettarla.
     const workout = generaBodybuilding(catalog, {
       split: 'push', goal: 'hypertrophy', experience: 'advanced', equipment: 'full_gym',
-      duration_min: 60, priority_muscles: [], excluded_exercises: [], seed: 4,
-      protocol: 'fst7',
+      duration_min: 75, priority_muscles: [], excluded_exercises: [], seed: 4,
+      protocol: 'fst7', nutrition_step: 0,
     })
-    const main = workout.blocks.find((block) => block.kind === 'main')!
-    expect(main.exercises).toHaveLength(4)
-    const result = validateWorkout(workout, { ...pushConfig([]), protocol: 'fst7' }, catalog)
-    expect(result.valid).toBe(true)
+    const result = validateWorkout(workout, { ...pushConfig([]), duration_min: 75, protocol: 'fst7' }, catalog)
     expect(result.errors).toEqual([])
+    expect(result.valid).toBe(true)
   })
 
   it('Top Set & Back-Off (protocollo CBum) non viene rifiutato per esercizio duplicato', () => {
