@@ -97,7 +97,7 @@ export default function Coach() {
   const { user } = useAuth()
   const { profile, calorieLog, bodyLog, settings, saveProfile } = useSettings(user?.id)
   const { cartella, salva: salvaCartella } = useCartella(user?.id)
-  const { messaggi, piano, versioni, aggiungi, cancellaConversazione, accettaPiano, impostaProssima } = useCoach(user?.id)
+  const { messaggi, piano, versioni, aggiungi, eliminaMessaggi, cancellaConversazione, accettaPiano, impostaProssima } = useCoach(user?.id)
   const { catalog: ctxCatalog, setCatalog, setWorkout, setGenerationConfig } = useWorkout()
   const [catalogo, setCatalogo] = useState<Exercise[]>(ctxCatalog ?? [])
   const [storico, setStorico] = useState<CompletedWorkout[]>([])
@@ -106,6 +106,8 @@ export default function Coach() {
   const [errore, setErrore] = useState<string | null>(null)
   /** Conversazione aperta sopra il piano attivo (null = si vede il piano). */
   const [aperta, setAperta] = useState<TipoConversazione | null>(null)
+  /** Conversazione di "Parla col coach" aperta (ogni "Nuova chat" ne crea una). */
+  const [thread, setThread] = useState<string | null>(null)
   const fondo = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const fase = determinaFase(profile, calorieLog)
@@ -126,7 +128,22 @@ export default function Coach() {
 
   // Senza piano si è nel primo colloquio; con il piano si apre la conversazione scelta.
   const tipo: TipoConversazione | null = !piano ? 'colloquio' : aperta
-  const conversazione = (messaggi ?? []).filter((m) => m.kind === tipo)
+  const nellaConversazione = (m: MessaggioCoach, kind: TipoConversazione, t: string | null) =>
+    m.kind === kind && (kind !== 'chat' || (m.thread_id ?? 'prima') === (t ?? 'prima'))
+  const conversazione = (messaggi ?? []).filter((m) => tipo !== null && nellaConversazione(m, tipo, thread))
+
+  // Storico delle chat con il coach: una voce per conversazione, dalla più recente.
+  const storicoChat = useMemo(() => {
+    const gruppi = new Map<string, MessaggioCoach[]>()
+    for (const m of messaggi ?? []) if (m.kind === 'chat') {
+      const k = m.thread_id ?? 'prima'
+      gruppi.set(k, [...(gruppi.get(k) ?? []), m])
+    }
+    return [...gruppi.entries()].map(([id, lista]) => {
+      const primoUtente = lista.find((m) => m.role === 'utente' && !(m.meta as { nascosto?: boolean } | null)?.nascosto)
+      return { id, inizio: lista[0].created_at, ultimo: lista[lista.length - 1].created_at, titolo: (primoUtente?.content ?? lista.find((m) => m.role === 'coach')?.content ?? 'Chat').slice(0, 60) }
+    }).sort((a, b) => b.ultimo.localeCompare(a.ultimo))
+  }, [messaggi])
 
   const perLlm = (m: MessaggioCoach): LlmMessage => {
     if (m.role === 'utente') return { role: 'user', content: m.content }
@@ -134,12 +151,13 @@ export default function Coach() {
     return { role: 'assistant', content: p ? `${m.content}\n[PIANO PROPOSTO] ${JSON.stringify(p)}` : m.content }
   }
 
-  async function invia(kind: TipoConversazione, contenuto: string, nascosto = false, tentativo = false, storiaBase?: MessaggioCoach[]) {
+  async function invia(kind: TipoConversazione, contenuto: string, nascosto = false, tentativo = false, storiaBase?: MessaggioCoach[], threadForzato?: string | null) {
     if (!cartella || (attesa && !tentativo)) return
     setErrore(null); setAttesa(true)
+    const t = kind === 'chat' ? (threadForzato !== undefined ? threadForzato : thread) : null
     try {
-      const base = (storiaBase ?? (messaggi ?? []).filter((m) => m.kind === kind)).slice(-40)
-      const mio = await aggiungi({ role: 'utente', kind, content: contenuto, meta: nascosto ? { nascosto: true } : null })
+      const base = (storiaBase ?? (messaggi ?? []).filter((m) => nellaConversazione(m, kind, t))).slice(-40)
+      const mio = await aggiungi({ role: 'utente', kind, content: contenuto, meta: nascosto ? { nascosto: true } : null, thread_id: t })
       const contesto = messaggioContesto({
         profile, fase, cartella, catalogo: catalogoCoach,
         pianoAttivo: piano?.plan ?? null,
@@ -159,18 +177,18 @@ export default function Coach() {
       // Il piano salvato si normalizza come quello nuovo: il confronto avviene sugli stessi id.
       const differenze = plan && piano ? differenzePiani(normalizzaPiano(piano.plan, catalogo) ?? piano.plan, plan) : null
       const suo = await aggiungi({
-        role: 'coach', kind, content: risposta.messaggio,
+        role: 'coach', kind, content: risposta.messaggio, thread_id: t,
         meta: { opzioni: risposta.opzioni, categoria: risposta.categoria, piano: plan, esito, differenze, calorie: risposta.calorie, controllo: risposta.controllo },
       })
       // Alcuni modelli annunciano il piano ("ora te lo preparo") senza consegnarlo: glielo si
       // richiede subito, una volta, senza che il cliente debba insistere.
       const annunciato = kind === 'colloquio' && !plan && ((risposta.categoria ?? 0) >= 8 || /prepar|ecco il (tuo )?(piano|programma)|costruisco|elaboro|a breve|un momento/i.test(risposta.messaggio))
       if (annunciato && !tentativo) {
-        await invia(kind, 'Consegna adesso il piano completo dentro "piano", in questa stessa risposta, con una breve spiegazione della logica.', true, true, [...base, mio, suo])
+        await invia(kind, 'Consegna adesso il piano completo dentro "piano", in questa stessa risposta, con una breve spiegazione della logica.', true, true, [...base, mio, suo], t)
         return
       }
       if (plan && esito && esito.errori.length && !tentativo) {
-        await invia(kind, `Il controllo dell'app ha trovato questi errori nel piano: ${esito.errori.join(' ')} Correggili e rimanda il piano intero.`, true, true, [...base, mio, suo])
+        await invia(kind, `Il controllo dell'app ha trovato questi errori nel piano: ${esito.errori.join(' ')} Correggili e rimanda il piano intero.`, true, true, [...base, mio, suo], t)
       }
     } catch (e) {
       setErrore(e instanceof Error ? e.message : 'Il coach non ha risposto.')
@@ -192,7 +210,7 @@ export default function Coach() {
         const nuovo = normalizzaCartella({ ...cartella, controlli: [...cartella.controlli, meta.controllo] }, catalogo)
         await salvaCartella(nuovo)
       }
-      await aggiungi({ role: 'utente', kind, content: 'Ho accettato.', meta: { accettato: true } })
+      await aggiungi({ role: 'utente', kind, content: 'Ho accettato.', meta: { accettato: true }, thread_id: kind === 'chat' ? thread : null })
       if (kind !== 'chat') setAperta(null)
     } catch (e) {
       setErrore(e instanceof Error ? e.message : 'Non salvato.')
@@ -215,6 +233,26 @@ export default function Coach() {
     setWorkout(sedutaComeWorkout(piano.plan.sedute[i], catalogo, cartella, carenze))
     void impostaProssima((i + 1) % piano.plan.sedute.length)
     navigate('/allenamento')
+  }
+
+  /** "Parla col coach": dopo un programma nuovo (o la prima volta) si apre una chat pulita e il
+   *  coach la inizia lui; altrimenti si riprende l'ultima conversazione. */
+  async function apriChat(nuova = false) {
+    setAperta('chat')
+    const ultima = storicoChat[0]
+    const vecchia = !ultima || (piano && ultima.ultimo < piano.created_at)
+    if (!nuova && !vecchia) { setThread(ultima.id); return }
+    const id = crypto.randomUUID()
+    setThread(id)
+    await invia('chat', '[APERTURA]', true, false, [], id)
+  }
+
+  /** Correggi l'ultimo messaggio: si toglie (con le risposte successive) e torna nel campo. */
+  async function correggi(m: MessaggioCoach) {
+    const dopo = conversazione.filter((x) => x.created_at >= m.created_at).map((x) => x.id)
+    await eliminaMessaggi(dopo)
+    setTesto(m.content)
+    inputRef.current?.focus()
   }
 
   async function iniziaControllo() {
@@ -242,7 +280,7 @@ export default function Coach() {
         </p>
 
         <div className="mt-5 grid grid-cols-2 gap-2">
-          <button className="rounded-xl border border-cyan-500/40 bg-cyan-500/10 py-3 text-sm font-bold text-cyan-200" onClick={() => setAperta('chat')}>💬 Parla col coach</button>
+          <button className="rounded-xl border border-cyan-500/40 bg-cyan-500/10 py-3 text-sm font-bold text-cyan-200" onClick={() => { void apriChat() }}>💬 Parla col coach</button>
           <button className={`rounded-xl border py-3 text-sm font-bold ${traGiorni <= 0 ? 'border-amber-400/60 bg-amber-400/10 text-amber-200' : 'border-edge text-slate-300'}`} onClick={() => { void iniziaControllo() }}>
             📋 {traGiorni <= 0 ? 'È ora del controllo' : `Controllo tra ${traGiorni} gg`}
           </button>
@@ -282,6 +320,7 @@ export default function Coach() {
   const kind = tipo ?? 'colloquio'
   const visibili = conversazione.filter((m) => !(m.meta as { nascosto?: boolean } | null)?.nascosto)
   const ultimo = visibili[visibili.length - 1]
+  const ultimoMio = [...visibili].reverse().find((m) => m.role === 'utente' && !(m.meta as MetaCoach | null)?.accettato)
   const titolo = kind === 'colloquio' ? 'Primo colloquio' : kind === 'controllo' ? 'Controllo periodico' : 'Parla col coach'
   const spiegazione = kind === 'colloquio'
     ? 'Una domanda alla volta, poi il piano su misura. Il coach aggiorna la tua cartella mentre parlate.'
@@ -293,6 +332,18 @@ export default function Coach() {
       <button className="self-start font-data text-xs text-slate2" onClick={() => (piano ? setAperta(null) : navigate('/'))}>← {piano ? 'Torna al piano' : 'Indietro'}</button>
       <h1 className="mt-3 font-display text-[1.8rem] font-extrabold uppercase leading-none">{titolo}</h1>
       <p className="mt-2 text-sm text-slate2">{spiegazione}</p>
+      {kind === 'chat' && (
+        <div className="mt-3 flex gap-2">
+          <button className="rounded-xl border border-cyan-500/40 px-3 py-2 text-xs font-bold text-cyan-200" disabled={attesa} onClick={() => { void apriChat(true) }}>＋ Nuova chat</button>
+          {storicoChat.length > 1 && (
+            <select className="input flex-1 text-xs" value={thread ?? ''} onChange={(e) => setThread(e.target.value)} aria-label="Storico chat">
+              {storicoChat.map((c) => (
+                <option key={c.id} value={c.id}>{new Date(c.inizio).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })} · {c.titolo}</option>
+              ))}
+            </select>
+          )}
+        </div>
+      )}
 
       <div className="mt-5 flex-1 space-y-3">
         {kind === 'colloquio' && visibili.length === 0 && (
@@ -316,7 +367,8 @@ export default function Coach() {
         {visibili.map((m) => (
           <Bolla key={m.id} m={m} ultimo={m === ultimo} attesa={attesa} haPiano={!!piano}
             onOpzione={(o) => { void invia(kind, o) }} onAccetta={(meta) => { void accetta(kind, meta) }}
-            onDomanda={() => inputRef.current?.focus()} onScarica={scaricaProposta} />
+            onDomanda={() => inputRef.current?.focus()} onScarica={scaricaProposta}
+            onCorreggi={m === ultimoMio && !attesa ? () => { void correggi(m) } : undefined} />
         ))}
         {attesa && <p className="text-sm text-slate2" role="status">Il coach sta scrivendo…</p>}
         {errore && <p className="text-sm text-amber2" role="alert">{errore}</p>}
@@ -343,13 +395,18 @@ interface MetaCoach {
   accettato?: boolean
 }
 
-function Bolla({ m, ultimo, attesa, haPiano, onOpzione, onAccetta, onDomanda, onScarica }: {
+function Bolla({ m, ultimo, attesa, haPiano, onOpzione, onAccetta, onDomanda, onScarica, onCorreggi }: {
   m: MessaggioCoach; ultimo: boolean; attesa: boolean; haPiano: boolean
   onOpzione: (o: string) => void; onAccetta: (meta: MetaCoach) => void
-  onDomanda: () => void; onScarica: (p: CoachPlan) => void
+  onDomanda: () => void; onScarica: (p: CoachPlan) => void; onCorreggi?: () => void
 }) {
   const meta = (m.meta ?? {}) as MetaCoach
-  if (m.role === 'utente') return <p className={`ml-10 rounded-2xl rounded-br-sm p-3 text-sm ${meta.accettato ? 'bg-emerald-500/15 text-emerald-200' : 'bg-cyan-500/15 text-chalk'}`}>{m.content}</p>
+  if (m.role === 'utente') return (
+    <div className="ml-10">
+      <p className={`rounded-2xl rounded-br-sm p-3 text-sm ${meta.accettato ? 'bg-emerald-500/15 text-emerald-200' : 'bg-cyan-500/15 text-chalk'}`}>{m.content}</p>
+      {onCorreggi && <button className="mt-1 block w-full text-right text-[11px] text-slate2 underline" onClick={onCorreggi}>✏️ Correggi questo messaggio</button>}
+    </div>
+  )
   const proposta = !!meta.piano || !!meta.calorie || !!meta.controllo
   const bloccato = !!meta.esito?.errori.length
   const etichetta = meta.piano ? (haPiano ? '✅ Mi piace, salva le modifiche' : '✅ Mi piace, salvalo') : meta.controllo ? 'Salva il controllo' : `Passa a ${meta.calorie} kcal`

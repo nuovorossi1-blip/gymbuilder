@@ -124,6 +124,7 @@ export function sedutaComeWorkout(sd: CoachSeduta, catalog: Exercise[], cartella
       { kind: 'main', title: 'Allenamento', exercises: main },
     ],
     warnings: [],
+    origine: 'coach',
   }
 }
 

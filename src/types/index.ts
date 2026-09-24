@@ -178,6 +178,8 @@ export interface GeneratedWorkout {
   est_kcal?: number
   /** Nota di programmazione (fase nutrizionale, RIR, tecniche) mostrata in anteprima. */
   programming_note?: string
+  /** 'coach' = seduta del programma stilato dal Coach: in Salvati appare come "Protocollo del coach". */
+  origine?: 'coach'
 }
 
 export interface ActiveWorkoutSession {
@@ -406,6 +408,7 @@ export interface SavedWorkout {
   favorite: boolean
   created_at: string
   generation_config?: WorkoutGenerationConfig | null
+  origine?: 'coach' | null
 }
 
 export interface CompletedWorkout {

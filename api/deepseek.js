@@ -91,7 +91,20 @@ export default async function handler(request, response) {
     })
     const body = await upstream.text()
     if (upstream.status === 401 || upstream.status === 403) {
-      return response.status(400).json({ error: `La chiave ${provider === 'openrouter' ? 'OpenRouter' : 'DeepSeek'} è stata rifiutata: controllala nel Profilo.` })
+      // Il motivo esatto del fornitore aiuta a capire (chiave disattivata, limite, moderazione...).
+      let motivo = ''
+      try { const j = JSON.parse(body); motivo = (j && j.error && (j.error.message || j.error)) || '' } catch { motivo = '' }
+      const nome = provider === 'openrouter' ? 'OpenRouter' : 'DeepSeek'
+      return response.status(400).json({
+        error: upstream.status === 401
+          ? `${nome} rifiuta la chiave (errore 401${motivo ? `: ${String(motivo).slice(0, 160)}` : ''}). Di solito è disattivata o sbagliata: creane una nuova sul sito di ${nome} e incollala nel Profilo.`
+          : `${nome} ha bloccato la richiesta (errore 403${motivo ? `: ${String(motivo).slice(0, 160)}` : ''}).`,
+      })
+    }
+    if (upstream.status === 404 && provider === 'openrouter') {
+      let motivo = ''
+      try { const j = JSON.parse(body); motivo = (j && j.error && j.error.message) || '' } catch { motivo = '' }
+      return response.status(400).json({ error: `OpenRouter non trova il modello "${model}"${motivo ? ` (${String(motivo).slice(0, 160)})` : ''}. Per i modelli gratuiti controlla anche su openrouter.ai, Settings -> Privacy, di aver consentito i fornitori gratuiti.` })
     }
     if (upstream.status === 402) return response.status(400).json({ error: 'Credito del tuo LLM esaurito (o modello a pagamento senza credito): ricaricalo o scegli un modello gratuito nel Profilo.' })
     if (upstream.status === 429 && provider === 'openrouter') return response.status(429).json({ error: 'Limite dei modelli gratuiti di OpenRouter raggiunto: riprova tra un minuto o scegli un altro modello nel Profilo.' })

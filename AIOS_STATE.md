@@ -4,8 +4,38 @@
 > da qui. Va **aggiornato** a ogni sessione, non accodato all'infinito.
 > L'identità del progetto e il percorso di AI-OS stanno in `AIOS_PROJECT.json`.
 
-**Ultimo aggiornamento:** 2026-09-25 (Fase 5 + correzioni dal primo colloquio vero di Rossi) - Claude (Opus 5.5)
+**Ultimo aggiornamento:** 2026-09-25 (chat del Coach: nuova chat, storico, correzione; Salvati Coach; errori OpenRouter) - Claude (Opus 5.5)
 
+### 2026-09-25 (7) — Chat del Coach come un vero dialogo, Salvati "Coach", errori OpenRouter
+
+1. **Segnalazioni di Rossi** — con OpenRouter: "La chiave OpenRouter è stata rifiutata"; in chat
+   manca "nuova chat" / storico; non si può correggere un messaggio sbagliato; dopo aver
+   confermato il programma la chat deve ripartire pulita con il coach che chiede "eccoci, come
+   va il programma?"; le sedute del programma del coach vanno viste in Salvati come
+   "Protocollo del coach".
+2. **Indagine OpenRouter (verificato)** — la chiave nel DB è quella giusta (73 caratteri, senza
+   spazi, inizio e fine corrispondenti): è OpenRouter a rifiutarla (401/403). Probabile chiave
+   disattivata. Da qui non si raggiunge openrouter.ai per provarla.
+3. **Fatto (verificato)** —
+   - `api/deepseek.js`: per 401/403/404 riporta il motivo esatto del fornitore (e per 404 dei
+     gratuiti ricorda le impostazioni Privacy di OpenRouter). Profilo: "🔌 Prova la connessione"
+     (richiesta minima con fornitore e modello salvati, mostra "Funziona" o l'errore esatto).
+   - DB (applicato, migration nel repo): `coach_messages.thread_id` (conversazioni separate),
+     `saved_workouts.origine` ('coach').
+   - Coach: "Parla col coach" riprende l'ultima chat, ma se il programma è più recente (o non ci
+     sono chat) ne apre una NUOVA e la inizia il coach (messaggio nascosto "[APERTURA]": saluto,
+     breve valutazione su allenamenti fatti / peso / calorie rispetto all'obiettivo, "il
+     programma come va?", opzioni: racconta, analizziamo, spiegami, aggiorniamo). Pulsante
+     "＋ Nuova chat" e menu "Storico chat" (data + primo messaggio). "✏️ Correggi questo
+     messaggio" sull'ultimo messaggio dell'utente: lo toglie con le risposte successive e lo
+     rimette nel campo di testo. La storia inviata all'LLM è solo quella della chat aperta.
+   - Salvati: nuova sezione "Coach" (prima): il programma attivo con badge "Protocollo del
+     coach · vN", sedute con "▶ Inizia" (la prossima evidenziata), link al programma; le sedute
+     del coach salvate dall'anteprima hanno `origine: 'coach'` e il badge.
+   Provato in Chromium: apertura del coach, correzione, nuova risposta, storico con la chat
+   vecchia, Salvati -> Coach. 338 test verdi, tsc/eslint puliti, build ok.
+4. **Cosa deve fare Rossi** — OpenRouter: creare una chiave nuova su openrouter.ai, incollarla
+   nel Profilo, Salva LLM, "Prova la connessione".
 ### 2026-09-25 (6) — Primo colloquio vero di Rossi + Fase 5 (Home)
 
 1. **Segnalazione** — Rossi ha fatto il colloquio con DeepSeek (dopo aver caricato il suo .md):

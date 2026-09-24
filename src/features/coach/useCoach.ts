@@ -8,6 +8,8 @@ export interface MessaggioCoach {
   kind: 'colloquio' | 'controllo' | 'chat'
   content: string
   meta: Record<string, unknown> | null
+  /** Conversazione (solo "Parla col coach"): ogni "Nuova chat" ne apre una. */
+  thread_id?: string | null
   created_at: string
 }
 
@@ -28,7 +30,7 @@ export function useCoach(userId: string | undefined) {
   const carica = useCallback(async () => {
     if (!userId) return
     const [m, p, v] = await Promise.all([
-      supabase.from('coach_messages').select('id, role, kind, content, meta, created_at').eq('user_id', userId).order('created_at', { ascending: true }).limit(400),
+      supabase.from('coach_messages').select('id, role, kind, content, meta, thread_id, created_at').eq('user_id', userId).order('created_at', { ascending: true }).limit(600),
       supabase.from('coach_plans').select('id, version, plan, next_index, created_at').eq('user_id', userId).eq('status', 'attivo').order('created_at', { ascending: false }).limit(1),
       supabase.from('coach_plans').select('id, version, source, note, created_at').eq('user_id', userId).order('version', { ascending: false }).limit(30),
     ])
@@ -40,10 +42,17 @@ export function useCoach(userId: string | undefined) {
 
   const aggiungi = useCallback(async (msg: Omit<MessaggioCoach, 'id' | 'created_at'>) => {
     if (!userId) throw new Error('Accedi di nuovo.')
-    const { data, error } = await supabase.from('coach_messages').insert({ ...msg, user_id: userId }).select('id, role, kind, content, meta, created_at').single()
+    const { data, error } = await supabase.from('coach_messages').insert({ ...msg, user_id: userId }).select('id, role, kind, content, meta, thread_id, created_at').single()
     if (error || !data) throw new Error('Messaggio non salvato.')
     setMessaggi((old) => [...(old ?? []), data as MessaggioCoach])
     return data as MessaggioCoach
+  }, [userId])
+
+  /** Toglie dei messaggi (es. per correggere l'ultimo messaggio inviato). */
+  const eliminaMessaggi = useCallback(async (ids: string[]) => {
+    if (!userId || ids.length === 0) return
+    await supabase.from('coach_messages').delete().eq('user_id', userId).in('id', ids)
+    setMessaggi((old) => (old ?? []).filter((m) => !ids.includes(m.id)))
   }, [userId])
 
   const cancellaConversazione = useCallback(async (kind: MessaggioCoach['kind']) => {
@@ -72,5 +81,5 @@ export function useCoach(userId: string | undefined) {
     setPiano({ ...piano, next_index: index })
   }, [userId, piano])
 
-  return { messaggi, piano, versioni, aggiungi, cancellaConversazione, accettaPiano, impostaProssima, ricarica: carica }
+  return { messaggi, piano, versioni, aggiungi, eliminaMessaggi, cancellaConversazione, accettaPiano, impostaProssima, ricarica: carica }
 }

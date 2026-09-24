@@ -3,6 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../features/auth/AuthProvider'
 import { useWorkout } from '../features/workout/WorkoutContext'
 import { cambiaPreferito, caricaCatalogo, elencoProgrammi, elencoSalvati, eliminaProgramma, eliminaSalvato, type ProgrammaSalvato } from '../lib/api'
+import { useCoach } from '../features/coach/useCoach'
+import { useCartella } from '../features/cartella/useCartella'
+import { sedutaComeWorkout } from '../features/coach/plan'
 import { GOAL_LABELS, SPLIT_LABELS, type Goal, type Mode, type SavedWorkout, type Split } from '../types'
 import { SwipeContainer } from '../components/SwipeContainer'
 import { SwipeToDeleteRow } from '../components/SwipeToDeleteRow'
@@ -14,7 +17,9 @@ export default function Saved() {
   // tre sezioni separate. Una scheda salvata da un giorno del programma ha program_kind
   // 'program' nella sua configurazione; tutto il resto (sessione singola, scheda analizzata) è
   // una sessione singola.
-  const [sezione, setSezione] = useState<'singole' | 'piano' | 'programmi'>('singole')
+  const [sezione, setSezione] = useState<'coach' | 'singole' | 'piano' | 'programmi'>('coach')
+  const { piano: pianoCoach, impostaProssima } = useCoach(user?.id)
+  const { cartella } = useCartella(user?.id)
   const [programmi, setProgrammi] = useState<ProgrammaSalvato[] | null>(null)
   const naviga = useNavigate()
   const [lista, setLista] = useState<SavedWorkout[] | null>(null)
@@ -26,7 +31,17 @@ export default function Saved() {
     elencoProgrammi(user.id).then(setProgrammi).catch((e) => setErrore(e.message))
   }, [user])
   const dalPiano = (s: SavedWorkout) => s.generation_config?.program_kind === 'program'
-  const visibili = lista?.filter((s) => (sezione === 'piano' ? dalPiano(s) : !dalPiano(s))) ?? null
+  const dalCoach = (s: SavedWorkout) => s.origine === 'coach'
+  const visibili = lista?.filter((s) => (sezione === 'coach' ? dalCoach(s) : sezione === 'piano' ? dalPiano(s) && !dalCoach(s) : !dalPiano(s) && !dalCoach(s))) ?? null
+
+  function iniziaSedutaCoach(i: number) {
+    if (!pianoCoach) return
+    const carenze = cartella?.carenze.map((c) => c.muscolo) ?? []
+    setGenerationConfig(null)
+    setWorkout(sedutaComeWorkout(pianoCoach.plan.sedute[i], catalog, cartella, carenze))
+    void impostaProssima((i + 1) % pianoCoach.plan.sedute.length)
+    naviga('/allenamento')
+  }
 
   function apriProgramma(p: ProgrammaSalvato) {
     setWeeklyProgram(p.program)
@@ -67,6 +82,7 @@ export default function Saved() {
       name: s.name, mode: s.mode as Mode, split: s.split as Split | null,
       goal: s.goal as Goal, experience: s.experience as never,
       duration_min: s.duration_min, blocks, warnings: [],
+      origine: s.origine ?? undefined,
     }
     setGenerationConfig(s.generation_config ?? null)
     setWorkout(nextWorkout)
@@ -110,8 +126,8 @@ export default function Saved() {
         </p>
       )}
 
-      <div className="grid grid-cols-3 gap-1.5 rounded-xl border border-edge p-1" role="tablist">
-        {([['singole', 'Sessioni singole'], ['piano', 'Dal piano'], ['programmi', 'Programmi']] as const).map(([key, label]) => (
+      <div className="grid grid-cols-4 gap-1 rounded-xl border border-edge p-1" role="tablist">
+        {([['coach', 'Coach'], ['singole', 'Singole'], ['piano', 'Dal piano'], ['programmi', 'Programmi']] as const).map(([key, label]) => (
           <button
             key={key}
             role="tab"
@@ -123,6 +139,30 @@ export default function Saved() {
           </button>
         ))}
       </div>
+
+      {sezione === 'coach' && (
+        <section className="space-y-3">
+          {!pianoCoach && <p className="text-sm text-slate-400">Nessun programma del coach ancora: fai il colloquio dalla Home.</p>}
+          {pianoCoach && (
+            <div className="rounded-2xl glass-card border border-cyan-500/40 p-4 space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-display font-bold text-white">{pianoCoach.plan.titolo}</span>
+                <span className="rounded-full bg-cyan-500/15 px-2 py-0.5 font-data text-[10px] uppercase text-cyan-300">Protocollo del coach · v{pianoCoach.version}</span>
+              </div>
+              <ol className="space-y-2">
+                {pianoCoach.plan.sedute.map((sd, i) => (
+                  <li key={i} className={`flex items-center justify-between gap-2 rounded-xl border p-2.5 ${i === pianoCoach.next_index ? 'border-cyan-400/60' : 'border-edge'}`}>
+                    <span className="text-sm text-white">{String.fromCharCode(65 + i)} · {sd.nome} <span className="text-[11px] text-slate-400">{sd.esercizi.length} esercizi{i === pianoCoach.next_index ? ' · prossima' : ''}</span></span>
+                    <button className="rounded-lg bg-emerald-500/15 px-3 py-1.5 text-xs font-bold text-emerald-300" onClick={() => iniziaSedutaCoach(i)}>▶ Inizia</button>
+                  </li>
+                ))}
+              </ol>
+              <button className="w-full rounded-xl glass-card py-2.5 text-xs font-bold uppercase text-slate-300" onClick={() => naviga('/coach')}>Apri il programma e parla col coach</button>
+            </div>
+          )}
+          {visibili && visibili.length > 0 && <h3 className="eyebrow text-slate-400">Sedute del coach salvate</h3>}
+        </section>
+      )}
 
       {sezione === 'programmi' && (
         <ul className="space-y-3">
@@ -158,7 +198,7 @@ export default function Saved() {
         </div>
       )}
 
-      {sezione !== 'programmi' && visibili?.length === 0 && (
+      {sezione !== 'programmi' && sezione !== 'coach' && visibili?.length === 0 && (
         <div className="rounded-2xl glass-card p-6 text-center space-y-3 border border-dashed border-edge">
           <div className="text-3xl">📂</div>
           <h2 className="font-display text-lg font-bold text-white uppercase">
@@ -188,8 +228,9 @@ export default function Saved() {
                   <div>
                     <div className="flex items-center gap-2">
                       <span className="font-display font-bold text-base text-white">
-                        {SPLIT_LABELS[s.split as Split] ?? s.name}
+                        {s.origine === 'coach' ? s.name : SPLIT_LABELS[s.split as Split] ?? s.name}
                       </span>
+                      {s.origine === 'coach' && <span className="rounded-full bg-cyan-500/15 px-2 py-0.5 font-data text-[10px] uppercase text-cyan-300">Protocollo del coach</span>}
                       {s.favorite && (
                         <span className="text-amber-400 text-sm">★</span>
                       )}

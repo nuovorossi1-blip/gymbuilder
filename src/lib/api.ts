@@ -23,7 +23,7 @@ export async function salvaAllenamento(
     user_id: userId, name: nome?.trim() || w.name, mode: w.mode, split: w.split,
     goal: w.goal, experience: w.experience, duration_min: w.duration_min, blocks: w.blocks,
   }
-  let result = await supabase.from('saved_workouts').insert({ ...base, generation_config: generationConfig ?? null }).select('id').single()
+  let result = await supabase.from('saved_workouts').insert({ ...base, generation_config: generationConfig ?? null, origine: w.origine ?? null }).select('id').single()
   // Continuità col database remoto finché la nuova migrazione non viene applicata.
   if (result.error?.code === 'PGRST204' || result.error?.code === '42703') {
     result = await supabase.from('saved_workouts').insert(base).select('id').single()

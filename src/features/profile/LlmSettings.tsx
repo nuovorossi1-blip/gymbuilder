@@ -22,6 +22,19 @@ export function LlmSettings({ userId }: { userId: string | undefined }) {
   const [riga, setRiga] = useState(false)
   const [liberi, setLiberi] = useState<ModelloLibero[] | null>(null)
   const [stato, setStato] = useState<'idle' | 'salvo' | 'ok' | 'errore'>('idle')
+  const [prova, setProva] = useState<string | null>(null)
+
+  /** Prova la connessione con il fornitore e il modello SALVATI (una richiesta minima). */
+  async function provaConnessione() {
+    setProva('Provo…')
+    try {
+      const { chiediJsonAlLlm } = await import('../../lib/deepseek')
+      const r = await chiediJsonAlLlm([{ role: 'user', content: 'Rispondi solo con il JSON {"ok": true}.' }])
+      setProva(r.ok ? '✓ Funziona.' : '✓ Risponde (formato insolito, ma la connessione c’è).')
+    } catch (e) {
+      setProva(`✕ ${e instanceof Error ? e.message : 'Non funziona.'}`)
+    }
+  }
 
   useEffect(() => {
     if (!userId) return
@@ -120,6 +133,8 @@ export function LlmSettings({ userId }: { userId: string | undefined }) {
         <button className="btn" disabled={stato === 'salvo' || !model.trim() || chiaveMancante} onClick={() => { void salva() }}>
           {stato === 'salvo' ? 'Salvataggio…' : 'Salva LLM'}
         </button>
+        <button className="w-full rounded-xl border border-edge py-2.5 text-sm" onClick={() => { void provaConnessione() }}>🔌 Prova la connessione</button>
+        {prova && <p className={`text-xs ${prova.startsWith('✕') ? 'text-amber2' : 'text-emerald-300'}`} role="status">{prova}</p>}
         <p className="text-xs text-slate2" role="status">
           {stato === 'ok' ? 'Salvato.' : stato === 'errore' ? 'Non salvato: riprova.' : chiaveMancante ? `Manca la chiave ${provider === 'deepseek' ? 'DeepSeek' : 'OpenRouter'}.` : `In uso: ${provider === 'deepseek' ? 'DeepSeek' : 'OpenRouter'} · ${model}.`}
           {' '}Chiavi salvate: DeepSeek {salvate.deepseek ? '✓' : '—'} · OpenRouter {salvate.openrouter ? '✓' : '—'}
