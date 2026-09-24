@@ -1,5 +1,7 @@
 # Todo
 
+- [ ] Piano "Coach personale" (24/09): Fase 0 fatta. Restano: 1 protocolli (Stile CBum, FST-7, Density EDT 3-6-9), 2 cartella cliente, 3 Coach primo colloquio (+ chiave/LLM per utente), 4 Coach sempre disponibile, 5 riorganizzazione Home e rimozione wizard settimanale.
+- [ ] Rossi: Supabase -> Authentication -> URL Configuration, Site URL https://gymbuilder-lemon.vercel.app e Redirect URLs https://gymbuilder-lemon.vercel.app/** (per il link del recupero password).
 - [ ] Catalogo gambe (visto il 23/09): con full_gym il motore può scegliere thruster come composto quadricipiti in un Legs da bodybuilding; valutare di escluderli dal pool Bodybuilding.
 - [x] Piano "programmazione a scala" (23/09): blocchi 1+2, 5, 4, 3 tutti pubblicati.
 - [ ] Rossi: provare su browser reale il piano completo (Profilo calorie/storico, Genera A/B con carenze, Analizza -> Scheda finale -> Salva, Peso e girovita).

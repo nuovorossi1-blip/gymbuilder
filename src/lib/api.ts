@@ -129,3 +129,34 @@ export async function situazioneSettimanaleUtente(
     return undefined
   }
 }
+
+/** Programmi settimanali salvati (24/09, Salvati diviso in sezioni): il più recente è il piano attuale. */
+export interface ProgrammaSalvato {
+  id: string
+  name: string
+  created_at: string
+  updated_at: string | null
+  program: WeeklyProgram
+}
+
+export async function elencoProgrammi(userId: string): Promise<ProgrammaSalvato[]> {
+  const { data, error } = await supabase
+    .from('training_programs')
+    .select('id, name, created_at, updated_at, config, week')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(30)
+  if (error) throw new Error('Non siamo riusciti a caricare i programmi.')
+  return (data ?? []).map((row) => ({
+    id: row.id as string,
+    name: row.name as string,
+    created_at: row.created_at as string,
+    updated_at: (row.updated_at as string | null) ?? null,
+    program: { id: row.id as string, persisted: true, config: row.config, week: row.week ?? [], warnings: [] } as WeeklyProgram,
+  }))
+}
+
+export async function eliminaProgramma(id: string): Promise<void> {
+  const { error } = await supabase.from('training_programs').delete().eq('id', id)
+  if (error) throw new Error('Non siamo riusciti a eliminare il programma.')
+}

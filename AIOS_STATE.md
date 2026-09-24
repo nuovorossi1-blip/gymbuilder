@@ -4,8 +4,49 @@
 > da qui. Va **aggiornato** a ogni sessione, non accodato all'infinito.
 > L'identità del progetto e il percorso di AI-OS stanno in `AIOS_PROJECT.json`.
 
-**Ultimo aggiornamento:** 2026-09-24 (indagine "Genera non fa nulla": non riprodotto, errori ora visibili e registrati) - Claude (Opus 5.5)
+**Ultimo aggiornamento:** 2026-09-24 (piano "Coach personale": Fase 0 completata) - Claude (Opus 5.5)
 
+### 2026-09-24 (2) — Piano "Coach personale", Fase 0
+
+**Piano confermato da Rossi (6 fasi):** 0 correzioni; 1 protocolli corretti (Stile CBum con
+top set/back-off sul primo multiarticolare — o sul multiarticolare CARENTE se c'è; FST-7 =
+seduta normale + ultimo esercizio della carenza 7x8-12 30-45s su cavi/macchine, top set anche
+qui, blocchi/sett. 0 deficit, 1-2 normo, 3-4 surplus, tolto il preloading; Density 3-6-9 =
+EDT di Staley (zone PR 15 min, coppie antagoniste, record ripetizioni, +20% -> +5% carico) con
+ripetizioni 9 -> 6 -> 3 -> scarico, SOSTITUISCE il tri-set del 21/08); 2 cartella del cliente
+per ogni utente (profilo, vincoli, carenze, punti forti, esercizi che sente bene / perdita
+tensione, obbligatori spostabili, attrezzatura, riscaldamento fisso ~8 min, nutrizione con
+calorie e macro solo come obiettivi, storico) con export e import .md; 3 Coach LLM primo
+colloquio -> piano A-B-C a rotazione ("fai il prossimo") + calorie/macro, l'LLM scrive e il
+codice verifica, Accetta; 4 Coach sempre disponibile (controllo ogni 4 settimane con le 8
+domande + carichi chiave dai pesi registrati, "Parla col coach" in qualsiasi momento, cambi
+senza limite, scarico deciso dal coach, versioni con differenze); 5 Home = Il mio piano /
+Allenamento singolo (Generala o Scrivila tu, senza LLM) / Strumenti (Analizza la mia scheda,
+Peso e girovita), wizard settimanale TOLTO. Multiutente: ogni utente ha il suo coach; LLM e
+chiave li sceglie l'utente, nessun limite di messaggi (da fare in Fase 3: chiave per utente).
+Progressione automatica dei carichi: NON serve.
+
+1. **Problemi** — CBum a 60 min: 80 min stimati, rifiutata dal validatore (max 69). Nessun
+   recupero password. Salvati mescolava giorni del piano e sessioni singole.
+2. **Fatto (verificato)** —
+   - `adattaAlTempo` riscritto: recuperi, poi serie di avvicinamento e mantenimento, poi
+     antagonista (serie, poi esercizio), poi esercizi non carenti (isolamenti, poi composti, mai
+     l'ultimo composto); gli esercizi si tolgono solo se si sfora oltre il 12% della durata;
+     le carenze si toccano solo come ultima risorsa, con avviso. Prima si tagliavano per PRIME
+     proprio le carenze. Test sul caso di Rossi (CBum 60 min Spinta/Tirata/Gambe <= 69 min).
+   - Recupero password: "Password dimenticata?" nel login -> `resetPasswordForEmail`
+     (redirect al sito, anche dall'app Android) -> evento PASSWORD_RECOVERY -> pagina "Nuova
+     password" -> `updateUser`. Provato in Chromium con Supabase simulato: richiesta
+     /auth/v1/recover, arrivo dal link, PUT /auth/v1/user, ingresso nell'app.
+   - Salvati: tre sezioni "Sessioni singole" / "Dal piano" (generation_config.program_kind
+     'program') / "Programmi" (training_programs: il più recente "Piano attuale", apri la
+     settimana o elimina). `elencoProgrammi`, `eliminaProgramma` in api.ts.
+   371 test verdi, tsc/eslint puliti, build ok.
+3. **Da fare** — Fasi 1-5. Rossi deve controllare in Supabase -> Authentication -> URL
+   Configuration che l'indirizzo del sito sia autorizzato come redirect.
+4. **Obiettivo** — base pulita prima del Coach.
+5. **Cosa aspettarsi** — CBum a 60 minuti si genera; login con recupero password; Salvati
+   diviso in tre.
 ### 2026-09-24 — "Clicco su Genera e non succede niente" (PPL + CBum, carenze spalle/braccia)
 
 1. **Segnalazione** — Rossi: dopo aver compilato il profilo, sessione singola e programma

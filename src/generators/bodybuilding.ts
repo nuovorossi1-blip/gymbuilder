@@ -34,7 +34,7 @@ import { isExerciseAvailable } from './equipment'
 import { isFst7FinisherEligible } from '../engine/replacement'
 import { PESO_DEFAULT_KG, stimaCalorieEsercizio } from './calories'
 import { minutiBlocco, minutiEsercizio, PORZIONE_ROTABILE, portaCompoundInApertura, rimuoviDuplicati, riordinaPerSinergie, rng, scegliRiscaldamento } from './shared'
-import { applicaFase, ordinaSessione, stepDaFase } from '../engine/programming'
+import { applicaFase, NOTA_ANTAGONISTA, ordinaSessione, stepDaFase } from '../engine/programming'
 import { stepDaOffset, stepToPhase } from '../engine/nutrition'
 import type { NutritionPhase } from '../types'
 
@@ -898,7 +898,7 @@ export function generaBodybuilding(
   // (mai sotto il minimo) senza eliminare slot (sez. 3, 23).
   const minutiRiscaldamento = cfg.duration_min >= 45 ? 9 : 6
   const budget = cfg.duration_min - minutiRiscaldamento
-  adattaAlTempo(scelti, budget)
+  adattaAlTempo(scelti, budget, priorities, warnings, cfg.duration_min)
 
   // 9. Validatore di sicurezza finale (sez. 22, 40): corregge, non si limita a segnalare.
   rimuoviDuplicati(scelti)
@@ -961,46 +961,76 @@ export function generaBodybuilding(
 }
 
 /**
- * Adatta la sessione al budget di tempo SENZA eliminare esercizi come prima
- * mossa (sez. 3, 23): prima taglia il recupero verso il minimo dell'obiettivo,
- * poi una serie sugli slot meno prioritari (richiami ed extra prima dei
- * compound). Il numero di esercizi non viene ridotto: il minimo è sei.
+ * Adatta la sessione al budget di tempo (24/09, regola di Rossi). Prima si accorciano i
+ * recuperi, poi si tolgono serie e solo alla fine esercizi, in quest'ordine:
+ *   1. serie dei muscoli in mantenimento (e le serie di avvicinamento del top set);
+ *   2. il richiamo antagonista (prima una serie, poi tutto l'esercizio);
+ *   3. un esercizio non carente (prima un isolamento, poi un composto, mai l'ultimo composto).
+ * Le carenze non si toccano. Solo se dopo tutto questo si sfora ancora (es. 6 carenze in 30
+ * minuti) si scende al minimo di serie anche sulle carenze, e lo si dice in un avviso.
+ * Prima del 24/09 si tagliavano per PRIME proprio le carenze e non si toglieva mai un esercizio:
+ * con CBum a 60 minuti la seduta restava a 80 e il validatore la rifiutava.
  */
-function adattaAlTempo(scelti: PrescribedExercise[], budgetMin: number): void {
+function adattaAlTempo(scelti: PrescribedExercise[], budgetMin: number, carenze: Muscle[], warnings: string[], durataTotale: number): void {
   const RECUPERO_MINIMO = 45
-
   const sforo = () => minutiBlocco(scelti) - budgetMin
   if (sforo() <= 0) return
+  const carente = (e: PrescribedExercise) => isLaggingNote(e.note) || (!!e.muscle && carenze.includes(e.muscle))
+  const antagonista = (e: PrescribedExercise) => e.note === NOTA_ANTAGONISTA
+  const fst7 = (e: PrescribedExercise) => e.note === 'fst7_finisher'
 
-  // Fase 1: recuperi verso il minimo, dal più lungo.
+  // Fase 1: recuperi verso il minimo, dal più lungo (il top set resta pieno: serve recuperato).
   let iter = 0
-  while (sforo() > 0 && iter++ < 50) {
+  while (sforo() > 0 && iter++ < 60) {
     const candidato = scelti
-      .filter((e) => e.rest_sec > RECUPERO_MINIMO)
+      .filter((e) => e.rest_sec > RECUPERO_MINIMO && e.note !== 'top_set')
       .sort((a, b) => b.rest_sec - a.rest_sec)[0]
     if (!candidato) break
     candidato.rest_sec = Math.max(RECUPERO_MINIMO, candidato.rest_sec - 15)
   }
 
-  // Fase 2: una serie in meno sugli slot non-compound e i richiami, poi i compound.
-  // isLaggingNote riconosce 'carenza'/'richiamo carenza' (note di bodybuilding.ts) oltre a
-  // 'richiamo' (note di strength.ts): prima di questo il confronto letterale con 'richiamo'
-  // non scattava mai qui, quindi i richiami carenza di bodybuilding erano trattati come un
-  // isolamento qualsiasi invece che come i primi da tagliare a corto di tempo.
-  iter = 0
-  while (sforo() > 0 && iter++ < 50) {
-    const riducibile = [...scelti]
-      .sort((a, b) => {
-        const pa = isLaggingNote(a.note) ? 0 : a.role === 'isolation' ? 1 : 2
-        const pb = isLaggingNote(b.note) ? 0 : b.role === 'isolation' ? 1 : 2
-        return pa - pb
-      })
-      // Il blocco FST-7 è esattamente 7 serie per contratto di protocollo: non va
-      // eroso dal budget di tempo come un normale isolamento in eccesso.
-      .filter((e) => e.note !== 'fst7_finisher')
-      .find((e) => e.sets > serieMinime(e.role === 'compound'))
-    if (!riducibile) break
-    riducibile.sets -= 1
+  const togliSerie = (filtro: (e: PrescribedExercise) => boolean) => {
+    let n = 0
+    while (sforo() > 0 && n++ < 60) {
+      const e = scelti
+        .filter((x) => filtro(x) && !fst7(x))
+        .sort((a, b) => Number(a.role === 'compound') - Number(b.role === 'compound') || b.sets - a.sets)
+        .find((x) => x.sets > (x.note === 'avvicinamento' ? 1 : serieMinime(x.role === 'compound')))
+      if (!e) break
+      e.sets -= 1
+    }
+  }
+  const tolti: string[] = []
+  const togliEsercizio = (e: PrescribedExercise) => {
+    // Con il top set lo stesso esercizio ha più righe (avvicinamento, top, back-off): via tutte.
+    for (let i = scelti.length - 1; i >= 0; i--) if (scelti[i].exercise_id === e.exercise_id) scelti.splice(i, 1)
+    tolti.push(e.name)
   }
 
+  // 1. Serie di avvicinamento e dei muscoli in mantenimento.
+  togliSerie((e) => e.note === 'avvicinamento')
+  togliSerie((e) => !carente(e) && !antagonista(e))
+  // 2. Richiamo antagonista: una serie, poi l'esercizio.
+  togliSerie(antagonista)
+  // Togliere un esercizio intero è l'ultima mossa: si fa solo se si sfora oltre il 12% della
+  // durata scelta (il validatore accetta fino al 15%), così una seduta di 6 esercizi resta di 6
+  // quando basta poco.
+  const sforoGrave = () => sforo() > durataTotale * 0.12
+  if (sforoGrave()) { const a = scelti.find(antagonista); if (a) togliEsercizio(a) }
+  // 3. Esercizi non carenti: isolamenti, poi composti (ne resta sempre almeno uno).
+  iter = 0
+  while (sforoGrave() && iter++ < 10) {
+    const composti = new Set(scelti.filter((e) => e.role === 'compound').map((e) => e.exercise_id))
+    const candidati = scelti.filter((e) => !carente(e) && !antagonista(e) && !fst7(e))
+    const vittima = [...candidati].reverse().find((e) => e.role !== 'compound') ??
+      (composti.size > 1 ? [...candidati].reverse().find((e) => e.role === 'compound') : undefined)
+    if (!vittima) break
+    togliEsercizio(vittima)
+  }
+  if (tolti.length) warnings.push(`Per stare nei minuti scelti ho tolto: ${tolti.join(', ')}.`)
+  // Ultima risorsa: il tempo è davvero troppo poco anche per le sole carenze.
+  if (sforoGrave()) {
+    togliSerie(carente)
+    warnings.push('Il tempo scelto è molto stretto: anche le carenze sono al minimo di serie. Con più minuti la seduta rende meglio.')
+  }
 }

@@ -2,8 +2,8 @@ import { useState } from 'react'
 import { useAuth } from './AuthProvider'
 
 export default function LoginPage() {
-  const { signIn, signUp } = useAuth()
-  const [mode, setMode] = useState<'in' | 'up'>('in')
+  const { signIn, signUp, requestPasswordReset } = useAuth()
+  const [mode, setMode] = useState<'in' | 'up' | 'reset'>('in')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
@@ -15,7 +15,10 @@ export default function LoginPage() {
     setNotice(null)
     setBusy(true)
     try {
-      if (mode === 'in') {
+      if (mode === 'reset') {
+        await requestPasswordReset(email.trim())
+        setNotice('Se l\u2019email è registrata ti arriva un link: aprilo e scegli la nuova password. Controlla anche lo spam.')
+      } else if (mode === 'in') {
         await signIn(email.trim(), password)
       } else {
         const { needsConfirmation } = await signUp(email.trim(), password)
@@ -30,7 +33,7 @@ export default function LoginPage() {
     }
   }
 
-  const valid = email.includes('@') && password.length >= 6
+  const valid = email.includes('@') && (mode === 'reset' || password.length >= 6)
 
   return (
     <main className="min-h-dvh flex flex-col justify-between px-6 pt-16 pb-10">
@@ -81,7 +84,7 @@ export default function LoginPage() {
           />
         </div>
 
-        <div>
+        {mode !== 'reset' && <div>
           <label className="field-label" htmlFor="password">Password</label>
           <input
             id="password"
@@ -92,7 +95,15 @@ export default function LoginPage() {
             onChange={(e) => setPassword(e.target.value)}
             placeholder="almeno 6 caratteri"
           />
-        </div>
+        </div>}
+        {mode === 'in' && (
+          <button type="button" className="font-data text-[12px] text-slate2 underline underline-offset-4" onClick={() => { setMode('reset'); setError(null); setNotice(null) }}>
+            Password dimenticata?
+          </button>
+        )}
+        {mode === 'reset' && (
+          <p className="text-sm text-slate2">Scrivi la tua email: ti mandiamo un link per scegliere una nuova password.</p>
+        )}
 
         {error && (
           <p className="text-sm text-amber2 pt-1" role="alert">{error}</p>
@@ -102,8 +113,13 @@ export default function LoginPage() {
         )}
 
         <button className="btn !mt-6" disabled={!valid || busy} onClick={submit}>
-          {busy ? 'Un attimo…' : mode === 'in' ? 'Accedi' : 'Crea account'}
+          {busy ? 'Un attimo…' : mode === 'reset' ? 'Invia il link' : mode === 'in' ? 'Accedi' : 'Crea account'}
         </button>
+        {mode === 'reset' && (
+          <button type="button" className="w-full font-data text-[12px] text-slate2" onClick={() => { setMode('in'); setError(null); setNotice(null) }}>
+            ← Torna all’accesso
+          </button>
+        )}
       </div>
     </main>
   )

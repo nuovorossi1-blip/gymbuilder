@@ -9,6 +9,16 @@ interface AuthValue {
   signIn: (email: string, password: string) => Promise<void>
   signUp: (email: string, password: string) => Promise<{ needsConfirmation: boolean }>
   signOut: () => Promise<void>
+  /** Recupero password (24/09): true quando l'utente arriva dal link dell'email. */
+  recovering: boolean
+  requestPasswordReset: (email: string) => Promise<void>
+  updatePassword: (password: string) => Promise<void>
+}
+
+/** Dove porta il link dell'email: il sito vero anche quando si parte dall'app Android. */
+function redirectRecupero(): string {
+  const origin = typeof window !== 'undefined' ? window.location.origin : ''
+  return origin.startsWith('http') ? origin : 'https://gymbuilder-lemon.vercel.app'
 }
 
 const AuthContext = createContext<AuthValue | null>(null)
@@ -16,6 +26,7 @@ const AuthContext = createContext<AuthValue | null>(null)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
+  const [recovering, setRecovering] = useState(false)
 
   useEffect(() => {
     // getSession legge prima la sessione persistita. Un errore di rete non deve
@@ -24,7 +35,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .then(({ data }) => setSession(data.session))
       .catch(() => undefined)
       .finally(() => setLoading(false))
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => setSession(s))
+    const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
+      setSession(s)
+      // Il link dell'email apre l'app con una sessione "di recupero": prima di tutto si chiede
+      // la nuova password, poi si entra normalmente.
+      if (event === 'PASSWORD_RECOVERY') setRecovering(true)
+    })
     return () => sub.subscription.unsubscribe()
   }, [])
 
@@ -44,9 +60,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut()
   }
 
+  async function requestPasswordReset(email: string) {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: redirectRecupero() })
+    if (error) throw new Error(traduciErrore(error.message))
+  }
+
+  async function updatePassword(password: string) {
+    const { error } = await supabase.auth.updateUser({ password })
+    if (error) throw new Error(traduciErrore(error.message))
+    setRecovering(false)
+  }
+
   return (
     <AuthContext.Provider
-      value={{ user: session?.user ?? null, session, loading, signIn, signUp, signOut }}
+      value={{ user: session?.user ?? null, session, loading, signIn, signUp, signOut, recovering, requestPasswordReset, updatePassword }}
     >
       {children}
     </AuthContext.Provider>
@@ -66,6 +93,8 @@ function traduciErrore(msg: string): string {
   if (m.includes('already registered')) return 'Questa email è già registrata. Prova ad accedere.'
   if (m.includes('password should be')) return 'La password deve avere almeno 6 caratteri.'
   if (m.includes('unable to validate email')) return "L'indirizzo email non sembra valido."
-  if (m.includes('email rate limit')) return 'Troppi tentativi. Riprova fra qualche minuto.'
+  if (m.includes('email rate limit') || m.includes('rate limit')) return 'Troppi tentativi. Riprova fra qualche minuto.'
+  if (m.includes('should be different')) return 'La nuova password deve essere diversa da quella vecchia.'
+  if (m.includes('auth session missing') || m.includes('expired')) return 'Il link è scaduto: chiedine uno nuovo da "Password dimenticata?".'
   return 'Qualcosa non ha funzionato. Riprova fra un momento.'
 }

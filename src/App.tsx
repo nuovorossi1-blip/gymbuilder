@@ -3,6 +3,7 @@ import { useEffect } from 'react'
 import { AuthProvider, useAuth } from './features/auth/AuthProvider'
 import { WorkoutProvider, useWorkout } from './features/workout/WorkoutContext'
 import LoginPage from './features/auth/LoginPage'
+import NewPasswordPage from './features/auth/NewPasswordPage'
 import BottomNav from './components/BottomNav'
 import HomeDashboard from './pages/HomeDashboard'
 import Create from './pages/Create'
@@ -20,7 +21,7 @@ import InstallBanner from './components/InstallBanner'
 import { ErrorBoundary } from './components/ErrorBoundary'
 
 function Guscio() {
-  const { user, loading } = useAuth()
+  const { user, loading, recovering } = useAuth()
   const { workout, activeSession, resumeActiveSession } = useWorkout()
   const { pathname } = useLocation()
   const navigate = useNavigate()
@@ -48,6 +49,15 @@ function Guscio() {
     return (
       <div className="min-h-dvh grid place-items-center">
         <span className="font-data text-[11px] uppercase tracking-[0.2em] text-slate2">Un attimo…</span>
+      </div>
+    )
+  }
+
+  // Arrivo dal link "Password dimenticata?": prima la nuova password, poi l'app.
+  if (recovering) {
+    return (
+      <div className="mx-auto min-h-dvh max-w-lg">
+        <NewPasswordPage />
       </div>
     )
   }

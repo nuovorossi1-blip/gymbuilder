@@ -175,3 +175,24 @@ describe('specializzazione (blocco 4, esempio di Rossi)', () => {
     expect(spec('pull', ['biceps'], 'A', 60).length).toBe(6)
   })
 })
+
+describe('adattamento al tempo (24/09)', () => {
+  const bb = (protocol: 'standard' | 'cbum_top_backoff' | 'fst7', duration: number, carenze: Muscle[], split: Split = 'push', seed = 3) =>
+    generaBodybuilding(cat, {
+      split, goal: 'hypertrophy', experience: 'advanced', equipment: 'full_gym', duration_min: duration,
+      priority_muscles: carenze, excluded_exercises: [], seed, protocol, nutrition_step: -500,
+    })
+  it('il caso di Rossi: Spinta CBum a 60 minuti con carenze spalle/braccia resta entro il 15%', () => {
+    for (const split of ['push', 'pull', 'legs'] as Split[]) for (const seed of [1, 3, 7]) {
+      const w = bb('cbum_top_backoff', 60, ['front_delts', 'lateral_delts', 'rear_delts'], split, seed)
+      expect(w.duration_min).toBeLessThanOrEqual(69)
+    }
+  })
+  it('non toglie mai un esercizio carente: prima mantenimento e antagonista', () => {
+    const w = bb('standard', 30, ['lateral_delts', 'triceps'])
+    const main = w.blocks.find((b) => b.kind === 'main')!.exercises
+    expect(main.some((e) => e.muscle === 'lateral_delts')).toBe(true)
+    expect(main.some((e) => e.muscle === 'triceps')).toBe(true)
+    expect(w.duration_min).toBeLessThanOrEqual(Math.ceil(30 * 1.15))
+  })
+})
