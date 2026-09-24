@@ -20,12 +20,16 @@ export interface CoachEsercizio {
   rir: string
   recupero_sec: number
   nota?: string
+  /** Esercizio equivalente se manca l'attrezzo o l'esercizio non va (testo del coach). */
+  alternativa?: string
   tecnica?: string
 }
 
 export interface CoachSeduta {
   nome: string
   split: Split | null
+  /** Sequenza dei muscoli e perché gli slot sono in quest'ordine (scritta dal coach). */
+  logica?: string
   esercizi: CoachEsercizio[]
 }
 
@@ -67,11 +71,12 @@ export function normalizzaPiano(raw: unknown, catalog: Exercise[]): CoachPlan | 
         rir: s(r.rir, 10),
         recupero_sec: Math.max(0, Math.min(300, Math.round(n(r.recupero_sec, 90)!))),
         nota: s(r.nota) || undefined,
+        alternativa: s(r.alternativa, 120) || undefined,
         tecnica: s(r.tecnica, 120) || undefined,
       }
     })
     const split = s(sd.split, 20) as Split
-    return { nome: s(sd.nome, 40) || 'Seduta', split: SPLITS.includes(split) ? split : null, esercizi }
+    return { nome: s(sd.nome, 40) || 'Seduta', split: SPLITS.includes(split) ? split : null, logica: s(sd.logica, 1200) || undefined, esercizi }
   }).filter((sd) => sd.esercizi.length > 0)
   if (sedute.length === 0) return null
   const macro = (p.macro && typeof p.macro === 'object' ? p.macro : {}) as Record<string, unknown>
@@ -161,6 +166,8 @@ export function controllaPiano(plan: CoachPlan, ctx: ContestoControlli): EsitoCo
     if (proibiti.length) errori.push(`${sd.nome}: esercizi vietati dai tuoi vincoli tassativi: ${proibiti.join(', ')}.`)
     const articolari = sd.esercizi.filter((e) => byId.has(e.exercise_id) && !ammessiFastidi.has(e.exercise_id)).map((e) => e.nome)
     if (articolari.length) errori.push(`${sd.nome}: esercizi sconsigliati per i tuoi fastidi articolari: ${articolari.join(', ')}.`)
+    const senzaPerche = sd.esercizi.filter((e) => !e.nota).length
+    if (senzaPerche > 0) avvisi.push(`${sd.nome}: ${senzaPerche} esercizi senza spiegazione del perché (chiedila pure al coach).`)
     const doppi = sd.esercizi.map((e) => e.exercise_id).filter((id, k, a) => id && a.indexOf(id) !== k)
     if (doppi.length) errori.push(`${sd.nome}: lo stesso esercizio compare due volte.`)
 

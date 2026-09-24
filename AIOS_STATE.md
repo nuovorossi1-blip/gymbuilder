@@ -4,8 +4,33 @@
 > da qui. Va **aggiornato** a ogni sessione, non accodato all'infinito.
 > L'identità del progetto e il percorso di AI-OS stanno in `AIOS_PROJECT.json`.
 
-**Ultimo aggiornamento:** 2026-09-25 (chat del Coach: nuova chat, storico, correzione; Salvati Coach; errori OpenRouter) - Claude (Opus 5.5)
+**Ultimo aggiornamento:** 2026-09-25 (Coach: cliente conosciuto vs nuovo, perché delle scelte, regole di decisione dal file di Rossi) - Claude (Opus 5.5)
 
+### 2026-09-25 (8) — Coach: cliente conosciuto o nuovo, il perché delle scelte, regole di decisione
+
+1. **Richiesta di Rossi** — se il coach conosce già l'utente (programma già avuto / cartella)
+   deve fare domande e, se l'utente chiede, spiegare perché ha scelto quegli esercizi, perché in
+   quella posizione e in base a cosa; se non lo conosce segue il colloquio concordato. Esempio:
+   il suo file completo (2 parti) con regole di decisione, logica energia per seduta, "perché
+   lì" per ogni esercizio, alternative, onda della fatica, varianti A/B, check-in con 10 domande.
+2. **Fatto (verificato)** —
+   - `clienteConosciuto(cartella, haPiano)`: programma, controlli, o cartella con carenze e
+     obiettivo. Colloquio: `PROCEDURA_RIPRESA` se conosciuto (riassume la cartella, chiede
+     conferma, solo le domande mancanti e di controllo, poi programma con logica e perché; parte
+     dalla scheda del file se c'è); altrimenti le 6 categorie. UI: "Riprendiamo da dove eravamo"
+     / "Riprendi con il coach".
+   - REGOLE_COACH: regole di decisione (mantenere, alzare/abbassare calorie, mini surplus/cut
+     con trigger, alzare/abbassare volume con i minimi 10 serie per laterali/bi/tri carenti,
+     scarico deciso dal coach, cambiare esercizio SENZA limite fisso — decisione di Rossi), onda
+     della fatica, varianti A/B senza esercizi ripetuti, posizione del richiamo bicipiti nel
+     Push, "spiegare le scelte".
+   - Piano: `sedute[].logica` (sequenza e logica energia), `esercizi[].nota` OBBLIGATORIA (perché
+     questo esercizio e perché qui), `esercizi[].alternativa`. Avviso se mancano i perché. UI:
+     logica sotto la seduta, "Perché: …", "Alternativa: …". Chat: se il cliente chiede, spiega
+     esercizio per esercizio; suggerimento rapido "Spiegami perché hai scelto questi esercizi".
+   - File .md: colonne "Perché lì" e "Alternativa", logica per seduta, Parte 6 con le 10 domande
+     del check-in e l'output (valutazione, decisioni, scheda, target, file aggiornato).
+   345 test verdi (+4), tsc/eslint puliti, build ok.
 ### 2026-09-25 (7) — Chat del Coach come un vero dialogo, Salvati "Coach", errori OpenRouter
 
 1. **Segnalazioni di Rossi** — con OpenRouter: "La chiave OpenRouter è stata rifiutata"; in chat

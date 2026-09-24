@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
+import { REGOLE_COACH } from '../cartella/coachRules'
 import { controllaPiano, differenzePiani, normalizzaPiano, sedutaComeWorkout } from './plan'
-import { leggiRispostaCoach, messaggioContesto, promptSistema, promptSistemaColloquio, unisciCartella } from './prompt'
+import { clienteConosciuto, leggiRispostaCoach, messaggioContesto, promptSistema, promptSistemaColloquio, unisciCartella } from './prompt'
 import { normalizzaCartella } from '../cartella/cartella'
 import { CARTELLA_VUOTA } from '../cartella/types'
 import type { Exercise } from '../../types'
@@ -120,5 +121,50 @@ describe('Coach: Fase 4', () => {
     const r = leggiRispostaCoach({ messaggio: 'ok', calorie: 2250, controllo: { data: '2026-10-20' } })
     expect(r.calorie).toBe(2250)
     expect(r.controllo).toEqual({ data: '2026-10-20' })
+  })
+})
+
+describe('Coach: cliente conosciuto o nuovo, e il perché delle scelte (25/09)', () => {
+  it('cartella vuota = nuovo; cartella compilata o programma = conosciuto', () => {
+    expect(clienteConosciuto(CARTELLA_VUOTA, false)).toBe(false)
+    expect(clienteConosciuto(normalizzaCartella({ carenze: [{ muscolo: 'biceps' }], obiettivo: { primario: 'V-shape' } }, cat), false)).toBe(true)
+    expect(clienteConosciuto(CARTELLA_VUOTA, true)).toBe(true)
+  })
+  it('al cliente conosciuto niente anamnesi: riassunto, domande mancanti, programma spiegato', () => {
+    const p = promptSistema('colloquio', true)
+    expect(p).toContain('NON rifare l\'anamnesi')
+    expect(p).not.toContain('## PRIMO COLLOQUIO')
+    expect(promptSistema('colloquio', false)).toContain('## PRIMO COLLOQUIO')
+    expect(p).toContain('REGOLE DI DECISIONE')
+    expect(promptSistema('chat')).toContain('spiega esercizio per esercizio')
+  })
+  it('la logica della seduta si conserva e gli esercizi senza perché vengono segnalati', () => {
+    const conLogica = normalizzaPiano({ ...rawPiano, sedute: [{ ...rawPiano.sedute[0], logica: 'D → P → D → P → Bi → T' }] }, cat)!
+    expect(conLogica.sedute[0].logica).toBe('D → P → D → P → Bi → T')
+    const esito = controllaPiano(conLogica, { catalog: cat, cartella, fastidi: [], phase: 'deficit' })
+    expect(esito.avvisi.join(' ')).toContain('senza spiegazione del perché')
+  })
+})
+
+
+describe('Coach: cliente conosciuto o nuovo, e il perché delle scelte (25/09)', () => {
+  it('conosciuto se ha un programma, dei controlli o una cartella compilata', () => {
+    expect(clienteConosciuto(normalizzaCartella({}, cat), false)).toBe(false)
+    expect(clienteConosciuto(normalizzaCartella({}, cat), true)).toBe(true)
+    expect(clienteConosciuto(normalizzaCartella({ carenze: [{ muscolo: 'biceps' }], obiettivo: { primario: 'V-shape' } }, cat), false)).toBe(true)
+    expect(clienteConosciuto(normalizzaCartella({ controlli: [{ data: '2026-10-01' }] }, cat), false)).toBe(true)
+  })
+  it('con il cliente conosciuto niente anamnesi: ripresa con riassunto', () => {
+    expect(promptSistema('colloquio', true)).toContain('NON rifare l\'anamnesi')
+    expect(promptSistema('colloquio', false)).toContain('1. Chi sei')
+    expect(promptSistema('chat')).toContain('spiega esercizio per esercizio')
+  })
+  it('regole di decisione, volume, scarico e cambio esercizi nelle regole del coach', () => {
+    for (const r of ['MANTENERE tutto', 'ALZARE il volume', 'ABBASSARE il volume', 'SCARICO', 'CAMBIARE un esercizio', 'ONDA DELLA FATICA']) expect(REGOLE_COACH).toContain(r)
+  })
+  it('il piano conserva logica, perché e alternativa di ogni esercizio', () => {
+    const p = normalizzaPiano({ sedute: [{ nome: 'Pull A', logica: 'Bi → Sch → Rear', esercizi: [{ exercise_id: 'face_pull', nota: 'rear fresco', alternativa: 'Croci inverse ai cavi' }] }] }, cat)!
+    expect(p.sedute[0].logica).toBe('Bi → Sch → Rear')
+    expect(p.sedute[0].esercizi[0]).toMatchObject({ nota: 'rear fresco', alternativa: 'Croci inverse ai cavi' })
   })
 })

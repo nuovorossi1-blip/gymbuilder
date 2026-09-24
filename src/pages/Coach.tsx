@@ -13,7 +13,7 @@ import { useCartella } from '../features/cartella/useCartella'
 import { useCoach, type MessaggioCoach } from '../features/coach/useCoach'
 import { useWorkout } from '../features/workout/WorkoutContext'
 import { controllaPiano, differenzePiani, normalizzaPiano, sedutaComeWorkout, type CoachPlan, type EsitoControlli } from '../features/coach/plan'
-import { leggiRispostaCoach, messaggioContesto, promptSistema, unisciCartella, type TipoConversazione } from '../features/coach/prompt'
+import { clienteConosciuto, leggiRispostaCoach, messaggioContesto, promptSistema, unisciCartella, type TipoConversazione } from '../features/coach/prompt'
 import { cartellaInMarkdown, normalizzaCartella, vietatiDallaCartella } from '../features/cartella/cartella'
 import { FileCartella } from '../features/cartella/FileCartella'
 import { chiediJsonAlLlm, type LlmMessage } from '../lib/deepseek'
@@ -59,6 +59,7 @@ function Sedute({ plan, prossima, onInizia }: { plan: CoachPlan; prossima?: numb
             <span className="font-display text-sm font-bold uppercase">{String.fromCharCode(65 + i)} · {sd.nome}</span>
             <span className="font-data text-[11px] text-slate2">{i === prossima ? 'PROSSIMA' : `${sd.esercizi.length} esercizi`}</span>
           </button>
+          {aperta === i && sd.logica && <p className="mt-2 rounded-lg bg-steel/60 p-2 text-[12px] leading-relaxed text-chalk">{sd.logica}</p>}
           {aperta === i && (
             <ol className="mt-2 space-y-1.5">
               {sd.esercizi.map((e, k) => (
@@ -66,7 +67,8 @@ function Sedute({ plan, prossima, onInizia }: { plan: CoachPlan; prossima?: numb
                   <span className="font-data text-slate2">{k + 1}.</span> {e.nome}
                   <span className="ml-1 font-data text-[12px] text-slate2">{e.serie}×{e.reps}{e.rir ? ` · RIR ${e.rir}` : ''}</span>
                   {e.tecnica && <span className="block text-[11px] text-amber2">{e.tecnica}</span>}
-                  {e.nota && <span className="block text-[11px] text-slate2">{e.nota}</span>}
+                  {e.nota && <span className="block text-[11px] text-slate2">Perché: {e.nota}</span>}
+                  {e.alternativa && <span className="block text-[11px] text-slate2">Alternativa: {e.alternativa}</span>}
                 </li>
               ))}
             </ol>
@@ -111,6 +113,8 @@ export default function Coach() {
   const fondo = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const fase = determinaFase(profile, calorieLog)
+  // Ti conosce già (cartella compilata, controlli o programma)? Allora niente anamnesi: ripresa.
+  const conosciuto = clienteConosciuto(cartella, !!piano)
 
   useEffect(() => {
     if (catalogo.length) return
@@ -167,7 +171,7 @@ export default function Coach() {
         allenamentiFatti: storico.slice(0, 15).map((w) => ({ data: w.completed_at.slice(0, 10), nome: w.name, minuti: Math.round(w.duration_sec / 60), voto: w.rating })),
       })
       const risposta = leggiRispostaCoach(await chiediJsonAlLlm([
-        { role: 'system', content: promptSistema(kind) },
+        { role: 'system', content: promptSistema(kind, conosciuto) },
         { role: 'user', content: `CONTESTO DEL CLIENTE (leggilo prima di tutto): ${contesto}` },
         ...[...base, mio].map(perLlm),
       ]))
@@ -321,9 +325,11 @@ export default function Coach() {
   const visibili = conversazione.filter((m) => !(m.meta as { nascosto?: boolean } | null)?.nascosto)
   const ultimo = visibili[visibili.length - 1]
   const ultimoMio = [...visibili].reverse().find((m) => m.role === 'utente' && !(m.meta as MetaCoach | null)?.accettato)
-  const titolo = kind === 'colloquio' ? 'Primo colloquio' : kind === 'controllo' ? 'Controllo periodico' : 'Parla col coach'
+  const titolo = kind === 'colloquio' ? (conosciuto ? 'Riprendiamo da dove eravamo' : 'Primo colloquio') : kind === 'controllo' ? 'Controllo periodico' : 'Parla col coach'
   const spiegazione = kind === 'colloquio'
-    ? 'Una domanda alla volta, poi il piano su misura. Il coach aggiorna la tua cartella mentre parlate.'
+    ? conosciuto
+      ? 'Il coach ha letto la tua cartella: riassume quello che sa, ti fa solo le domande che mancano e ti consegna il programma spiegando ogni scelta.'
+      : 'Una domanda alla volta, poi il piano su misura. Il coach aggiorna la tua cartella mentre parlate.'
     : kind === 'controllo'
       ? 'Il coach ha letto tutto: peso, girovita e carichi li conosce già. Rispondi alle domande e ti dirà cosa cambiare.'
       : 'Scrivi quando vuoi: un esercizio che non senti, uno slot in cui arrivi stanco, un dubbio. Se serve cambia il piano subito.'
@@ -347,13 +353,13 @@ export default function Coach() {
 
       <div className="mt-5 flex-1 space-y-3">
         {kind === 'colloquio' && visibili.length === 0 && (
-          <button className="btn" disabled={attesa || !catalogo.length} onClick={() => { void invia('colloquio', 'Ciao, iniziamo il colloquio.') }}>Inizia il colloquio</button>
+          <button className="btn" disabled={attesa || !catalogo.length} onClick={() => { void invia('colloquio', conosciuto ? 'Ciao, riprendiamo: hai la mia cartella.' : 'Ciao, iniziamo il colloquio.') }}>{conosciuto ? 'Riprendi con il coach' : 'Inizia il colloquio'}</button>
         )}
         {kind === 'chat' && visibili.length === 0 && (
           <div className="space-y-2">
             <p className="text-sm text-slate2">Il coach ha davanti l'ultimo programma che ti ha dato e gli allenamenti che hai fatto. Da dove partiamo?</p>
             <div className="flex flex-wrap gap-2">
-              {['Com’è andata con il programma: ti racconto', 'A che punto sono con il mio obiettivo?', 'Un esercizio non lo sento bene', 'Arrivo troppo stanco a un esercizio'].map((o) => (
+              {['Com’è andata con il programma: ti racconto', 'A che punto sono con il mio obiettivo?', 'Un esercizio non lo sento bene', 'Arrivo troppo stanco a un esercizio', 'Spiegami perché hai scelto questi esercizi'].map((o) => (
                 <button key={o} disabled={attesa} className="rounded-full border border-cyan-500/40 px-3 py-1.5 text-xs text-cyan-200" onClick={() => { void invia('chat', o) }}>{o}</button>
               ))}
             </div>

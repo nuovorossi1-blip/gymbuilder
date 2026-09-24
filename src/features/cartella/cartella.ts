@@ -125,7 +125,7 @@ export interface DatiExport {
   bodyLog: BodyEntry[]
   program: WeeklyProgram | null
   /** Piano del Coach attivo (Fase 4): se c'è, è lui la "scheda attuale" del file. */
-  coachPlan?: { titolo: string; giorni_settimana: number; sedute: { nome: string; esercizi: { nome: string; serie: number; reps: string; rir: string; tecnica?: string; nota?: string }[] }[] } | null
+  coachPlan?: { titolo: string; giorni_settimana: number; note?: string; sedute: { nome: string; logica?: string; esercizi: { nome: string; serie: number; reps: string; rir: string; tecnica?: string; nota?: string; alternativa?: string }[] }[] } | null
   nome?: string
 }
 
@@ -170,8 +170,10 @@ export function cartellaInMarkdown(d: DatiExport): string {
   out.push('# PARTE 4 — LA SCHEDA ATTUALE', '')
   if (d.coachPlan) {
     out.push(`**${d.coachPlan.titolo}** — rotazione di ${d.coachPlan.sedute.length} sedute, ${d.coachPlan.giorni_settimana} a settimana (si fa sempre la prossima della lista).`)
+    if (d.coachPlan.note) out.push('', d.coachPlan.note)
     for (const sd of d.coachPlan.sedute) {
-      out.push('', `### ${sd.nome}`, tabella(['#', 'Esercizio', 'Serie×Reps', 'RIR', 'Tecnica / nota'], sd.esercizi.map((e, i) => [i + 1, e.nome, `${e.serie}×${e.reps}`, e.rir, [e.tecnica, e.nota].filter(Boolean).join(' · ')])))
+      out.push('', `### ${sd.nome}`, tabella(['#', 'Esercizio', 'Serie×Reps', 'RIR', 'Tecnica', 'Perché lì', 'Alternativa'], sd.esercizi.map((e, i) => [i + 1, e.nome, `${e.serie}×${e.reps}`, e.rir, e.tecnica, e.nota, e.alternativa])))
+      if (sd.logica) out.push('', `**Logica:** ${sd.logica}`)
     }
   } else if (d.program) {
     out.push(tabella(['#', 'Seduta', 'Disciplina', 'Carenze'], d.program.week.map((s, i) => [i + 1, s.label, s.mode, s.priority_muscles.map((m) => MUSCLE_LABELS[m]).join(', ')])))
@@ -194,9 +196,15 @@ export function cartellaInMarkdown(d: DatiExport): string {
   }
   if (c.note_coach) out.push('## Note del coach', c.note_coach, '')
   out.push('# PARTE 6 — COSA DEVE FARE IL COACH', '',
-    '1. Valutazione del trend rispetto allo storico. 2. Decisioni con il perché (calorie, volume, esercizi, RIR, articolazioni).',
-    '3. Scheda aggiornata solo dei giorni che cambiano, con la logica di interleave. 4. Obiettivi delle prossime 4 settimane.',
-    '5. Il file intero aggiornato, con il controllo aggiunto allo storico.', '')
+    'Se è un controllo: di\' che hai letto tutto il diario, poi fai queste domande (una o due alla volta).',
+    'CORPO: 1) peso medio degli ultimi 7 giorni; 2) girovita all\'ombelico, al mattino a digiuno.',
+    'SPECCHIO: 3) come ti vedi rispetto all\'inizio; 4) un muscolo che vedi crescere; 5) un muscolo fermo o che non senti.',
+    'PALESTRA: 6) energia e motivazione; 7) carichi in salita, stabili o in calo (su quali esercizi); 8) fastidi articolari nuovi o peggiorati.',
+    'ALIMENTAZIONE: 9) calorie rispettate, fame, momenti di fame incontrollabile; 10) sonno e stress rispetto all\'inizio.',
+    '',
+    'Poi: 1. Valutazione del trend rispetto allo storico. 2. Decisioni con il perché (calorie, volume, esercizi, RIR, articolazioni) secondo le regole di decisione.',
+    '3. Scheda aggiornata solo dei giorni che cambiano, con la logica e il perché di ogni esercizio. 4. Obiettivi delle prossime 4 settimane (peso, girovita, carichi chiave).',
+    '5. Il file intero aggiornato, con il controllo aggiunto allo storico. Se il cliente chiede perché hai scelto un esercizio o una posizione, spiegalo.', '')
   const testo = out.join('\n')
   // Il blocco nascosto porta cartella E programma: il file si ricarica identico in qualsiasi
   // momento, indipendentemente dall'LLM scelto.
