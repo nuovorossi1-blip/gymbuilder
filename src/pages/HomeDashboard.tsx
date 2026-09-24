@@ -286,6 +286,23 @@ export default function HomeDashboard() {
             </span>
           </button>
 
+          {/* Card 5: La mia cartella (Fase 2, 25/09) */}
+          <button
+            onClick={() => navigate('/cartella')}
+            className="group relative flex items-center justify-between rounded-xl glass-card p-4 border border-edge text-left transition-all hover:border-cyan-500/40 active:scale-[0.99]"
+          >
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500/20 to-cyan-500/20 text-2xl border border-indigo-500/30">
+                📋
+              </div>
+              <div>
+                <div className="font-display font-bold text-white group-hover:text-cyan-300 transition-colors">La mia cartella</div>
+                <div className="text-xs text-slate-400">Carenze, vincoli, esercizi e obiettivi per il Coach · scarica il file .md</div>
+              </div>
+            </div>
+            <span className="text-slate-400 group-hover:text-cyan-400 transition-transform group-hover:translate-x-1">➔</span>
+          </button>
+
           {/* Card 4: Peso e girovita (blocco 3) */}
           <button
             onClick={() => navigate('/peso')}

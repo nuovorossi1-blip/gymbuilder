@@ -6,6 +6,8 @@ import { applyAutomaticProgramming, applyWorkoutRecovery, generateWeeklyProgram,
 import { adaptPrescriptionForProfile, resolveEffectiveWeakPoints } from '../engine/biomechanics'
 import { validateWorkout } from '../engine/validator'
 import { logJsError } from '../lib/jsErrorLog'
+import { useCartella } from '../features/cartella/useCartella'
+import { preferitiDallaCartella, vietatiDallaCartella } from '../features/cartella/cartella'
 import { determinaFase, escludiPerFastidi } from '../engine/nutrition'
 import { ordinaSessione, violazioniInterleave } from '../engine/programming'
 import { stimaVolumeSettimanale, type WeeklyVolume } from '../engine/weeklyVolume'
@@ -57,10 +59,15 @@ export default function Create() {
   // Bodybuilding e viaggia nel brief a DeepSeek. Null = dati non inseriti, motore come prima.
   const phaseInfo = determinaFase(profile, calorieLog)
   const jointIssues = profile?.joint_issues ?? []
+  // Cartella del cliente (Fase 2): gli esercizi vietati dai vincoli tassativi non escono mai,
+  // quelli che senti bene e gli obbligatori sono preferiti.
+  const { cartella } = useCartella(user?.id)
   const { weeklyProgram, setWeeklyProgram, setWorkout, setGenerationConfig, setCatalog, clearRejectedExercises } = useWorkout()
   const navigate = useNavigate()
   const [catalog, setLocalCatalog] = useState<Exercise[]>([])
   const [weeklyState, setWeeklyState] = useState<WeeklyTrainingState>()
+  const vietatiCartella = vietatiDallaCartella(cartella, catalog)
+  const preferitiCartella = preferitiDallaCartella(cartella)
   const [error, setError] = useState<string | null>(null)
 
   const initialKind = searchParams.get('program_kind') === 'single_session' ? 'single_session' : 'program'
@@ -192,7 +199,7 @@ export default function Create() {
   ) {
     const global = sourceProgram.config
     const adaptiveExcluded = user ? adaptiveExcludedIds(user.id, catalog) : []
-    const excluded = [...new Set([...global.preferences.excluded_exercise_ids, ...adaptiveExcluded])]
+    const excluded = [...new Set([...global.preferences.excluded_exercise_ids, ...adaptiveExcluded, ...vietatiCartella])]
     const workout = {
       ...workoutBase,
       session_id: session.id,
@@ -268,7 +275,7 @@ export default function Create() {
   function engineWorkoutFor(session: WeeklySession, sourceProgram: WeeklyProgram, seed: number) {
     const global = sourceProgram.config
     const adaptiveExcluded = user ? adaptiveExcludedIds(user.id, catalog) : []
-    const excluded = [...new Set([...global.preferences.excluded_exercise_ids, ...adaptiveExcluded])]
+    const excluded = [...new Set([...global.preferences.excluded_exercise_ids, ...adaptiveExcluded, ...vietatiCartella])]
     const usableCatalog = escludiPerFastidi(filterExercisesByPreferences(catalog, { excludedExerciseIds: excluded }), jointIssues)
     const dayCatalog = session.fatigue_avoid_muscles?.length
       ? usableCatalog.filter((exercise) => exercise.systemic_fatigue <= 1 || !exercise.primary_muscles.some((muscle) => session.fatigue_avoid_muscles?.includes(muscle)))
@@ -280,7 +287,7 @@ export default function Create() {
       duration_min: global.duration_min,
       priority_muscles: global.weak_points,
       excluded_exercises: excluded,
-      preferred_exercises: global.preferences.preferred_exercise_ids,
+      preferred_exercises: [...new Set([...global.preferences.preferred_exercise_ids, ...preferitiCartella])],
       intensity: global.intensity,
       weight_kg: profile?.weight_kg ?? null,
       seed,
@@ -349,14 +356,14 @@ export default function Create() {
         return
       }
       const adaptiveExcluded = user ? adaptiveExcludedIds(user.id, catalog) : []
-      const excluded = [...new Set([...global.preferences.excluded_exercise_ids, ...adaptiveExcluded])]
+      const excluded = [...new Set([...global.preferences.excluded_exercise_ids, ...adaptiveExcluded, ...vietatiCartella])]
       const generato = generaDensityEdt(catalog, {
         split,
         duration_min: global.duration_min,
         equipment: global.equipment.preset,
         available_equipment: global.equipment.available,
         excluded_exercises: excluded,
-        preferred_exercises: global.preferences.preferred_exercise_ids,
+        preferred_exercises: [...new Set([...global.preferences.preferred_exercise_ids, ...preferitiCartella])],
       })
       if (!generato) {
         setError("Density 3-6-9 non è componibile con l'attrezzatura e le esclusioni attuali per questo giorno.")

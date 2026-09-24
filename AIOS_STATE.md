@@ -4,8 +4,41 @@
 > da qui. Va **aggiornato** a ogni sessione, non accodato all'infinito.
 > L'identità del progetto e il percorso di AI-OS stanno in `AIOS_PROJECT.json`.
 
-**Ultimo aggiornamento:** 2026-09-25 (piano "Coach personale": Fase 1 completata, protocolli) - Claude (Opus 5.5)
+**Ultimo aggiornamento:** 2026-09-25 (piano "Coach personale": Fase 2 completata, cartella del cliente) - Claude (Opus 5.5)
 
+### 2026-09-25 (2) — Piano "Coach personale", Fase 2: cartella del cliente
+
+1. **Obiettivo** — la "cartella clinica" del file unico di Rossi dentro l'app, una per utente,
+   base del Coach LLM (Fasi 3-4).
+2. **Fatto (verificato)** —
+   - DB (applicato): tabella `client_folder` (user_id PK, data jsonb, updated_at) con RLS
+     sulla propria riga. Migration nel repo.
+   - `features/cartella/types.ts`: CartellaCliente (livello, obiettivo, vincoli tassativi con
+     esercizi vietati, carenze e punti forti con note, esercizi ok / perdita di tensione /
+     obbligatori con seduta e slot, attrezzatura, riscaldamento fisso ~8 min, macro in grammi,
+     note del coach, storico controlli). Sesso, età, peso, calorie, sonno, stress, fastidi,
+     storico calorie e peso NON sono duplicati: restano nel Profilo e nei diari.
+   - `coachRules.ts`: Principi 1-12 + "cosa non fare", allineati alle decisioni di Rossi
+     (interleave per fase, scala, protocolli, nessun limite di cambi). Servirà anche al prompt
+     del Coach.
+   - `cartella.ts`: `normalizzaCartella` (dati parziali, vecchi o scritti da un LLM; muscoli
+     riconosciuti anche dal nome italiano; esercizi abbinati al catalogo), `cartellaInMarkdown`
+     (file unico con le 6 parti del file di Rossi + blocco JSON nascosto con firma del testo),
+     `leggiMarkdown` (JSON esatto se il testo non è cambiato; altrimenti segnala modifica).
+     Import di un .md modificato: `leggiCartellaConLlm` (DeepSeek riporta il testo nella
+     struttura, il testo vince sul JSON precedente), poi anteprima e conferma.
+   - Pagina `/cartella` ("La mia cartella", card in Home): modifica di tutte le sezioni,
+     "Scarica .md", "Carica .md" con anteprima, salvataggio.
+   - Genera: gli esercizi vietati dai vincoli (riconosciuti nel catalogo) sono esclusi, quelli
+     che senti bene e gli obbligatori sono preferiti (motore e DeepSeek).
+   Provato in Chromium con Supabase simulato: compilazione, salvataggio (upsert), download del
+   file (7 kB, 6 parti), ricaricamento riconosciuto come "non modificato". 325 test verdi
+   (+5), tsc/eslint puliti, build ok.
+3. **Da fare** — Fase 3 Coach (primo colloquio). Il riscaldamento fisso della cartella non
+   sostituisce ancora quello generato: entrerà con il piano del Coach. Macro solo registrati.
+4. **Obiettivo** — il coach avrà una cartella strutturata, esportabile e portabile.
+5. **Cosa aspettarsi** — Home -> "La mia cartella": compila, Salva, Scarica .md; il file si
+   può incollare in qualsiasi LLM e ricaricare anche se modificato.
 ### 2026-09-25 — Piano "Coach personale", Fase 1: protocolli corretti
 
 1. **Problemi** — "CBum" = top set/back-off su OGNI esercizio (20 voci, sedute lunghissime);

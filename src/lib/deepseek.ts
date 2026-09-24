@@ -623,3 +623,23 @@ export async function analyzeSchedaWithDeepSeek(settings: LocalAiSettings, input
   if (!content) throw new Error('DeepSeek non ha restituito contenuto utile.')
   return sanitizeSchedaAnalysis(JSON.parse(extractJsonObject(content)))
 }
+
+// ---------------------------------------------------------------------------------------------
+// Fase 2 (25/09): lettura di una cartella .md modificata fuori dall'app (a mano o da un altro
+// LLM). DeepSeek la riporta nella struttura CartellaCliente; normalizzaCartella la ripulisce.
+// ---------------------------------------------------------------------------------------------
+export const CARTELLA_IMPORT_SYSTEM_PROMPT = `Ricevi la cartella di un cliente di bodybuilding in Markdown (può essere stata aggiornata da un altro coach o LLM) ed eventualmente la versione precedente in JSON.
+Estrai i dati e rispondi SOLO con un JSON object con esattamente queste chiavi:
+{"livello_note":"string","obiettivo":{"primario":"string","secondario":"string","indiretto":"string"},"vincoli":[{"zona":"string","problema":"string","vietati":["nome esercizio"],"strategia":"string"}],"carenze":[{"muscolo":"id","note":"string"}],"punti_forti":[{"muscolo":"id","note":"string"}],"esercizi_ok":[{"nome":"string","nota":"string"}],"esercizi_perdita_tensione":[{"nome":"string","nota":"soluzione"}],"obbligatori":[{"nome":"string","seduta":"string","slot":1}],"attrezzatura":["string"],"riscaldamento":{"descrizione":"string","minuti":8},"macro":{"proteine_g":150,"grassi_g":70,"carboidrati_g":250},"note_coach":"string","controlli":[{"data":"AAAA-MM-GG","peso":82,"girovita":84,"specchio":"string","energia":"string","recupero":"string","sonno":"string","fame":"string","fastidi":"string","carichi":[{"esercizio":"string","carico":"string","reps":"string"}],"decisioni":"string"}]}
+Muscoli ammessi (id): chest, back, front_delts, lateral_delts, rear_delts, biceps, triceps, forearms, quads, hamstrings, glutes, adductors, calves, core.
+Il testo Markdown vince sul JSON precedente dove sono diversi. Non inventare dati che non ci sono: lascia stringhe vuote o liste vuote.`
+
+export async function leggiCartellaConLlm(settings: LocalAiSettings, markdown: string, precedente: unknown): Promise<unknown> {
+  const payload = await requestDeepSeek(settings, [
+    { role: 'system', content: CARTELLA_IMPORT_SYSTEM_PROMPT },
+    { role: 'user', content: JSON.stringify({ markdown: markdown.slice(0, 60_000), json_precedente: precedente ?? null }) },
+  ])
+  const content = payload.choices?.[0]?.message?.content
+  if (!content) throw new Error('DeepSeek non ha restituito contenuto utile.')
+  return JSON.parse(extractJsonObject(content))
+}
