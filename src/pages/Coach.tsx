@@ -21,6 +21,7 @@ import { caricaCatalogo, elencoStorico } from '../lib/api'
 import { determinaFase, escludiPerFastidi, patchCambioCalorie } from '../engine/nutrition'
 import { isExerciseAvailable } from '../generators/equipment'
 import { MUSCLE_LABELS, type CompletedWorkout, type Exercise } from '../types'
+import { Markdown } from '../components/Markdown'
 import { BackButton } from '../components/BackButton'
 
 const GIORNI_CONTROLLO = 28
@@ -101,7 +102,7 @@ export default function Coach() {
   const { user } = useAuth()
   const { profile, calorieLog, bodyLog, settings, saveProfile } = useSettings(user?.id)
   const { cartella, salva: salvaCartella } = useCartella(user?.id)
-  const { messaggi, piano, versioni, aggiungi, eliminaMessaggi, eliminaPiano, cancellaConversazione, accettaPiano, impostaProssima } = useCoach(user?.id)
+  const { messaggi, piano, versioni, aggiungi, eliminaMessaggi, eliminaPiano, eliminaConversazione, cancellaConversazione, accettaPiano, impostaProssima } = useCoach(user?.id)
   const { catalog: ctxCatalog, setCatalog, setWorkout, setGenerationConfig } = useWorkout()
   const [catalogo, setCatalogo] = useState<Exercise[]>(ctxCatalog ?? [])
   const [storico, setStorico] = useState<CompletedWorkout[]>([])
@@ -167,6 +168,16 @@ export default function Coach() {
       return { id, inizio: lista[0].created_at, ultimo: lista[lista.length - 1].created_at, titolo: (primoUtente?.content ?? lista.find((m) => m.role === 'coach')?.content ?? 'Chat').slice(0, 60) }
     }).sort((a, b) => b.ultimo.localeCompare(a.ultimo))
   }, [messaggi])
+
+  // Tasto "Coach" della barra in basso (/coach?c=chat): apre l'ultima chat, o una nuova vuota
+  // come quando si apre una chat con un LLM.
+  useEffect(() => {
+    if (aperta !== 'chat' || thread || messaggi === null) return
+    const ultima = storicoChat[0]
+    vai('chat', ultima ? ultima.id : crypto.randomUUID(), true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aperta, thread, messaggi])
+
 
   const perLlm = (m: MessaggioCoach): LlmMessage => {
     if (m.role === 'utente') return { role: 'user', content: m.content }
@@ -426,7 +437,8 @@ export default function Coach() {
 
   async function nuova(tipoNuovo: 'chat' | 'cambio' | 'programma' | 'controllo') {
     setCassetto(false)
-    if (tipoNuovo === 'chat') { await apriChat(true); return }
+    // Nuova chat vuota, come quando se ne apre una con un LLM: scrivi tu per primo.
+    if (tipoNuovo === 'chat') { vai('chat', crypto.randomUUID()); return }
     if (tipoNuovo === 'cambio') {
       const id = crypto.randomUUID()
       vai('chat', id)
@@ -440,6 +452,18 @@ export default function Coach() {
     setAperta('colloquio')
   }
 
+  /** Cancella una conversazione dallo storico; se era quella aperta si apre una chat nuova. */
+  async function eliminaChat(k: TipoConversazione, t?: string) {
+    if (!confirm('Eliminare definitivamente questa conversazione?')) return
+    try {
+      await eliminaConversazione(k, t ?? null)
+      const aperta_ = k === 'chat' ? valoreMenu === `chat:${t}` : valoreMenu === k
+      if (aperta_) vai('chat', crypto.randomUUID(), true)
+    } catch (e) {
+      setErrore(e instanceof Error ? e.message : 'Conversazione non eliminata.')
+    }
+  }
+
   function inviaDalCampo() {
     const t = testo.trim()
     if (!t || attesa) return
@@ -450,11 +474,11 @@ export default function Coach() {
   return (
     // Layout da app di messaggi: intestazione fissa, messaggi che scorrono, campo in basso sopra
     // la barra di navigazione (72 px). Niente contenuto più largo dello schermo.
-    <main className="fixed inset-x-0 top-0 mx-auto flex h-[calc(100dvh-68px-env(safe-area-inset-bottom))] max-w-lg flex-col overflow-hidden">
+    <main className="fixed inset-x-0 top-0 mx-auto flex h-[calc(100dvh-84px-env(safe-area-inset-bottom))] max-w-lg flex-col overflow-hidden">
       <header className="shrink-0 border-b border-edge bg-ink/95 px-3 pb-2 pt-[max(1rem,env(safe-area-inset-top))]">
         <div className="flex items-center gap-2">
           <button className="flex h-10 shrink-0 items-center gap-1 rounded-full border border-cyan-500/50 bg-cyan-500/15 px-3 text-sm font-bold text-cyan-100" onClick={indietro} aria-label="Indietro">← <span className="hidden min-[380px]:inline">Indietro</span></button>
-          <h1 className="min-w-0 flex-1 truncate font-display text-lg font-extrabold uppercase">{titolo}</h1>
+          <h1 className="min-w-0 flex-1 truncate font-sans text-base font-semibold">{titolo}</h1>
           <button className="shrink-0 rounded-lg border border-edge px-2.5 py-1.5 text-sm" aria-label="Nuova chat" disabled={attesa} onClick={() => { void nuova('chat') }}>✎</button>
           <button className="shrink-0 rounded-lg border border-cyan-500/40 px-2.5 py-1.5 text-sm text-cyan-200" aria-label="Conversazioni" aria-expanded={cassetto} onClick={() => setCassetto(true)}>☰</button>
         </div>
@@ -479,17 +503,20 @@ export default function Coach() {
             <p className="mt-4 px-4 pb-1 text-[11px] uppercase tracking-wider text-slate2">Recenti</p>
             <ul className="flex-1 space-y-0.5 overflow-y-auto px-3 pb-6">
               {(haColloquio || !piano) && (
-                <li><button className={`w-full truncate rounded-lg px-3 py-2 text-left text-sm ${valoreMenu === 'colloquio' ? 'bg-steel text-white' : 'text-slate-300'}`} onClick={() => scegliConversazione('colloquio')}>🧑‍🏫 {conosciuto ? 'Colloquio / ripresa' : 'Primo colloquio'}</button></li>
+                <li className="flex items-center"><button className={`min-w-0 flex-1 truncate rounded-lg px-3 py-2 text-left text-sm ${valoreMenu === 'colloquio' ? 'bg-steel text-white' : 'text-slate-300'}`} onClick={() => scegliConversazione('colloquio')}>🧑‍🏫 {conosciuto ? 'Colloquio / ripresa' : 'Primo colloquio'}</button>{haColloquio && <button className="shrink-0 px-3 py-2 text-sm text-slate2 hover:text-red-300" aria-label="Elimina il colloquio" onClick={() => { void eliminaChat('colloquio') }}>🗑</button>}</li>
               )}
               {haControllo && (
-                <li><button className={`w-full truncate rounded-lg px-3 py-2 text-left text-sm ${valoreMenu === 'controllo' ? 'bg-steel text-white' : 'text-slate-300'}`} onClick={() => scegliConversazione('controllo')}>📋 Ultimo controllo</button></li>
+                <li className="flex items-center"><button className={`min-w-0 flex-1 truncate rounded-lg px-3 py-2 text-left text-sm ${valoreMenu === 'controllo' ? 'bg-steel text-white' : 'text-slate-300'}`} onClick={() => scegliConversazione('controllo')}>📋 Ultimo controllo</button><button className="shrink-0 px-3 py-2 text-sm text-slate2 hover:text-red-300" aria-label="Elimina il controllo" onClick={() => { void eliminaChat('controllo') }}>🗑</button></li>
               )}
               {storicoChat.map((c) => (
                 <li key={c.id}>
-                  <button className={`w-full rounded-lg px-3 py-2 text-left text-sm ${valoreMenu === `chat:${c.id}` ? 'bg-steel text-white' : 'text-slate-300'}`} onClick={() => scegliConversazione(`chat:${c.id}`)}>
-                    <span className="block truncate">{c.titolo}</span>
-                    <span className="block text-[11px] text-slate2">{new Date(c.ultimo).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })}</span>
-                  </button>
+                  <div className={`flex items-center rounded-lg ${valoreMenu === `chat:${c.id}` ? 'bg-steel' : ''}`}>
+                    <button className={`min-w-0 flex-1 px-3 py-2 text-left text-sm ${valoreMenu === `chat:${c.id}` ? 'text-white' : 'text-slate-300'}`} onClick={() => scegliConversazione(`chat:${c.id}`)}>
+                      <span className="block truncate">{c.titolo}</span>
+                      <span className="block text-[11px] text-slate2">{new Date(c.ultimo).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })}</span>
+                    </button>
+                    <button className="shrink-0 px-3 py-2 text-sm text-slate2 hover:text-red-300" aria-label={`Elimina la chat ${c.titolo}`} onClick={() => { void eliminaChat('chat', c.id) }}>🗑</button>
+                  </div>
                 </li>
               ))}
               {storicoChat.length === 0 && !haColloquio && !haControllo && <li className="px-3 py-2 text-sm text-slate2">Nessuna conversazione ancora.</li>}
@@ -499,13 +526,19 @@ export default function Coach() {
         </div>
       )}
 
-      <div ref={listaRef} className="min-w-0 flex-1 space-y-3 overflow-y-auto overflow-x-hidden overscroll-contain px-3 py-3">
+      <div ref={listaRef} className="min-w-0 flex-1 space-y-5 overflow-y-auto overflow-x-hidden overscroll-contain px-4 py-4 font-sans text-[15px] leading-relaxed">
         {visibili.length === 0 && <p className="text-sm text-slate2">{spiegazione}</p>}
         {kind === 'colloquio' && visibili.length === 0 && (
           <button className="btn" disabled={attesa || !catalogo.length} onClick={() => { void invia('colloquio', conosciuto ? 'Ciao, riprendiamo: hai la mia cartella.' : 'Ciao, iniziamo il colloquio.') }}>{conosciuto ? 'Riprendi con il coach' : 'Inizia il colloquio'}</button>
         )}
         {kind === 'chat' && visibili.length === 0 && !attesa && (
-          <div className="flex flex-wrap gap-2">
+          <div className="pt-10 text-center">
+            <p className="text-xl font-semibold text-white">Come posso aiutarti?</p>
+            <p className="mt-1 text-sm text-slate2">Chiedimi qualsiasi cosa: allenamento, alimentazione, il tuo programma, o altro.</p>
+          </div>
+        )}
+        {kind === 'chat' && visibili.length === 0 && !attesa && (
+          <div className="flex flex-wrap justify-center gap-2">
             {['Com’è andata con il programma: ti racconto', 'A che punto sono con il mio obiettivo?', 'Un esercizio non lo sento bene', 'Spiegami perché hai scelto questi esercizi'].map((o) => (
               <button key={o} className="rounded-full border border-cyan-500/40 px-3 py-1.5 text-xs text-cyan-200" onClick={() => { void invia('chat', o) }}>{o}</button>
             ))}
@@ -522,7 +555,7 @@ export default function Coach() {
             📋 Genera il programma adesso
           </button>
         )}
-        {attesa && <p className="text-sm text-slate2" role="status">Il coach sta scrivendo…</p>}
+        {attesa && <p className="animate-pulse text-sm text-slate2" role="status">Sto scrivendo…</p>}
         {errore && <p className="break-words text-sm text-amber2" role="alert">{errore}</p>}
       </div>
 
@@ -530,11 +563,12 @@ export default function Coach() {
         <div className="flex shrink-0 items-end gap-2 border-t border-edge bg-ink px-3 py-2">
           <textarea
             ref={inputRef}
-            className="input min-w-0 flex-1 resize-none !py-2.5 text-base leading-snug"
+            className="input min-w-0 flex-1 resize-none rounded-2xl !py-2.5 font-sans text-base leading-snug"
             rows={Math.min(4, Math.max(1, testo.split('\n').length, Math.ceil(testo.length / 34)))}
-            placeholder="Scrivi al coach…"
+            placeholder="Scrivi un messaggio…"
             value={testo}
             onChange={(e) => setTesto(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && window.matchMedia('(pointer: fine)').matches) { e.preventDefault(); inviaDalCampo() } }}
           />
           <button className="h-11 w-11 shrink-0 rounded-xl bg-cyan-500/25 text-lg font-bold text-cyan-200 disabled:opacity-40" aria-label="Invia" disabled={attesa || !testo.trim()} onClick={inviaDalCampo}>➤</button>
         </div>
@@ -560,17 +594,17 @@ function Bolla({ m, ultimo, attesa, haPiano, onOpzione, onAccetta, onDomanda, on
 }) {
   const meta = (m.meta ?? {}) as MetaCoach
   if (m.role === 'utente') return (
-    <div className="ml-10">
-      <p className={`whitespace-pre-line break-words rounded-2xl rounded-br-sm p-3 text-sm ${meta.accettato ? 'bg-emerald-500/15 text-emerald-200' : 'bg-cyan-500/15 text-chalk'}`}>{m.content}</p>
-      {onCorreggi && <button className="mt-1 block w-full text-right text-[11px] text-slate2 underline" onClick={onCorreggi}>✏️ Correggi questo messaggio</button>}
+    <div className="ml-12 flex flex-col items-end">
+      <p className={`whitespace-pre-line break-words rounded-3xl px-4 py-2.5 ${meta.accettato ? 'bg-emerald-500/15 text-emerald-200' : 'bg-steel text-chalk'}`}>{m.content}</p>
+      {onCorreggi && <button className="mt-1 text-[11px] text-slate2 underline" onClick={onCorreggi}>✏️ Modifica</button>}
     </div>
   )
   const proposta = !!meta.piano || !!meta.calorie || !!meta.controllo
   const bloccato = !!meta.esito?.errori.length
   const etichetta = meta.piano ? (haPiano ? '✅ Mi piace, salva le modifiche' : '✅ Mi piace, salvalo') : meta.controllo ? 'Salva il controllo' : `Passa a ${meta.calorie} kcal`
   return (
-    <div className="mr-4 min-w-0 space-y-2">
-      <p className="whitespace-pre-line break-words rounded-2xl rounded-bl-sm border border-edge bg-steel/60 p-3 text-sm leading-relaxed text-chalk">{m.content}</p>
+    <div className="min-w-0 space-y-3">
+      <div className="break-words text-chalk"><Markdown testo={m.content} /></div>
       {proposta && (
         <div className="min-w-0 rounded-2xl border border-cyan-500/40 p-3 space-y-3">
           {meta.differenze && (

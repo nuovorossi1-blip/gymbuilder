@@ -4,8 +4,29 @@
 > da qui. Va **aggiornato** a ogni sessione, non accodato all'infinito.
 > L'identità del progetto e il percorso di AI-OS stanno in `AIOS_PROJECT.json`.
 
-**Ultimo aggiornamento:** 2026-09-25 (risposte libere del coach, volume calcolato passato al coach, tasto indietro visibile) - Claude (Opus 5.5)
+**Ultimo aggiornamento:** 2026-09-25 (Coach al centro della barra, chat stile LLM libera e concisa, cancellazione conversazioni) - Claude (Opus 5.5)
 
+### 2026-09-25 (14) — Coach al centro, chat come con un LLM, cancellare le conversazioni
+
+1. **Richieste di Rossi** — poter cancellare le chat storiche; chat come con un LLM (chiedere
+   qualsiasi cosa, stesso carattere, risposte semplici non verbose, analizza la domanda); "Parla
+   con il Coach" al centro della barra in basso, tra Ultimo e Salvati.
+2. **Fatto (verificato)** —
+   - `BottomNav`: 5 voci, al centro "Coach" (cerchio 💬 rialzato) -> `/coach?c=chat`, che apre
+     l'ultima chat o una nuova vuota (effetto in Coach.tsx, con replace).
+   - Chat: titolo e testo in carattere normale (font-sans, 15 px), risposte del coach senza
+     riquadro con `components/Markdown.tsx` (paragrafi, elenchi, grassetto, corsivo, codice, senza
+     HTML grezzo), messaggi dell'utente a destra in bolla, "✏️ Modifica" sull'ultimo, schermata
+     vuota "Come posso aiutarti?" con 4 suggerimenti, "Sto scrivendo…", campo arrotondato,
+     Invio per inviare da tastiera fisica. "✎ Nuova chat" ora parte VUOTA (niente messaggio
+     automatico); l'apertura automatica del coach resta solo per "Parla col coach" dopo un
+     programma nuovo.
+   - Prompt chat: chat libera (qualsiasi domanda, anche fuori dall'allenamento), leggi e analizza
+     la domanda, risposte brevi e dirette, approfondisci solo se richiesto, opzioni solo se utili.
+   - Cancellazione: 🗑 su ogni conversazione nell'elenco ☰ (chat per thread, colloquio,
+     controllo), con conferma; `useCoach.eliminaConversazione`. Se era aperta si apre una chat nuova.
+   Provato in Chromium mobile 360 px: tasto Coach -> chat -> nuova chat vuota -> domanda ->
+   risposta formattata -> 🗑 conversazione (DELETE per thread). 349 test verdi, tsc/eslint puliti.
 ### 2026-09-25 (13) — "Risposta non valida" in chat, volume delle carenze, tasto indietro visibile
 
 1. **Segnalazioni di Rossi** — tasto indietro poco visibile e troppo in alto; il coach ha dato un

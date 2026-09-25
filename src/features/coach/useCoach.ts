@@ -55,6 +55,16 @@ export function useCoach(userId: string | undefined) {
     setMessaggi((old) => (old ?? []).filter((m) => !ids.includes(m.id)))
   }, [userId])
 
+  /** Cancella una conversazione dello storico (25/09): una chat (per thread) o colloquio/controllo. */
+  const eliminaConversazione = useCallback(async (kind: MessaggioCoach['kind'], threadId?: string | null) => {
+    if (!userId) return
+    let q = supabase.from('coach_messages').delete().eq('user_id', userId).eq('kind', kind)
+    if (kind === 'chat') q = threadId && threadId !== 'prima' ? q.eq('thread_id', threadId) : q.is('thread_id', null)
+    const { error } = await q
+    if (error) throw new Error('Conversazione non eliminata. Riprova.')
+    setMessaggi((old) => (old ?? []).filter((m) => !(m.kind === kind && (kind !== 'chat' || (m.thread_id ?? 'prima') === (threadId ?? 'prima')))))
+  }, [userId])
+
   const cancellaConversazione = useCallback(async (kind: MessaggioCoach['kind']) => {
     if (!userId) return
     await supabase.from('coach_messages').delete().eq('user_id', userId).eq('kind', kind)
@@ -91,5 +101,5 @@ export function useCoach(userId: string | undefined) {
     setPiano({ ...piano, next_index: index })
   }, [userId, piano])
 
-  return { messaggi, piano, versioni, aggiungi, eliminaMessaggi, eliminaPiano, cancellaConversazione, accettaPiano, impostaProssima, ricarica: carica }
+  return { messaggi, piano, versioni, aggiungi, eliminaMessaggi, eliminaPiano, eliminaConversazione, cancellaConversazione, accettaPiano, impostaProssima, ricarica: carica }
 }
