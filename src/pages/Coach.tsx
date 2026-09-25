@@ -99,7 +99,7 @@ export default function Coach() {
   const { user } = useAuth()
   const { profile, calorieLog, bodyLog, settings, saveProfile } = useSettings(user?.id)
   const { cartella, salva: salvaCartella } = useCartella(user?.id)
-  const { messaggi, piano, versioni, aggiungi, eliminaMessaggi, cancellaConversazione, accettaPiano, impostaProssima } = useCoach(user?.id)
+  const { messaggi, piano, versioni, aggiungi, eliminaMessaggi, eliminaPiano, cancellaConversazione, accettaPiano, impostaProssima } = useCoach(user?.id)
   const { catalog: ctxCatalog, setCatalog, setWorkout, setGenerationConfig } = useWorkout()
   const [catalogo, setCatalogo] = useState<Exercise[]>(ctxCatalog ?? [])
   const [storico, setStorico] = useState<CompletedWorkout[]>([])
@@ -259,6 +259,19 @@ export default function Coach() {
     inputRef.current?.focus()
   }
 
+  /** Non ti piace: elimina definitivamente il programma attivo e ricomincia dal coach. */
+  async function eliminaEPrepraNuovo() {
+    if (!piano) return
+    if (!confirm(`Eliminare definitivamente "${piano.plan.titolo}" (versione ${piano.version})? Poi il coach ne prepara uno nuovo.`)) return
+    try {
+      await eliminaPiano(piano.id)
+      await cancellaConversazione('colloquio')
+      setAperta(null)
+    } catch (e) {
+      setErrore(e instanceof Error ? e.message : 'Programma non eliminato.')
+    }
+  }
+
   async function iniziaControllo() {
     await cancellaConversazione('controllo')
     setAperta('controllo')
@@ -301,9 +314,15 @@ export default function Coach() {
             <h2 className="field-label">Versioni del piano</h2>
             <ul className="space-y-1.5 text-[12px] text-slate2">
               {versioni.map((v) => (
-                <li key={v.id} className="border-b border-edge/60 pb-1.5">
-                  <span className="text-chalk">v{v.version}</span> · {new Date(v.created_at).toLocaleDateString('it-IT')} · {v.source === 'colloquio' ? 'primo colloquio' : v.source === 'controllo' ? 'controllo' : 'modifica in chat'}
-                  {v.note && <span className="block">{v.note}</span>}
+                <li key={v.id} className="flex items-start justify-between gap-2 border-b border-edge/60 pb-1.5">
+                  <span>
+                    <span className="text-chalk">v{v.version}</span> · {new Date(v.created_at).toLocaleDateString('it-IT')} · {v.source === 'colloquio' ? 'primo colloquio' : v.source === 'controllo' ? 'controllo' : 'modifica in chat'}
+                    {v.id === piano.id && <span className="text-emerald-300"> · attiva</span>}
+                    {v.note && <span className="block">{v.note}</span>}
+                  </span>
+                  {v.id !== piano.id && (
+                    <button aria-label={`Elimina versione ${v.version}`} className="shrink-0 rounded-lg border border-edge px-2 py-1 text-[11px]" onClick={() => { if (confirm(`Eliminare definitivamente la versione ${v.version}?`)) void eliminaPiano(v.id) }}>🗑</button>
+                  )}
                 </li>
               ))}
             </ul>
@@ -314,7 +333,10 @@ export default function Coach() {
           <p className="mb-2 text-xs text-slate2">Lo puoi scaricare e ricaricare in qualsiasi momento, qualunque LLM usi.</p>
           <FileCartella catalog={catalogo} cartella={cartella} onCartella={async (c) => { await salvaCartella(c) }} compatto />
         </section>
-        <button className="mt-8 w-full rounded-xl border border-edge py-3 text-sm text-slate2" onClick={() => { if (confirm('Rifare il primo colloquio da capo? Il piano attuale resta valido finché non ne accetti uno nuovo.')) { void cancellaConversazione('colloquio'); setAperta('colloquio') } }}>
+        <button className="mt-8 w-full rounded-xl border border-red-500/40 bg-red-500/10 py-3 text-sm font-bold text-red-300" onClick={() => { void eliminaEPrepraNuovo() }}>
+          🗑 Non mi piace: elimina e creane uno nuovo
+        </button>
+        <button className="mt-2 w-full rounded-xl border border-edge py-3 text-sm text-slate2" onClick={() => { if (confirm('Rifare il primo colloquio da capo? Il piano attuale resta valido finché non ne accetti uno nuovo.')) { void cancellaConversazione('colloquio'); setAperta('colloquio') } }}>
           Rifai il colloquio da capo
         </button>
       </main>

@@ -18,7 +18,7 @@ export default function Saved() {
   // 'program' nella sua configurazione; tutto il resto (sessione singola, scheda analizzata) è
   // una sessione singola.
   const [sezione, setSezione] = useState<'coach' | 'singole' | 'piano' | 'programmi'>('coach')
-  const { piano: pianoCoach, impostaProssima } = useCoach(user?.id)
+  const { piano: pianoCoach, impostaProssima, eliminaPiano } = useCoach(user?.id)
   const { cartella } = useCartella(user?.id)
   const [programmi, setProgrammi] = useState<ProgrammaSalvato[] | null>(null)
   const naviga = useNavigate()
@@ -158,6 +158,15 @@ export default function Saved() {
                 ))}
               </ol>
               <button className="w-full rounded-xl glass-card py-2.5 text-xs font-bold uppercase text-slate-300" onClick={() => naviga('/coach')}>Apri il programma e parla col coach</button>
+              <button
+                className="w-full rounded-xl border border-red-500/40 bg-red-500/10 py-2.5 text-xs font-bold uppercase text-red-300"
+                onClick={() => {
+                  if (!confirm(`Eliminare definitivamente “${pianoCoach.plan.titolo}”? Poi il coach ne prepara uno nuovo.`)) return
+                  void eliminaPiano(pianoCoach.id).then(() => naviga('/coach')).catch(() => setErrore('Programma non eliminato. Riprova.'))
+                }}
+              >
+                🗑 Elimina e creane uno nuovo
+              </button>
             </div>
           )}
           {visibili && visibili.length > 0 && <h3 className="eyebrow text-slate-400">Sedute del coach salvate</h3>}
@@ -181,9 +190,12 @@ export default function Saved() {
                   <p className="text-xs text-slate-400">
                     {p.program.week.length} sedute · creato il {new Date(p.created_at).toLocaleDateString('it-IT')}
                   </p>
-                  <button onClick={() => apriProgramma(p)} className="w-full rounded-xl glass-card py-2.5 font-display text-xs font-bold uppercase text-slate-300 hover:text-white">
-                    Apri la settimana
-                  </button>
+                  <div className="grid grid-cols-[1fr_auto] gap-2">
+                    <button onClick={() => apriProgramma(p)} className="rounded-xl glass-card py-2.5 font-display text-xs font-bold uppercase text-slate-300 hover:text-white">
+                      Apri la settimana
+                    </button>
+                    <button aria-label="Elimina definitivamente" onClick={() => { if (confirm(`Eliminare definitivamente il programma “${p.name}”?`)) void eliminaProg(p) }} className="rounded-xl border border-red-500/40 bg-red-500/10 px-3 text-sm text-red-300">🗑</button>
+                  </div>
                 </div>
               </SwipeToDeleteRow>
             </li>
@@ -248,8 +260,8 @@ export default function Saved() {
                   </button>
                 </div>
 
-                {/* 1-Tap Action Row · elimina: swipe a destra sulla card */}
-                <div className="grid grid-cols-2 gap-2 border-t border-edge/60 pt-3">
+                {/* 1-Tap Action Row · elimina: pulsante 🗑 (25/09) oppure swipe sulla card */}
+                <div className="grid grid-cols-[1fr_1fr_auto] gap-2 border-t border-edge/60 pt-3">
                   <button
                     onClick={() => apri(s, true)}
                     className="rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 py-2.5 font-display text-xs font-bold uppercase text-white shadow-md glow-emerald active:scale-[0.98]"
@@ -261,6 +273,13 @@ export default function Saved() {
                     className="rounded-xl glass-card py-2.5 font-display text-xs font-bold uppercase text-slate-300 hover:text-white"
                   >
                     👁️ Dettagli
+                  </button>
+                  <button
+                    aria-label="Elimina definitivamente"
+                    onClick={() => { if (confirm(`Eliminare definitivamente “${s.origine === 'coach' ? s.name : SPLIT_LABELS[s.split as Split] ?? s.name}”?`)) void elimina(s) }}
+                    className="rounded-xl border border-red-500/40 bg-red-500/10 px-3 text-sm text-red-300"
+                  >
+                    🗑
                   </button>
                 </div>
               </div>

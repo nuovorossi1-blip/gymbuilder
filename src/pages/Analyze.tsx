@@ -7,7 +7,7 @@ import { useSettings } from '../features/profile/useSettings'
 import { analyzeSchedaWithDeepSeek, type SchedaAnalysis, type SchedaCheck } from '../lib/deepseek'
 import { componiSchedaSalvabile, righeMancanti, type RigaScheda } from '../engine/schedaUtente'
 import { useWorkout } from '../features/workout/WorkoutContext'
-import { caricaCatalogo, salvaAllenamento } from '../lib/api'
+import { caricaCatalogo, eliminaSalvato, salvaAllenamento } from '../lib/api'
 import { MUSCLE_LABELS, type Exercise, type Muscle } from '../types'
 import type { SchedaRiga } from '../lib/deepseek'
 import type { PhaseInfo } from '../engine/nutrition'
@@ -286,6 +286,7 @@ function SchedaFinale({ analisi, catalog, seduta, carenze, fase, experience, use
   const [nome, setNome] = useState(`${seduta} — mia scheda`)
   const [stato, setStato] = useState<'idle' | 'salvo' | 'salvato' | 'errore'>('idle')
   const [msg, setMsg] = useState('')
+  const [salvataId, setSalvataId] = useState<string | null>(null)
 
   const rigaDi = (i: number): SchedaRiga | undefined => (scelte[i] === 'proposta' ? analisi.proposta[i] : analisi.tua[i]) ?? analisi.tua[i] ?? analisi.proposta[i]
   const righe: RigaScheda[] = Array.from({ length: n }, (_, i) => {
@@ -304,7 +305,7 @@ function SchedaFinale({ analisi, catalog, seduta, carenze, fase, experience, use
     if (!userId) return
     setStato('salvo')
     try {
-      await salvaAllenamento(userId, costruisci(), nome)
+      setSalvataId(await salvaAllenamento(userId, costruisci(), nome))
       setStato('salvato'); setMsg('Salvata: la trovi in Salvati.')
     } catch (e) {
       setStato('errore'); setMsg(e instanceof Error ? e.message : 'Non salvata.')
@@ -387,6 +388,12 @@ function SchedaFinale({ analisi, catalog, seduta, carenze, fase, experience, use
         </button>
       </div>
       {msg && <p role="status" className={`mt-3 text-sm ${stato === 'errore' ? 'text-amber2' : 'text-slate2'}`}>{msg}</p>}
+      {stato === 'salvato' && salvataId && (
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <button className="rounded-xl border border-red-500/40 bg-red-500/10 py-2.5 text-xs font-bold text-red-300" onClick={() => { void eliminaSalvato(salvataId).then(() => { setSalvataId(null); setStato('idle'); setMsg('Scheda eliminata dai Salvati.') }) }}>🗑 Non mi piace, elimina</button>
+          <button className="rounded-xl border border-cyan-500/40 bg-cyan-500/10 py-2.5 text-xs font-bold text-cyan-200" onClick={() => window.location.assign('/analizza')}>✨ Nuova analisi</button>
+        </div>
+      )}
     </section>
   )
 }

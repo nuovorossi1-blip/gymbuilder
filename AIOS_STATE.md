@@ -4,8 +4,25 @@
 > da qui. Va **aggiornato** a ogni sessione, non accodato all'infinito.
 > L'identità del progetto e il percorso di AI-OS stanno in `AIOS_PROJECT.json`.
 
-**Ultimo aggiornamento:** 2026-09-25 (fix Sostituisci senza configurazione) - Claude (Opus 5.5)
+**Ultimo aggiornamento:** 2026-09-25 (eliminare definitivamente schede e programmi, crearne di nuovi) - Claude (Opus 5.5)
 
+### 2026-09-25 (10) — Eliminare definitivamente e crearne uno nuovo
+
+1. **Richiesta di Rossi** — dopo aver salvato una scheda, un programma o un piano, poterlo
+   eliminare definitivamente se non piace e crearne uno nuovo.
+2. **Fatto (verificato)** —
+   - Anteprima: dopo "Salva in Libreria" il riquadro ha "🗑 Non mi piace, elimina" (usa l'id
+     restituito da `salvaAllenamento`) e "✨ Creane uno nuovo" (seduta del coach -> /coach,
+     altrimenti nuovo allenamento rapido). Il pulsante in basso diventa "Torna al coach" /
+     "✨ Creane un'altra" quando non c'è una settimana.
+   - Coach: "🗑 Non mi piace: elimina e creane uno nuovo" (elimina la versione attiva da
+     `coach_plans`, pulisce il colloquio, riparte dal colloquio o dalla ripresa se la cartella è
+     compilata); 🗑 su ogni versione archiviata. `useCoach.eliminaPiano`.
+   - Salvati: pulsante 🗑 visibile (con conferma) su ogni scheda e ogni programma, oltre allo
+     swipe; nella sezione Coach "🗑 Elimina e creane uno nuovo".
+   - Analizza: dopo il salvataggio "🗑 Non mi piace, elimina" e "✨ Nuova analisi".
+   Provato in Chromium: salva -> elimina (DELETE saved_workouts), elimina programma -> colloquio.
+   345 test verdi, tsc/eslint puliti, build ok.
 ### 2026-09-25 (9) — Fix: "Sostituisci" diceva sempre "Nessuna alternativa compatibile"
 
 1. **Segnalazione di Rossi** — sostituendo un esercizio (es. Curl ai cavi) in una scheda del

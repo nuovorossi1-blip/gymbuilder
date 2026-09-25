@@ -10,7 +10,7 @@ import { preferitiDallaCartella, vietatiDallaCartella } from '../features/cartel
 import { escludiPerFastidi } from '../engine/nutrition'
 import { PRESET_EQUIPMENT } from '../generators/equipment'
 import type { WorkoutGenerationConfig } from '../types'
-import { aggiornaProgramma, salvaAllenamento } from '../lib/api'
+import { aggiornaProgramma, eliminaSalvato, salvaAllenamento } from '../lib/api'
 import { findExerciseReplacements, type ReplacementCandidate } from '../engine/replacement'
 import { recordExerciseFeedback } from '../engine/feedback'
 import {
@@ -32,6 +32,8 @@ export default function WorkoutPreview() {
   // (displayed) riflette il riordino ma workout/weeklyProgram restano quelli confermati - da qui
   // il pulsante Salva/Annulla che compare solo quando c'e' un pendingWorkout.
   const [pendingWorkout, setPendingWorkout] = useState<GeneratedWorkout | null>(null)
+  /** Id della scheda appena salvata: serve a eliminarla subito se non piace (25/09). */
+  const [salvataId, setSalvataId] = useState<string | null>(null)
   const { settings, profile } = useSettings(user?.id)
   const { cartella } = useCartella(user?.id)
   const exerciseKey = useStableKeys<PrescribedExercise>()
@@ -194,13 +196,31 @@ export default function WorkoutPreview() {
     if (!user || !workout) return
     setStato('salvo')
     try {
-      await salvaAllenamento(user.id, displayed, undefined, generationConfig)
+      setSalvataId(await salvaAllenamento(user.id, displayed, undefined, generationConfig))
       setStato('salvato')
       setMessaggio('Lo trovi in Salvati.')
     } catch (e) {
       setStato('errore')
       setMessaggio(e instanceof Error ? e.message : 'Non salvato.')
     }
+  }
+
+  async function eliminaAppenaSalvata() {
+    if (!salvataId) return
+    try {
+      await eliminaSalvato(salvataId)
+      setSalvataId(null)
+      setStato('fermo')
+      setMessaggio('Scheda eliminata dai Salvati.')
+    } catch (e) {
+      setMessaggio(e instanceof Error ? e.message : 'Non eliminata.')
+    }
+  }
+
+  /** "Creane uno nuovo": dal Coach si torna al coach, altrimenti un nuovo allenamento rapido. */
+  function creaNuovo() {
+    if (displayed?.origine === 'coach') naviga('/coach')
+    else naviga('/crea?fresh=1&program_kind=single_session')
   }
 
   return (
@@ -407,9 +427,9 @@ export default function WorkoutPreview() {
           </button>
           <button
             className="rounded-xl border border-edge bg-steel py-3.5 font-data text-[11px] uppercase tracking-[0.14em] text-chalk active:bg-edge"
-            onClick={() => naviga('/crea')}
+            onClick={() => (weeklyProgram && weeklyProgram.config.program_kind === 'program' && weeklyProgram.week.length > 1 ? naviga('/crea') : creaNuovo())}
           >
-            Torna alla settimana
+            {weeklyProgram && weeklyProgram.config.program_kind === 'program' && weeklyProgram.week.length > 1 ? 'Torna alla settimana' : displayed.origine === 'coach' ? 'Torna al coach' : '✨ Creane un’altra'}
           </button>
         </div>
       </div>
@@ -457,6 +477,14 @@ export default function WorkoutPreview() {
                   📅 Torna alla Settimana
                 </button>
               )}
+              <div className="grid grid-cols-2 gap-2">
+                <button onClick={() => { void eliminaAppenaSalvata() }} className="rounded-xl border border-red-500/40 bg-red-500/10 py-3 text-xs font-bold uppercase text-red-300">
+                  🗑 Non mi piace, elimina
+                </button>
+                <button onClick={creaNuovo} className="rounded-xl border border-cyan-500/40 bg-cyan-500/10 py-3 text-xs font-bold uppercase text-cyan-200">
+                  ✨ Creane uno nuovo
+                </button>
+              </div>
               <button
                 onClick={() => naviga('/salvati')}
                 className={`w-full rounded-xl py-3.5 font-display text-sm font-bold uppercase text-white shadow-lg ${

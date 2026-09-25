@@ -75,11 +75,21 @@ export function useCoach(userId: string | undefined) {
     return data as PianoSalvato
   }, [userId])
 
+  /** Elimina definitivamente una versione del programma (25/09, richiesta di Rossi). Se è quella
+   *  attiva non resta nessun programma attivo: si ricomincia dal coach. */
+  const eliminaPiano = useCallback(async (id: string) => {
+    if (!userId) return
+    const { error } = await supabase.from('coach_plans').delete().eq('user_id', userId).eq('id', id)
+    if (error) throw new Error('Programma non eliminato. Riprova.')
+    setVersioni((old) => old.filter((v) => v.id !== id))
+    setPiano((old) => (old && old.id === id ? null : old))
+  }, [userId])
+
   const impostaProssima = useCallback(async (index: number) => {
     if (!userId || !piano) return
     await supabase.from('coach_plans').update({ next_index: index }).eq('id', piano.id)
     setPiano({ ...piano, next_index: index })
   }, [userId, piano])
 
-  return { messaggi, piano, versioni, aggiungi, eliminaMessaggi, cancellaConversazione, accettaPiano, impostaProssima, ricarica: carica }
+  return { messaggi, piano, versioni, aggiungi, eliminaMessaggi, eliminaPiano, cancellaConversazione, accettaPiano, impostaProssima, ricarica: carica }
 }
