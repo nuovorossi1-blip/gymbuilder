@@ -22,6 +22,7 @@ import { determinaFase, escludiPerFastidi, patchCambioCalorie } from '../engine/
 import { isExerciseAvailable } from '../generators/equipment'
 import { MUSCLE_LABELS, type CompletedWorkout, type Exercise } from '../types'
 import { Markdown } from '../components/Markdown'
+import { logJsError } from '../lib/jsErrorLog'
 import { BackButton } from '../components/BackButton'
 
 const GIORNI_CONTROLLO = 28
@@ -218,11 +219,19 @@ export default function Coach() {
         allenamentiFatti: storico.slice(0, 15).map((w) => ({ data: w.completed_at.slice(0, 10), nome: w.name, minuti: Math.round(w.duration_sec / 60), voto: w.rating })),
         volumeCalcolato: volumePerIlCoach(base),
       })
-      const risposta = leggiRispostaCoach(await chiediJsonAlLlm([
+      const grezza = await chiediJsonAlLlm([
         { role: 'system', content: promptSistema(kind, conosciuto) },
         { role: 'user', content: `CONTESTO DEL CLIENTE (leggilo prima di tutto): ${contesto}` },
         ...[...base, mio].map(perLlm),
-      ]))
+      ])
+      const risposta = leggiRispostaCoach(grezza)
+      if (risposta.vuota && !tentativo) {
+        // Il modello non ha scritto una risposta leggibile: la si chiede di nuovo, una volta,
+        // senza mostrare al cliente "non ho capito".
+        logJsError('genera', `Coach: risposta senza testo (${kind}). Inizio: ${String(grezza._testo_originale ?? '').slice(0, 300)}`)
+        await invia(kind, 'Rispondi alla mia ultima domanda in italiano, in modo semplice, scrivendo la risposta nel campo "messaggio".', true, true, [...base, mio], t)
+        return
+      }
       if (risposta.aggiorna_cartella) await salvaCartella(unisciCartella(cartella, risposta.aggiorna_cartella, catalogo))
       const plan = risposta.piano ? normalizzaPiano(risposta.piano, catalogo) : null
       const esito = plan ? controllaPiano(plan, ctxControlli) : null
@@ -230,7 +239,8 @@ export default function Coach() {
       const differenze = plan && piano ? differenzePiani(normalizzaPiano(piano.plan, catalogo) ?? piano.plan, plan) : null
       const suo = await aggiungi({
         role: 'coach', kind, content: risposta.messaggio, thread_id: t,
-        meta: { opzioni: risposta.opzioni, categoria: risposta.categoria, piano: plan, esito, differenze, calorie: risposta.calorie, controllo: risposta.controllo },
+        // Inizio della risposta grezza del modello: serve a capire i casi strani senza chiedere a Rossi.
+        meta: { opzioni: risposta.opzioni, categoria: risposta.categoria, piano: plan, esito, differenze, calorie: risposta.calorie, controllo: risposta.controllo, grezzo: String(grezza._testo_originale ?? '').slice(0, 800) },
       })
       // Alcuni modelli annunciano il piano ("ora te lo preparo") senza consegnarlo: glielo si
       // richiede subito, una volta, senza che il cliente debba insistere.

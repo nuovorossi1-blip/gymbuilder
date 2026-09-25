@@ -4,8 +4,26 @@
 > da qui. Va **aggiornato** a ogni sessione, non accodato all'infinito.
 > L'identità del progetto e il percorso di AI-OS stanno in `AIOS_PROJECT.json`.
 
-**Ultimo aggiornamento:** 2026-09-25 (Coach al centro della barra, chat stile LLM libera e concisa, cancellazione conversazioni) - Claude (Opus 5.5)
+**Ultimo aggiornamento:** 2026-09-25 (fix "Non ho capito bene, puoi ripetere?" nella chat del coach) - Claude (Opus 5.5)
 
+### 2026-09-25 (15) — Fix: il coach rispondeva "Non ho capito bene, puoi ripetere?"
+
+1. **Segnalazione di Rossi** (screenshot dal telefono) — alla domanda "Voglio prima capire come
+   impostare il programma" la chat mostra "Non ho capito bene, puoi ripetere?".
+2. **Causa (verificata nel codice)** — è la frase di riserva di `leggiRispostaCoach` quando la
+   risposta del modello non ha il campo "messaggio" (nome diverso, annidato, o solo altri
+   campi). Il DB non era consultabile in questa sessione per vedere la risposta esatta.
+3. **Fatto (verificato)** —
+   - `chiediJsonAlLlm` restituisce anche `_testo_originale`.
+   - `leggiRispostaCoach`: cerca il testo in messaggio / message / risposta / testo / text /
+     reply / answer / content / output, anche annidato; altrimenti il testo più lungo del primo
+     livello; altrimenti il testo originale se non è solo JSON; se c'è solo una proposta
+     "Ecco la mia proposta."; flag `vuota` se non c'è niente.
+   - Coach.tsx: con risposta vuota si richiede UNA volta al modello (messaggio nascosto) invece
+     di mostrare "non ho capito"; l'evento finisce nel registro errori (Profilo -> Errori
+     JavaScript) con l'inizio della risposta; ogni messaggio del coach salva in `meta.grezzo` i
+     primi 800 caratteri della risposta del modello, per indagare i casi strani.
+   351 test verdi (+2), tsc/eslint puliti, build ok.
 ### 2026-09-25 (14) — Coach al centro, chat come con un LLM, cancellare le conversazioni
 
 1. **Richieste di Rossi** — poter cancellare le chat storiche; chat come con un LLM (chiedere

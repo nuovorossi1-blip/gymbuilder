@@ -168,3 +168,17 @@ describe('Coach: cliente conosciuto o nuovo, e il perché delle scelte (25/09)',
     expect(p.sedute[0].esercizi[0]).toMatchObject({ nota: 'rear fresco', alternativa: 'Croci inverse ai cavi' })
   })
 })
+
+describe('risposta del coach con campi inattesi (25/09)', () => {
+  it('trova il testo anche con altri nomi di campo o annidato', () => {
+    expect(leggiRispostaCoach({ message: 'Ciao' }).messaggio).toBe('Ciao')
+    expect(leggiRispostaCoach({ risposta: { testo: 'Annidato' } }).messaggio).toBe('Annidato')
+    expect(leggiRispostaCoach({ spiegazione: 'Un testo abbastanza lungo per essere la risposta vera.' }).messaggio).toBe('Un testo abbastanza lungo per essere la risposta vera.')
+  })
+  it('usa il testo originale se non è JSON; segnala la risposta vuota', () => {
+    expect(leggiRispostaCoach({ _testo_originale: 'Risposta normale' }).messaggio).toBe('Risposta normale')
+    const vuota = leggiRispostaCoach({ _testo_originale: '{"opzioni":[]}' })
+    expect(vuota.vuota).toBe(true)
+    expect(leggiRispostaCoach({ piano: { sedute: [] } }).vuota).toBe(false)
+  })
+})

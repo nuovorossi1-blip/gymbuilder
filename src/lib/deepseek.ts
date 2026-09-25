@@ -656,7 +656,8 @@ export async function chiediJsonAlLlm(messages: LlmMessage[]): Promise<Record<st
   const payload = await requestDeepSeek(loadLocalAiSettings(), messages)
   const content = payload.choices?.[0]?.message?.content
   if (!content) throw new Error('L’LLM non ha restituito una risposta.')
-  return leggiRispostaLibera(content)
+  // Il testo originale viaggia con la risposta: se i campi attesi mancano, la chat usa quello.
+  return { ...leggiRispostaLibera(content), _testo_originale: content }
 }
 
 /**

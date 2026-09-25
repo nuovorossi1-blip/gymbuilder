@@ -120,6 +120,8 @@ export function messaggioContesto(ctx: ContestoCoach): string {
 
 export interface RispostaCoach {
   messaggio: string
+  /** true se il modello non ha dato nessun testo utilizzabile (si richiede una volta). */
+  vuota?: boolean
   opzioni: string[]
   categoria: number | null
   aggiorna_cartella: Record<string, unknown> | null
@@ -128,17 +130,46 @@ export interface RispostaCoach {
   controllo: Record<string, unknown> | null
 }
 
+const CHIAVI_TESTO = ['messaggio', 'message', 'risposta', 'testo', 'text', 'reply', 'answer', 'content', 'output']
+
+/** Cerca il testo della risposta anche se il modello ha usato un altro nome di campo o l'ha
+ *  annidato (25/09: "Non ho capito bene, puoi ripetere?" quando mancava "messaggio"). */
+function trovaTesto(raw: unknown, profondita = 0): string {
+  if (!raw || typeof raw !== 'object' || profondita > 2) return ''
+  const o = raw as Record<string, unknown>
+  for (const k of CHIAVI_TESTO) {
+    const v = o[k]
+    if (typeof v === 'string' && v.trim()) return v.trim()
+    if (v && typeof v === 'object' && !Array.isArray(v)) { const t = trovaTesto(v, profondita + 1); if (t) return t }
+  }
+  return ''
+}
+
 export function leggiRispostaCoach(raw: Record<string, unknown>): RispostaCoach {
   const opz = Array.isArray(raw.opzioni) ? raw.opzioni.filter((x): x is string => typeof x === 'string' && !!x.trim()).slice(0, 5) : []
   const cat = typeof raw.categoria === 'number' ? raw.categoria : Number(raw.categoria)
+  const piano = raw.piano && typeof raw.piano === 'object' ? raw.piano : null
+  const calorie = typeof raw.calorie === 'number' && raw.calorie > 800 && raw.calorie < 8000 ? Math.round(raw.calorie) : null
+  const controllo = raw.controllo && typeof raw.controllo === 'object' && !Array.isArray(raw.controllo) ? raw.controllo as Record<string, unknown> : null
+  let messaggio = trovaTesto(raw)
+  // Campo con un nome inatteso (es. "spiegazione"): si prende il testo più lungo di primo livello.
+  if (!messaggio) {
+    const stringhe = Object.entries(raw).filter(([k, v]) => !k.startsWith('_') && typeof v === 'string' && (v as string).trim().length > 20).map(([, v]) => (v as string).trim())
+    messaggio = stringhe.sort((a, b) => b.length - a.length)[0] ?? ''
+  }
+  // Ultima risorsa: il testo originale, se non è solo JSON.
+  const grezzo = typeof raw._testo_originale === 'string' ? raw._testo_originale.trim() : ''
+  if (!messaggio && grezzo && !grezzo.startsWith('{') && !grezzo.startsWith('```')) messaggio = grezzo
+  if (!messaggio && (piano || calorie || controllo)) messaggio = 'Ecco la mia proposta.'
   return {
-    messaggio: typeof raw.messaggio === 'string' && raw.messaggio.trim() ? raw.messaggio.trim() : 'Non ho capito bene, puoi ripetere?',
+    messaggio: messaggio || 'Non ho capito bene, puoi ripetere?',
+    vuota: !messaggio,
     opzioni: opz,
     categoria: Number.isFinite(cat) ? cat : null,
     aggiorna_cartella: raw.aggiorna_cartella && typeof raw.aggiorna_cartella === 'object' && !Array.isArray(raw.aggiorna_cartella) ? raw.aggiorna_cartella as Record<string, unknown> : null,
-    piano: raw.piano && typeof raw.piano === 'object' ? raw.piano : null,
-    calorie: typeof raw.calorie === 'number' && raw.calorie > 800 && raw.calorie < 8000 ? Math.round(raw.calorie) : null,
-    controllo: raw.controllo && typeof raw.controllo === 'object' && !Array.isArray(raw.controllo) ? raw.controllo as Record<string, unknown> : null,
+    piano,
+    calorie,
+    controllo,
   }
 }
 
