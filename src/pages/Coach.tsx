@@ -59,11 +59,11 @@ function Sedute({ plan, prossima, onInizia }: { plan: CoachPlan; prossima?: numb
             <span className="font-display text-sm font-bold uppercase">{String.fromCharCode(65 + i)} · {sd.nome}</span>
             <span className="font-data text-[11px] text-slate2">{i === prossima ? 'PROSSIMA' : `${sd.esercizi.length} esercizi`}</span>
           </button>
-          {aperta === i && sd.logica && <p className="mt-2 rounded-lg bg-steel/60 p-2 text-[12px] leading-relaxed text-chalk">{sd.logica}</p>}
+          {aperta === i && sd.logica && <p className="mt-2 break-words rounded-lg bg-steel/60 p-2 text-[12px] leading-relaxed text-chalk">{sd.logica}</p>}
           {aperta === i && (
             <ol className="mt-2 space-y-1.5">
               {sd.esercizi.map((e, k) => (
-                <li key={k} className="text-[13px]">
+                <li key={k} className="break-words text-[13px]">
                   <span className="font-data text-slate2">{k + 1}.</span> {e.nome}
                   <span className="ml-1 font-data text-[12px] text-slate2">{e.serie}×{e.reps}{e.rir ? ` · RIR ${e.rir}` : ''}</span>
                   {e.tecnica && <span className="block text-[11px] text-amber2">{e.tecnica}</span>}
@@ -110,7 +110,7 @@ export default function Coach() {
   const [aperta, setAperta] = useState<TipoConversazione | null>(null)
   /** Conversazione di "Parla col coach" aperta (ogni "Nuova chat" ne crea una). */
   const [thread, setThread] = useState<string | null>(null)
-  const fondo = useRef<HTMLDivElement>(null)
+  const [menuNuovo, setMenuNuovo] = useState(false)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const fase = determinaFase(profile, calorieLog)
   // Ti conosce già (cartella compilata, controlli o programma)? Allora niente anamnesi: ripresa.
@@ -121,7 +121,13 @@ export default function Coach() {
     caricaCatalogo().then((items) => { setCatalogo(items); setCatalog(items) }).catch(() => setErrore('Catalogo non caricato.'))
   }, [catalogo.length, setCatalog])
   useEffect(() => { if (user) elencoStorico(user.id).then(setStorico).catch(() => undefined) }, [user])
-  useEffect(() => { fondo.current?.scrollIntoView({ behavior: 'smooth' }) }, [messaggi, attesa, aperta])
+  // Si scorre solo la lista dei messaggi (scrollIntoView spostava anche la pagina e l'intestazione
+  // finiva fuori dallo schermo sul telefono).
+  const listaRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const el = listaRef.current
+    if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
+  }, [messaggi, attesa, aperta, thread])
 
   const catalogoCoach = useMemo(() => {
     const vietati = new Set(vietatiDallaCartella(cartella, catalogo))
@@ -131,7 +137,7 @@ export default function Coach() {
   const ctxControlli = { catalog: catalogo, cartella, fastidi: profile?.joint_issues ?? [], phase: fase?.training_phase ?? null, step: fase?.training_step ?? null }
 
   // Senza piano si è nel primo colloquio; con il piano si apre la conversazione scelta.
-  const tipo: TipoConversazione | null = !piano ? 'colloquio' : aperta
+  const tipo: TipoConversazione | null = aperta ?? (piano ? null : 'colloquio')
   const nellaConversazione = (m: MessaggioCoach, kind: TipoConversazione, t: string | null) =>
     m.kind === kind && (kind !== 'chat' || (m.thread_id ?? 'prima') === (t ?? 'prima'))
   const conversazione = (messaggi ?? []).filter((m) => tipo !== null && nellaConversazione(m, tipo, thread))
@@ -286,10 +292,10 @@ export default function Coach() {
     const riferimento = Math.max(new Date(piano.created_at).getTime(), ultimoControllo ? new Date(ultimoControllo).getTime() || 0 : 0)
     const traGiorni = Math.ceil((riferimento + GIORNI_CONTROLLO * DAY - Date.now()) / DAY)
     return (
-      <main className="px-5 pb-28 pt-10">
+      <main className="overflow-x-hidden px-5 pb-28 pt-10">
         <button className="font-data text-xs text-slate2" onClick={() => navigate('/')}>← Indietro</button>
         <p className="eyebrow mt-3">Il mio piano · versione {piano.version}</p>
-        <h1 className="mt-1 font-display text-[2rem] font-extrabold uppercase leading-none">{piano.plan.titolo}</h1>
+        <h1 className="mt-1 break-words font-display text-[2rem] font-extrabold uppercase leading-none">{piano.plan.titolo}</h1>
         <p className="mt-3 text-sm leading-relaxed text-slate2">
           {piano.plan.sedute.length} sedute a rotazione, {piano.plan.giorni_settimana} a settimana, ~{piano.plan.durata_min} min. Fai sempre la prossima della lista.
           {piano.plan.calorie ? ` Calorie ${piano.plan.calorie} kcal.` : ''}
@@ -298,6 +304,11 @@ export default function Coach() {
 
         <div className="mt-5 grid grid-cols-2 gap-2">
           <button className="rounded-xl border border-cyan-500/40 bg-cyan-500/10 py-3 text-sm font-bold text-cyan-200" onClick={() => { void apriChat() }}>💬 Parla col coach</button>
+          {storicoChat.length > 0 && (
+            <button className="col-span-2 order-last rounded-xl border border-edge py-2.5 text-xs text-slate-300" onClick={() => { setAperta('chat'); setThread(storicoChat[0].id) }}>
+              🗂 Conversazioni precedenti ({storicoChat.length})
+            </button>
+          )}
           <button className={`rounded-xl border py-3 text-sm font-bold ${traGiorni <= 0 ? 'border-amber-400/60 bg-amber-400/10 text-amber-200' : 'border-edge text-slate-300'}`} onClick={() => { void iniziaControllo() }}>
             📋 {traGiorni <= 0 ? 'È ora del controllo' : `Controllo tra ${traGiorni} gg`}
           </button>
@@ -347,50 +358,89 @@ export default function Coach() {
   const visibili = conversazione.filter((m) => !(m.meta as { nascosto?: boolean } | null)?.nascosto)
   const ultimo = visibili[visibili.length - 1]
   const ultimoMio = [...visibili].reverse().find((m) => m.role === 'utente' && !(m.meta as MetaCoach | null)?.accettato)
-  const titolo = kind === 'colloquio' ? (conosciuto ? 'Riprendiamo da dove eravamo' : 'Primo colloquio') : kind === 'controllo' ? 'Controllo periodico' : 'Parla col coach'
+  const titolo = kind === 'colloquio' ? (conosciuto ? 'Riprendiamo' : 'Primo colloquio') : kind === 'controllo' ? 'Controllo' : 'Parla col coach'
   const spiegazione = kind === 'colloquio'
     ? conosciuto
       ? 'Il coach ha letto la tua cartella: riassume quello che sa, ti fa solo le domande che mancano e ti consegna il programma spiegando ogni scelta.'
-      : 'Una domanda alla volta, poi il piano su misura. Il coach aggiorna la tua cartella mentre parlate.'
+      : 'Una domanda alla volta, poi il programma su misura. Il coach aggiorna la tua cartella mentre parlate.'
     : kind === 'controllo'
       ? 'Il coach ha letto tutto: peso, girovita e carichi li conosce già. Rispondi alle domande e ti dirà cosa cambiare.'
-      : 'Scrivi quando vuoi: un esercizio che non senti, uno slot in cui arrivi stanco, un dubbio. Se serve cambia il piano subito.'
-  return (
-    <main className="flex min-h-dvh flex-col px-4 pb-40 pt-8">
-      <button className="self-start font-data text-xs text-slate2" onClick={() => (piano ? setAperta(null) : navigate('/'))}>← {piano ? 'Torna al piano' : 'Indietro'}</button>
-      <h1 className="mt-3 font-display text-[1.8rem] font-extrabold uppercase leading-none">{titolo}</h1>
-      <p className="mt-2 text-sm text-slate2">{spiegazione}</p>
-      {kind === 'chat' && (
-        <div className="mt-3 flex gap-2">
-          <button className="rounded-xl border border-cyan-500/40 px-3 py-2 text-xs font-bold text-cyan-200" disabled={attesa} onClick={() => { void apriChat(true) }}>＋ Nuova chat</button>
-          {storicoChat.length > 1 && (
-            <select className="input flex-1 text-xs" value={thread ?? ''} onChange={(e) => setThread(e.target.value)} aria-label="Storico chat">
-              {storicoChat.map((c) => (
-                <option key={c.id} value={c.id}>{new Date(c.inizio).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })} · {c.titolo}</option>
-              ))}
-            </select>
-          )}
-        </div>
-      )}
+      : 'Chiedi informazioni, spiegazioni o modifiche al programma quando vuoi.'
 
-      <div className="mt-5 flex-1 space-y-3">
+  // Menu delle conversazioni (25/09, Rossi: "non vedo le conversazioni precedenti"): sempre
+  // visibile, con primo colloquio, controllo e tutte le chat.
+  const haColloquio = (messaggi ?? []).some((m) => m.kind === 'colloquio')
+  const haControllo = (messaggi ?? []).some((m) => m.kind === 'controllo')
+  const valoreMenu = kind === 'chat' ? `chat:${thread ?? 'prima'}` : kind
+  function scegliConversazione(v: string) {
+    if (v.startsWith('chat:')) { setAperta('chat'); setThread(v.slice(5)); return }
+    setAperta(v as TipoConversazione)
+  }
+
+  async function nuova(tipoNuovo: 'chat' | 'cambio' | 'programma' | 'controllo') {
+    setMenuNuovo(false)
+    if (tipoNuovo === 'chat') { await apriChat(true); return }
+    if (tipoNuovo === 'cambio') {
+      const id = crypto.randomUUID()
+      setAperta('chat'); setThread(id)
+      setTesto('Vorrei cambiare il programma: ')
+      setTimeout(() => inputRef.current?.focus(), 50)
+      return
+    }
+    if (tipoNuovo === 'controllo') { await iniziaControllo(); return }
+    if (!confirm('Creare un programma nuovo? Il coach riparte dalla tua cartella; quello attuale resta finché non accetti il nuovo.')) return
+    await cancellaConversazione('colloquio')
+    setAperta('colloquio')
+  }
+
+  function inviaDalCampo() {
+    const t = testo.trim()
+    if (!t || attesa) return
+    setTesto('')
+    void invia(kind, t)
+  }
+
+  return (
+    // Layout da app di messaggi: intestazione fissa, messaggi che scorrono, campo in basso sopra
+    // la barra di navigazione (72 px). Niente contenuto più largo dello schermo.
+    <main className="fixed inset-x-0 top-0 mx-auto flex h-[calc(100dvh-68px-env(safe-area-inset-bottom))] max-w-lg flex-col overflow-hidden">
+      <header className="shrink-0 border-b border-edge bg-ink/95 px-3 pb-2 pt-[max(0.75rem,env(safe-area-inset-top))]">
+        <div className="flex items-center gap-2">
+          <button className="shrink-0 rounded-lg px-2 py-1.5 font-data text-xs text-slate2" onClick={() => (piano ? setAperta(null) : navigate('/'))} aria-label={piano ? 'Torna al programma' : 'Indietro'}>←</button>
+          <h1 className="min-w-0 flex-1 truncate font-display text-lg font-extrabold uppercase">{titolo}</h1>
+          <div className="relative shrink-0">
+            <button className="rounded-lg border border-cyan-500/40 px-3 py-1.5 text-xs font-bold text-cyan-200" aria-expanded={menuNuovo} onClick={() => setMenuNuovo((v) => !v)}>＋ Nuova</button>
+            {menuNuovo && (
+              <div className="absolute right-0 top-full z-20 mt-1 w-64 space-y-1 rounded-xl border border-edge bg-ink p-2 shadow-2xl">
+                <button className="w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-steel" onClick={() => { void nuova('chat') }}>💬 Nuova chat<span className="block text-[11px] text-slate2">domande, spiegazioni, come va</span></button>
+                {piano && <button className="w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-steel" onClick={() => { void nuova('cambio') }}>✏️ Cambia il programma<span className="block text-[11px] text-slate2">scrivi cosa non ti va</span></button>}
+                {piano && <button className="w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-steel" onClick={() => { void nuova('controllo') }}>📋 Fai il controllo<span className="block text-[11px] text-slate2">le 10 domande, a che punto sei</span></button>}
+                <button className="w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-steel" onClick={() => { void nuova('programma') }}>🆕 Programma nuovo<span className="block text-[11px] text-slate2">il coach ne costruisce un altro</span></button>
+              </div>
+            )}
+          </div>
+        </div>
+        <select className="input mt-2 w-full min-w-0 !py-2 text-sm" value={valoreMenu} onChange={(e) => scegliConversazione(e.target.value)} aria-label="Conversazioni precedenti">
+          {(haColloquio || !piano) && <option value="colloquio">{conosciuto ? '🧑‍🏫 Colloquio / ripresa' : '🧑‍🏫 Primo colloquio'}</option>}
+          {haControllo && <option value="controllo">📋 Ultimo controllo</option>}
+          {kind === 'chat' && !storicoChat.some((c) => c.id === (thread ?? 'prima')) && <option value={`chat:${thread ?? 'prima'}`}>💬 Nuova chat</option>}
+          {storicoChat.map((c) => (
+            <option key={c.id} value={`chat:${c.id}`}>💬 {new Date(c.inizio).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })} · {c.titolo}</option>
+          ))}
+        </select>
+      </header>
+
+      <div ref={listaRef} className="min-w-0 flex-1 space-y-3 overflow-y-auto overflow-x-hidden overscroll-contain px-3 py-3">
+        {visibili.length === 0 && <p className="text-sm text-slate2">{spiegazione}</p>}
         {kind === 'colloquio' && visibili.length === 0 && (
           <button className="btn" disabled={attesa || !catalogo.length} onClick={() => { void invia('colloquio', conosciuto ? 'Ciao, riprendiamo: hai la mia cartella.' : 'Ciao, iniziamo il colloquio.') }}>{conosciuto ? 'Riprendi con il coach' : 'Inizia il colloquio'}</button>
         )}
-        {kind === 'chat' && visibili.length === 0 && (
-          <div className="space-y-2">
-            <p className="text-sm text-slate2">Il coach ha davanti l'ultimo programma che ti ha dato e gli allenamenti che hai fatto. Da dove partiamo?</p>
-            <div className="flex flex-wrap gap-2">
-              {['Com’è andata con il programma: ti racconto', 'A che punto sono con il mio obiettivo?', 'Un esercizio non lo sento bene', 'Arrivo troppo stanco a un esercizio', 'Spiegami perché hai scelto questi esercizi'].map((o) => (
-                <button key={o} disabled={attesa} className="rounded-full border border-cyan-500/40 px-3 py-1.5 text-xs text-cyan-200" onClick={() => { void invia('chat', o) }}>{o}</button>
-              ))}
-            </div>
+        {kind === 'chat' && visibili.length === 0 && !attesa && (
+          <div className="flex flex-wrap gap-2">
+            {['Com’è andata con il programma: ti racconto', 'A che punto sono con il mio obiettivo?', 'Un esercizio non lo sento bene', 'Spiegami perché hai scelto questi esercizi'].map((o) => (
+              <button key={o} className="rounded-full border border-cyan-500/40 px-3 py-1.5 text-xs text-cyan-200" onClick={() => { void invia('chat', o) }}>{o}</button>
+            ))}
           </div>
-        )}
-        {kind === 'colloquio' && !attesa && visibili.length >= 6 && !visibili.some((m) => (m.meta as MetaCoach | null)?.piano) && (
-          <button className="w-full rounded-xl border border-amber-400/50 bg-amber-400/10 py-3 text-sm font-bold text-amber-200" onClick={() => { void invia('colloquio', 'Consegna adesso il piano completo dentro "piano", con una breve spiegazione della logica.', true) }}>
-            📋 Genera il programma adesso
-          </button>
         )}
         {visibili.map((m) => (
           <Bolla key={m.id} m={m} ultimo={m === ultimo} attesa={attesa} haPiano={!!piano}
@@ -398,15 +448,26 @@ export default function Coach() {
             onDomanda={() => inputRef.current?.focus()} onScarica={scaricaProposta}
             onCorreggi={m === ultimoMio && !attesa ? () => { void correggi(m) } : undefined} />
         ))}
+        {kind === 'colloquio' && !attesa && visibili.length >= 6 && !visibili.some((m) => (m.meta as MetaCoach | null)?.piano) && (
+          <button className="w-full rounded-xl border border-amber-400/50 bg-amber-400/10 py-3 text-sm font-bold text-amber-200" onClick={() => { void invia('colloquio', 'Consegna adesso il piano completo dentro "piano", con una breve spiegazione della logica.', true) }}>
+            📋 Genera il programma adesso
+          </button>
+        )}
         {attesa && <p className="text-sm text-slate2" role="status">Il coach sta scrivendo…</p>}
-        {errore && <p className="text-sm text-amber2" role="alert">{errore}</p>}
-        <div ref={fondo} />
+        {errore && <p className="break-words text-sm text-amber2" role="alert">{errore}</p>}
       </div>
 
       {(visibili.length > 0 || kind === 'chat') && (
-        <div className="fixed inset-x-0 bottom-20 z-10 mx-auto flex max-w-lg gap-2 bg-ink/95 px-4 py-2">
-          <textarea ref={inputRef} className="input min-h-12 flex-1" rows={2} placeholder="Scrivi al coach…" value={testo} onChange={(e) => setTesto(e.target.value)} />
-          <button className="rounded-xl bg-cyan-500/25 px-4 font-bold text-cyan-200 disabled:opacity-40" disabled={attesa || !testo.trim()} onClick={() => { const t = testo.trim(); setTesto(''); void invia(kind, t) }}>Invia</button>
+        <div className="flex shrink-0 items-end gap-2 border-t border-edge bg-ink px-3 py-2">
+          <textarea
+            ref={inputRef}
+            className="input min-w-0 flex-1 resize-none !py-2.5 text-base leading-snug"
+            rows={Math.min(4, Math.max(1, testo.split('\n').length, Math.ceil(testo.length / 34)))}
+            placeholder="Scrivi al coach…"
+            value={testo}
+            onChange={(e) => setTesto(e.target.value)}
+          />
+          <button className="h-11 w-11 shrink-0 rounded-xl bg-cyan-500/25 text-lg font-bold text-cyan-200 disabled:opacity-40" aria-label="Invia" disabled={attesa || !testo.trim()} onClick={inviaDalCampo}>➤</button>
         </div>
       )}
     </main>
@@ -431,7 +492,7 @@ function Bolla({ m, ultimo, attesa, haPiano, onOpzione, onAccetta, onDomanda, on
   const meta = (m.meta ?? {}) as MetaCoach
   if (m.role === 'utente') return (
     <div className="ml-10">
-      <p className={`rounded-2xl rounded-br-sm p-3 text-sm ${meta.accettato ? 'bg-emerald-500/15 text-emerald-200' : 'bg-cyan-500/15 text-chalk'}`}>{m.content}</p>
+      <p className={`whitespace-pre-line break-words rounded-2xl rounded-br-sm p-3 text-sm ${meta.accettato ? 'bg-emerald-500/15 text-emerald-200' : 'bg-cyan-500/15 text-chalk'}`}>{m.content}</p>
       {onCorreggi && <button className="mt-1 block w-full text-right text-[11px] text-slate2 underline" onClick={onCorreggi}>✏️ Correggi questo messaggio</button>}
     </div>
   )
@@ -439,22 +500,37 @@ function Bolla({ m, ultimo, attesa, haPiano, onOpzione, onAccetta, onDomanda, on
   const bloccato = !!meta.esito?.errori.length
   const etichetta = meta.piano ? (haPiano ? '✅ Mi piace, salva le modifiche' : '✅ Mi piace, salvalo') : meta.controllo ? 'Salva il controllo' : `Passa a ${meta.calorie} kcal`
   return (
-    <div className="mr-6 space-y-2">
-      <p className="whitespace-pre-line rounded-2xl rounded-bl-sm border border-edge bg-steel/60 p-3 text-sm leading-relaxed text-chalk">{m.content}</p>
+    <div className="mr-4 min-w-0 space-y-2">
+      <p className="whitespace-pre-line break-words rounded-2xl rounded-bl-sm border border-edge bg-steel/60 p-3 text-sm leading-relaxed text-chalk">{m.content}</p>
       {proposta && (
-        <div className="rounded-2xl border border-cyan-500/40 p-3 space-y-3">
+        <div className="min-w-0 rounded-2xl border border-cyan-500/40 p-3 space-y-3">
           {meta.differenze && (
             <div>
               <p className="field-label">Cosa cambia</p>
               <ul className="space-y-1 text-[12px] text-chalk">{meta.differenze.map((d, i) => <li key={i}>• {d}</li>)}</ul>
             </div>
           )}
-          {meta.piano && <><p className="font-display text-base font-bold uppercase text-cyan-200">📋 {haPiano ? 'Ecco il programma aggiornato' : 'Ecco il tuo programma'}: {meta.piano.titolo}</p>{meta.piano.note && <p className="text-[12px] leading-relaxed text-slate2">{meta.piano.note}</p>}<Sedute plan={meta.piano} /></>}
+          {meta.piano && (
+            <>
+              <p className="break-words font-display text-base font-bold uppercase text-cyan-200">📋 {haPiano ? 'Ecco il programma aggiornato' : 'Ecco il tuo programma'}: {meta.piano.titolo}</p>
+              {meta.piano.note && <p className="break-words text-[12px] leading-relaxed text-slate2">{meta.piano.note}</p>}
+              {/* Programma e volume ripiegati: la chat resta leggibile sul telefono. */}
+              <details open={!haPiano && ultimo} className="rounded-xl border border-edge">
+                <summary className="cursor-pointer px-3 py-2.5 text-sm font-bold text-chalk">Vedi le sedute ({meta.piano.sedute.length})</summary>
+                <div className="space-y-3 p-2"><Sedute plan={meta.piano} /></div>
+              </details>
+            </>
+          )}
           {meta.calorie && !meta.piano && <p className="text-sm text-chalk">Nuove calorie proposte: <span className="font-data">{meta.calorie} kcal</span> (il volume della scheda seguirà dopo una settimana).</p>}
           {meta.controllo && <p className="text-[12px] text-slate2">Il controllo verrà salvato nello storico della tua cartella.</p>}
           {meta.esito && meta.esito.errori.length > 0 && <ul className="space-y-1 text-[12px] text-red-300">{meta.esito.errori.map((e, i) => <li key={i}>✕ {e}</li>)}</ul>}
           {meta.esito && meta.esito.avvisi.length > 0 && <ul className="space-y-1 text-[12px] text-amber2">{meta.esito.avvisi.map((e, i) => <li key={i}>! {e}</li>)}</ul>}
-          {meta.esito && <TabellaVolume esito={meta.esito} />}
+          {meta.esito && (
+            <details className="rounded-xl border border-edge">
+              <summary className="cursor-pointer px-3 py-2.5 text-sm font-bold text-chalk">Volume settimanale</summary>
+              <div className="p-2"><TabellaVolume esito={meta.esito} /></div>
+            </details>
+          )}
           {ultimo && <button className="btn" disabled={attesa || bloccato} onClick={() => onAccetta(meta)}>{bloccato ? 'Il coach deve correggere gli errori' : etichetta}</button>}
           {ultimo && (
             <div className="grid grid-cols-2 gap-2">

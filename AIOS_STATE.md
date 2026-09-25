@@ -4,8 +4,29 @@
 > da qui. Va **aggiornato** a ogni sessione, non accodato all'infinito.
 > L'identità del progetto e il percorso di AI-OS stanno in `AIOS_PROJECT.json`.
 
-**Ultimo aggiornamento:** 2026-09-25 (eliminare definitivamente schede e programmi, crearne di nuovi) - Claude (Opus 5.5)
+**Ultimo aggiornamento:** 2026-09-25 (chat del Coach rifatta per il telefono, menu conversazioni sempre visibile) - Claude (Opus 5.5)
 
+### 2026-09-25 (11) — Chat del Coach per il telefono e menu delle conversazioni
+
+1. **Segnalazione di Rossi** — grafica della chat fuori scala sul telefono; nessuno storico /
+   menu a tendina per vedere le conversazioni precedenti, chiedere informazioni, cambiare il
+   piano o farne uno nuovo.
+2. **Misurato (Chromium 360 px, isMobile)** — pagina del programma larga 363 px (parole lunghe
+   nelle note); chat come pagina che scorre tutta: intestazione e menu storico fuori schermo,
+   `scrollIntoView` spostava anche la finestra, campo di testo alto, programma proposto che
+   occupava tutto lo schermo; menu storico visibile solo con 2+ chat e solo con un programma.
+3. **Fatto (verificato)** —
+   - Chat come app di messaggi: `main` fisso sopra la barra (100dvh - 68 px - safe area),
+     intestazione fissa (←, titolo, "＋ Nuova") con il menu "Conversazioni precedenti" SEMPRE
+     visibile (colloquio/ripresa, ultimo controllo, tutte le chat con data e primo messaggio),
+     lista messaggi che scorre da sola (scroll del contenitore, non della pagina), campo compatto
+     che cresce fino a 4 righe (testo 16 px: niente zoom su iPhone), pulsante ➤.
+   - "＋ Nuova": 💬 Nuova chat, ✏️ Cambia il programma (chat nuova con "Vorrei cambiare il
+     programma: " già scritto), 📋 Fai il controllo, 🆕 Programma nuovo.
+   - Si può chattare anche senza programma (il coach risponde e, se serve, costruisce il piano).
+   - Bolle e note che vanno a capo; nella proposta sedute e volume ripiegati ("Vedi le
+     sedute", "Volume settimanale"). Programma: "🗂 Conversazioni precedenti (N)".
+   Rimisurato: 360/360 px su programma e chat. 345 test verdi, tsc/eslint puliti, build ok.
 ### 2026-09-25 (10) — Eliminare definitivamente e crearne uno nuovo
 
 1. **Richiesta di Rossi** — dopo aver salvato una scheda, un programma o un piano, poterlo
