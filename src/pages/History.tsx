@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { BackButton } from '../components/BackButton'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../features/auth/AuthProvider'
 import { useWorkout } from '../features/workout/WorkoutContext'
@@ -67,8 +68,9 @@ export default function History() {
   }
 
   return (
-    <div className="px-5 pt-12 pb-4">
-      <h1 className="font-display font-extrabold uppercase text-[2.4rem] leading-none tracking-tight">Ultimo allenamento</h1>
+    <div className="px-5 pt-8 pb-4">
+      <BackButton />
+      <h1 className="mt-2 font-display font-extrabold uppercase text-[2.4rem] leading-none tracking-tight">Ultimo allenamento</h1>
 
       {errore && <p className="mt-6 text-sm text-amber2" role="alert">{errore}</p>}
       {lista === null && !errore && <div className="mt-8 h-24 animate-pulse rounded-xl bg-steel" aria-hidden />}

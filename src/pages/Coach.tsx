@@ -6,7 +6,7 @@
  *  - Controllo ogni 4 settimane con le 10 domande di Rossi; il controllo finisce nella cartella.
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../features/auth/AuthProvider'
 import { useSettings } from '../features/profile/useSettings'
 import { useCartella } from '../features/cartella/useCartella'
@@ -21,6 +21,7 @@ import { caricaCatalogo, elencoStorico } from '../lib/api'
 import { determinaFase, escludiPerFastidi, patchCambioCalorie } from '../engine/nutrition'
 import { isExerciseAvailable } from '../generators/equipment'
 import { MUSCLE_LABELS, type CompletedWorkout, type Exercise } from '../types'
+import { BackButton } from '../components/BackButton'
 
 const GIORNI_CONTROLLO = 28
 const DAY = 86_400_000
@@ -96,6 +97,7 @@ function carichiDelPiano(plan: CoachPlan | undefined, storico: CompletedWorkout[
 
 export default function Coach() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { user } = useAuth()
   const { profile, calorieLog, bodyLog, settings, saveProfile } = useSettings(user?.id)
   const { cartella, salva: salvaCartella } = useCartella(user?.id)
@@ -107,10 +109,21 @@ export default function Coach() {
   const [attesa, setAttesa] = useState(false)
   const [errore, setErrore] = useState<string | null>(null)
   /** Conversazione aperta sopra il piano attivo (null = si vede il piano). */
-  const [aperta, setAperta] = useState<TipoConversazione | null>(null)
+  // 25/09: ogni conversazione ha il suo indirizzo (/coach?c=chat&t=…): il tasto indietro
+  // dell'app e quello del telefono tornano a quello che si stava vedendo prima.
+  const [searchParams] = useSearchParams()
+  const aperta = (searchParams.get('c') as TipoConversazione | null) ?? null
+  const thread = searchParams.get('t')
+  const vai = (c: TipoConversazione | null, t?: string | null, sostituisci = false) => {
+    const q = new URLSearchParams()
+    if (c) q.set('c', c)
+    if (c === 'chat' && t) q.set('t', t)
+    navigate(q.toString() ? `/coach?${q}` : '/coach', { replace: sostituisci })
+  }
+  const setAperta = (c: TipoConversazione | null) => vai(c, c === 'chat' ? thread : null)
+  const indietro = () => (location.key !== 'default' ? navigate(-1) : navigate(piano ? '/coach' : '/'))
   /** Conversazione di "Parla col coach" aperta (ogni "Nuova chat" ne crea una). */
-  const [thread, setThread] = useState<string | null>(null)
-  const [menuNuovo, setMenuNuovo] = useState(false)
+  const [cassetto, setCassetto] = useState(false)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const fase = determinaFase(profile, calorieLog)
   // Ti conosce già (cartella compilata, controlli o programma)? Allora niente anamnesi: ripresa.
@@ -221,7 +234,7 @@ export default function Coach() {
         await salvaCartella(nuovo)
       }
       await aggiungi({ role: 'utente', kind, content: 'Ho accettato.', meta: { accettato: true }, thread_id: kind === 'chat' ? thread : null })
-      if (kind !== 'chat') setAperta(null)
+      if (kind !== 'chat') vai(null, null, true)
     } catch (e) {
       setErrore(e instanceof Error ? e.message : 'Non salvato.')
     }
@@ -248,12 +261,11 @@ export default function Coach() {
   /** "Parla col coach": dopo un programma nuovo (o la prima volta) si apre una chat pulita e il
    *  coach la inizia lui; altrimenti si riprende l'ultima conversazione. */
   async function apriChat(nuova = false) {
-    setAperta('chat')
     const ultima = storicoChat[0]
     const vecchia = !ultima || (piano && ultima.ultimo < piano.created_at)
-    if (!nuova && !vecchia) { setThread(ultima.id); return }
+    if (!nuova && !vecchia) { vai('chat', ultima.id); return }
     const id = crypto.randomUUID()
-    setThread(id)
+    vai('chat', id)
     await invia('chat', '[APERTURA]', true, false, [], id)
   }
 
@@ -293,7 +305,7 @@ export default function Coach() {
     const traGiorni = Math.ceil((riferimento + GIORNI_CONTROLLO * DAY - Date.now()) / DAY)
     return (
       <main className="overflow-x-hidden px-5 pb-28 pt-10">
-        <button className="font-data text-xs text-slate2" onClick={() => navigate('/')}>← Indietro</button>
+        <BackButton />
         <p className="eyebrow mt-3">Il mio piano · versione {piano.version}</p>
         <h1 className="mt-1 break-words font-display text-[2rem] font-extrabold uppercase leading-none">{piano.plan.titolo}</h1>
         <p className="mt-3 text-sm leading-relaxed text-slate2">
@@ -304,17 +316,30 @@ export default function Coach() {
 
         <div className="mt-5 grid grid-cols-2 gap-2">
           <button className="rounded-xl border border-cyan-500/40 bg-cyan-500/10 py-3 text-sm font-bold text-cyan-200" onClick={() => { void apriChat() }}>💬 Parla col coach</button>
-          {storicoChat.length > 0 && (
-            <button className="col-span-2 order-last rounded-xl border border-edge py-2.5 text-xs text-slate-300" onClick={() => { setAperta('chat'); setThread(storicoChat[0].id) }}>
-              🗂 Conversazioni precedenti ({storicoChat.length})
-            </button>
-          )}
+          <button className="col-span-2 order-last rounded-xl border border-edge py-2.5 text-xs text-slate-300" onClick={() => { void nuova('chat') }}>
+            ✎ Nuova chat con il coach
+          </button>
           <button className={`rounded-xl border py-3 text-sm font-bold ${traGiorni <= 0 ? 'border-amber-400/60 bg-amber-400/10 text-amber-200' : 'border-edge text-slate-300'}`} onClick={() => { void iniziaControllo() }}>
             📋 {traGiorni <= 0 ? 'È ora del controllo' : `Controllo tra ${traGiorni} gg`}
           </button>
         </div>
 
-        {piano.plan.note && <p className="mt-4 rounded-xl border border-edge bg-steel/50 p-3 text-[13px] leading-relaxed text-chalk">{piano.plan.note}</p>}
+        {storicoChat.length > 0 && (
+          <section className="mt-5">
+            <h2 className="field-label">Conversazioni recenti</h2>
+            <ul className="space-y-1">
+              {storicoChat.slice(0, 5).map((c) => (
+                <li key={c.id}>
+                  <button className="w-full rounded-xl border border-edge px-3 py-2 text-left" onClick={() => vai('chat', c.id)}>
+                    <span className="block truncate text-sm text-chalk">💬 {c.titolo}</span>
+                    <span className="block text-[11px] text-slate2">{new Date(c.ultimo).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+        {piano.plan.note && <p className="mt-4 break-words rounded-xl border border-edge bg-steel/50 p-3 text-[13px] leading-relaxed text-chalk">{piano.plan.note}</p>}
         <div className="mt-5"><Sedute plan={piano.plan} prossima={piano.next_index} onInizia={inizia} /></div>
         <h2 className="mt-8 field-label">Volume settimanale (calcolato dall'app)</h2>
         <TabellaVolume esito={esito} />
@@ -373,16 +398,17 @@ export default function Coach() {
   const haControllo = (messaggi ?? []).some((m) => m.kind === 'controllo')
   const valoreMenu = kind === 'chat' ? `chat:${thread ?? 'prima'}` : kind
   function scegliConversazione(v: string) {
-    if (v.startsWith('chat:')) { setAperta('chat'); setThread(v.slice(5)); return }
-    setAperta(v as TipoConversazione)
+    setCassetto(false)
+    if (v.startsWith('chat:')) { vai('chat', v.slice(5)); return }
+    vai(v as TipoConversazione)
   }
 
   async function nuova(tipoNuovo: 'chat' | 'cambio' | 'programma' | 'controllo') {
-    setMenuNuovo(false)
+    setCassetto(false)
     if (tipoNuovo === 'chat') { await apriChat(true); return }
     if (tipoNuovo === 'cambio') {
       const id = crypto.randomUUID()
-      setAperta('chat'); setThread(id)
+      vai('chat', id)
       setTesto('Vorrei cambiare il programma: ')
       setTimeout(() => inputRef.current?.focus(), 50)
       return
@@ -406,29 +432,51 @@ export default function Coach() {
     <main className="fixed inset-x-0 top-0 mx-auto flex h-[calc(100dvh-68px-env(safe-area-inset-bottom))] max-w-lg flex-col overflow-hidden">
       <header className="shrink-0 border-b border-edge bg-ink/95 px-3 pb-2 pt-[max(0.75rem,env(safe-area-inset-top))]">
         <div className="flex items-center gap-2">
-          <button className="shrink-0 rounded-lg px-2 py-1.5 font-data text-xs text-slate2" onClick={() => (piano ? setAperta(null) : navigate('/'))} aria-label={piano ? 'Torna al programma' : 'Indietro'}>←</button>
+          <button className="shrink-0 rounded-lg px-2 py-1.5 text-lg text-slate2" onClick={indietro} aria-label="Indietro">←</button>
           <h1 className="min-w-0 flex-1 truncate font-display text-lg font-extrabold uppercase">{titolo}</h1>
-          <div className="relative shrink-0">
-            <button className="rounded-lg border border-cyan-500/40 px-3 py-1.5 text-xs font-bold text-cyan-200" aria-expanded={menuNuovo} onClick={() => setMenuNuovo((v) => !v)}>＋ Nuova</button>
-            {menuNuovo && (
-              <div className="absolute right-0 top-full z-20 mt-1 w-64 space-y-1 rounded-xl border border-edge bg-ink p-2 shadow-2xl">
-                <button className="w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-steel" onClick={() => { void nuova('chat') }}>💬 Nuova chat<span className="block text-[11px] text-slate2">domande, spiegazioni, come va</span></button>
-                {piano && <button className="w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-steel" onClick={() => { void nuova('cambio') }}>✏️ Cambia il programma<span className="block text-[11px] text-slate2">scrivi cosa non ti va</span></button>}
-                {piano && <button className="w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-steel" onClick={() => { void nuova('controllo') }}>📋 Fai il controllo<span className="block text-[11px] text-slate2">le 10 domande, a che punto sei</span></button>}
-                <button className="w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-steel" onClick={() => { void nuova('programma') }}>🆕 Programma nuovo<span className="block text-[11px] text-slate2">il coach ne costruisce un altro</span></button>
-              </div>
-            )}
-          </div>
+          <button className="shrink-0 rounded-lg border border-edge px-2.5 py-1.5 text-sm" aria-label="Nuova chat" disabled={attesa} onClick={() => { void nuova('chat') }}>✎</button>
+          <button className="shrink-0 rounded-lg border border-cyan-500/40 px-2.5 py-1.5 text-sm text-cyan-200" aria-label="Conversazioni" aria-expanded={cassetto} onClick={() => setCassetto(true)}>☰</button>
         </div>
-        <select className="input mt-2 w-full min-w-0 !py-2 text-sm" value={valoreMenu} onChange={(e) => scegliConversazione(e.target.value)} aria-label="Conversazioni precedenti">
-          {(haColloquio || !piano) && <option value="colloquio">{conosciuto ? '🧑‍🏫 Colloquio / ripresa' : '🧑‍🏫 Primo colloquio'}</option>}
-          {haControllo && <option value="controllo">📋 Ultimo controllo</option>}
-          {kind === 'chat' && !storicoChat.some((c) => c.id === (thread ?? 'prima')) && <option value={`chat:${thread ?? 'prima'}`}>💬 Nuova chat</option>}
-          {storicoChat.map((c) => (
-            <option key={c.id} value={`chat:${c.id}`}>💬 {new Date(c.inizio).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })} · {c.titolo}</option>
-          ))}
-        </select>
       </header>
+
+      {/* Elenco delle conversazioni come in una chat con Claude: nuova chat e azioni in alto,
+          poi tutte le conversazioni recenti. Si chiude con ✕, toccando fuori o scegliendo. */}
+      {cassetto && (
+        <div className="fixed inset-0 z-40 flex" role="dialog" aria-modal="true" aria-label="Conversazioni">
+          <div className="flex h-full w-[85%] max-w-sm flex-col border-r border-edge bg-ink pt-[max(0.75rem,env(safe-area-inset-top))]">
+            <div className="flex items-center justify-between px-4 pb-2">
+              <span className="font-display text-base font-bold uppercase">Conversazioni</span>
+              <button className="rounded-lg px-2 py-1 text-lg text-slate2" aria-label="Chiudi" onClick={() => setCassetto(false)}>✕</button>
+            </div>
+            <div className="space-y-1 px-3">
+              <button className="w-full rounded-xl bg-cyan-500/15 px-3 py-2.5 text-left text-sm font-bold text-cyan-200" onClick={() => { void nuova('chat') }}>✎ Nuova chat</button>
+              {piano && <button className="w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-steel" onClick={() => { void nuova('cambio') }}>✏️ Cambia il programma</button>}
+              {piano && <button className="w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-steel" onClick={() => { void nuova('controllo') }}>📋 Fai il controllo</button>}
+              <button className="w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-steel" onClick={() => { void nuova('programma') }}>🆕 Programma nuovo</button>
+              {piano && <button className="w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-steel" onClick={() => { setCassetto(false); vai(null) }}>🗓 Il mio programma</button>}
+            </div>
+            <p className="mt-4 px-4 pb-1 text-[11px] uppercase tracking-wider text-slate2">Recenti</p>
+            <ul className="flex-1 space-y-0.5 overflow-y-auto px-3 pb-6">
+              {(haColloquio || !piano) && (
+                <li><button className={`w-full truncate rounded-lg px-3 py-2 text-left text-sm ${valoreMenu === 'colloquio' ? 'bg-steel text-white' : 'text-slate-300'}`} onClick={() => scegliConversazione('colloquio')}>🧑‍🏫 {conosciuto ? 'Colloquio / ripresa' : 'Primo colloquio'}</button></li>
+              )}
+              {haControllo && (
+                <li><button className={`w-full truncate rounded-lg px-3 py-2 text-left text-sm ${valoreMenu === 'controllo' ? 'bg-steel text-white' : 'text-slate-300'}`} onClick={() => scegliConversazione('controllo')}>📋 Ultimo controllo</button></li>
+              )}
+              {storicoChat.map((c) => (
+                <li key={c.id}>
+                  <button className={`w-full rounded-lg px-3 py-2 text-left text-sm ${valoreMenu === `chat:${c.id}` ? 'bg-steel text-white' : 'text-slate-300'}`} onClick={() => scegliConversazione(`chat:${c.id}`)}>
+                    <span className="block truncate">{c.titolo}</span>
+                    <span className="block text-[11px] text-slate2">{new Date(c.ultimo).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })}</span>
+                  </button>
+                </li>
+              ))}
+              {storicoChat.length === 0 && !haColloquio && !haControllo && <li className="px-3 py-2 text-sm text-slate2">Nessuna conversazione ancora.</li>}
+            </ul>
+          </div>
+          <button className="flex-1 bg-black/60" aria-label="Chiudi l'elenco" onClick={() => setCassetto(false)} />
+        </div>
+      )}
 
       <div ref={listaRef} className="min-w-0 flex-1 space-y-3 overflow-y-auto overflow-x-hidden overscroll-contain px-3 py-3">
         {visibili.length === 0 && <p className="text-sm text-slate2">{spiegazione}</p>}

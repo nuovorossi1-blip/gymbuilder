@@ -3,7 +3,7 @@
  * nel file unico .md e reimportabile (anche se aggiornata da un altro LLM).
  */
 import { useEffect, useState, type ReactNode } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { BackButton } from '../components/BackButton'
 import { useAuth } from '../features/auth/AuthProvider'
 import { useSettings } from '../features/profile/useSettings'
 import { useCartella } from '../features/cartella/useCartella'
@@ -84,7 +84,6 @@ function ListaEsercizi({ valori, onChange, catalog, etichetta, notaPlaceholder, 
 }
 
 export default function Cartella() {
-  const navigate = useNavigate()
   const { user } = useAuth()
   const { profile, calorieLog } = useSettings(user?.id)
   const { cartella: salvata, aggiornata, errore, salva } = useCartella(user?.id)
@@ -112,7 +111,7 @@ export default function Cartella() {
   return (
     <main className="px-5 pb-32 pt-10">
       <datalist id="catalogo-esercizi">{catalog.filter((e) => !e.roles.includes('warmup')).map((e) => <option key={e.id} value={e.name} />)}</datalist>
-      <button className="font-data text-xs text-slate2" onClick={() => navigate('/')}>← Indietro</button>
+      <BackButton />
       <h1 className="mt-3 font-display text-[2.2rem] font-extrabold uppercase leading-none">La mia cartella</h1>
       <p className="mt-3 text-sm leading-relaxed text-slate2">
         Quello che il Coach deve sapere di te. Peso, calorie, sonno, stress e fastidi si modificano nel Profilo;

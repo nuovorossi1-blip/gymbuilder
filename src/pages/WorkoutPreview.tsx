@@ -1,4 +1,5 @@
 import { NOTA_ANTAGONISTA } from '../engine/programming'
+import { BackButton } from '../components/BackButton'
 import { useRef, useState, type PointerEvent, type ReactNode } from 'react'
 import { metconInstruction, metconSubtitle } from '../engine/metconInstructions'
 import { useNavigate } from 'react-router-dom'
@@ -225,7 +226,8 @@ export default function WorkoutPreview() {
 
   return (
     <div className="px-5 pt-12 pb-8">
-      <p className="eyebrow mb-2">{GOAL_LABELS[displayed.goal]}</p>
+      <BackButton fallback={displayed.origine === 'coach' ? '/coach' : '/'} />
+      <p className="eyebrow mb-2 mt-2">{GOAL_LABELS[displayed.goal]}</p>
       <h1 className="font-display font-extrabold uppercase leading-[0.9] tracking-tight text-[2.4rem]">
         {displayed.split ? SPLIT_LABELS[displayed.split] : MODE_LABELS[displayed.mode]}
       </h1>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { BackButton } from '../components/BackButton'
 import { determinaFase } from '../engine/nutrition'
 import { useAuth } from '../features/auth/AuthProvider'
 import { loadLocalAiSettings } from '../features/profile/aiSettings'
@@ -28,7 +29,6 @@ const CHECK_LABELS: Record<keyof SchedaAnalysis['controlli'], string> = {
 }
 
 export default function Analyze() {
-  const navigate = useNavigate()
   const { user } = useAuth()
   const { profile, settings, calorieLog } = useSettings(user?.id)
   const [scheda, setScheda] = useState('')
@@ -84,7 +84,7 @@ export default function Analyze() {
 
   return (
     <main className="px-5 pb-28 pt-12">
-      <button className="font-data text-xs text-slate2" onClick={() => navigate('/')}>← Indietro</button>
+      <BackButton />
       <h1 className="mt-3 font-display text-[2.2rem] font-extrabold uppercase leading-none">Analizza la mia scheda</h1>
       <p className="mt-3 text-sm leading-relaxed text-slate2">
         Scrivi i tuoi esercizi nell'ordine in cui li fai, uno per riga. Prima analizzo la tua versione,

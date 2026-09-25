@@ -4,8 +4,27 @@
 > da qui. Va **aggiornato** a ogni sessione, non accodato all'infinito.
 > L'identità del progetto e il percorso di AI-OS stanno in `AIOS_PROJECT.json`.
 
-**Ultimo aggiornamento:** 2026-09-25 (chat del Coach rifatta per il telefono, menu conversazioni sempre visibile) - Claude (Opus 5.5)
+**Ultimo aggiornamento:** 2026-09-25 (Coach come una chat con Claude: elenco conversazioni, indirizzi e tasto indietro ovunque) - Claude (Opus 5.5)
 
+### 2026-09-25 (12) — Coach come una chat con Claude, tasto indietro ovunque
+
+1. **Richiesta di Rossi** — l'obiettivo è una chat come questa con Claude, ma con l'LLM che sceglie
+   lui; serve il tasto indietro per ogni cosa aperta, per tornare a quello che stava vedendo.
+2. **Fatto (verificato)** —
+   - `components/BackButton.tsx`: ← unico; torna alla schermata precedente (navigate(-1)) o, se
+     la pagina è stata aperta direttamente, a un fallback. Usato in Analizza, Peso e girovita,
+     Cartella, Salvati, Profilo, Ultimo allenamento, Anteprima (fallback /coach per le sedute del
+     coach) e nel programma del Coach.
+   - Coach: la vista è nell'indirizzo (`/coach`, `/coach?c=colloquio|controllo`,
+     `/coach?c=chat&t=<id>`): il ← dell'app e il tasto indietro del telefono ripercorrono le
+     conversazioni aperte. Dopo "Accetta" si torna al programma con replace.
+   - Intestazione chat: ←, titolo, ✎ (nuova chat), ☰ (elenco). Elenco come la barra laterale di
+     Claude: "✎ Nuova chat", Cambia il programma, Fai il controllo, Programma nuovo, Il mio
+     programma; "Recenti" con tutte le conversazioni (titolo = primo messaggio, data), quella
+     aperta evidenziata. Pagina del programma: "Conversazioni recenti" (ultime 5) e
+     "✎ Nuova chat con il coach". Tolta la tendina.
+   Provato in Chromium mobile 360 px: Home -> Coach -> chat -> ☰ -> altra chat -> ← app -> chat
+   precedente -> indietro del telefono -> programma -> Home. 345 test verdi, tsc/eslint puliti.
 ### 2026-09-25 (11) — Chat del Coach per il telefono e menu delle conversazioni
 
 1. **Segnalazione di Rossi** — grafica della chat fuori scala sul telefono; nessuno storico /

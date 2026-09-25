@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { BackButton } from '../components/BackButton'
 import { useAuth } from '../features/auth/AuthProvider'
 import { useSettings } from '../features/profile/useSettings'
 import { clearNativeCrashLog, isNativeDiagnosticsAvailable, readNativeCrashLog } from '../native/diagnostics'
@@ -109,8 +110,9 @@ export default function ProfilePage() {
   if (error) return <p role="alert" className="px-5 pt-12 text-amber2">{error}</p>
 
   return (
-    <main className="px-5 pb-8 pt-12">
-      <h1 className="font-display text-[2.4rem] font-extrabold uppercase leading-none">Profilo</h1>
+    <main className="px-5 pb-8 pt-8">
+      <BackButton />
+      <h1 className="mt-2 font-display text-[2.4rem] font-extrabold uppercase leading-none">Profilo</h1>
       <p className="mt-2 font-data text-xs text-slate2">{user?.email}</p>
       <p className="mt-5 text-sm leading-relaxed text-slate2">
         Qui conservi account, dati fisici, alimentazione e recupero: servono a stimare le calorie e a calibrare volume e intensità.

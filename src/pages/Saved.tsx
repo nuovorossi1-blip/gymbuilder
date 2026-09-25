@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { BackButton } from '../components/BackButton'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../features/auth/AuthProvider'
 import { useWorkout } from '../features/workout/WorkoutContext'
@@ -105,6 +106,7 @@ export default function Saved() {
       onSwipeRight={() => naviga('/')}
       className="px-4 pt-6 pb-28 space-y-6"
     >
+      <BackButton />
       <header className="flex items-center justify-between">
         <div>
           <span className="eyebrow text-cyan-400">Libreria Personale</span>

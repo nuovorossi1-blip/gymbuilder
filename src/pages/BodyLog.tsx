@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { BackButton } from '../components/BackButton'
 import { determinaFase, patchCambioCalorie } from '../engine/nutrition'
 import { analizzaStallo, gradinoDiOggi } from '../engine/stallo'
 import { useAuth } from '../features/auth/AuthProvider'
@@ -10,7 +10,6 @@ import { useSettings } from '../features/profile/useSettings'
  * L'app suggerisce, Rossi conferma: niente cambia alle calorie senza un tocco esplicito.
  */
 export default function BodyLog() {
-  const navigate = useNavigate()
   const { user } = useAuth()
   const { profile, calorieLog, bodyLog, addBodyEntry, saveProfile } = useSettings(user?.id)
   const [peso, setPeso] = useState('')
@@ -56,7 +55,7 @@ export default function BodyLog() {
 
   return (
     <main className="px-5 pb-28 pt-12">
-      <button className="font-data text-xs text-slate2" onClick={() => navigate('/')}>← Indietro</button>
+      <BackButton />
       <h1 className="mt-3 font-display text-[2.2rem] font-extrabold uppercase leading-none">Peso e girovita</h1>
       <p className="mt-3 text-sm leading-relaxed text-slate2">
         Una misura a settimana, alla stessa ora. Dopo 2 settimane l'app capisce se sei in stallo e ti propone
