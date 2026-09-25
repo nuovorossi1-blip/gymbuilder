@@ -174,6 +174,23 @@ export default function Coach() {
     return { role: 'assistant', content: p ? `${m.content}\n[PIANO PROPOSTO] ${JSON.stringify(p)}` : m.content }
   }
 
+  /** Volume del programma attivo e dell'ultima proposta della conversazione, calcolato qui. */
+  function volumePerIlCoach(storia: MessaggioCoach[]) {
+    const riassunto = (titolo: string, plan: CoachPlan) => {
+      const esito = controllaPiano(plan, ctxControlli)
+      return {
+        programma: titolo,
+        righe: esito.volume.map((r) => ({ muscolo: MUSCLE_LABELS[r.muscolo], serie: r.serie, volte: r.frequenza, carenza: r.carenza, range: `${r.target[0]}-${r.target[1]}` })),
+        avvisi: esito.avvisi.filter((a) => a.includes('serie a settimana') || a.includes('non compare')),
+      }
+    }
+    const out = []
+    if (piano) out.push(riassunto(`Programma attivo v${piano.version}: ${piano.plan.titolo}`, normalizzaPiano(piano.plan, catalogo) ?? piano.plan))
+    const proposta = [...storia].reverse().map((m) => (m.meta as MetaCoach | null)?.piano).find(Boolean)
+    if (proposta) out.push(riassunto(`Ultima proposta in questa conversazione: ${proposta.titolo}`, proposta))
+    return out
+  }
+
   async function invia(kind: TipoConversazione, contenuto: string, nascosto = false, tentativo = false, storiaBase?: MessaggioCoach[], threadForzato?: string | null) {
     if (!cartella || (attesa && !tentativo)) return
     setErrore(null); setAttesa(true)
@@ -188,6 +205,7 @@ export default function Coach() {
         carichi: carichiDelPiano(piano?.plan, storico),
         storicoCalorie: calorieLog.slice(-10).map((e) => ({ data: e.created_at.slice(0, 10), kcal: e.kcal })),
         allenamentiFatti: storico.slice(0, 15).map((w) => ({ data: w.completed_at.slice(0, 10), nome: w.name, minuti: Math.round(w.duration_sec / 60), voto: w.rating })),
+        volumeCalcolato: volumePerIlCoach(base),
       })
       const risposta = leggiRispostaCoach(await chiediJsonAlLlm([
         { role: 'system', content: promptSistema(kind, conosciuto) },
@@ -210,8 +228,11 @@ export default function Coach() {
         await invia(kind, 'Consegna adesso il piano completo dentro "piano", in questa stessa risposta, con una breve spiegazione della logica.', true, true, [...base, mio, suo], t)
         return
       }
-      if (plan && esito && esito.errori.length && !tentativo) {
-        await invia(kind, `Il controllo dell'app ha trovato questi errori nel piano: ${esito.errori.join(' ')} Correggili e rimanda il piano intero.`, true, true, [...base, mio, suo], t)
+      // Errori bloccanti e carenze sotto il loro range (regola di Rossi: la carenza prende il
+      // volume) vengono rimandati al coach una volta, prima che il cliente debba accorgersene.
+      const daCorreggere = esito ? [...esito.errori, ...esito.avvisi.filter((a) => a.includes('(carenza)') && a.includes('sotto il range'))] : []
+      if (plan && daCorreggere.length && !tentativo) {
+        await invia(kind, `Il controllo dell'app sul piano ha trovato: ${daCorreggere.join(' ')} Correggi (le carenze devono stare nel loro range di serie a settimana) e rimanda il piano intero, spiegando cosa hai cambiato.`, true, true, [...base, mio, suo], t)
       }
     } catch (e) {
       setErrore(e instanceof Error ? e.message : 'Il coach non ha risposto.')
@@ -430,9 +451,9 @@ export default function Coach() {
     // Layout da app di messaggi: intestazione fissa, messaggi che scorrono, campo in basso sopra
     // la barra di navigazione (72 px). Niente contenuto più largo dello schermo.
     <main className="fixed inset-x-0 top-0 mx-auto flex h-[calc(100dvh-68px-env(safe-area-inset-bottom))] max-w-lg flex-col overflow-hidden">
-      <header className="shrink-0 border-b border-edge bg-ink/95 px-3 pb-2 pt-[max(0.75rem,env(safe-area-inset-top))]">
+      <header className="shrink-0 border-b border-edge bg-ink/95 px-3 pb-2 pt-[max(1rem,env(safe-area-inset-top))]">
         <div className="flex items-center gap-2">
-          <button className="shrink-0 rounded-lg px-2 py-1.5 text-lg text-slate2" onClick={indietro} aria-label="Indietro">←</button>
+          <button className="flex h-10 shrink-0 items-center gap-1 rounded-full border border-cyan-500/50 bg-cyan-500/15 px-3 text-sm font-bold text-cyan-100" onClick={indietro} aria-label="Indietro">← <span className="hidden min-[380px]:inline">Indietro</span></button>
           <h1 className="min-w-0 flex-1 truncate font-display text-lg font-extrabold uppercase">{titolo}</h1>
           <button className="shrink-0 rounded-lg border border-edge px-2.5 py-1.5 text-sm" aria-label="Nuova chat" disabled={attesa} onClick={() => { void nuova('chat') }}>✎</button>
           <button className="shrink-0 rounded-lg border border-cyan-500/40 px-2.5 py-1.5 text-sm text-cyan-200" aria-label="Conversazioni" aria-expanded={cassetto} onClick={() => setCassetto(true)}>☰</button>

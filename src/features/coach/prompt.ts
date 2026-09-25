@@ -48,6 +48,8 @@ Poi confronta ogni risposta con lo storico (peso come previsto? girovita coerent
 export const PROCEDURA_CHAT = `## PARLA COL COACH
 Se "piano_attivo" è null il cliente non ha ancora un programma: rispondi alle sue domande e, se vuole un programma, fai le domande che mancano (non quelle già nella cartella) e consegnalo in "piano".
 Il cliente ha un piano attivo (nel contesto: è l'ULTIMA programmazione che hai stilato tu) e in "allenamenti_fatti" vedi cosa ha fatto davvero. Riparti da lì: chiedigli come si è trovato, cosa sente e cosa no, e digli a che punto è rispetto all'obiettivo della cartella. Ti scrive quando vuole: un esercizio che non sente, uno slot in cui arriva troppo stanco, un fastidio, un dubbio, una richiesta. Se l'ultimo messaggio del cliente è "[APERTURA]" è l'inizio di una nuova conversazione: aprila tu. Saluta ("Eccoci!"), fai una breve valutazione con i dati che hai (allenamenti fatti dall'ultimo programma, peso e girovita, calorie) rispetto all'obiettivo della cartella, e chiedigli come sta andando il programma. Offrigli in "opzioni" cosa fare: raccontarti com'è andata, analizzare qualcosa insieme, farsi spiegare qualcosa, aggiornare il programma. Poi fai le domande una alla volta e aspetta le risposte.
+Per i numeri del volume (serie a settimana per muscolo, frequenza) usa SEMPRE "volume_calcolato_dall_app": è calcolato dall'app, non contare tu. Se una carenza è sotto il suo range o un punto forte è molto sopra, riconoscilo con franchezza, spiega perché è successo e correggi subito il programma rimandandolo intero in "piano".
+Rispondi come in una normale conversazione: il campo "messaggio" può essere lungo quanto serve.
 Se il cliente chiede spiegazioni ("perché questo esercizio?", "perché qui?", "non ho capito"), spiega esercizio per esercizio con le note del piano: motivo biomeccanico, energia dello slot, carenza o punto forte, interleave, serie e RIR in base alla fase.
 Rispondi da coach. Se serve cambiare il piano, fallo subito e rimanda il piano INTERO modificato in "piano", spiegando nel messaggio cosa hai cambiato e perché; non cambiare ciò che non serve. Puoi decidere tu uno scarico. Se la domanda non richiede modifiche, rispondi senza "piano".`
 
@@ -82,6 +84,9 @@ export interface ContestoCoach {
   storicoCalorie?: { data: string; kcal: number }[]
   /** Allenamenti fatti di recente (nome, data, durata, voto): il coach sa come sta andando. */
   allenamentiFatti?: { data: string; nome: string; minuti: number; voto: string | number | null }[]
+  /** Volume settimanale calcolato dall'APP (non dall'LLM) per il programma attivo e per l'ultima
+   *  proposta: serie per muscolo, frequenza, carenza sì/no, range della fase. */
+  volumeCalcolato?: { programma: string; righe: { muscolo: string; serie: number; volte: number; carenza: boolean; range: string }[]; avvisi: string[] }[]
 }
 
 /** Il contesto va come primo messaggio: il coach lo "legge" prima della conversazione. */
@@ -103,6 +108,7 @@ export function messaggioContesto(ctx: ContestoCoach): string {
     carichi_registrati: ctx.carichi ?? {},
     storico_calorie: ctx.storicoCalorie ?? [],
     allenamenti_fatti: ctx.allenamentiFatti ?? [],
+    volume_calcolato_dall_app: ctx.volumeCalcolato ?? [],
     oggi: new Date().toISOString().slice(0, 10),
     catalogo: ctx.catalogo.filter((e) => !e.roles.includes('warmup')).map((e) => ({
       id: e.id, nome: e.name, muscoli: e.primary_muscles, attrezzo: e.equipment, multiarticolare: e.roles.includes('compound'),

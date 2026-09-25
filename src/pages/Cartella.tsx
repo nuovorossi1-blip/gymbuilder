@@ -188,7 +188,7 @@ export default function Cartella() {
         </div>
       </Sezione>
 
-      <Sezione titolo="Storico controlli" spiegazione="Lo compila il Coach a ogni controllo (arriva nella prossima fase).">
+      <Sezione titolo="Storico controlli" spiegazione="Lo compila il Coach a ogni controllo.">
         {c.controlli.length === 0 ? <p className="text-sm text-slate2">Nessun controllo ancora.</p> : c.controlli.slice().reverse().map((k) => (
           <div key={k.data} className="rounded-xl border border-edge p-3 text-sm">
             <p className="font-data text-[12px] text-slate2">{k.data}</p>

@@ -47,3 +47,20 @@ describe('regole di programmazione di Rossi nei prompt (23/09)', () => {
     expect(b.proposta).toEqual([])
   })
 })
+
+import { leggiRispostaLibera } from './deepseek'
+
+describe('risposta del coach in testo libero (25/09)', () => {
+  it('il testo normale diventa il messaggio della chat, non un errore', () => {
+    expect(leggiRispostaLibera('Hai ragione: spalle e braccia sono a 8 serie, troppo poche.')).toEqual({ messaggio: 'Hai ragione: spalle e braccia sono a 8 serie, troppo poche.' })
+  })
+  it('il JSON valido resta com\'è, anche dentro un recinto ```json', () => {
+    expect(leggiRispostaLibera('```json\n{"messaggio":"ok","opzioni":["a"]}\n```')).toEqual({ messaggio: 'ok', opzioni: ['a'] })
+  })
+  it('dal JSON rovinato recupera almeno il messaggio', () => {
+    expect(leggiRispostaLibera('{"messaggio":"Ecco il perché","piano": {rotto')).toEqual({ messaggio: 'Ecco il perché' })
+  })
+  it('toglie il ragionamento <think> dei modelli che lo mostrano', () => {
+    expect(leggiRispostaLibera('<think>ragiono</think>Risposta finale')).toEqual({ messaggio: 'Risposta finale' })
+  })
+})

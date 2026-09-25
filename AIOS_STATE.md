@@ -4,8 +4,30 @@
 > da qui. Va **aggiornato** a ogni sessione, non accodato all'infinito.
 > L'identità del progetto e il percorso di AI-OS stanno in `AIOS_PROJECT.json`.
 
-**Ultimo aggiornamento:** 2026-09-25 (Coach come una chat con Claude: elenco conversazioni, indirizzi e tasto indietro ovunque) - Claude (Opus 5.5)
+**Ultimo aggiornamento:** 2026-09-25 (risposte libere del coach, volume calcolato passato al coach, tasto indietro visibile) - Claude (Opus 5.5)
 
+### 2026-09-25 (13) — "Risposta non valida" in chat, volume delle carenze, tasto indietro visibile
+
+1. **Segnalazioni di Rossi** — tasto indietro poco visibile e troppo in alto; il coach ha dato un
+   piano con spalle e braccia (carenze) a 8 serie a settimana su un minimo di 12-14; alla domanda
+   "perché così poco?" l'app ha mostrato "Risposta non valida": "non è una chat come con un LLM".
+2. **Cause (verificate)** — `chiediJsonAlLlm` pretendeva un oggetto JSON: se il modello risponde
+   in testo libero (tipico per le spiegazioni e per molti modelli OpenRouter) lanciava "Risposta
+   AI non valida". Il coach conta male le serie: il volume corretto lo calcolava solo l'app e
+   non glielo passava.
+3. **Fatto (verificato)** —
+   - `leggiRispostaLibera`: JSON valido (anche dentro ```json) -> usato; JSON rovinato -> si
+     recupera "messaggio"; testo libero -> diventa il messaggio (tolti <think> e recinti).
+   - Contesto del coach: `volume_calcolato_dall_app` (programma attivo e ultima proposta della
+     conversazione: serie/settimana, volte, carenza, range della fase, avvisi). Prompt chat: usa
+     SEMPRE quei numeri, riconosci con franchezza, correggi rimandando il piano; il messaggio può
+     essere lungo come in una normale conversazione.
+   - Correzione automatica (una volta) anche per le carenze sotto il loro range, oltre agli
+     errori bloccanti.
+   - `BackButton`: pillola grande (44 px), bordo ciano, "← Indietro", attaccata in cima mentre si
+     scorre (sticky sotto la safe area). Nella chat: pillola "← Indietro" alta 40 px.
+   Provato in Chromium mobile: tasto a y=12 dopo lo scorrimento; risposta in testo libero
+   mostrata come messaggio; volume passato al coach. 349 test verdi (+4), tsc/eslint puliti.
 ### 2026-09-25 (12) — Coach come una chat con Claude, tasto indietro ovunque
 
 1. **Richiesta di Rossi** — l'obiettivo è una chat come questa con Claude, ma con l'LLM che sceglie

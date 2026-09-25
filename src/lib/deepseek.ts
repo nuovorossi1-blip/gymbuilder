@@ -656,5 +656,30 @@ export async function chiediJsonAlLlm(messages: LlmMessage[]): Promise<Record<st
   const payload = await requestDeepSeek(loadLocalAiSettings(), messages)
   const content = payload.choices?.[0]?.message?.content
   if (!content) throw new Error('L’LLM non ha restituito una risposta.')
-  return JSON.parse(extractJsonObject(content)) as Record<string, unknown>
+  return leggiRispostaLibera(content)
+}
+
+/**
+ * 25/09 (Rossi: "risposta non valida, non è una chat come con un LLM"): quando il modello risponde
+ * in testo normale invece che nel formato JSON richiesto (succede con le domande di
+ * spiegazione e con molti modelli OpenRouter), il testo diventa il messaggio della chat invece di
+ * un errore. Se il JSON c'è ma è rovinato, si recupera almeno il campo "messaggio".
+ */
+export function leggiRispostaLibera(content: string): Record<string, unknown> {
+  const testo = content.trim()
+  const first = testo.indexOf('{')
+  const last = testo.lastIndexOf('}')
+  if (first >= 0 && last > first) {
+    try {
+      const obj = JSON.parse(testo.slice(first, last + 1)) as unknown
+      if (obj && typeof obj === 'object' && !Array.isArray(obj)) return obj as Record<string, unknown>
+    } catch { /* JSON rovinato: si prova a recuperare il messaggio sotto */ }
+  }
+  const m = testo.match(/"messaggio"\s*:\s*"((?:[^"\\]|\\.)*)"/)
+  if (m) {
+    try { return { messaggio: JSON.parse(`"${m[1]}"`) } } catch { return { messaggio: m[1] } }
+  }
+  // Testo libero: via eventuali recinti ```json e blocchi di ragionamento <think>.
+  const pulito = testo.replace(/<think>[\s\S]*?<\/think>/g, '').replace(/```[a-z]*\n?|```/g, '').trim()
+  return { messaggio: pulito || testo }
 }
