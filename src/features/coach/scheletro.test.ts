@@ -92,3 +92,32 @@ describe('scheletro: correzioni del 26/09', () => {
     expect(confrontaConScheletro(allineato, sch, cat)).toEqual([])
   })
 })
+
+describe('esercizi da migliorare nello scheletro (26/09)', () => {
+  const trazioni = { exercise_id: 'trazioni', nome: 'Trazioni alla sbarra', muscolo: 'back' as Muscle, multiarticolare: true, unita: 'ripetizioni' as const }
+  const conTrazioni = (step: number) => costruisciScheletro({ giorni: 5, carenze: carenzeSpalleBraccia, forti: ['chest', 'glutes', 'quads'], step, prestazioni: [trazioni] })
+  it('le trazioni aprono Pull A e Pull B (2 volte a settimana), non gli altri giorni', () => {
+    const s = conTrazioni(-500)
+    for (const sd of s.sedute) expect(sd.slot[0].exercise_id === 'trazioni').toBe(sd.split === 'pull')
+  })
+  it('schema per fase: in deficit serie brevi senza cedimento, in surplus più ripetizioni e zavorra', () => {
+    const a = conTrazioni(-500).sedute.find((s) => s.nome === 'Pull A')!.slot[0]
+    expect(a).toMatchObject({ tipo: 'prestazione', serie: 5, reps: '3-4', rir: '2' })
+    expect(conTrazioni(-500).sedute.find((s) => s.nome === 'Pull B')!.slot[0].indicazione).toContain('negative')
+    expect(conTrazioni(500).sedute.find((s) => s.nome === 'Pull A')!.slot[0].indicazione).toContain('zavorra')
+  })
+  it('prende il posto di un esercizio di dorso: il volume del dorso non cresce, niente dorso subito dopo', () => {
+    const senza = costruisciScheletro({ giorni: 5, carenze: carenzeSpalleBraccia, forti: ['chest', 'glutes', 'quads'], step: -500 })
+    const conT = conTrazioni(-500)
+    const nDorso = (x: typeof senza) => x.sedute.find((s) => s.nome === 'Pull A')!.slot.filter((s) => s.muscolo === 'back').length
+    expect(nDorso(conT)).toBe(nDorso(senza))
+    for (const sd of conT.sedute.filter((s) => s.split === 'pull')) expect(sd.slot[1].muscolo).not.toBe('back')
+  })
+  it('il coach deve usare proprio quell’esercizio; l’app lo mette da sola', () => {
+    const s = conTrazioni(-500)
+    const piano = riempiScheletro(s, { catalogo: cat, preferiti: [], daEvitare: [], obbligatori: [] })
+    expect(piano.sedute.find((x) => x.nome === 'Pull A')!.esercizi[0].exercise_id).toBe('trazioni')
+    const sbagliato = { ...piano, sedute: piano.sedute.map((sd) => sd.nome === 'Pull A' ? { ...sd, esercizi: [{ ...sd.esercizi[0], exercise_id: 'lat_machine' }, ...sd.esercizi.slice(1)] } : sd) }
+    expect(confrontaConScheletro(sbagliato, s, cat).join(' ')).toContain('esercizio da migliorare')
+  })
+})

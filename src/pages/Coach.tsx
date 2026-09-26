@@ -21,6 +21,7 @@ import { chiediJsonAlLlm, type LlmMessage } from '../lib/deepseek'
 import { caricaCatalogo, elencoStorico } from '../lib/api'
 import { determinaFase, escludiPerFastidi, patchCambioCalorie } from '../engine/nutrition'
 import { analizzaStallo, gradinoDiOggi, nomeCiclo } from '../engine/stallo'
+import { progressiEsercizio, riassuntoProgressi } from '../engine/prestazioni'
 import { isExerciseAvailable } from '../generators/equipment'
 import { MUSCLE_LABELS, type CompletedWorkout, type Exercise } from '../types'
 import { Markdown } from '../components/Markdown'
@@ -158,6 +159,11 @@ export default function Coach() {
     carenze: cartella.carenze.map((c) => c.muscolo),
     forti: cartella.punti_forti.map((p) => p.muscolo),
     step: fase?.training_step ?? null,
+    // Esercizi da migliorare della cartella (26/09), abbinati al catalogo.
+    prestazioni: cartella.esercizi_da_migliorare.flatMap((e) => {
+      const ex = catalogo.find((c) => c.id === e.exercise_id)
+      return ex ? [{ exercise_id: ex.id, nome: ex.name, muscolo: ex.primary_muscles[0], multiarticolare: ex.roles.includes('compound'), unita: e.unita }] : []
+    }),
   }) : null
   const ctxControlli = { catalog: catalogo, cartella, fastidi: profile?.joint_issues ?? [], phase: fase?.training_phase ?? null, step: fase?.training_step ?? null }
 
@@ -246,6 +252,10 @@ export default function Coach() {
         volumeCalcolato: volumePerIlCoach(base),
         scheletro: scheletro ? scheletroPerLlm(scheletro) : null,
         cicloCalorico: cicloCalorico(),
+        progressiEsercizi: cartella.esercizi_da_migliorare.filter((e) => e.exercise_id).map((e) => ({
+          esercizio: e.nome, oggi: e.attuale, obiettivo: e.obiettivo, unita: e.unita, test: e.test.slice(-6),
+          allenamenti: progressiEsercizio(e.exercise_id!, storico), riassunto: riassuntoProgressi(progressiEsercizio(e.exercise_id!, storico)),
+        })),
       })
       const grezza = await chiediJsonAlLlm([
         { role: 'system', content: promptSistema(kind, conosciuto) },

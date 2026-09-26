@@ -109,6 +109,8 @@ export function sedutaComeWorkout(sd: CoachSeduta, catalog: Exercise[], cartella
       rir: e.rir || undefined,
       technique: e.tecnica,
       note: e.nota?.toLowerCase().includes('antagonist') ? 'antagonista' : muscle && carenze.includes(muscle) ? 'carenza' : undefined,
+      // Esercizio da migliorare (26/09): nell'allenamento si segnano le ripetizioni pulite.
+      prestazione: cartella?.esercizi_da_migliorare.some((x) => x.exercise_id === e.exercise_id) || undefined,
       instructions: ex?.instructions || undefined,
     }
   })

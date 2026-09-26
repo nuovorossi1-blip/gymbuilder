@@ -18,6 +18,7 @@ export const FORMATO_RISPOSTA = `Rispondi SEMPRE e SOLO con un JSON object:
 - Usa SOLO exercise_id presenti nel catalogo che ricevi. Il riscaldamento fisso NON va tra gli esercizi.
 - SCHELETRO OBBLIGATORIO: il contesto contiene "scheletro_programma", costruito dall'app con le regole del cliente (volume dalle carenze, carenze nei primi slot, gambe forti = 1 multiarticolare quadricipiti + 1 multiarticolare femorali + 1 isolamento quadricipiti + 1 isolamento femorali + 1 polpacci, niente hip thrust se i glutei non sono carenti, spalle carenti = alzate laterali, aperture posteriori, alzate frontali, shoulder press, mai un multiarticolare in fondo). Ogni piano che consegni DEVE avere le stesse sedute nello stesso ordine e, per ogni seduta, gli stessi slot nello stesso ordine: stesso muscolo principale, stesso ruolo (multiarticolare/isolamento), stesse serie, reps e RIR. Tu scegli per ogni slot l'exercise_id del catalogo seguendo "indicazione", i fastidi e i gusti del cliente, e scrivi nota, logica e alternativa. Non aggiungere, togliere o spostare slot: il controllo dell'app rifiuta il piano. Se il cliente vuole un'altra struttura (giorni, durata), aggiorna la cartella (giorni_settimana, durata_min) con "aggiorna_cartella" e spiegagli che il nuovo scheletro arriva al messaggio successivo.
 - Per spiegare il volume usa "scheletro_programma.volume_settimanale" e "volume_calcolato_dall_app": sono calcolati dall'app.
+- ESERCIZI DA MIGLIORARE (cartella "esercizi_da_migliorare", es. trazioni): non sono carenze del muscolo ma prestazioni. Nello scheletro hanno uno slot con "exercise_id_obbligatorio" in apertura (forza nella seduta A, volume e controllo nella B): usa esattamente quell'esercizio. Nei controlli chiedi il test del massimo (es. quante trazioni pulite fai) e salvalo in "aggiorna_cartella" dentro esercizi_da_migliorare[].test con la data; guarda "progressi_esercizi" per capire se sale, e se è fermo da 3-4 settimane proponi un cambio di strategia (più negative, frequenza, zavorra).
 - Il piano è una ROTAZIONE: il cliente fa sempre "la prossima seduta della lista", anche se una settimana si allena meno.`
 
 export const PROCEDURA_COLLOQUIO = `## PRIMO COLLOQUIO (il dottore alla prima visita)
@@ -95,6 +96,8 @@ export interface ContestoCoach {
   scheletro?: unknown
   /** Ciclo delle calorie calcolato dall'app (stallo.ts): pausa in corso, stallo rilevato o niente. */
   cicloCalorico?: unknown
+  /** Progressi registrati negli allenamenti sugli esercizi da migliorare. */
+  progressiEsercizi?: unknown
 }
 
 /** Il contesto va come primo messaggio: il coach lo "legge" prima della conversazione. */
@@ -119,6 +122,7 @@ export function messaggioContesto(ctx: ContestoCoach): string {
     volume_calcolato_dall_app: ctx.volumeCalcolato ?? [],
     scheletro_programma: ctx.scheletro ?? null,
     ciclo_calorico: ctx.cicloCalorico ?? null,
+    progressi_esercizi: ctx.progressiEsercizi ?? [],
     oggi: new Date().toISOString().slice(0, 10),
     catalogo: ctx.catalogo.filter((e) => !e.roles.includes('warmup')).map((e) => ({
       id: e.id, nome: e.name, muscoli: e.primary_muscles, attrezzo: e.equipment, multiarticolare: e.roles.includes('compound'),

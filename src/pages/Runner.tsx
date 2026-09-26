@@ -511,6 +511,28 @@ export default function Runner() {
     setWorkout({ ...workout, blocks: blocchiAggiornati })
   }
 
+  /** Ripetizioni pulite della serie corrente per l'esercizio da migliorare (26/09). */
+  function impostaRipetizioniSerie(iEs: number, serie: number, reps: number | undefined) {
+    if (!workout) return
+    let contatore = 0
+    const blocchiAggiornati = workout.blocks.map((blocco) => {
+      if (blocco.kind !== 'main') return blocco
+      return {
+        ...blocco,
+        exercises: blocco.exercises.map((esercizio) => {
+          const indiceAttuale = contatore
+          contatore += 1
+          if (indiceAttuale !== iEs) return esercizio
+          const lista = [...(esercizio.logged_reps ?? [])]
+          while (lista.length < serie) lista.push(0)
+          lista[serie - 1] = reps ?? 0
+          return { ...esercizio, logged_reps: lista }
+        }),
+      }
+    })
+    setWorkout({ ...workout, blocks: blocchiAggiornati })
+  }
+
   function interrompiAllenamento() {
     if (typeof window !== 'undefined' && !window.confirm('Vuoi davvero interrompere ed eliminare la sessione in corso?')) return
     confermaUscita()
@@ -1185,6 +1207,24 @@ export default function Runner() {
           className="w-full rounded-xl border border-edge bg-steel px-4 py-3 font-data text-lg text-chalk placeholder:text-slate2/60 focus:border-amber2 focus:outline-none"
         />
       </label>
+
+      {es.prestazione && (
+        <label className="mt-4 block rounded-xl border border-cyan-500/40 bg-cyan-500/5 p-3">
+          <span className="eyebrow mb-1.5 block text-cyan-300">🎯 Esercizio da migliorare · ripetizioni pulite in questa serie</span>
+          <input
+            type="number"
+            inputMode="numeric"
+            min="0"
+            placeholder="es. 5"
+            value={es.logged_reps?.[fase.serie - 1] || ''}
+            onChange={(e) => impostaRipetizioniSerie(fase.iEs, fase.serie, e.target.value === '' ? undefined : Number(e.target.value))}
+            className="w-full rounded-xl border border-edge bg-steel px-4 py-3 font-data text-lg text-chalk placeholder:text-slate2/60 focus:border-cyan-400 focus:outline-none"
+          />
+          {!!es.logged_reps?.some((r) => r > 0) && (
+            <span className="mt-1.5 block font-data text-[12px] text-slate2">Finora: {es.logged_reps.map((r, i) => `S${i + 1} ${r || '—'}`).join(' · ')}</span>
+          )}
+        </label>
+      )}
 
       <div className="mt-12 text-center">
         <p className="eyebrow mb-3">Serie</p>

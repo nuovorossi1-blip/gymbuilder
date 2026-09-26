@@ -25,7 +25,7 @@ import { MUSCLE_LABELS, type Exercise, type Muscle, type PrescribedExercise, typ
 import type { CoachPlan } from './plan'
 
 export type Ruolo = 'multiarticolare' | 'isolamento'
-export type TipoSlot = 'carenza' | 'mantenimento' | 'richiamo'
+export type TipoSlot = 'carenza' | 'mantenimento' | 'richiamo' | 'prestazione'
 
 export interface SlotScheletro {
   muscolo: Muscle
@@ -36,6 +36,36 @@ export interface SlotScheletro {
   rir: string
   /** Che esercizio mettere (famiglia), in parole: il coach sceglie quale dal catalogo. */
   indicazione: string
+  /** Esercizio obbligato (esercizio da migliorare): il coach non lo può cambiare. */
+  exercise_id?: string
+}
+
+/** Esercizio da migliorare passato allo scheletro (dalla cartella, abbinato al catalogo). */
+export interface Prestazione { exercise_id: string; nome: string; muscolo: Muscle; multiarticolare: boolean; unita: 'ripetizioni' | 'kg' }
+
+const SEDUTA_DEL_MUSCOLO: Partial<Record<Muscle, Tipo>> = {
+  back: 'pull', rear_delts: 'pull', biceps: 'pull', forearms: 'pull',
+  chest: 'push', front_delts: 'push', lateral_delts: 'push', triceps: 'push',
+  quads: 'legs', hamstrings: 'legs', glutes: 'legs', calves: 'legs', adductors: 'legs', core: 'legs',
+}
+
+/**
+ * Schema dell'esercizio da migliorare per gradino calorico e seduta (26/09, regola concordata):
+ * in deficit poche serie brevi e pulite, mai a cedimento; in normocalorica e surplus più serie e,
+ * quando è il momento, più carico. Seduta A = forza, seduta B = volume e controllo.
+ */
+function schemaPrestazione(p: Prestazione, v: 'A' | 'B', step: CalorieStep): { serie: number; reps: string; rir: string; indicazione: string } {
+  const deficit = step < 0
+  const surplus = step >= 500
+  const reps = p.unita === 'ripetizioni'
+  if (v === 'A') {
+    if (deficit) return { serie: 5, reps: reps ? '3-4' : '4-6', rir: '2', indicazione: `${p.nome} — FORZA: serie brevi e pulite, recupero 2-3 min, mai a cedimento` }
+    if (surplus) return { serie: 5, reps: reps ? '4-6' : '4-6', rir: '1', indicazione: `${p.nome} — FORZA: ${reps ? 'quando fai 3 serie da 6 pulite aggiungi 2,5 kg di zavorra' : 'quando fai tutte le serie al massimo delle ripetizioni aumenta il carico'}` }
+    return { serie: 5, reps: reps ? '3-5' : '4-6', rir: '1-2', indicazione: `${p.nome} — FORZA: serie brevi e pulite, recupero 2-3 min` }
+  }
+  if (deficit) return { serie: 3, reps: reps ? 'massimo meno 2' : '8-10', rir: '2', indicazione: `${p.nome} — VOLUME E CONTROLLO${reps ? ': poi 2 negative lente (discesa 3-5 secondi)' : ': discesa lenta di 3 secondi'}` }
+  if (surplus) return { serie: 4, reps: reps ? '6-8' : '8-10', rir: '1-2', indicazione: `${p.nome} — VOLUME E CONTROLLO${reps ? ' (con zavorra leggera quando il massimo supera 10)' : ''}` }
+  return { serie: 4, reps: reps ? '5-6' : '8-10', rir: '2', indicazione: `${p.nome} — VOLUME E CONTROLLO${reps ? ': poi 2 negative lente' : ''}` }
 }
 
 export interface SedutaScheletro { nome: string; split: Split; slot: SlotScheletro[] }
@@ -125,7 +155,7 @@ function serieDi(g: Grezzo, step: CalorieStep): { serie: number; rir: string } {
   return { serie, rir: comp ? T.rir.comp[step] : T.rir.iso[step] }
 }
 
-export function costruisciScheletro(opts: { giorni: number | null | undefined; carenze: Muscle[]; forti: Muscle[]; step: number | null | undefined }): Scheletro {
+export function costruisciScheletro(opts: { giorni: number | null | undefined; carenze: Muscle[]; forti: Muscle[]; step: number | null | undefined; prestazioni?: Prestazione[] }): Scheletro {
   const giorni = Math.max(3, Math.min(6, Math.round(opts.giorni ?? 5)))
   const step = stepDaOffset(opts.step ?? 0)
   const carenze = new Set(opts.carenze)
@@ -142,10 +172,22 @@ export function costruisciScheletro(opts: { giorni: number | null | undefined; c
     }))
     ordinaSessione(pseudo, { carenze: [...carenze], phase: fase, split: tipo })
     const ordinati = pseudo.map((p) => grezzi[Number(p.exercise_id.slice(5))])
-    return {
-      nome, split: tipo,
-      slot: ordinati.map((g) => ({ ...g, ...serieDi(g, step), reps: repsDi(g.muscolo, g.ruolo) })),
+    const slot: SlotScheletro[] = ordinati.map((g) => ({ ...g, ...serieDi(g, step), reps: repsDi(g.muscolo, g.ruolo) }))
+    // Esercizi da migliorare: casella fissa in APERTURA (massima freschezza) in tutte le sedute
+    // del loro tipo, quindi 2 volte a settimana con 5 giorni. Prende il posto del primo esercizio
+    // dello stesso muscolo e ruolo, così il volume di quel muscolo non cresce.
+    for (const p of (opts.prestazioni ?? []).filter((x) => SEDUTA_DEL_MUSCOLO[x.muscolo] === tipo)) {
+      const ruolo: Ruolo = p.multiarticolare ? 'multiarticolare' : 'isolamento'
+      const i = slot.findIndex((x) => x.muscolo === p.muscolo && x.ruolo === ruolo && x.tipo !== 'richiamo' && x.tipo !== 'prestazione')
+      if (i >= 0) slot.splice(i, 1)
+      slot.unshift({ muscolo: p.muscolo, ruolo, tipo: 'prestazione', exercise_id: p.exercise_id, ...schemaPrestazione(p, v, step) })
+      // Mai due esercizi dello stesso muscolo di fila subito dopo.
+      if (slot[1]?.muscolo === p.muscolo) {
+        const j = slot.findIndex((x, k) => k > 1 && x.muscolo !== p.muscolo)
+        if (j > 1) [slot[1], slot[j]] = [slot[j], slot[1]]
+      }
     }
+    return { nome, split: tipo, slot }
   })
 
   // Volume settimanale: la carenza deve stare nel suo range. Se è sotto, si aggiungono serie agli
@@ -225,6 +267,10 @@ export function confrontaConScheletro(plan: CoachPlan, sch: Scheletro, catalog: 
     atteso.slot.forEach((slot, j) => {
       const ex = byId.get(sd.esercizi[j].exercise_id)
       if (!ex) return // già segnalato da controllaPiano
+      if (slot.exercise_id) {
+        if (ex.id !== slot.exercise_id) errori.push(`${atteso.nome}, slot ${j + 1}: deve essere ${slot.indicazione.split(' — ')[0]} (esercizio da migliorare), non ${ex.name}.`)
+        return
+      }
       const muscoloOk = ex.primary_muscles.includes(slot.muscolo)
       const ruoloOk = (slot.ruolo === 'multiarticolare') === ex.roles.includes('compound')
       if (!muscoloOk || !ruoloOk) errori.push(`${atteso.nome}, slot ${j + 1}: serve ${slot.ruolo} per ${MUSCLE_LABELS[slot.muscolo]} (${slot.indicazione}), non ${ex.name}.`)
@@ -269,14 +315,15 @@ export function riempiScheletro(sch: Scheletro, pref: PreferenzeRiempimento, tit
         if (['cardio', 'bodyweight'].includes(String(e.equipment)) && slot.ruolo === 'isolamento') p -= 10
         return p
       }
-      const scelto = candidati.sort((a, b) => punteggio(b) - punteggio(a))[0]
+      const fisso = slot.exercise_id ? pref.catalogo.find((e) => e.id === slot.exercise_id) : undefined
+      const scelto = fisso ?? candidati.sort((a, b) => punteggio(b) - punteggio(a))[0]
       if (scelto) { inSeduta.add(scelto.id); usati.set(scelto.id, (usati.get(scelto.id) ?? 0) + 1) }
       return {
         exercise_id: scelto?.id ?? '',
         nome: scelto?.name ?? slot.indicazione,
         serie: slot.serie, reps: slot.reps, rir: slot.rir,
         recupero_sec: slot.ruolo === 'multiarticolare' ? 120 : slot.tipo === 'richiamo' ? 60 : 75,
-        nota: `${slot.tipo === 'carenza' ? 'Carenza' : slot.tipo === 'richiamo' ? 'Richiamo antagonista' : 'Mantenimento'}: ${slot.indicazione}.`,
+        nota: slot.tipo === 'prestazione' ? `Esercizio da migliorare, in apertura quando sei fresco: ${slot.indicazione}.` : `${slot.tipo === 'carenza' ? 'Carenza' : slot.tipo === 'richiamo' ? 'Richiamo antagonista' : 'Mantenimento'}: ${slot.indicazione}.`,
       }
     })
     return { nome: sd.nome, split: sd.split, logica: sd.slot.map((s) => MUSCLE_LABELS[s.muscolo]).join(' → '), esercizi }
@@ -294,7 +341,7 @@ export function scheletroPerLlm(sch: Scheletro) {
     giorni_settimana: sch.giorni,
     sedute: sch.sedute.map((sd) => ({
       nome: sd.nome, split: sd.split,
-      slot: sd.slot.map((s, i) => ({ n: i + 1, muscolo: s.muscolo, ruolo: s.ruolo, tipo: s.tipo, serie: s.serie, reps: s.reps, rir: s.rir, indicazione: s.indicazione })),
+      slot: sd.slot.map((s, i) => ({ n: i + 1, muscolo: s.muscolo, ruolo: s.ruolo, tipo: s.tipo, serie: s.serie, reps: s.reps, rir: s.rir, indicazione: s.indicazione, ...(s.exercise_id ? { exercise_id_obbligatorio: s.exercise_id } : {}) })),
     })),
     volume_settimanale: sch.volume.map((v) => ({ muscolo: MUSCLE_LABELS[v.muscolo], serie: v.serie, volte: v.volte, carenza: v.carenza, range: `${v.range[0]}-${v.range[1]}` })),
   }

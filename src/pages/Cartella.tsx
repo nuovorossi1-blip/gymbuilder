@@ -11,9 +11,10 @@ import { abbinaEsercizio, normalizzaCartella } from '../features/cartella/cartel
 import { FileCartella } from '../features/cartella/FileCartella'
 import { CARTELLA_VUOTA, type CartellaCliente, type EsercizioNota, type NotaMuscolo } from '../features/cartella/types'
 import { useWorkout } from '../features/workout/WorkoutContext'
-import { caricaCatalogo } from '../lib/api'
+import { caricaCatalogo, elencoStorico } from '../lib/api'
+import { progressiEsercizio, riassuntoProgressi } from '../engine/prestazioni'
 import { determinaFase } from '../engine/nutrition'
-import { MUSCLE_LABELS, type Exercise, type Muscle } from '../types'
+import { MUSCLE_LABELS, type CompletedWorkout, type Exercise, type Muscle } from '../types'
 
 const MUSCOLI = Object.keys(MUSCLE_LABELS) as Muscle[]
 
@@ -91,6 +92,8 @@ export default function Cartella() {
   const [catalog, setLocalCatalog] = useState<Exercise[]>(ctxCatalog ?? [])
   const [c, setC] = useState<CartellaCliente>(CARTELLA_VUOTA)
   const [stato, setStato] = useState<'idle' | 'salvo' | 'salvata'>('idle')
+  const [storico, setStorico] = useState<CompletedWorkout[]>([])
+  useEffect(() => { if (user) elencoStorico(user.id).then(setStorico).catch(() => undefined) }, [user])
   const fase = determinaFase(profile, calorieLog)
 
   useEffect(() => { if (salvata) setC(salvata) }, [salvata])
@@ -180,6 +183,49 @@ export default function Cartella() {
       </Sezione>
       <Sezione titolo="Esercizi obbligatori" spiegazione="Il coach li inserisce come principali; può spostarli di posizione.">
         <ListaEsercizi valori={c.obbligatori} onChange={(v) => patch('obbligatori', v)} catalog={catalog} etichetta="Aggiungi obbligatorio" notaPlaceholder="Nota" conSeduta />
+      </Sezione>
+
+      <Sezione titolo="Esercizi da migliorare" spiegazione="Non un muscolo carente: una prestazione su un esercizio (es. fare più di 5 trazioni). Il coach lo mette in apertura 2 volte a settimana, con uno schema adatto alle tue calorie; in allenamento segni le ripetizioni pulite di ogni serie.">
+        {c.esercizi_da_migliorare.map((e, i) => {
+          const set = (patchE: Partial<typeof e>) => patch('esercizi_da_migliorare', c.esercizi_da_migliorare.map((x, j) => (j === i ? { ...x, ...patchE } : x)))
+          const progressi = e.exercise_id ? progressiEsercizio(e.exercise_id, storico) : []
+          return (
+            <div key={i} className="rounded-xl border border-cyan-500/30 p-3 space-y-2">
+              <div className="flex gap-2">
+                <input className="input" list="catalogo-esercizi" placeholder="Esercizio (es. Trazioni alla sbarra)" value={e.nome} onChange={(ev) => set({ nome: ev.target.value, exercise_id: abbinaEsercizio(ev.target.value, catalog) })} />
+                <Rimuovi onClick={() => patch('esercizi_da_migliorare', c.esercizi_da_migliorare.filter((_, j) => j !== i))} />
+              </div>
+              <p className={`text-[11px] ${e.exercise_id ? 'text-emerald-300' : 'text-amber2'}`}>{e.exercise_id ? 'Riconosciuto nel catalogo' : 'Scegli un esercizio del catalogo, altrimenti non entra nella scheda'}</p>
+              <div className="grid grid-cols-3 gap-2">
+                <label className="block"><span className="field-label">Misura</span>
+                  <select className="input" value={e.unita} onChange={(ev) => set({ unita: ev.target.value as 'ripetizioni' | 'kg' })}>
+                    <option value="ripetizioni">Ripetizioni</option>
+                    <option value="kg">Kg</option>
+                  </select>
+                </label>
+                <label className="block"><span className="field-label">Oggi</span>
+                  <input className="input" inputMode="decimal" value={e.attuale ?? ''} onChange={(ev) => set({ attuale: ev.target.value ? Number(ev.target.value.replace(',', '.')) : null })} />
+                </label>
+                <label className="block"><span className="field-label">Obiettivo</span>
+                  <input className="input" inputMode="decimal" value={e.obiettivo ?? ''} onChange={(ev) => set({ obiettivo: ev.target.value ? Number(ev.target.value.replace(',', '.')) : null })} />
+                </label>
+              </div>
+              <p className="text-[12px] text-slate2">Allenamenti: {riassuntoProgressi(progressi)}</p>
+              {e.test.length > 0 && <p className="text-[12px] text-slate2">Test del massimo: {e.test.slice(-4).map((t) => `${t.data.slice(5).split('-').reverse().join('/')} ${t.valore}`).join(' · ')}</p>}
+              <button
+                type="button" className="w-full rounded-lg border border-edge py-2 text-xs"
+                onClick={() => {
+                  const v = prompt(`Test del massimo di oggi (${e.unita})`)
+                  const n = v ? Number(v.replace(',', '.')) : NaN
+                  if (Number.isFinite(n)) set({ test: [...e.test, { data: new Date().toISOString().slice(0, 10), valore: n }], attuale: n })
+                }}
+              >
+                + Registra un test del massimo
+              </button>
+            </div>
+          )
+        })}
+        <Aggiungi onClick={() => patch('esercizi_da_migliorare', [...c.esercizi_da_migliorare, { nome: '', attuale: null, obiettivo: null, unita: 'ripetizioni', test: [] }])}>Aggiungi esercizio da migliorare</Aggiungi>
       </Sezione>
 
       <Sezione titolo="Attrezzatura della tua palestra">

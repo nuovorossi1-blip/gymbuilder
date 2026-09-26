@@ -134,6 +134,11 @@ export interface PrescribedExercise {
    *  singola serie (coerente con come l'utente lo inserisce: vicino al nome dell'esercizio,
    *  non ripetuto per ogni serie). */
   logged_weight_kg?: number
+  /** 26/09: esercizio che il cliente vuole migliorare (es. trazioni): nell'allenamento si
+   *  segnano le ripetizioni pulite di ogni serie. */
+  prestazione?: boolean
+  /** Ripetizioni pulite fatte in ogni serie (indice = serie - 1). */
+  logged_reps?: number[]
   /** Ripetizioni in riserva a fine serie (es. '2', '0-1'): presente quando la fase nutrizionale
    *  è nota — la calibra engine/programming.ts (Principio 5 del prompt di programmazione). */
   rir?: string

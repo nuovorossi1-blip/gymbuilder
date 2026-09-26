@@ -28,6 +28,18 @@ export interface EsercizioObbligatorio extends EsercizioNota {
   slot?: number
 }
 
+/** Esercizio da migliorare (26/09): non è un muscolo carente, è una prestazione su un esercizio. */
+export interface EsercizioDaMigliorare {
+  nome: string
+  exercise_id?: string
+  /** Dove sei oggi e dove vuoi arrivare, nell'unità scelta. */
+  attuale: number | null
+  obiettivo: number | null
+  unita: 'ripetizioni' | 'kg'
+  /** Test del massimo (dal controllo o inseriti a mano). */
+  test: { data: string; valore: number }[]
+}
+
 export interface Controllo {
   data: string
   peso?: number
@@ -52,6 +64,7 @@ export interface CartellaCliente {
   esercizi_ok: EsercizioNota[]
   esercizi_perdita_tensione: EsercizioNota[]
   obbligatori: EsercizioObbligatorio[]
+  esercizi_da_migliorare: EsercizioDaMigliorare[]
   attrezzatura: string[]
   riscaldamento: { descrizione: string; minuti: number }
   /** Giorni di allenamento a settimana e minuti per seduta: decidono lo scheletro della scheda. */
@@ -72,6 +85,7 @@ export const CARTELLA_VUOTA: CartellaCliente = {
   esercizi_ok: [],
   esercizi_perdita_tensione: [],
   obbligatori: [],
+  esercizi_da_migliorare: [],
   attrezzatura: [],
   riscaldamento: { descrizione: '2 giri addome (alti + bassi) + 3 giri rotazioni spalle', minuti: 8 },
   giorni_settimana: null,

@@ -72,6 +72,16 @@ export function normalizzaCartella(raw: unknown, catalog?: Exercise[]): Cartella
       seduta: str(x.seduta, 40) || undefined,
       slot: num(x.slot) ?? undefined,
     })).filter((x) => x.nome),
+    esercizi_da_migliorare: arr(c.esercizi_da_migliorare).map((x) => {
+      const nome = str(x.nome, 120)
+      const id = str(x.exercise_id, 80) || (catalog ? abbinaEsercizio(nome, catalog) : undefined)
+      return {
+        nome, exercise_id: id || undefined,
+        attuale: num(x.attuale), obiettivo: num(x.obiettivo),
+        unita: (x.unita === 'kg' ? 'kg' : 'ripetizioni') as 'kg' | 'ripetizioni',
+        test: arr(x.test).map((t) => ({ data: str(t.data, 30), valore: num(t.valore) })).filter((t): t is { data: string; valore: number } => !!t.data && t.valore !== null),
+      }
+    }).filter((x) => x.nome),
     attrezzatura: (Array.isArray(c.attrezzatura) ? c.attrezzatura : []).map((x) => str(x, 80)).filter(Boolean),
     riscaldamento: {
       descrizione: str(risc.descrizione) || CARTELLA_VUOTA.riscaldamento.descrizione,
@@ -159,6 +169,7 @@ export function cartellaInMarkdown(d: DatiExport): string {
   out.push('## Esercizi che sente bene', tabella(['Esercizio', 'Nota'], c.esercizi_ok.map((e) => [e.nome, e.nota])), '')
   out.push('## Esercizi con perdita di tensione', tabella(['Esercizio', 'Soluzione'], c.esercizi_perdita_tensione.map((e) => [e.nome, e.nota])), '')
   out.push('## Esercizi obbligatori (il coach può spostarli di posizione)', tabella(['Esercizio', 'Seduta', 'Slot'], c.obbligatori.map((e) => [e.nome, e.seduta, e.slot])), '')
+  out.push('## Esercizi da migliorare (prestazione, non carenza del muscolo)', tabella(['Esercizio', 'Oggi', 'Obiettivo', 'Ultimi test'], c.esercizi_da_migliorare.map((e) => [e.nome, e.attuale === null ? '' : `${e.attuale} ${e.unita}`, e.obiettivo === null ? '' : `${e.obiettivo} ${e.unita}`, e.test.slice(-3).map((t) => `${t.data}: ${t.valore}`).join(', ')])), '')
   out.push('## Attrezzatura disponibile', c.attrezzatura.length ? c.attrezzatura.map((a) => `- ${a}`).join('\n') : '_Non indicata._', '')
   out.push('## Riscaldamento fisso (non conta negli esercizi)', `${c.riscaldamento.descrizione} (~${c.riscaldamento.minuti} min)`, '')
   out.push('# PARTE 3 — NUTRIZIONE', '')
