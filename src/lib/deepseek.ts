@@ -123,8 +123,10 @@ export type LlmMessage = { role: 'system' | 'user' | 'assistant'; content: strin
 
 async function requestDeepSeek(
   settings: LocalAiSettings,
-  messages: LlmMessage[]
-): Promise<{ choices?: Array<{ message?: { content?: string } }> }> {
+  messages: LlmMessage[],
+  /** 'testo' = senza il vincolo JSON: usato quando in modalità JSON il modello risponde vuoto. */
+  formato: 'json' | 'testo' = 'json',
+): Promise<{ choices?: Array<{ message?: { content?: string; reasoning_content?: string; reasoning?: string } }> }> {
   // La chiave DeepSeek sta solo sul server (variabile DEEPSEEK_API_KEY su Vercel, 23/09): dal
   // browser parte il token di sessione Supabase, che api/deepseek.js verifica prima di spendere
   // credito — senza, l'endpoint sarebbe un proxy aperto a chiunque.
@@ -144,7 +146,7 @@ async function requestDeepSeek(
           model: settings.deepseek_model,
           temperature: 0.2,
           thinking: { type: 'disabled' },
-          response_format: { type: 'json_object' },
+          ...(formato === 'json' ? { response_format: { type: 'json_object' } } : {}),
           max_tokens: 16_000,
           messages,
         },
@@ -653,9 +655,20 @@ export async function leggiCartellaConLlm(settings: LocalAiSettings, markdown: s
 /** Chiamata generica (Coach, Fase 3): risponde con l'oggetto JSON prodotto dall'LLM. */
 export async function chiediJsonAlLlm(messages: LlmMessage[]): Promise<Record<string, unknown>> {
   const { loadLocalAiSettings } = await import('../features/profile/aiSettings')
-  const payload = await requestDeepSeek(loadLocalAiSettings(), messages)
-  const content = payload.choices?.[0]?.message?.content
-  if (!content) throw new Error('L’LLM non ha restituito una risposta.')
+  const settings = loadLocalAiSettings()
+  const testoDi = (p: { choices?: Array<{ message?: { content?: string; reasoning_content?: string; reasoning?: string } }> }) =>
+    (p.choices?.[0]?.message?.content ?? '').trim()
+  let content = testoDi(await requestDeepSeek(settings, messages))
+  if (!content) {
+    // 26/09 (visto nel DB): in modalità JSON DeepSeek a volte risponde solo con spazi vuoti. Si
+    // richiede subito la stessa cosa senza il vincolo JSON: la risposta arriva in testo normale
+    // (o in JSON scritto a mano) e leggiRispostaLibera la legge comunque.
+    content = testoDi(await requestDeepSeek(settings, [
+      ...messages,
+      { role: 'user', content: 'Rispondi ora. Se puoi usa il formato JSON richiesto; altrimenti scrivi semplicemente la risposta in italiano.' },
+    ], 'testo'))
+  }
+  if (!content) throw new Error('Il modello non ha risposto (risposta vuota). Riprova, oppure cambia modello nel Profilo.')
   // Il testo originale viaggia con la risposta: se i campi attesi mancano, la chat usa quello.
   return { ...leggiRispostaLibera(content), _testo_originale: content }
 }

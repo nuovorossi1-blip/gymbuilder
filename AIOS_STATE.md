@@ -4,8 +4,23 @@
 > da qui. Va **aggiornato** a ogni sessione, non accodato all'infinito.
 > L'identità del progetto e il percorso di AI-OS stanno in `AIOS_PROJECT.json`.
 
-**Ultimo aggiornamento:** 2026-09-25 (fix "Non ho capito bene, puoi ripetere?" nella chat del coach) - Claude (Opus 5.5)
+**Ultimo aggiornamento:** 2026-09-26 (DeepSeek in modalità JSON risponde vuoto: nuovo tentativo in testo normale) - Claude (Opus 5.5)
 
+### 2026-09-26 — Il vero motivo di "Non ho capito bene": DeepSeek risponde vuoto in modalità JSON
+
+1. **Segnalazione di Rossi** — dopo il fix del 25/09 la chat mostra ancora "Non ho capito bene,
+   puoi ripetere?" (a "Voglio prima capire come impostare il programma" e a "5 giorni a
+   settimana").
+2. **Causa (verificata nel DB, `meta.grezzo`)** — in quei messaggi il modello ha restituito SOLO
+   spazi vuoti (101 e 178 caratteri di spazio). È un comportamento noto di DeepSeek con
+   `response_format: json_object`. Il nuovo tentativo del 25/09 usava la stessa modalità e
+   tornava vuoto anch'esso.
+3. **Fatto (verificato)** — `requestDeepSeek(..., formato)`: 'testo' toglie `response_format`.
+   `chiediJsonAlLlm`: se la risposta è vuota (o solo spazi) rifà SUBITO la richiesta senza il
+   vincolo JSON, con un'ultima riga "Rispondi ora…"; la risposta in testo normale (o JSON scritto
+   a mano) è letta da `leggiRispostaLibera`. Se è vuota anche così: errore chiaro ("risposta
+   vuota: riprova o cambia modello") invece di "non ho capito". Test con fetch simulato (2).
+   353 test verdi, tsc/eslint puliti, build ok.
 ### 2026-09-25 (15) — Fix: il coach rispondeva "Non ho capito bene, puoi ripetere?"
 
 1. **Segnalazione di Rossi** (screenshot dal telefono) — alla domanda "Voglio prima capire come
