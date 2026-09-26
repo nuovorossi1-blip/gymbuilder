@@ -4,8 +4,41 @@
 > da qui. Va **aggiornato** a ogni sessione, non accodato all'infinito.
 > L'identità del progetto e il percorso di AI-OS stanno in `AIOS_PROJECT.json`.
 
-**Ultimo aggiornamento:** 2026-09-26 (scheletro della scheda costruito dall'app con le regole di Rossi) - Claude (Opus 5.5)
+**Ultimo aggiornamento:** 2026-09-26 (fix programma del coach mai salvato, tasto Salva cartella, range posteriore/anteriore) - Claude (Opus 5.5)
 
+### 2026-09-26 (3) — Piano concordato in 6 punti con Rossi + fix degli errori (punto 3)
+
+**Piano concordato (26/09, confermato da Rossi):** 1) rinominare le schede (nomi doppi segnalati,
+✏️ Rinomina, origine e data visibili); 2) "Modifica scheda" permanente (cambia/sposta/togli/aggiungi
+esercizi, serie, reps, RIR; per il programma del coach = nuova versione); 3) errori: programma del
+coach non salvato, tasto Salva della cartella nascosto; 4) calorie a cicli: dopo 4 settimane di
+stallo (peso medio e girovita) risalita DIRETTA a normocalorica (2500) per 2 settimane, poi
+discesa a gradini a 2000; simmetrico in surplus (troppo grasso -> discesa, poi risalita);
+l'app calcola la fase del ciclo e la passa al coach; 5) "Esercizi da migliorare" (trazioni,
+shoulder press, panca…): casella fissa nei primi posti 2 volte a settimana, schema per fase
+(deficit poche serie brevi senza cedimento; normo/surplus più serie e poi carico), ripetizioni
+per serie registrate, test del massimo al controllo; 6) Salvati in 3 sezioni: Programma del
+coach, Le mie schede, Archivio.
+
+**Punto 3 fatto (verificato):**
+- Causa (DB): nessun `coach_plans` di Rossi. Le proposte del coach avevano errori di scheletro:
+  serie diverse (5 invece di 3) e, dopo che Rossi ha chiesto di invertire Pull e Push, 14 errori
+  perché il confronto era per POSIZIONE; il coach alla richiesta di correzione rispondeva solo a
+  parole -> nessuna proposta salvabile, "Mi piace, salvalo" sempre bloccato.
+- `confrontaConScheletro` confronta le sedute per NOME (ordine della rotazione libero);
+  `allineaAlloScheletro` porta serie/reps/RIR a quelli dello scheletro (non sono più errori); gli
+  errori di scheletro sono in `meta.erroriScheletro`, separati dagli errori bloccanti (catalogo,
+  vietati, fastidi): si può salvare comunque con conferma ("salva comunque").
+- `riempiScheletro`: l'app costruisce da sola il programma dallo scheletro (obbligatori della
+  seduta, esercizi che il cliente sente bene, somiglianza con l'indicazione, niente ripetizioni
+  tra A e B, penalità per perdita di tensione). Pulsante "🧱 Costruisci il programma con le mie
+  regole" in chat/colloquio (quando in fondo non c'è una proposta valida) e nell'elenco ☰.
+- Cartella: "Salva la cartella" a 96 px + safe area dal fondo (sopra il tasto Coach rialzato).
+- `rangeVolume(muscolo, carenza, gradino)`: posteriore carente 7-10 / 10-12 / 12-16 (tabella di
+  Rossi), anteriore carente 6-10 / 8-12 / 10-14 (lavora nelle spinte); usato da scheletro e controlli.
+- Provato in Chromium mobile: costruisci -> proposta senza avvisi di volume -> salvalo -> v1
+  attiva; tasto Salva della cartella sopra la barra. 365 test verdi, tsc/eslint puliti.
+**Da fare:** punti 6+1 (Salvati e nomi), 2 (Modifica scheda), 4 (cicli calorici), 5 (esercizi da migliorare).
 ### 2026-09-26 (2) — Scheletro della scheda: la struttura la decide l'app, il coach sceglie gli esercizi
 
 1. **Segnalazione di Rossi** — il coach inventa la scheda invece di seguire le regole della chat di

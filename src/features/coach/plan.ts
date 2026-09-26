@@ -7,7 +7,7 @@
 import { minutiBlocco } from '../../generators/shared'
 import { escludiPerFastidi } from '../../engine/nutrition'
 import { violazioniInterleave } from '../../engine/programming'
-import { contaSerie, TARGET_VOLUME } from '../../engine/weeklyVolume'
+import { contaSerie, rangeVolume } from '../../engine/weeklyVolume'
 import { MUSCLE_LABELS, type Exercise, type GeneratedWorkout, type JointIssue, type Muscle, type NutritionPhase, type PrescribedExercise, type Split } from '../../types'
 import { abbinaEsercizio, vietatiDallaCartella } from '../cartella/cartella'
 import type { CartellaCliente } from '../cartella/types'
@@ -187,11 +187,10 @@ export function controllaPiano(plan: CoachPlan, ctx: ContestoControlli): EsitoCo
   })
   const fattore = plan.giorni_settimana / plan.sedute.length
   const step = ctx.step ?? (ctx.phase === 'deficit' ? -500 : ctx.phase === 'surplus' ? 500 : 0)
-  const range = TARGET_VOLUME[Math.max(-500, Math.min(1000, Math.round(step / 250) * 250))] ?? TARGET_VOLUME[0]
   const righe = [...volume.entries()].map(([muscolo, v]) => {
     const carenza = carenze.includes(muscolo)
     return {
-      muscolo, carenza, target: carenza ? range.carenza : range.mantenimento,
+      muscolo, carenza, target: rangeVolume(muscolo, carenza, step),
       serie: Math.round(v.serie * fattore), frequenza: Math.round(v.sedute.size * fattore * 10) / 10,
     }
   }).sort((a, b) => Number(b.carenza) - Number(a.carenza) || b.serie - a.serie)

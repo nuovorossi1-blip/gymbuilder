@@ -87,3 +87,17 @@ export function stimaVolumeSettimanale(
   rows.sort((a, b) => Number(b.carenza) - Number(a.carenza) || b.total - a.total)
   return { days: counted, rows, skippedDays: program.week.length - counted.length, step }
 }
+
+/**
+ * Range di serie settimanali per un muscolo (26/09, tabella di Rossi): il deltoide posteriore
+ * carente ha un range suo (7-10 deficit, 10-12 normo, 12-16 surplus: muscolo piccolo e fragile);
+ * il deltoide anteriore carente conta anche le spinte, quindi le serie dirette stanno a 6-10.
+ * Per tutti gli altri valgono carenza / mantenimento del gradino.
+ */
+export function rangeVolume(muscle: Muscle, carenza: boolean, step: number | null | undefined): [number, number] {
+  const s = Math.max(-500, Math.min(1000, Math.round((step ?? 0) / 250) * 250))
+  if (carenza && muscle === 'rear_delts') return s <= -250 ? [7, 10] : s <= 250 ? [10, 12] : [12, 16]
+  if (carenza && muscle === 'front_delts') return s <= -250 ? [6, 10] : s <= 250 ? [8, 12] : [10, 14]
+  const t = TARGET_VOLUME[s] ?? TARGET_VOLUME[0]
+  return carenza ? t.carenza : t.mantenimento
+}

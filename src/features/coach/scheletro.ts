@@ -20,7 +20,7 @@
  */
 import { NOTA_ANTAGONISTA, ordinaSessione, TABELLA_GRADINI } from '../../engine/programming'
 import { stepToPhase, stepDaOffset, type CalorieStep } from '../../engine/nutrition'
-import { TARGET_VOLUME } from '../../engine/weeklyVolume'
+import { rangeVolume } from '../../engine/weeklyVolume'
 import { MUSCLE_LABELS, type Exercise, type Muscle, type PrescribedExercise, type Split } from '../../types'
 import type { CoachPlan } from './plan'
 
@@ -150,14 +150,11 @@ export function costruisciScheletro(opts: { giorni: number | null | undefined; c
 
   // Volume settimanale: la carenza deve stare nel suo range. Se è sotto, si aggiungono serie agli
   // isolamenti carenti (fino a 5 per esercizio); il mantenimento sopra il massimo scende a 2.
-  const range = TARGET_VOLUME[step] ?? TARGET_VOLUME[0]
   const totale = (m: Muscle) => sedute.reduce((t, sd) => t + sd.slot.filter((s) => s.muscolo === m).reduce((a, s) => a + s.serie, 0), 0)
   for (const m of carenze) {
-    // Il deltoide anteriore lavora già in tutte le spinte: non si gonfia a forza di serie dirette.
-    if (m === 'front_delts') continue
     const slotCarenti = sedute.flatMap((sd) => sd.slot.filter((s) => s.muscolo === m && s.tipo === 'carenza'))
     let giri = 0
-    while (slotCarenti.length && totale(m) < range.carenza[0] && giri++ < 20) {
+    while (slotCarenti.length && totale(m) < rangeVolume(m, true, step)[0] && giri++ < 20) {
       const s = [...slotCarenti].sort((a, b) => a.serie - b.serie)[0]
       if (s.serie >= 5) break
       s.serie += 1
@@ -167,7 +164,7 @@ export function costruisciScheletro(opts: { giorni: number | null | undefined; c
   for (const m of muscoli) {
     if (carenze.has(m)) continue
     let giri = 0
-    while (totale(m) > range.mantenimento[1] && giri++ < 20) {
+    while (totale(m) > rangeVolume(m, false, step)[1] && giri++ < 20) {
       const s = sedute.flatMap((sd) => sd.slot.filter((x) => x.muscolo === m && x.tipo === 'mantenimento' && x.serie > 2)).sort((a, b) => b.serie - a.serie)[0]
       if (!s) break
       s.serie -= 1
@@ -175,39 +172,120 @@ export function costruisciScheletro(opts: { giorni: number | null | undefined; c
   }
   const volume = [...muscoli].map((m) => ({
     muscolo: m, serie: totale(m), volte: sedute.filter((sd) => sd.slot.some((s) => s.muscolo === m)).length,
-    carenza: carenze.has(m), range: (carenze.has(m) ? range.carenza : range.mantenimento) as [number, number],
+    carenza: carenze.has(m), range: rangeVolume(m, carenze.has(m), step),
   })).sort((a, b) => Number(b.carenza) - Number(a.carenza) || b.serie - a.serie)
   return { giorni, step, sedute, volume }
 }
 
-/** Il piano del coach rispetta lo scheletro? Errori bloccanti (il coach li corregge da solo). */
+const normNome = (t: string) => t.toLowerCase().replace(/[^a-z0-9]/g, '')
+
+/** La seduta dello scheletro con lo stesso nome (l'ordine della rotazione lo sceglie il cliente). */
+function sedutaCorrispondente(nome: string, sch: Scheletro): SedutaScheletro | undefined {
+  const n = normNome(nome)
+  return sch.sedute.find((s) => normNome(s.nome) === n)
+}
+
+/**
+ * Allinea serie, ripetizioni e RIR del piano allo scheletro: sono numeri decisi dall'app (fase,
+ * carenze), non vale la pena bloccare il piano se il coach li scrive diversi (26/09).
+ * Restituisce un piano nuovo; le sedute senza corrispondenza restano com'erano.
+ */
+export function allineaAlloScheletro(plan: CoachPlan, sch: Scheletro): CoachPlan {
+  return {
+    ...plan,
+    sedute: plan.sedute.map((sd) => {
+      const atteso = sedutaCorrispondente(sd.nome, sch)
+      if (!atteso || atteso.slot.length !== sd.esercizi.length) return sd
+      return { ...sd, esercizi: sd.esercizi.map((e, j) => ({ ...e, serie: atteso.slot[j].serie, reps: atteso.slot[j].reps, rir: atteso.slot[j].rir })) }
+    }),
+  }
+}
+
+/**
+ * Il piano del coach rispetta lo scheletro? Le sedute si confrontano per NOME (26/09: Rossi ha
+ * chiesto di invertire Pull e Push, e il confronto per posizione segnava tutto sbagliato); dentro
+ * ogni seduta contano ordine, muscolo principale e ruolo. Serie/reps/RIR li allinea
+ * `allineaAlloScheletro`.
+ */
 export function confrontaConScheletro(plan: CoachPlan, sch: Scheletro, catalog: Exercise[]): string[] {
   const byId = new Map(catalog.map((e) => [e.id, e]))
   const errori: string[] = []
-  if (plan.sedute.length !== sch.sedute.length) {
-    errori.push(`Le sedute devono essere ${sch.sedute.length} (${sch.sedute.map((s) => s.nome).join(', ')}), non ${plan.sedute.length}.`)
-    return errori
+  const mancanti = sch.sedute.filter((a) => !plan.sedute.some((sd) => normNome(sd.nome) === normNome(a.nome)))
+  const estranee = plan.sedute.filter((sd) => !sedutaCorrispondente(sd.nome, sch))
+  if (mancanti.length || estranee.length || plan.sedute.length !== sch.sedute.length) {
+    errori.push(`Le sedute devono essere ${sch.sedute.length}: ${sch.sedute.map((s) => s.nome).join(', ')} (in qualsiasi ordine)${mancanti.length ? `; mancano ${mancanti.map((s) => s.nome).join(', ')}` : ''}${estranee.length ? `; non previste ${estranee.map((s) => s.nome).join(', ')}` : ''}.`)
   }
-  sch.sedute.forEach((atteso, i) => {
-    const sd = plan.sedute[i]
+  for (const sd of plan.sedute) {
+    const atteso = sedutaCorrispondente(sd.nome, sch)
+    if (!atteso) continue
     if (sd.esercizi.length !== atteso.slot.length) {
       errori.push(`${atteso.nome}: servono ${atteso.slot.length} esercizi nell'ordine dello scheletro, non ${sd.esercizi.length}.`)
-      return
+      continue
     }
     atteso.slot.forEach((slot, j) => {
-      const e = sd.esercizi[j]
-      const ex = byId.get(e.exercise_id)
+      const ex = byId.get(sd.esercizi[j].exercise_id)
       if (!ex) return // già segnalato da controllaPiano
       const muscoloOk = ex.primary_muscles.includes(slot.muscolo)
       const ruoloOk = (slot.ruolo === 'multiarticolare') === ex.roles.includes('compound')
-      if (!muscoloOk || !ruoloOk) {
-        errori.push(`${atteso.nome}, slot ${j + 1}: serve ${slot.ruolo} per ${MUSCLE_LABELS[slot.muscolo]} (${slot.indicazione}), non ${ex.name}.`)
-      } else if (Math.abs(e.serie - slot.serie) > 1) {
-        errori.push(`${atteso.nome}, slot ${j + 1} (${ex.name}): ${slot.serie} serie previste, non ${e.serie}.`)
+      if (!muscoloOk || !ruoloOk) errori.push(`${atteso.nome}, slot ${j + 1}: serve ${slot.ruolo} per ${MUSCLE_LABELS[slot.muscolo]} (${slot.indicazione}), non ${ex.name}.`)
+    })
+  }
+  return errori
+}
+
+export interface PreferenzeRiempimento {
+  /** Esercizi disponibili (già filtrati per attrezzatura, fastidi e vietati). */
+  catalogo: Exercise[]
+  preferiti: string[]
+  daEvitare: string[]
+  obbligatori: { exercise_id?: string; seduta?: string; slot?: number }[]
+}
+
+const parole = (t: string) => t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').split(/[^a-z]+/).filter((w) => w.length > 3)
+
+/**
+ * L'app costruisce da sola il programma dallo scheletro (26/09): per ogni slot sceglie
+ * dal catalogo l'esercizio del muscolo e ruolo giusti, preferendo gli obbligatori della seduta,
+ * quelli che il cliente sente bene e quelli che somigliano all'indicazione, evitando le
+ * ripetizioni tra le sedute A e B e gli esercizi dove perde tensione.
+ */
+export function riempiScheletro(sch: Scheletro, pref: PreferenzeRiempimento, titolo = 'Programma dallo scheletro'): CoachPlan {
+  const usati = new Map<string, number>()
+  const sedute = sch.sedute.map((sd) => {
+    const inSeduta = new Set<string>()
+    const esercizi = sd.slot.map((slot, j) => {
+      const candidati = pref.catalogo.filter((e) =>
+        e.primary_muscles[0] === slot.muscolo && (slot.ruolo === 'multiarticolare') === e.roles.includes('compound') && !inSeduta.has(e.id) && !e.roles.includes('warmup'))
+      const chiave = parole(slot.indicazione)
+      const punteggio = (e: Exercise) => {
+        let p = 0
+        if (pref.obbligatori.some((o) => o.exercise_id === e.id && (!o.seduta || normNome(o.seduta) === normNome(sd.nome)) && (!o.slot || o.slot === j + 1))) p += 200
+        else if (pref.obbligatori.some((o) => o.exercise_id === e.id && (!o.seduta || normNome(o.seduta) === normNome(sd.nome)))) p += 120
+        if (pref.preferiti.includes(e.id)) p += 50
+        if (pref.daEvitare.includes(e.id)) p -= 60
+        const nome = parole(e.name)
+        p += chiave.filter((w) => nome.some((n) => n.startsWith(w.slice(0, 5)))).length * 15
+        p -= (usati.get(e.id) ?? 0) * 40
+        if (['cardio', 'bodyweight'].includes(String(e.equipment)) && slot.ruolo === 'isolamento') p -= 10
+        return p
+      }
+      const scelto = candidati.sort((a, b) => punteggio(b) - punteggio(a))[0]
+      if (scelto) { inSeduta.add(scelto.id); usati.set(scelto.id, (usati.get(scelto.id) ?? 0) + 1) }
+      return {
+        exercise_id: scelto?.id ?? '',
+        nome: scelto?.name ?? slot.indicazione,
+        serie: slot.serie, reps: slot.reps, rir: slot.rir,
+        recupero_sec: slot.ruolo === 'multiarticolare' ? 120 : slot.tipo === 'richiamo' ? 60 : 75,
+        nota: `${slot.tipo === 'carenza' ? 'Carenza' : slot.tipo === 'richiamo' ? 'Richiamo antagonista' : 'Mantenimento'}: ${slot.indicazione}.`,
       }
     })
+    return { nome: sd.nome, split: sd.split, logica: sd.slot.map((s) => MUSCLE_LABELS[s.muscolo]).join(' → '), esercizi }
   })
-  return errori
+  return {
+    titolo, giorni_settimana: sch.giorni, durata_min: 75, sedute,
+    calorie: null, macro: { proteine_g: null, grassi_g: null, carboidrati_g: null },
+    note: 'Costruito dall’app dallo scheletro delle tue regole: carenze nei primi slot, volume dalle carenze, punti forti al minimo efficace. Chiedi al coach di cambiare un esercizio o spiegarti una scelta.',
+  }
 }
 
 /** Lo scheletro in forma compatta per il contesto dell'LLM. */

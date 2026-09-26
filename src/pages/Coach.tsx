@@ -14,8 +14,8 @@ import { useCoach, type MessaggioCoach } from '../features/coach/useCoach'
 import { useWorkout } from '../features/workout/WorkoutContext'
 import { controllaPiano, differenzePiani, normalizzaPiano, sedutaComeWorkout, type CoachPlan, type EsitoControlli } from '../features/coach/plan'
 import { clienteConosciuto, leggiRispostaCoach, messaggioContesto, promptSistema, unisciCartella, type TipoConversazione } from '../features/coach/prompt'
-import { cartellaInMarkdown, normalizzaCartella, vietatiDallaCartella } from '../features/cartella/cartella'
-import { confrontaConScheletro, costruisciScheletro, scheletroPerLlm } from '../features/coach/scheletro'
+import { cartellaInMarkdown, normalizzaCartella, preferitiDallaCartella, vietatiDallaCartella } from '../features/cartella/cartella'
+import { allineaAlloScheletro, confrontaConScheletro, costruisciScheletro, riempiScheletro, scheletroPerLlm } from '../features/coach/scheletro'
 import { FileCartella } from '../features/cartella/FileCartella'
 import { chiediJsonAlLlm, type LlmMessage } from '../lib/deepseek'
 import { caricaCatalogo, elencoStorico } from '../lib/api'
@@ -243,16 +243,19 @@ export default function Coach() {
         return
       }
       if (risposta.aggiorna_cartella) await salvaCartella(unisciCartella(cartella, risposta.aggiorna_cartella, catalogo))
-      const plan = risposta.piano ? normalizzaPiano(risposta.piano, catalogo) : null
+      // Serie, ripetizioni e RIR li decide lo scheletro: l'app li allinea da sola (26/09).
+      const grezzo = risposta.piano ? normalizzaPiano(risposta.piano, catalogo) : null
+      const plan = grezzo && scheletro ? allineaAlloScheletro(grezzo, scheletro) : grezzo
       const esito = plan ? controllaPiano(plan, ctxControlli) : null
-      // Il piano deve seguire lo scheletro: se non lo fa è un errore, e il coach lo corregge.
-      if (plan && esito && scheletro) esito.errori.push(...confrontaConScheletro(plan, scheletro, catalogo))
+      // Differenze dallo scheletro (muscolo, ruolo, esercizi mancanti): il coach le corregge da
+      // solo; se non ci riesce il cliente può salvare comunque o far costruire il piano all'app.
+      const erroriScheletro = plan && scheletro ? confrontaConScheletro(plan, scheletro, catalogo) : []
       // Il piano salvato si normalizza come quello nuovo: il confronto avviene sugli stessi id.
       const differenze = plan && piano ? differenzePiani(normalizzaPiano(piano.plan, catalogo) ?? piano.plan, plan) : null
       const suo = await aggiungi({
         role: 'coach', kind, content: risposta.messaggio, thread_id: t,
         // Inizio della risposta grezza del modello: serve a capire i casi strani senza chiedere a Rossi.
-        meta: { opzioni: risposta.opzioni, categoria: risposta.categoria, piano: plan, esito, differenze, calorie: risposta.calorie, controllo: risposta.controllo, grezzo: String(grezza._testo_originale ?? '').slice(0, 800) },
+        meta: { opzioni: risposta.opzioni, categoria: risposta.categoria, piano: plan, esito, erroriScheletro, differenze, calorie: risposta.calorie, controllo: risposta.controllo, grezzo: String(grezza._testo_originale ?? '').slice(0, 800) },
       })
       // Alcuni modelli annunciano il piano ("ora te lo preparo") senza consegnarlo: glielo si
       // richiede subito, una volta, senza che il cliente debba insistere.
@@ -263,7 +266,7 @@ export default function Coach() {
       }
       // Errori bloccanti e carenze sotto il loro range (regola di Rossi: la carenza prende il
       // volume) vengono rimandati al coach una volta, prima che il cliente debba accorgersene.
-      const daCorreggere = esito ? [...esito.errori, ...esito.avvisi.filter((a) => a.includes('(carenza)') && a.includes('sotto il range'))] : []
+      const daCorreggere = esito ? [...esito.errori, ...erroriScheletro, ...esito.avvisi.filter((a) => a.includes('(carenza)') && a.includes('sotto il range'))] : []
       if (plan && daCorreggere.length && !tentativo) {
         await invia(kind, `Il controllo dell'app sul piano ha trovato: ${daCorreggere.join(' ')} Correggi (le carenze devono stare nel loro range di serie a settimana) e rimanda il piano intero, spiegando cosa hai cambiato.`, true, true, [...base, mio, suo], t)
       }
@@ -321,6 +324,25 @@ export default function Coach() {
     const id = crypto.randomUUID()
     vai('chat', id)
     await invia('chat', '[APERTURA]', true, false, [], id)
+  }
+
+  /** L'app costruisce il programma dallo scheletro con le preferenze della cartella (26/09): serve
+   *  quando il coach non riesce a consegnare un piano valido. Arriva in chat come proposta. */
+  async function costruisciDalloScheletro(kind: TipoConversazione) {
+    if (!scheletro || !cartella) return
+    const plan = riempiScheletro(scheletro, {
+      catalogo: catalogoCoach,
+      preferiti: preferitiDallaCartella(cartella),
+      daEvitare: cartella.esercizi_perdita_tensione.map((e) => e.exercise_id).filter((x): x is string => !!x),
+      obbligatori: cartella.obbligatori,
+    }, piano ? `${piano.plan.titolo} (dallo scheletro)` : 'Il tuo programma')
+    const conCalorie = { ...plan, calorie: profile?.daily_kcal ?? null, macro: cartella.macro, durata_min: cartella.durata_min ?? 75 }
+    const esito = controllaPiano(conCalorie, ctxControlli)
+    await aggiungi({
+      role: 'coach', kind, thread_id: kind === 'chat' ? thread : null,
+      content: 'Ecco il programma costruito dall’app con le tue regole: carenze nei primi slot, volume dalle carenze, punti forti al minimo. Apri le sedute per vedere gli esercizi; se vuoi cambiarne uno o capire una scelta, chiedimelo.',
+      meta: { piano: conCalorie, esito, erroriScheletro: confrontaConScheletro(conCalorie, scheletro, catalogo), differenze: piano ? differenzePiani(normalizzaPiano(piano.plan, catalogo) ?? piano.plan, conCalorie) : null },
+    })
   }
 
   /** Correggi l'ultimo messaggio: si toglie (con le risposte successive) e torna nel campo. */
@@ -437,6 +459,9 @@ export default function Coach() {
   const visibili = conversazione.filter((m) => !(m.meta as { nascosto?: boolean } | null)?.nascosto)
   const ultimo = visibili[visibili.length - 1]
   const ultimoMio = [...visibili].reverse().find((m) => m.role === 'utente' && !(m.meta as MetaCoach | null)?.accettato)
+  // C'è già in fondo alla chat una proposta salvabile senza errori?
+  const ultimaProposta = [...visibili].reverse().find((m) => (m.meta as MetaCoach | null)?.piano)
+  const ultimaPropostaValida = !!ultimaProposta && ultimaProposta === ultimo && !((ultimaProposta.meta as MetaCoach).esito?.errori.length) && !((ultimaProposta.meta as MetaCoach).erroriScheletro?.length)
   const titolo = kind === 'colloquio' ? (conosciuto ? 'Riprendiamo' : 'Primo colloquio') : kind === 'controllo' ? 'Controllo' : 'Parla col coach'
   const spiegazione = kind === 'colloquio'
     ? conosciuto
@@ -520,6 +545,7 @@ export default function Coach() {
               {piano && <button className="w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-steel" onClick={() => { void nuova('cambio') }}>✏️ Cambia il programma</button>}
               {piano && <button className="w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-steel" onClick={() => { void nuova('controllo') }}>📋 Fai il controllo</button>}
               <button className="w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-steel" onClick={() => { void nuova('programma') }}>🆕 Programma nuovo</button>
+              {scheletro && <button className="w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-steel" onClick={() => { setCassetto(false); void costruisciDalloScheletro(kind) }}>🧱 Costruisci il programma con le mie regole</button>}
               {piano && <button className="w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-steel" onClick={() => { setCassetto(false); vai(null) }}>🗓 Il mio programma</button>}
             </div>
             <p className="mt-4 px-4 pb-1 text-[11px] uppercase tracking-wider text-slate2">Recenti</p>
@@ -577,6 +603,11 @@ export default function Coach() {
             📋 Genera il programma adesso
           </button>
         )}
+        {(kind === 'colloquio' || kind === 'chat') && !attesa && scheletro && visibili.length >= 2 && !ultimaPropostaValida && (
+          <button className="w-full rounded-xl border border-cyan-500/40 bg-cyan-500/10 py-3 text-sm font-bold text-cyan-200" onClick={() => { void costruisciDalloScheletro(kind) }}>
+            🧱 Costruisci il programma con le mie regole
+          </button>
+        )}
         {attesa && <p className="animate-pulse text-sm text-slate2" role="status">Sto scrivendo…</p>}
         {errore && <p className="break-words text-sm text-amber2" role="alert">{errore}</p>}
       </div>
@@ -603,6 +634,8 @@ interface MetaCoach {
   opzioni?: string[]
   piano?: CoachPlan | null
   esito?: EsitoControlli | null
+  /** Differenze dallo scheletro: si può salvare comunque, con conferma. */
+  erroriScheletro?: string[]
   differenze?: string[] | null
   calorie?: number | null
   controllo?: Record<string, unknown> | null
@@ -623,6 +656,7 @@ function Bolla({ m, ultimo, attesa, haPiano, onOpzione, onAccetta, onDomanda, on
   )
   const proposta = !!meta.piano || !!meta.calorie || !!meta.controllo
   const bloccato = !!meta.esito?.errori.length
+  const fuoriScheletro = meta.erroriScheletro ?? []
   const etichetta = meta.piano ? (haPiano ? '✅ Mi piace, salva le modifiche' : '✅ Mi piace, salvalo') : meta.controllo ? 'Salva il controllo' : `Passa a ${meta.calorie} kcal`
   return (
     <div className="min-w-0 space-y-3">
@@ -649,6 +683,12 @@ function Bolla({ m, ultimo, attesa, haPiano, onOpzione, onAccetta, onDomanda, on
           {meta.calorie && !meta.piano && <p className="text-sm text-chalk">Nuove calorie proposte: <span className="font-data">{meta.calorie} kcal</span> (il volume della scheda seguirà dopo una settimana).</p>}
           {meta.controllo && <p className="text-[12px] text-slate2">Il controllo verrà salvato nello storico della tua cartella.</p>}
           {meta.esito && meta.esito.errori.length > 0 && <ul className="space-y-1 text-[12px] text-red-300">{meta.esito.errori.map((e, i) => <li key={i}>✕ {e}</li>)}</ul>}
+          {fuoriScheletro.length > 0 && (
+            <details className="rounded-xl border border-amber-400/40">
+              <summary className="cursor-pointer px-3 py-2 text-[12px] font-bold text-amber-200">Non segue le tue regole in {fuoriScheletro.length} punti</summary>
+              <ul className="space-y-1 p-3 text-[12px] text-amber2">{fuoriScheletro.map((e, i) => <li key={i}>! {e}</li>)}</ul>
+            </details>
+          )}
           {meta.esito && meta.esito.avvisi.length > 0 && <ul className="space-y-1 text-[12px] text-amber2">{meta.esito.avvisi.map((e, i) => <li key={i}>! {e}</li>)}</ul>}
           {meta.esito && (
             <details className="rounded-xl border border-edge">
@@ -656,7 +696,17 @@ function Bolla({ m, ultimo, attesa, haPiano, onOpzione, onAccetta, onDomanda, on
               <div className="p-2"><TabellaVolume esito={meta.esito} /></div>
             </details>
           )}
-          {ultimo && <button className="btn" disabled={attesa || bloccato} onClick={() => onAccetta(meta)}>{bloccato ? 'Il coach deve correggere gli errori' : etichetta}</button>}
+          {ultimo && (
+            <button
+              className="btn" disabled={attesa || bloccato}
+              onClick={() => {
+                if (fuoriScheletro.length && !confirm(`Questo programma non segue le tue regole in ${fuoriScheletro.length} punti. Salvarlo comunque?`)) return
+                onAccetta(meta)
+              }}
+            >
+              {bloccato ? 'Il coach deve correggere gli errori' : fuoriScheletro.length ? `${etichetta} (salva comunque)` : etichetta}
+            </button>
+          )}
           {ultimo && (
             <div className="grid grid-cols-2 gap-2">
               <button className="rounded-xl border border-edge py-2.5 text-xs" onClick={onDomanda}>❓ Ho una domanda / cambio qualcosa</button>

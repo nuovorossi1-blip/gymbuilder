@@ -109,7 +109,7 @@ export default function Cartella() {
   if (!salvata) return <main className="px-5 pt-12"><p className="text-slate2">Carico la cartella…</p></main>
 
   return (
-    <main className="px-5 pb-32 pt-10">
+    <main className="px-5 pb-48 pt-10">
       <datalist id="catalogo-esercizi">{catalog.filter((e) => !e.roles.includes('warmup')).map((e) => <option key={e.id} value={e.name} />)}</datalist>
       <BackButton />
       <h1 className="mt-3 font-display text-[2.2rem] font-extrabold uppercase leading-none">La mia cartella</h1>
@@ -215,7 +215,8 @@ export default function Cartella() {
       </Sezione>
 
       {errore && <p role="alert" className="mt-6 text-sm text-amber2">{errore}</p>}
-      <div className="fixed inset-x-0 bottom-20 z-10 mx-auto max-w-lg px-5">
+      {/* 26/09: sopra la barra in basso (che ora ha il tasto Coach rialzato): sempre visibile. */}
+      <div className="fixed inset-x-0 bottom-[calc(96px+env(safe-area-inset-bottom))] z-20 mx-auto max-w-lg px-5">
         <button className="btn shadow-lg" disabled={stato === 'salvo'} onClick={() => { void salvaTutto() }}>
           {stato === 'salvo' ? 'Salvataggio…' : stato === 'salvata' ? 'Salvata ✓' : 'Salva la cartella'}
         </button>

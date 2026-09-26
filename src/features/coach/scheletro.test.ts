@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { confrontaConScheletro, costruisciScheletro } from './scheletro'
+import { allineaAlloScheletro, confrontaConScheletro, costruisciScheletro, riempiScheletro } from './scheletro'
 import { violazioniInterleave } from '../../engine/programming'
 import type { Exercise, Muscle } from '../../types'
 import catalogo from '../../generators/__tests__/fixtures/exercises.json'
@@ -69,5 +69,26 @@ describe('scheletro della scheda (regole di Rossi, 26/09)', () => {
     const errori = confrontaConScheletro(plan, sch, cat)
     expect(errori.length).toBeGreaterThan(0)
     expect(errori[0]).toContain('serve')
+  })
+})
+
+
+describe('scheletro: correzioni del 26/09', () => {
+  const piano = riempiScheletro(sch, { catalogo: cat, preferiti: ['face_pull'], daEvitare: [], obbligatori: [{ exercise_id: 'curl_inclinata_man', seduta: 'Pull A' }] })
+  it('l’app costruisce da sola un programma che rispetta lo scheletro', () => {
+    expect(confrontaConScheletro(piano, sch, cat)).toEqual([])
+    expect(piano.sedute.every((sd) => sd.esercizi.every((e) => e.exercise_id))).toBe(true)
+    expect(piano.sedute.find((s) => s.nome === 'Pull A')!.esercizi.some((e) => e.exercise_id === 'curl_inclinata_man')).toBe(true)
+    expect(piano.sedute.find((s) => s.nome === 'Legs')!.esercizi.some((e) => e.exercise_id === 'hip_thrust')).toBe(false)
+  })
+  it('l’ordine delle sedute lo sceglie il cliente: invertire Pull e Push non è un errore', () => {
+    const invertito = { ...piano, sedute: [piano.sedute[1], piano.sedute[0], piano.sedute[2], piano.sedute[4], piano.sedute[3]] }
+    expect(confrontaConScheletro(invertito, sch, cat)).toEqual([])
+  })
+  it('serie, reps e RIR diversi vengono allineati allo scheletro, non bloccano', () => {
+    const cinque = { ...piano, sedute: piano.sedute.map((sd) => ({ ...sd, esercizi: sd.esercizi.map((e) => ({ ...e, serie: 5, reps: '5', rir: '0' })) })) }
+    const allineato = allineaAlloScheletro(cinque, sch)
+    expect(allineato.sedute[0].esercizi[0].serie).toBe(sch.sedute[0].slot[0].serie)
+    expect(confrontaConScheletro(allineato, sch, cat)).toEqual([])
   })
 })
