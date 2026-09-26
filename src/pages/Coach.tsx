@@ -57,6 +57,7 @@ function TabellaVolume({ esito }: { esito: EsitoControlli }) {
 
 function Sedute({ plan, prossima, onInizia }: { plan: CoachPlan; prossima?: number; onInizia?: (i: number) => void }) {
   const [aperta, setAperta] = useState<number | null>(prossima ?? 0)
+  const vaiA = useNavigate()
   return (
     <ol className="space-y-2">
       {plan.sedute.map((sd, i) => (
@@ -79,7 +80,12 @@ function Sedute({ plan, prossima, onInizia }: { plan: CoachPlan; prossima?: numb
               ))}
             </ol>
           )}
-          {onInizia && <button className="mt-2 w-full rounded-lg bg-emerald-500/15 py-2 text-xs font-bold uppercase text-emerald-300" onClick={() => onInizia(i)}>▶ Inizia {sd.nome}</button>}
+          {onInizia && (
+            <div className="mt-2 grid grid-cols-[auto_1fr] gap-2">
+              <button onClick={() => vaiA(`/modifica?coach=${i}`)} className="rounded-lg border border-cyan-500/40 px-3 py-2 text-xs font-bold text-cyan-200">✏️ Modifica</button>
+              <button className="rounded-lg bg-emerald-500/15 py-2 text-xs font-bold uppercase text-emerald-300" onClick={() => onInizia(i)}>▶ Inizia {sd.nome}</button>
+            </div>
+          )}
         </li>
       ))}
     </ol>

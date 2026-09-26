@@ -188,3 +188,9 @@ export function nomeLibero(nome: string, esistenti: string[]): string {
   }
   return `${base} (${Date.now() % 1000})`
 }
+
+/** Salva le modifiche a una scheda salvata (26/09, "Modifica scheda"). */
+export async function aggiornaSalvato(id: string, patch: { blocks: SavedWorkout['blocks']; duration_min?: number }): Promise<void> {
+  const { error } = await supabase.from('saved_workouts').update(patch).eq('id', id)
+  if (error) throw new Error('Modifiche non salvate. Riprova.')
+}

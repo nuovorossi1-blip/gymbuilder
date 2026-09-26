@@ -184,7 +184,10 @@ export default function Saved() {
                 {pianoCoach.plan.sedute.map((sd, i) => (
                   <li key={i} className={`flex items-center justify-between gap-2 rounded-xl border p-2.5 ${i === pianoCoach.next_index ? 'border-cyan-400/60' : 'border-edge'}`}>
                     <span className="text-sm text-white">{String.fromCharCode(65 + i)} · {sd.nome} <span className="text-[11px] text-slate-400">{sd.esercizi.length} esercizi{i === pianoCoach.next_index ? ' · prossima' : ''}</span></span>
-                    <button className="rounded-lg bg-emerald-500/15 px-3 py-1.5 text-xs font-bold text-emerald-300" onClick={() => iniziaSedutaCoach(i)}>▶ Inizia</button>
+                    <span className="flex gap-1.5">
+                      <button className="rounded-lg border border-cyan-500/40 px-2.5 py-1.5 text-xs text-cyan-200" aria-label={`Modifica ${sd.nome}`} onClick={() => naviga(`/modifica?coach=${i}`)}>✏️</button>
+                      <button className="rounded-lg bg-emerald-500/15 px-3 py-1.5 text-xs font-bold text-emerald-300" onClick={() => iniziaSedutaCoach(i)}>▶ Inizia</button>
+                    </span>
                   </li>
                 ))}
               </ol>
@@ -295,7 +298,7 @@ export default function Saved() {
                 </div>
 
                 {/* 1-Tap Action Row · elimina: pulsante 🗑 (25/09) oppure swipe sulla card */}
-                <div className="grid grid-cols-[1fr_1fr_auto] gap-2 border-t border-edge/60 pt-3">
+                <div className="grid grid-cols-[1fr_1fr_auto_auto] gap-2 border-t border-edge/60 pt-3">
                   <button
                     onClick={() => apri(s, true)}
                     className="rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 py-2.5 font-display text-xs font-bold uppercase text-white shadow-md glow-emerald active:scale-[0.98]"
@@ -307,6 +310,13 @@ export default function Saved() {
                     className="rounded-xl glass-card py-2.5 font-display text-xs font-bold uppercase text-slate-300 hover:text-white"
                   >
                     👁️ Dettagli
+                  </button>
+                  <button
+                    aria-label={`Modifica ${s.name}`}
+                    onClick={() => naviga(`/modifica?s=${s.id}`)}
+                    className="rounded-xl border border-cyan-500/40 bg-cyan-500/10 px-3 text-sm text-cyan-200"
+                  >
+                    ✏️
                   </button>
                   <button
                     aria-label="Elimina definitivamente"

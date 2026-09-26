@@ -17,6 +17,7 @@ import Analyze from './pages/Analyze'
 import BodyLog from './pages/BodyLog'
 import Cartella from './pages/Cartella'
 import Coach from './pages/Coach'
+import EditScheda from './pages/EditScheda'
 import { ActiveTimerBanner } from './components/ActiveTimerBanner'
 import NativeUpdater from './components/NativeUpdater'
 import InstallBanner from './components/InstallBanner'
@@ -96,6 +97,7 @@ function Guscio() {
         <Route path="/peso" element={<BodyLog />} />
         <Route path="/cartella" element={<Cartella />} />
         <Route path="/coach" element={<Coach />} />
+        <Route path="/modifica" element={<EditScheda />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       {conNav && <BottomNav />}

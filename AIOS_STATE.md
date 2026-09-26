@@ -4,8 +4,42 @@
 > da qui. Va **aggiornato** a ogni sessione, non accodato all'infinito.
 > L'identità del progetto e il percorso di AI-OS stanno in `AIOS_PROJECT.json`.
 
-**Ultimo aggiornamento:** 2026-09-26 (Salvati in 3 sezioni e nomi delle schede: punti 6 e 1) - Claude (Opus 5.5)
+**Ultimo aggiornamento:** 2026-09-26 (piano in 6 punti COMPLETATO: cicli calorici, esercizi da migliorare, Modifica scheda) - Claude (Opus 5.5)
 
+### 2026-09-26 (5) — Punti 4, 5 e 2: piano in 6 punti completato
+
+**Punto 4 — ciclo delle calorie (regola di Rossi):** `stallo.ts` riscritto. In deficit: 4
+settimane dall'ultimo cambio senza progressi (pendenza del peso > -0,1 kg/sett e girovita che
+non cala di 1 cm), oppure "piatto" dopo almeno 2 settimane -> pausa: normocalorica (kcal -
+gradino) per 14 giorni, poi -250 a settimana fino alle calorie di prima (2000: 2500x14, 2250x7,
+2000x7). In surplus: peso > +0,5 kg/sett per 2 settimane o girovita +2 cm -> normocalorica per 14
+giorni poi +250 a settimana fino a prima. `nomeCiclo` ("Pausa in normocalorica (dal
+deficit/surplus)"); diario e Home aggiornati; Principio 8 riscritto; il coach riceve
+`ciclo_calorico` (pausa in corso con gradino e giorni, stallo rilevato con proposta, o niente).
+Nomi interni 'mini_surplus'/'mini_cut' mantenuti per i piani già salvati.
+
+**Punto 5 — esercizi da migliorare:** cartella `esercizi_da_migliorare` (esercizio del catalogo,
+misura ripetizioni/kg, oggi, obiettivo, test del massimo con data; sezione in cartella con
+"Registra un test" e riassunto dei progressi; nel file .md). Scheletro: casella `prestazione`
+con `exercise_id` fisso IN APERTURA in tutte le sedute del suo tipo (trazioni -> Pull A e Pull
+B: 2 volte a settimana), al posto del primo esercizio dello stesso muscolo e ruolo (il volume
+non cresce), senza lo stesso muscolo subito dopo. Schema per gradino: A = FORZA (deficit 5x3-4
+RIR 2; normo 5x3-5 RIR 1-2; surplus 5x4-6 RIR 1 con zavorra a 3x6), B = VOLUME E CONTROLLO
+(deficit 3x"massimo meno 2" RIR 2 + 2 negative lente; normo 4x5-6; surplus 4x6-8). Il controllo
+pretende quell'esercizio; `riempiScheletro` lo mette da solo. Allenamento: campo "ripetizioni
+pulite in questa serie" (`logged_reps`) per gli esercizi `prestazione`. `engine/prestazioni.ts`:
+serie migliore e totale per seduta; il coach riceve `progressi_esercizi` e nei controlli chiede e
+salva il test del massimo.
+
+**Punto 2 — Modifica scheda:** pagina `/modifica?s=<id>` (scheda salvata: aggiorna i blocchi con
+`aggiornaSalvato`) e `/modifica?coach=<i>` (seduta del coach: nuova versione con nota "Modifica
+manuale: <differenze>"). Cambia esercizio (prima lo stesso muscolo, poi ricerca nel catalogo
+filtrato per attrezzatura e fastidi), serie, ripetizioni, RIR, sposta su/giù, togli, aggiungi.
+Per il coach avvisa (non blocca) se la seduta non segue più lo scheletro. Pulsanti ✏️ in Salvati
+(schede e sedute del coach) e "✏️ Modifica" su ogni seduta del programma.
+
+Provato in Chromium mobile: modifica di una scheda salvata (cambio, sposta, serie) e di una
+seduta del coach (aggiunta -> v2 attiva, v1 archiviata). 373 test verdi, tsc/eslint puliti.
 ### 2026-09-26 (4) — Punti 6 e 1: Salvati in tre sezioni, nomi delle schede
 
 - Salvati: "Programma del coach" (programma attivo con ✏️ sul titolo -> `useCoach.rinominaPiano`,

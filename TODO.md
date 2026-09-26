@@ -1,5 +1,6 @@
 # Todo
 
+- [ ] Rossi: provare dal vivo (26/09) Costruisci il programma, esercizi da migliorare (trazioni), Modifica scheda, pausa in normocalorica dopo 4 settimane di stallo.
 - [ ] Rossi: rigenerare la chiave OpenRouter incollata in chat il 25/09 e sostituirla nel Profilo ("Il tuo LLM").
 - [ ] Rossi: provare il Coach con un LLM vero (colloquio completo, qualità del piano, tempi di risposta).
 - [ ] Piano "Coach personale" (24/09): Fasi 0-5 fatte (Home riorganizzata, wizard settimanale tolto).
