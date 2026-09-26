@@ -93,6 +93,8 @@ export interface ContestoCoach {
   volumeCalcolato?: { programma: string; righe: { muscolo: string; serie: number; volte: number; carenza: boolean; range: string }[]; avvisi: string[] }[]
   /** Scheletro della scheda costruito dall'app con le regole di Rossi (scheletro.ts). */
   scheletro?: unknown
+  /** Ciclo delle calorie calcolato dall'app (stallo.ts): pausa in corso, stallo rilevato o niente. */
+  cicloCalorico?: unknown
 }
 
 /** Il contesto va come primo messaggio: il coach lo "legge" prima della conversazione. */
@@ -116,6 +118,7 @@ export function messaggioContesto(ctx: ContestoCoach): string {
     allenamenti_fatti: ctx.allenamentiFatti ?? [],
     volume_calcolato_dall_app: ctx.volumeCalcolato ?? [],
     scheletro_programma: ctx.scheletro ?? null,
+    ciclo_calorico: ctx.cicloCalorico ?? null,
     oggi: new Date().toISOString().slice(0, 10),
     catalogo: ctx.catalogo.filter((e) => !e.roles.includes('warmup')).map((e) => ({
       id: e.id, nome: e.name, muscoli: e.primary_muscles, attrezzo: e.equipment, multiarticolare: e.roles.includes('compound'),

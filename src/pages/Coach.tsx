@@ -20,6 +20,7 @@ import { FileCartella } from '../features/cartella/FileCartella'
 import { chiediJsonAlLlm, type LlmMessage } from '../lib/deepseek'
 import { caricaCatalogo, elencoStorico } from '../lib/api'
 import { determinaFase, escludiPerFastidi, patchCambioCalorie } from '../engine/nutrition'
+import { analizzaStallo, gradinoDiOggi, nomeCiclo } from '../engine/stallo'
 import { isExerciseAvailable } from '../generators/equipment'
 import { MUSCLE_LABELS, type CompletedWorkout, type Exercise } from '../types'
 import { Markdown } from '../components/Markdown'
@@ -195,6 +196,22 @@ export default function Coach() {
     return { role: 'assistant', content: p ? `${m.content}\n[PIANO PROPOSTO] ${JSON.stringify(p)}` : m.content }
   }
 
+  /** Dove sei nel ciclo delle calorie (26/09): il coach lo riceve già calcolato. */
+  function cicloCalorico() {
+    const oggi = gradinoDiOggi(profile?.ladder_plan)
+    if (oggi && profile?.ladder_plan) {
+      return {
+        stato: 'pausa_in_corso', nome: nomeCiclo(profile.ladder_plan.tipo), calorie_oggi: oggi.kcal,
+        gradino: `${oggi.indice} di ${oggi.totale}`, fine_gradino_tra_giorni: oggi.fineTra,
+        gradini: profile.ladder_plan.gradini, calorie_di_ritorno: profile.ladder_plan.base_kcal,
+      }
+    }
+    const ultimoCambio = calorieLog.length ? calorieLog[calorieLog.length - 1].created_at : null
+    const s = analizzaStallo(bodyLog, fase?.calorie_step ?? null, profile?.daily_kcal ?? null, ultimoCambio)
+    if (s) return { stato: 'stallo_rilevato', proposta: nomeCiclo(s.tipo), motivo: s.motivo, gradini: s.piano.gradini, nota: 'La proposta si accetta nel diario Peso e girovita' }
+    return { stato: 'nessuno', dal_cambio_calorie: ultimoCambio }
+  }
+
   /** Volume del programma attivo e dell'ultima proposta della conversazione, calcolato qui. */
   function volumePerIlCoach(storia: MessaggioCoach[]) {
     const riassunto = (titolo: string, plan: CoachPlan) => {
@@ -228,6 +245,7 @@ export default function Coach() {
         allenamentiFatti: storico.slice(0, 15).map((w) => ({ data: w.completed_at.slice(0, 10), nome: w.name, minuti: Math.round(w.duration_sec / 60), voto: w.rating })),
         volumeCalcolato: volumePerIlCoach(base),
         scheletro: scheletro ? scheletroPerLlm(scheletro) : null,
+        cicloCalorico: cicloCalorico(),
       })
       const grezza = await chiediJsonAlLlm([
         { role: 'system', content: promptSistema(kind, conosciuto) },

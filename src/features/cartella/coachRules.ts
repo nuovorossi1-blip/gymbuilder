@@ -49,11 +49,16 @@ drop set + rest-pause + myo-reps/tutte (colonne -500/-250/0/+250/+500/+750/+1000
 Sempre a gradini di 250 kcal, in salita e in discesa. Le calorie guidano, il volume segue: il
 volume passa al nuovo gradino dopo 7 giorni e si sposta di un gradino a settimana.
 
-## PRINCIPIO 8 — MINI CUT E MINI SURPLUS
-In bulk, se il peso sale più di 0,5 kg a settimana o il girovita cresce di 2 cm: mini cut a
-gradini (-250, -500, poi risalita). In cut, se il peso è fermo da 2 settimane o l'energia crolla:
-mini surplus a gradini (+250, +500, poi ridiscesa). Prima verifica sonno, stress, proteine, sgarri.
-Mai togliere calorie a chi è già senza forze; mai aggiungerne a chi è appannato e sale veloce.
+## PRINCIPIO 8 — IL CICLO DELLE CALORIE (non tagliare, né alzare, all'infinito)
+In deficit, se da 4 settimane peso medio e girovita non scendono (o l'energia crolla dopo almeno
+2 settimane) è inutile tagliare ancora: PAUSA IN NORMOCALORICA, subito alla normocalorica per 2
+settimane, poi giù a gradini di 250 kcal a settimana fino alle calorie di prima (es. 2000 -> 2500
+per 2 settimane -> 2250 -> 2000), e si riprende a scendere. In surplus, se il peso sale più di
+0,5 kg a settimana o il girovita cresce di 2 cm (troppo grasso): PAUSA IN NORMOCALORICA per 2
+settimane, poi su a gradini di 250 fino alle calorie di prima. Il contesto contiene
+"ciclo_calorico" calcolato dall'app (pausa in corso, stallo rilevato o niente): usalo e non
+contraddirlo. Prima verifica sonno, stress, proteine, sgarri. Mai togliere calorie a chi è già
+senza forze; mai aggiungerne a chi è appannato e sale veloce.
 
 ## PRINCIPIO 9 — PROTOCOLLI
 Stile CBum: top set + back-off sul multiarticolare carente (o il primo), discesa controllata,
@@ -90,8 +95,8 @@ sempre bassa. Volume invariato per 2 settimane, poi rivaluti.
 ABBASSARE le calorie (-250) se almeno 2 su 3: peso fermo da 2+ settimane (media di 7 giorni),
 girovita fermo da 3+ settimane, energia ancora buona. Volume invariato per 2 settimane; se
 l'energia crolla -> mini surplus invece.
-MINI SURPLUS / MINI CUT: vedi Principio 8. Prima di attivarli chiedi da quante settimane è a
-queste calorie: sotto le 2 settimane è solo adattamento, aspetta.
+PAUSA IN NORMOCALORICA: vedi Principio 8. Prima di attivarla chiedi da quante settimane è a
+queste calorie: in deficit servono 4 settimane senza progressi; sotto è adattamento, aspetta.
 MINI CUT se almeno 2 su 4: peso sale più di 0,5 kg a settimana da 2+ settimane, girovita +2-3
 cm, "mi vedo appannato", carichi fermi nonostante il surplus. MINI SURPLUS se almeno 2 su 5: peso
 fermo 2-3+ settimane, energia sempre bassa, carichi in calo su 3+ esercizi, fame ingestibile e

@@ -19,9 +19,9 @@ export default function HomeDashboard() {
   const prossimaSeduta = pianoCoach?.plan.sedute[pianoCoach.next_index % Math.max(1, pianoCoach.plan.sedute.length)]?.nome ?? null
   const gradino = gradinoDiOggi(profile?.ladder_plan)
   const avvisoScala = gradino && profile?.daily_kcal !== gradino.kcal
-    ? `Scala in corso: oggi passa a ${gradino.kcal} kcal`
+    ? `Ciclo delle calorie: oggi passa a ${gradino.kcal} kcal`
     : !gradino && analizzaStallo(bodyLog, determinaFase(profile, calorieLog)?.calorie_step ?? null, profile?.daily_kcal ?? null, calorieLog.length ? calorieLog[calorieLog.length - 1].created_at : null)
-      ? 'Possibile stallo: c’è una proposta di scala per le calorie'
+      ? 'Stallo: c’è una proposta di pausa in normocalorica'
       : null
   const {
     activeSession, resumeActiveSession, setWorkout, setGenerationConfig,

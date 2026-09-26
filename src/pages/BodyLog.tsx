@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { BackButton } from '../components/BackButton'
 import { determinaFase, patchCambioCalorie } from '../engine/nutrition'
-import { analizzaStallo, gradinoDiOggi } from '../engine/stallo'
+import { analizzaStallo, gradinoDiOggi, nomeCiclo } from '../engine/stallo'
 import { useAuth } from '../features/auth/AuthProvider'
 import { useSettings } from '../features/profile/useSettings'
 
@@ -69,7 +69,7 @@ export default function BodyLog() {
       {oggi && piano && (
         <section className="mt-5 rounded-2xl border border-cyan-500/30 bg-cyan-500/5 p-4" aria-live="polite">
           <h2 className="font-display text-sm font-bold uppercase text-white">
-            {piano.tipo === 'mini_surplus' ? 'Mini surplus' : 'Mini cut'} in corso · gradino {oggi.indice} di {oggi.totale}
+            {nomeCiclo(piano.tipo)} in corso · gradino {oggi.indice} di {oggi.totale}
           </h2>
           <p className="mt-1 text-sm text-chalk">Oggi: <span className="font-data">{oggi.kcal} kcal</span>, ancora {oggi.fineTra} {oggi.fineTra === 1 ? 'giorno' : 'giorni'}.</p>
           <p className="mt-1 font-data text-[12px] text-slate2">{piano.gradini.map((g) => g.kcal).join(' → ')}</p>
@@ -84,7 +84,7 @@ export default function BodyLog() {
 
       {stallo && (
         <section className="mt-5 rounded-2xl border border-amber2/40 bg-amber2/10 p-4" aria-live="polite">
-          <h2 className="font-display text-sm font-bold uppercase text-amber2">Proposta: {stallo.tipo === 'mini_surplus' ? 'mini surplus' : 'mini cut'}</h2>
+          <h2 className="font-display text-sm font-bold uppercase text-amber2">Proposta: {nomeCiclo(stallo.tipo).toLowerCase()}</h2>
           <p className="mt-1 text-sm text-chalk">{stallo.motivo}.</p>
           <p className="mt-2 font-data text-[13px] text-chalk">{profile?.daily_kcal} → {stallo.piano.gradini.map((g) => g.kcal).join(' → ')} kcal</p>
           <p className="mt-1 text-xs leading-relaxed text-slate2">

@@ -6,31 +6,37 @@ const at = (day: number) => new Date(d0 + day * 86_400_000)
 const voce = (day: number, weight_kg: number, extra: Partial<BodyEntry> = {}): BodyEntry =>
   ({ weight_kg, waist_cm: null, feels_flat: false, created_at: at(day).toISOString(), ...extra })
 
-describe('stallo e scala (blocco 3)', () => {
-  it('cut con peso fermo da 2 settimane -> mini surplus 2250, 2500, 2250, 2000', () => {
-    const log = [voce(0, 80), voce(7, 80.1), voce(14, 80), voce(15, 79.9)]
-    const s = analizzaStallo(log, -500, 2000, at(0).toISOString(), at(15))!
+describe('ciclo delle calorie (regola di Rossi del 26/09)', () => {
+  it('deficit a 2000 fermo da 4 settimane -> 2500 per 2 settimane, poi 2250, poi 2000', () => {
+    const log = [voce(0, 82, { waist_cm: 94 }), voce(7, 82.1), voce(14, 81.9), voce(21, 82), voce(28, 82, { waist_cm: 94 })]
+    const s = analizzaStallo(log, -500, 2000, at(0).toISOString(), at(28))!
     expect(s.tipo).toBe('mini_surplus')
-    expect(s.piano.gradini.map((g) => g.kcal)).toEqual([2250, 2500, 2250, 2000])
+    expect(s.piano.gradini).toEqual([{ kcal: 2500, giorni: 14 }, { kcal: 2250, giorni: 7 }, { kcal: 2000, giorni: 7 }])
   })
-  it('cut che scende regolarmente: nessuno stallo', () => {
-    const log = [voce(0, 80), voce(7, 79.5), voce(14, 79)]
+  it('dopo solo 2 settimane ferme non si fa ancora nulla (serve 4 settimane)', () => {
+    const log = [voce(0, 82), voce(7, 82.1), voce(14, 82)]
     expect(analizzaStallo(log, -500, 2000, at(0).toISOString(), at(14))).toBeNull()
   })
-  it('meno di 2 settimane di dati: non si giudica', () => {
-    expect(analizzaStallo([voce(0, 80), voce(5, 80), voce(10, 80)], -500, 2000, at(0).toISOString(), at(10))).toBeNull()
+  it('peso fermo ma girovita che cala: stai migliorando, nessuna pausa', () => {
+    const log = [voce(0, 82, { waist_cm: 95 }), voce(10, 82), voce(20, 82), voce(28, 82, { waist_cm: 93 })]
+    expect(analizzaStallo(log, -500, 2000, at(0).toISOString(), at(28))).toBeNull()
   })
-  it('"mi sento piatto" nell ultima settimana basta per proporre il mini surplus', () => {
-    const s = analizzaStallo([voce(3, 80, { feels_flat: true })], -250, 2250, null, at(5))
-    expect(s?.tipo).toBe('mini_surplus')
+  it('deficit che scende regolarmente: nessuna pausa', () => {
+    const log = [voce(0, 82), voce(7, 81.6), voce(14, 81.2), voce(21, 80.8), voce(28, 80.4)]
+    expect(analizzaStallo(log, -500, 2000, at(0).toISOString(), at(28))).toBeNull()
   })
-  it('bulk troppo veloce -> mini cut 2750, 2500, 2750, 3000', () => {
+  it('"mi sento piatto" dopo almeno 2 settimane basta per proporre la pausa', () => {
+    const log = [voce(0, 82), voce(16, 82, { feels_flat: true })]
+    expect(analizzaStallo(log, -250, 2250, at(0).toISOString(), at(17))?.tipo).toBe('mini_surplus')
+    expect(analizzaStallo([voce(3, 82, { feels_flat: true })], -250, 2250, at(0).toISOString(), at(5))).toBeNull()
+  })
+  it('surplus troppo veloce -> 2500 per 2 settimane, poi 2750, poi 3000', () => {
     const log = [voce(0, 80), voce(7, 80.8), voce(14, 81.5)]
     const s = analizzaStallo(log, 500, 3000, at(0).toISOString(), at(14))!
     expect(s.tipo).toBe('mini_cut')
-    expect(s.piano.gradini.map((g) => g.kcal)).toEqual([2750, 2500, 2750, 3000])
+    expect(s.piano.gradini).toEqual([{ kcal: 2500, giorni: 14 }, { kcal: 2750, giorni: 7 }, { kcal: 3000, giorni: 7 }])
   })
-  it('bulk con girovita +2 cm -> mini cut', () => {
+  it('surplus con girovita +2 cm -> pausa', () => {
     const log = [voce(0, 80, { waist_cm: 84 }), voce(10, 80.3, { waist_cm: 86 })]
     expect(analizzaStallo(log, 500, 3000, at(0).toISOString(), at(10))?.tipo).toBe('mini_cut')
   })
@@ -38,10 +44,11 @@ describe('stallo e scala (blocco 3)', () => {
     expect(analizzaStallo([voce(0, 80, { feels_flat: true })], 0, 2500, null, at(1))).toBeNull()
   })
   it('il piano accettato dice le calorie di oggi, gradino per gradino', () => {
-    const plan = { ...pianoScala('mini_surplus', 2000), started_at: at(0).toISOString() }
-    expect(gradinoDiOggi(plan, at(1))).toMatchObject({ kcal: 2250, indice: 1, totale: 4 })
-    expect(gradinoDiOggi(plan, at(8))).toMatchObject({ kcal: 2500, indice: 2 })
-    expect(gradinoDiOggi(plan, at(22))).toMatchObject({ kcal: 2000, indice: 4 })
+    const plan = { ...pianoScala('mini_surplus', 2000, 2500), started_at: at(0).toISOString() }
+    expect(gradinoDiOggi(plan, at(1))).toMatchObject({ kcal: 2500, indice: 1, totale: 3 })
+    expect(gradinoDiOggi(plan, at(13))).toMatchObject({ kcal: 2500, indice: 1 })
+    expect(gradinoDiOggi(plan, at(15))).toMatchObject({ kcal: 2250, indice: 2 })
+    expect(gradinoDiOggi(plan, at(22))).toMatchObject({ kcal: 2000, indice: 3 })
     expect(gradinoDiOggi(plan, at(29))).toBeNull()
   })
 })
