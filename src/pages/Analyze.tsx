@@ -8,7 +8,7 @@ import { useSettings } from '../features/profile/useSettings'
 import { analyzeSchedaWithDeepSeek, type SchedaAnalysis, type SchedaCheck } from '../lib/deepseek'
 import { componiSchedaSalvabile, righeMancanti, type RigaScheda } from '../engine/schedaUtente'
 import { useWorkout } from '../features/workout/WorkoutContext'
-import { caricaCatalogo, eliminaSalvato, salvaAllenamento } from '../lib/api'
+import { caricaCatalogo, elencoSalvati, eliminaSalvato, nomeLibero, salvaAllenamento } from '../lib/api'
 import { MUSCLE_LABELS, type Exercise, type Muscle } from '../types'
 import type { SchedaRiga } from '../lib/deepseek'
 import type { PhaseInfo } from '../engine/nutrition'
@@ -305,8 +305,14 @@ function SchedaFinale({ analisi, catalog, seduta, carenze, fase, experience, use
     if (!userId) return
     setStato('salvo')
     try {
-      setSalvataId(await salvaAllenamento(userId, costruisci(), nome))
-      setStato('salvato'); setMsg('Salvata: la trovi in Salvati.')
+      // 26/09: due schede con lo stesso nome non si distinguono: se il nome c'è già si usa
+      // "Nome (2)" e lo si dice (si può rinominare in Salvati con ✏️).
+      const esistenti = (await elencoSalvati(userId).catch(() => [])).map((x) => x.name)
+      const libero = nomeLibero(nome, esistenti)
+      setSalvataId(await salvaAllenamento(userId, costruisci(), libero))
+      if (libero !== nome.trim()) setNome(libero)
+      setStato('salvato')
+      setMsg(libero !== nome.trim() ? `Esisteva già una scheda "${nome.trim()}": l'ho salvata come "${libero}". Puoi rinominarla in Salvati con ✏️.` : 'Salvata: la trovi in Salvati → Le mie schede.')
     } catch (e) {
       setStato('errore'); setMsg(e instanceof Error ? e.message : 'Non salvata.')
     }

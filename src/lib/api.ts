@@ -160,3 +160,31 @@ export async function eliminaProgramma(id: string): Promise<void> {
   const { error } = await supabase.from('training_programs').delete().eq('id', id)
   if (error) throw new Error('Non siamo riusciti a eliminare il programma.')
 }
+
+/** Rinomina una scheda salvata (26/09, Rossi: "devo capire quale scheda è"). */
+export async function rinominaSalvato(id: string, name: string): Promise<void> {
+  const nome = name.trim().slice(0, 80)
+  if (!nome) throw new Error('Il nome non può essere vuoto.')
+  const { error } = await supabase.from('saved_workouts').update({ name: nome }).eq('id', id)
+  if (error) throw new Error('Nome non salvato. Riprova.')
+}
+
+/** Rinomina un programma settimanale dell'archivio. */
+export async function rinominaProgramma(id: string, name: string): Promise<void> {
+  const nome = name.trim().slice(0, 80)
+  if (!nome) throw new Error('Il nome non può essere vuoto.')
+  const { error } = await supabase.from('training_programs').update({ name: nome }).eq('id', id)
+  if (error) throw new Error('Nome non salvato. Riprova.')
+}
+
+/** Un nome libero tra quelli esistenti: "Push A" -> "Push A (2)" se c'è già (maiuscole ignorate). */
+export function nomeLibero(nome: string, esistenti: string[]): string {
+  const base = nome.trim() || 'Scheda'
+  const usati = new Set(esistenti.map((n) => n.trim().toLowerCase()))
+  if (!usati.has(base.toLowerCase())) return base
+  for (let i = 2; i < 100; i++) {
+    const prova = `${base} (${i})`
+    if (!usati.has(prova.toLowerCase())) return prova
+  }
+  return `${base} (${Date.now() % 1000})`
+}

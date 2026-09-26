@@ -95,11 +95,20 @@ export function useCoach(userId: string | undefined) {
     setPiano((old) => (old && old.id === id ? null : old))
   }, [userId])
 
+  /** Cambia il nome del programma del coach (26/09). */
+  const rinominaPiano = useCallback(async (titolo: string) => {
+    if (!userId || !piano) return
+    const nuovo = { ...piano.plan, titolo: titolo.trim().slice(0, 80) || piano.plan.titolo }
+    const { error } = await supabase.from('coach_plans').update({ plan: nuovo }).eq('id', piano.id)
+    if (error) throw new Error('Nome non salvato. Riprova.')
+    setPiano({ ...piano, plan: nuovo })
+  }, [userId, piano])
+
   const impostaProssima = useCallback(async (index: number) => {
     if (!userId || !piano) return
     await supabase.from('coach_plans').update({ next_index: index }).eq('id', piano.id)
     setPiano({ ...piano, next_index: index })
   }, [userId, piano])
 
-  return { messaggi, piano, versioni, aggiungi, eliminaMessaggi, eliminaPiano, eliminaConversazione, cancellaConversazione, accettaPiano, impostaProssima, ricarica: carica }
+  return { messaggi, piano, versioni, aggiungi, eliminaMessaggi, eliminaPiano, rinominaPiano, eliminaConversazione, cancellaConversazione, accettaPiano, impostaProssima, ricarica: carica }
 }

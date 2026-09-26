@@ -4,8 +4,21 @@
 > da qui. Va **aggiornato** a ogni sessione, non accodato all'infinito.
 > L'identità del progetto e il percorso di AI-OS stanno in `AIOS_PROJECT.json`.
 
-**Ultimo aggiornamento:** 2026-09-26 (fix programma del coach mai salvato, tasto Salva cartella, range posteriore/anteriore) - Claude (Opus 5.5)
+**Ultimo aggiornamento:** 2026-09-26 (Salvati in 3 sezioni e nomi delle schede: punti 6 e 1) - Claude (Opus 5.5)
 
+### 2026-09-26 (4) — Punti 6 e 1: Salvati in tre sezioni, nomi delle schede
+
+- Salvati: "Programma del coach" (programma attivo con ✏️ sul titolo -> `useCoach.rinominaPiano`,
+  sedute del coach salvate), "Le mie schede" (salvate da te: Analizza e allenamento rapido),
+  "Archivio" (vecchi programmi settimanali del wizard e le loro sedute; ✏️ rinomina ->
+  `rinominaProgramma`). Una riga di spiegazione sotto le schede.
+- Ogni scheda mostra il SUO nome (prima si vedeva lo split, es. "Spinta"), con ✏️ Rinomina
+  (`rinominaSalvato`), l'origine ("Protocollo del coach", "Scritta da te", "Allenamento rapido",
+  "Da un vecchio programma"), split, durata e data; badge "Nome doppio" se due schede si chiamano
+  uguale.
+- Analizza: se il nome esiste già si salva come "Nome (2)" (`nomeLibero`) e lo si dice.
+- Provato in Chromium mobile: sezioni, origine, nome doppio, rinomina (PATCH name). 366 test verdi.
+**Da fare:** punto 2 (Modifica scheda), 4 (cicli calorici), 5 (esercizi da migliorare).
 ### 2026-09-26 (3) — Piano concordato in 6 punti con Rossi + fix degli errori (punto 3)
 
 **Piano concordato (26/09, confermato da Rossi):** 1) rinominare le schede (nomi doppi segnalati,
