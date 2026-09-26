@@ -3640,5 +3640,55 @@
     "default_sets": 2,
     "default_reps": "12",
     "default_rest": 0
+  },
+  {
+    "id": "alzate_frontali_man",
+    "name": "Alzate frontali con manubri",
+    "primary_muscles": [
+      "front_delts"
+    ],
+    "secondary_muscles": [
+      "lateral_delts"
+    ],
+    "equipment": "dumbbell",
+    "movement_pattern": "lateral_raise",
+    "roles": [
+      "isolation",
+      "hypertrophy"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 1,
+    "local_fatigue": 2,
+    "grip_fatigue": 1,
+    "cardio_demand": 1,
+    "default_sets": 3,
+    "default_reps": "10-15",
+    "default_rest": 60
+  },
+  {
+    "id": "alzate_frontali_cavo",
+    "name": "Alzate frontali al cavo",
+    "primary_muscles": [
+      "front_delts"
+    ],
+    "secondary_muscles": [
+      "lateral_delts"
+    ],
+    "equipment": "cable",
+    "movement_pattern": "lateral_raise",
+    "roles": [
+      "isolation",
+      "hypertrophy"
+    ],
+    "min_experience": "beginner",
+    "technical_complexity": 1,
+    "systemic_fatigue": 1,
+    "local_fatigue": 2,
+    "grip_fatigue": 1,
+    "cardio_demand": 1,
+    "default_sets": 3,
+    "default_reps": "12-15",
+    "default_rest": 60
   }
 ]

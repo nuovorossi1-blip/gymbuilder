@@ -128,6 +128,22 @@ export default function Cartella() {
         <input className="input" placeholder="Livello ed esperienza (es. avanzato, 8 anni, ottima connessione mente-muscolo)" value={c.livello_note} onChange={(e) => patch('livello_note', e.target.value)} />
       </Sezione>
 
+      <Sezione titolo="Quanto ti alleni" spiegazione="Da qui l'app costruisce lo scheletro della scheda (sedute, esercizi per muscolo, serie).">
+        <div className="grid grid-cols-2 gap-2">
+          <label className="block">
+            <span className="field-label">Giorni a settimana</span>
+            <select className="input" value={c.giorni_settimana ?? ''} onChange={(e) => patch('giorni_settimana', e.target.value ? Number(e.target.value) : null)}>
+              <option value="">Non indicato</option>
+              {[3, 4, 5, 6].map((g) => <option key={g} value={g}>{g}</option>)}
+            </select>
+          </label>
+          <label className="block">
+            <span className="field-label">Minuti per seduta</span>
+            <input className="input" inputMode="numeric" value={c.durata_min ?? ''} onChange={(e) => patch('durata_min', e.target.value ? Number(e.target.value) : null)} />
+          </label>
+        </div>
+      </Sezione>
+
       <Sezione titolo="Obiettivo">
         <input className="input" placeholder="Primario (es. V-shape: spalle larghe e vita stretta)" value={c.obiettivo.primario} onChange={(e) => patch('obiettivo', { ...c.obiettivo, primario: e.target.value })} />
         <input className="input" placeholder="Secondario (es. braccia più piene)" value={c.obiettivo.secondario} onChange={(e) => patch('obiettivo', { ...c.obiettivo, secondario: e.target.value })} />

@@ -4,8 +4,39 @@
 > da qui. Va **aggiornato** a ogni sessione, non accodato all'infinito.
 > L'identità del progetto e il percorso di AI-OS stanno in `AIOS_PROJECT.json`.
 
-**Ultimo aggiornamento:** 2026-09-26 (DeepSeek in modalità JSON risponde vuoto: nuovo tentativo in testo normale) - Claude (Opus 5.5)
+**Ultimo aggiornamento:** 2026-09-26 (scheletro della scheda costruito dall'app con le regole di Rossi) - Claude (Opus 5.5)
 
+### 2026-09-26 (2) — Scheletro della scheda: la struttura la decide l'app, il coach sceglie gli esercizi
+
+1. **Segnalazione di Rossi** — il coach inventa la scheda invece di seguire le regole della chat di
+   esempio: volume dalle carenze, carenze nei primi slot, mai multiarticolare in fondo; gambe
+   forti = 1 multi quadricipiti + 1 multi femorali + 1 iso quadricipiti + 1 iso femorali + 1
+   polpacci, niente hip thrust se i glutei sono forti; spalle carenti = alzate laterali, aperture
+   posteriori, alzate frontali, shoulder press (manubri o macchina in base ai fastidi); braccia
+   carenti = più esercizi e volume più alto di spalle, bicipiti e tricipiti.
+2. **Fatto (verificato)** —
+   - Catalogo (DB, migration nel repo, fixture): `alzate_frontali_man`, `alzate_frontali_cavo`.
+   - `features/coach/scheletro.ts`: `costruisciScheletro(giorni, carenze, forti, gradino)`:
+     sedute a rotazione (3 P/P/L; 4 Pull A/Push A/Legs/Push B; 5 Pull A/Push A/Legs/Pull B/Push B;
+     6 PPL x2), slot per seduta con muscolo, ruolo, tipo (carenza/mantenimento/richiamo), serie,
+     reps, RIR e indicazione della famiglia di esercizio. Regole: carenza piccola 2 esercizi nella
+     sua seduta; petto forte 1 per Push; dorso 3/2 (3/3 se carente, con secondo bicipite per
+     alternare); posteriore 1 per Pull (+1 serie); spalle carenti con shoulder press (A) e alzate
+     frontali (B); gambe come sopra con richiamo della carenza superiore in apertura; richiamo
+     antagonista. Ordine con `ordinaSessione` (stesse regole del motore). Volume: carenze portate
+     nel range del gradino aggiungendo serie agli isolamenti (max 5; il deltoide anteriore escluso
+     perché lavora nelle spinte), mantenimento ridotto se sopra il massimo; gambe forti 3 serie
+     per esercizio, polpacci mai sotto 3.
+   - `confrontaConScheletro`: stesse sedute, stessi slot nello stesso ordine, muscolo principale e
+     ruolo giusti, serie +-1 -> altrimenti ERRORE (il coach corregge da solo, loop già esistente).
+   - Contesto del coach: `scheletro_programma` (sedute, slot, volume settimanale); prompt:
+     "SCHELETRO OBBLIGATORIO", giorni/durata da salvare subito in cartella.
+   - Cartella: `giorni_settimana`, `durata_min` (sezione "Quanto ti alleni", file .md).
+   Esempio (spalle+braccia carenti, petto/gambe forti, 5 giorni, deficit): bicipiti 16, tricipiti
+   16, laterali 15, posteriori 10, dorso 12, petto 6, quadricipiti 6, femorali 6, polpacci 3.
+   362 test verdi (+9), tsc/eslint puliti, build ok.
+3. **Nota** — nella cartella di Rossi le carenze sono deltoidi (ant/lat/post) e DORSO; le braccia
+   sono solo nell'obiettivo secondario: per avere bicipiti/tricipiti come carenza va aggiornata.
 ### 2026-09-26 — Il vero motivo di "Non ho capito bene": DeepSeek risponde vuoto in modalità JSON
 
 1. **Segnalazione di Rossi** — dopo il fix del 25/09 la chat mostra ancora "Non ho capito bene,

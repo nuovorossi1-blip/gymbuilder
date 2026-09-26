@@ -15,6 +15,7 @@ import { useWorkout } from '../features/workout/WorkoutContext'
 import { controllaPiano, differenzePiani, normalizzaPiano, sedutaComeWorkout, type CoachPlan, type EsitoControlli } from '../features/coach/plan'
 import { clienteConosciuto, leggiRispostaCoach, messaggioContesto, promptSistema, unisciCartella, type TipoConversazione } from '../features/coach/prompt'
 import { cartellaInMarkdown, normalizzaCartella, vietatiDallaCartella } from '../features/cartella/cartella'
+import { confrontaConScheletro, costruisciScheletro, scheletroPerLlm } from '../features/coach/scheletro'
 import { FileCartella } from '../features/cartella/FileCartella'
 import { chiediJsonAlLlm, type LlmMessage } from '../lib/deepseek'
 import { caricaCatalogo, elencoStorico } from '../lib/api'
@@ -149,6 +150,14 @@ export default function Coach() {
     const disponibili = catalogo.filter((e) => !vietati.has(e.id) && isExerciseAvailable(e, settings?.equipment ?? 'full_gym', settings?.available_equipment ?? null))
     return escludiPerFastidi(disponibili, profile?.joint_issues)
   }, [catalogo, cartella, settings, profile])
+  // Scheletro della scheda con le regole di Rossi: la struttura la decide l'app, il coach sceglie
+  // gli esercizi di ogni casella.
+  const scheletro = cartella ? costruisciScheletro({
+    giorni: cartella.giorni_settimana ?? piano?.plan.giorni_settimana ?? 5,
+    carenze: cartella.carenze.map((c) => c.muscolo),
+    forti: cartella.punti_forti.map((p) => p.muscolo),
+    step: fase?.training_step ?? null,
+  }) : null
   const ctxControlli = { catalog: catalogo, cartella, fastidi: profile?.joint_issues ?? [], phase: fase?.training_phase ?? null, step: fase?.training_step ?? null }
 
   // Senza piano si è nel primo colloquio; con il piano si apre la conversazione scelta.
@@ -218,6 +227,7 @@ export default function Coach() {
         storicoCalorie: calorieLog.slice(-10).map((e) => ({ data: e.created_at.slice(0, 10), kcal: e.kcal })),
         allenamentiFatti: storico.slice(0, 15).map((w) => ({ data: w.completed_at.slice(0, 10), nome: w.name, minuti: Math.round(w.duration_sec / 60), voto: w.rating })),
         volumeCalcolato: volumePerIlCoach(base),
+        scheletro: scheletro ? scheletroPerLlm(scheletro) : null,
       })
       const grezza = await chiediJsonAlLlm([
         { role: 'system', content: promptSistema(kind, conosciuto) },
@@ -235,6 +245,8 @@ export default function Coach() {
       if (risposta.aggiorna_cartella) await salvaCartella(unisciCartella(cartella, risposta.aggiorna_cartella, catalogo))
       const plan = risposta.piano ? normalizzaPiano(risposta.piano, catalogo) : null
       const esito = plan ? controllaPiano(plan, ctxControlli) : null
+      // Il piano deve seguire lo scheletro: se non lo fa è un errore, e il coach lo corregge.
+      if (plan && esito && scheletro) esito.errori.push(...confrontaConScheletro(plan, scheletro, catalogo))
       // Il piano salvato si normalizza come quello nuovo: il confronto avviene sugli stessi id.
       const differenze = plan && piano ? differenzePiani(normalizzaPiano(piano.plan, catalogo) ?? piano.plan, plan) : null
       const suo = await aggiungi({

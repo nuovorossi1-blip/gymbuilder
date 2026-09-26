@@ -51,7 +51,7 @@ const S = <T,>(v: [T, T, T, T, T, T, T]): Record<Step, T> =>
  * +500, +750, +1000 kcal rispetto alla normocalorica. Il volume extra va PRIMA alle carenze:
  * i muscoli in mantenimento salgono solo dai gradini alti. Valori indicativi, come il prompt.
  */
-const TABELLA = {
+export const TABELLA_GRADINI = {
   serie: {
     carenzaIso: S([3, 3, 4, 4, 4, 5, 5]),
     carenzaComp: S([3, 3, 4, 4, 4, 5, 5]),
@@ -96,9 +96,9 @@ export function applicaFase(scelti: PrescribedExercise[], opts: FaseOpts): strin
   const step = normalizzaStep(opts.step) ?? 0
   const { carenze, split } = opts
   let antagonistaFatto = false
-  let drop = TABELLA.tecniche.drop[step]
-  let restPause = TABELLA.tecniche.restPause[step]
-  let myo = TABELLA.tecniche.myo[step]
+  let drop = TABELLA_GRADINI.tecniche.drop[step]
+  let restPause = TABELLA_GRADINI.tecniche.restPause[step]
+  let myo = TABELLA_GRADINI.tecniche.myo[step]
   for (const e of scelti) {
     if (e.role === 'warmup' || (e.note && NOTE_ESCLUSE.has(e.note)) || !e.muscle) continue
     const carenza = carenze.includes(e.muscle)
@@ -109,16 +109,16 @@ export function applicaFase(scelti: PrescribedExercise[], opts: FaseOpts): strin
       // Principio 4: richiamo leggero, mai a cedimento; al gradino massimo diventa un esercizio vero.
       antagonistaFatto = true
       e.note = NOTA_ANTAGONISTA
-      e.sets = TABELLA.serie.antagonista[step]
-      e.rir = TABELLA.rir.antagonista[step]
+      e.sets = TABELLA_GRADINI.serie.antagonista[step]
+      e.rir = TABELLA_GRADINI.rir.antagonista[step]
       if (step === 1000) e.technique = "Drop set sull'ultima serie"
       continue
     }
     const comp = e.role === 'compound'
     e.sets = comp
-      ? (carenza ? TABELLA.serie.carenzaComp : TABELLA.serie.mantComp)[step]
-      : (carenza ? TABELLA.serie.carenzaIso : TABELLA.serie.mantIso)[step]
-    e.rir = comp ? TABELLA.rir.comp[step] : TABELLA.rir.iso[step]
+      ? (carenza ? TABELLA_GRADINI.serie.carenzaComp : TABELLA_GRADINI.serie.mantComp)[step]
+      : (carenza ? TABELLA_GRADINI.serie.carenzaIso : TABELLA_GRADINI.serie.mantIso)[step]
+    e.rir = comp ? TABELLA_GRADINI.rir.comp[step] : TABELLA_GRADINI.rir.iso[step]
     if (carenza && !comp) {
       // Myo-reps preferite sulle alzate laterali al cavo/manubri, rest-pause sui curl/estensioni.
       if (myo > 0 && e.muscle === 'lateral_delts') { e.technique = "Myo-reps sull'ultima serie"; myo-- }
@@ -139,7 +139,7 @@ export function applicaFase(scelti: PrescribedExercise[], opts: FaseOpts): strin
       ? 'drop set solo sull\'ultima serie delle carenze'
       : 'drop set, rest-pause e myo-reps sulle carenze'
   const extra = step >= 750 ? ' Con queste calorie puoi valutare il 6° giorno e le gambe 2 volte a settimana.' : ''
-  return `Volume al gradino ${step > 0 ? '+' : ''}${step} kcal: RIR ${TABELLA.rir.comp[step]} sui multiarticolari, ${tecniche}. ${alternanza}${extra}`
+  return `Volume al gradino ${step > 0 ? '+' : ''}${step} kcal: RIR ${TABELLA_GRADINI.rir.comp[step]} sui multiarticolari, ${tecniche}. ${alternanza}${extra}`
 }
 
 export interface OrdinaOpts {

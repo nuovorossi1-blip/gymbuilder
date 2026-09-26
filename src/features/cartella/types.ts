@@ -54,6 +54,9 @@ export interface CartellaCliente {
   obbligatori: EsercizioObbligatorio[]
   attrezzatura: string[]
   riscaldamento: { descrizione: string; minuti: number }
+  /** Giorni di allenamento a settimana e minuti per seduta: decidono lo scheletro della scheda. */
+  giorni_settimana: number | null
+  durata_min: number | null
   macro: { proteine_g: number | null; grassi_g: number | null; carboidrati_g: number | null }
   note_coach: string
   controlli: Controllo[]
@@ -71,6 +74,8 @@ export const CARTELLA_VUOTA: CartellaCliente = {
   obbligatori: [],
   attrezzatura: [],
   riscaldamento: { descrizione: '2 giri addome (alti + bassi) + 3 giri rotazioni spalle', minuti: 8 },
+  giorni_settimana: null,
+  durata_min: null,
   macro: { proteine_g: null, grassi_g: null, carboidrati_g: null },
   note_coach: '',
   controlli: [],

@@ -16,6 +16,8 @@ export const FORMATO_RISPOSTA = `Rispondi SEMPRE e SOLO con un JSON object:
 - "controllo": solo alla fine di un controllo periodico: {"data":"AAAA-MM-GG","peso":82,"girovita":84,"specchio":"string","energia":"string","recupero":"string","sonno":"string","fame":"string","fastidi":"string","carichi":[{"esercizio":"string","carico":"string","reps":"string"}],"decisioni":"valutazione, decisioni con il perché e target delle prossime 4 settimane"}
 - split ammessi: push, pull, legs, upper, lower, full_body, bro_chest, bro_back, bro_shoulders, bro_arms, bro_legs, front_body, back_body.
 - Usa SOLO exercise_id presenti nel catalogo che ricevi. Il riscaldamento fisso NON va tra gli esercizi.
+- SCHELETRO OBBLIGATORIO: il contesto contiene "scheletro_programma", costruito dall'app con le regole del cliente (volume dalle carenze, carenze nei primi slot, gambe forti = 1 multiarticolare quadricipiti + 1 multiarticolare femorali + 1 isolamento quadricipiti + 1 isolamento femorali + 1 polpacci, niente hip thrust se i glutei non sono carenti, spalle carenti = alzate laterali, aperture posteriori, alzate frontali, shoulder press, mai un multiarticolare in fondo). Ogni piano che consegni DEVE avere le stesse sedute nello stesso ordine e, per ogni seduta, gli stessi slot nello stesso ordine: stesso muscolo principale, stesso ruolo (multiarticolare/isolamento), stesse serie, reps e RIR. Tu scegli per ogni slot l'exercise_id del catalogo seguendo "indicazione", i fastidi e i gusti del cliente, e scrivi nota, logica e alternativa. Non aggiungere, togliere o spostare slot: il controllo dell'app rifiuta il piano. Se il cliente vuole un'altra struttura (giorni, durata), aggiorna la cartella (giorni_settimana, durata_min) con "aggiorna_cartella" e spiegagli che il nuovo scheletro arriva al messaggio successivo.
+- Per spiegare il volume usa "scheletro_programma.volume_settimanale" e "volume_calcolato_dall_app": sono calcolati dall'app.
 - Il piano è una ROTAZIONE: il cliente fa sempre "la prossima seduta della lista", anche se una settimana si allena meno.`
 
 export const PROCEDURA_COLLOQUIO = `## PRIMO COLLOQUIO (il dottore alla prima visita)
@@ -24,7 +26,7 @@ Una categoria alla volta, aspetta la risposta prima di passare alla successiva. 
 2. Cosa mangi: calorie, normocalorica se la sa, proteine (se non le sa: quanta carne, pesce, uova), peso che scende/sale/resta stabile e da quanto tempo, fame durante il giorno, energia in allenamento.
 3. Corpo e obiettivo: cosa vuole ottenere e in quanto tempo; i 2-3 muscoli più piccoli allo specchio; quelli più forti; cosa non gli piace esteticamente.
 4. Problemi e fastidi: dolori articolari (su quali esercizi, in quale momento del movimento, da quanto), esercizi che evita, esercizi che ama e vuole nel programma.
-5. Logistica: giorni a settimana, minuti per seduta, attrezzi della palestra (cavi alto/basso/singolo, lat machine, hack o pendulum, T-bar, chest press, reverse pec deck, manubri) e cosa NON ha.
+5. Logistica: giorni a settimana e minuti per seduta (salvali SUBITO in "aggiorna_cartella" come giorni_settimana e durata_min: decidono lo scheletro), attrezzi della palestra (cavi alto/basso/singolo, lat machine, hack o pendulum, T-bar, chest press, reverse pec deck, manubri) e cosa NON ha.
 6. Come ti alleni ora: split, esercizi per seduta, cedimento o ripetizioni in riserva, progressione o a sensazione, cosa non funziona, cosa non senti o ti stanca troppo. Chiedi sempre: "c'è qualche esercizio che non senti bene?".
 7. PRIMA della scheda dai il consiglio nutrizionale: stima la normocalorica, di' se è in deficit/normo/surplus e se il deficit è troppo aggressivo, se conviene un mini cut o un mini surplus, quante proteine (1,6-2,2 g/kg), e come le calorie decideranno il volume della scheda. Aspetta la sua conferma.
 8. Consegna il piano con una breve spiegazione della logica e chiedi se vuole cambiare qualcosa. Se chiede modifiche, rimanda il piano intero corretto.
@@ -89,6 +91,8 @@ export interface ContestoCoach {
   /** Volume settimanale calcolato dall'APP (non dall'LLM) per il programma attivo e per l'ultima
    *  proposta: serie per muscolo, frequenza, carenza sì/no, range della fase. */
   volumeCalcolato?: { programma: string; righe: { muscolo: string; serie: number; volte: number; carenza: boolean; range: string }[]; avvisi: string[] }[]
+  /** Scheletro della scheda costruito dall'app con le regole di Rossi (scheletro.ts). */
+  scheletro?: unknown
 }
 
 /** Il contesto va come primo messaggio: il coach lo "legge" prima della conversazione. */
@@ -111,6 +115,7 @@ export function messaggioContesto(ctx: ContestoCoach): string {
     storico_calorie: ctx.storicoCalorie ?? [],
     allenamenti_fatti: ctx.allenamentiFatti ?? [],
     volume_calcolato_dall_app: ctx.volumeCalcolato ?? [],
+    scheletro_programma: ctx.scheletro ?? null,
     oggi: new Date().toISOString().slice(0, 10),
     catalogo: ctx.catalogo.filter((e) => !e.roles.includes('warmup')).map((e) => ({
       id: e.id, nome: e.name, muscoli: e.primary_muscles, attrezzo: e.equipment, multiarticolare: e.roles.includes('compound'),

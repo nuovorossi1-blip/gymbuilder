@@ -78,6 +78,8 @@ export function normalizzaCartella(raw: unknown, catalog?: Exercise[]): Cartella
       minuti: num(risc.minuti) ?? CARTELLA_VUOTA.riscaldamento.minuti,
     },
     macro: { proteine_g: num(macro.proteine_g), grassi_g: num(macro.grassi_g), carboidrati_g: num(macro.carboidrati_g) },
+    giorni_settimana: (() => { const g = num(c.giorni_settimana); return g && g >= 3 && g <= 6 ? Math.round(g) : null })(),
+    durata_min: (() => { const d = num(c.durata_min); return d && d >= 20 && d <= 180 ? Math.round(d) : null })(),
     note_coach: str(c.note_coach, 3000),
     controlli: arr(c.controlli).map((k) => ({
       data: str(k.data, 30), peso: num(k.peso) ?? undefined, girovita: num(k.girovita) ?? undefined,
@@ -147,6 +149,7 @@ export function cartellaInMarkdown(d: DatiExport): string {
     ['Lavoro', p?.job_activity ? JOB_ACTIVITY_LABELS[p.job_activity] : ''],
     ['Sonno (ore)', p?.sleep_hours], ['Stress', p?.stress_level ? STRESS_LABELS[p.stress_level] : ''],
     ['Livello ed esperienza', c.livello_note],
+    ['Giorni a settimana', c.giorni_settimana], ['Minuti per seduta', c.durata_min],
     ['Fastidi articolari', (p?.joint_issues ?? []).map((j) => JOINT_LABELS[j]).join(', ')],
   ]), '')
   out.push('## Vincoli tassativi', tabella(['Zona', 'Problema', 'Vietato', 'Strategia'], c.vincoli.map((v) => [v.zona, v.problema, v.vietati.join(', '), v.strategia])), '')
