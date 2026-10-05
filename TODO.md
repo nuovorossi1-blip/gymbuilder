@@ -1,5 +1,6 @@
 # Todo
 
+- [ ] (06/10) Vercel in pausa: GymBuilder gira dal PC di casa (https://pc-claude.tailcad625.ts.net:10000). Al rinnovo del ciclo Vercel tornare su gymbuilder-lemon.vercel.app e spegnere server-locale (vedi AIOS_STATE).
 - [ ] Rossi: provare dal vivo (26/09) Costruisci il programma, esercizi da migliorare (trazioni), Modifica scheda, pausa in normocalorica dopo 4 settimane di stallo.
 - [ ] Rossi: rigenerare la chiave OpenRouter incollata in chat il 25/09 e sostituirla nel Profilo ("Il tuo LLM").
 - [ ] Rossi: provare il Coach con un LLM vero (colloquio completo, qualità del piano, tempi di risposta).

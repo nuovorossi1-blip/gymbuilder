@@ -4,7 +4,31 @@
 > da qui. Va **aggiornato** a ogni sessione, non accodato all'infinito.
 > L'identità del progetto e il percorso di AI-OS stanno in `AIOS_PROJECT.json`.
 
-**Ultimo aggiornamento:** 2026-09-26 (piano in 6 punti COMPLETATO: cicli calorici, esercizi da migliorare, Modifica scheda) - Claude (Opus 5.5)
+**Ultimo aggiornamento:** 2026-10-06 (Vercel in pausa: GymBuilder servito dal PC di casa, server-locale/) - Claude (Opus 5.5)
+
+### 2026-10-06 — Vercel in pausa: l'app gira sul PC di casa (server-locale/)
+
+**Perché:** il 05/10 Vercel ha messo in pausa il team gratuito `nuovorossi1-5879s-projects`
+(CPU Fluid Active al 127% delle 4 ore). Il consumo era tutto di PronoBlast (battito ogni 15 s +
+orologio ogni minuto), ma la pausa vale per tutto il team: `gymbuilder-lemon.vercel.app`
+risponde 402. GymBuilder non ha colpe e non è stato toccato nel codice dell'app.
+
+**Cosa:** `server-locale/server.mjs` (Node, porta 3001) fa quello che fa Vercel: `/api/<nome>`
+-> `api/<nome>.js` con request/response stile Vercel (`request.body` letto, `status().json()`,
+`send()`), il resto da `dist/` con `index.html` di riserva, e il keep-alive di Supabase una volta
+al giorno al posto del cron di Vercel. Variabili in `server-locale/.env` (non su git: DeepSeek e
+LLM_FALLBACK_USER_ID da Vercel; URL e chiave publishable di Supabase da `api/keep-alive.js`;
+CRON_SECRET non serve). `dist/` compilato con le VITE_ di quel file. `installa.ps1` crea
+l'operazione pianificata "GymBuilder - Server locale" (all'accesso, `conhost --headless`,
+registro `server.log`) e Tailscale Funnel `--https=10000`.
+Indirizzo provvisorio: **https://pc-claude.tailcad625.ts.net:10000** (dal browser del telefono:
+l'APK punta a gymbuilder-lemon.vercel.app). Provati da internet: home, rotta SPA, `/api/llm-models`
+(15 modelli), `/api/deepseek` senza login -> 401, keep-alive 200.
+
+**Problemi aperti:** il link "recupera password" di Supabase porta al Site URL di Vercel, quindi
+finché si è sul PC non funziona. Il PC deve restare acceso. In ufficio `*.ts.net` è bloccato.
+**Prossimo passo:** al rinnovo del ciclo Vercel tornare su gymbuilder-lemon.vercel.app, poi
+`Unregister-ScheduledTask "GymBuilder - Server locale"` e `tailscale funnel --https=10000 off`.
 
 ### 2026-09-26 (5) — Punti 4, 5 e 2: piano in 6 punti completato
 
