@@ -27,7 +27,8 @@ l'APK punta a gymbuilder-lemon.vercel.app). Provati da internet: home, rotta SPA
 
 **Problemi aperti:** il link "recupera password" di Supabase porta al Site URL di Vercel, quindi
 finché si è sul PC non funziona. Il PC deve restare acceso. In ufficio `*.ts.net` è bloccato.
-**Prossimo passo:** al rinnovo del ciclo Vercel tornare su gymbuilder-lemon.vercel.app, poi
+**Kit di ripristino:** `E:\RIPRISTINO-PC\strumenti\installa.ps1` (passo 10b) reinstalla il server locale solo se esiste `server-locale/ATTIVO.txt` (file locale, ignorato da git).
+**Prossimo passo:** al rinnovo del ciclo Vercel tornare su gymbuilder-lemon.vercel.app, poi cancellare `server-locale/ATTIVO.txt`,
 `Unregister-ScheduledTask "GymBuilder - Server locale"` e `tailscale funnel --https=10000 off`.
 
 ### 2026-09-26 (5) — Punti 4, 5 e 2: piano in 6 punti completato
