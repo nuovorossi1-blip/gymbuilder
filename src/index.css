@@ -1,3 +1,11 @@
+/* Font della grafica standard AI-OS, dentro l'app (niente Google Fonts). */
+@font-face{font-family:Manrope;font-style:normal;font-weight:200 800;font-display:swap;src:url(/fonts/manrope-latin.woff2) format("woff2");unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:Manrope;font-style:normal;font-weight:200 800;font-display:swap;src:url(/fonts/manrope-latin-ext.woff2) format("woff2");unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}
+@font-face{font-family:"Barlow Condensed";font-weight:600;font-display:swap;src:url(/fonts/barlow-condensed-600.woff2) format("woff2")}
+@font-face{font-family:"Barlow Condensed";font-weight:700;font-display:swap;src:url(/fonts/barlow-condensed-700.woff2) format("woff2")}
+@font-face{font-family:"Barlow Condensed";font-weight:800;font-display:swap;src:url(/fonts/barlow-condensed-800.woff2) format("woff2")}
+@font-face{font-family:"Barlow Condensed";font-weight:900;font-display:swap;src:url(/fonts/barlow-condensed-900.woff2) format("woff2")}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -10,14 +18,14 @@
   }
   /* Focus visibile da tastiera, requisito di accessibilita' */
   :focus-visible {
-    outline: 2px solid #FFB627;
+    outline: 2px solid #F5A623;
     outline-offset: 2px;
   }
 }
 
 @layer components {
   .eyebrow {
-    @apply font-data text-[11px] uppercase tracking-[0.18em] text-slate2;
+    @apply font-data text-[11px] font-bold uppercase tracking-[0.18em] text-gold;
   }
   .slab {
     @apply relative w-full rounded-xl bg-steel border border-edge px-4 py-4
@@ -31,12 +39,15 @@
            text-slate2 transition-colors;
   }
   .chip-on {
-    @apply border-chalk bg-chalk text-ink;
+    @apply border-transparent text-ink font-bold;
+    background-image: linear-gradient(135deg, #FFC15E 0%, #F5A623 55%, #FF6B6B 100%);
   }
   .btn {
-    @apply w-full rounded-xl bg-chalk py-3.5 font-display font-bold uppercase
+    @apply w-full rounded-xl py-3.5 font-display font-extrabold uppercase
            tracking-wide text-ink transition-opacity active:opacity-70
            disabled:opacity-40;
+    background-image: linear-gradient(135deg, #FFC15E 0%, #F5A623 55%, #FF6B6B 100%);
+    box-shadow: 0 6px 18px rgba(245, 166, 35, 0.22);
   }
   .input {
     @apply w-full rounded-xl border border-edge bg-steel px-4 py-3.5 text-base
@@ -76,21 +87,42 @@
 }
 
 .glass-card {
-  background: rgba(26, 29, 36, 0.7);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: rgba(36, 36, 36, 0.72);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .glass-card-active {
-  background: rgba(0, 242, 254, 0.08);
-  border: 1px solid rgba(0, 242, 254, 0.5);
-  box-shadow: 0 0 20px rgba(0, 242, 254, 0.15);
+  background: rgba(245, 166, 35, 0.08);
+  border: 1px solid rgba(245, 166, 35, 0.5);
+  box-shadow: 0 0 20px rgba(245, 166, 35, 0.15);
 }
 
-.glow-cyan {
-  box-shadow: 0 0 25px rgba(0, 242, 254, 0.35);
+.glow-cyan,
+.glow-amber {
+  box-shadow: 0 0 24px rgba(245, 166, 35, 0.35);
 }
+
+/* Pulsanti principali (gradiente azzurro o ambra-arancio nel codice): gradiente
+   oro-corallo con testo grafite, come da grafica standard. */
+.from-cyan-500.to-blue-600,
+.from-amber-500.to-orange-600 {
+  background-image: linear-gradient(135deg, #FFC15E 0%, #F5A623 55%, #FF6B6B 100%) !important;
+  color: #1A1A1A !important;
+}
+
+/* Titoli in Barlow Condensed con un filo di spaziatura; numeri allineati. */
+.font-display { letter-spacing: 0.5px; }
+.font-data { font-variant-numeric: tabular-nums; }
+
+/* Schermata d'avvio (in index.html, sparisce quando l'app e' pronta). */
+#avvio { position: fixed; inset: 0; z-index: 2147483647; background: #1A1A1A; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; transition: opacity 0.3s ease-out; }
+#avvio.via { opacity: 0; pointer-events: none; }
+#avvio img { width: 84px; height: 84px; border-radius: 22px; box-shadow: 0 0 40px rgba(245, 166, 35, 0.25); }
+#avvio .nome { font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: 34px; letter-spacing: 3px; color: #F5A623; text-shadow: 0 0 24px rgba(245, 166, 35, 0.45); }
+#avvio .giro { width: 34px; height: 34px; border: 3px solid rgba(245, 166, 35, 0.15); border-top-color: #F5A623; border-radius: 50%; animation: giro 0.8s linear infinite; }
+@keyframes giro { to { transform: rotate(360deg); } }
 
 .glow-emerald {
   box-shadow: 0 0 25px rgba(16, 185, 129, 0.35);

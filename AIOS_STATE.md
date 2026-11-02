@@ -4,7 +4,33 @@
 > da qui. Va **aggiornato** a ogni sessione, non accodato all'infinito.
 > L'identità del progetto e il percorso di AI-OS stanno in `AIOS_PROJECT.json`.
 
-**Ultimo aggiornamento:** 2026-10-06 (Vercel in pausa: GymBuilder servito dal PC di casa, server-locale/) - Claude (Opus 5.5)
+**Ultimo aggiornamento:** 2026-11-02 (grafica standard AI-OS: grafite/oro, Manrope + Barlow Condensed, schermata d'avvio) - Claude (Opus 5.5)
+
+### 2026-11-02 — Grafica standard AI-OS (solo aspetto)
+
+**Perché:** richiesta dell'utente; regola AI-OS `ai-os/STILE_GRAFICO.md` (grafite, oro, vetro).
+
+**Cosa:** `tailwind.config.js` ridefinisce i valori senza cambiare le classi nei componenti:
+ink #1A1A1A, steel #242424, edge #333333, chalk #FFFFFF, slate2 #A1A1AA, amber2/gold #F5A623;
+la scala `cyan` (accento decorativo) diventa oro, `blue` (fine dei gradienti) corallo,
+`slate`/`zinc` grigi grafite. Font: display = Barlow Condensed, body/data = Manrope, file in
+`public/fonts/` (tolto Google Fonts). `src/index.css`: @font-face, `.btn` e `.chip-on` col
+gradiente oro-corallo e testo grafite, `.eyebrow` oro, `.glass-card` vetro grafite, i gradienti
+`from-cyan-500 to-blue-600` e `from-amber-500 to-orange-600` diventano il pulsante principale.
+Schermata d'avvio in `index.html`, chiusa da `src/lib/avvio.ts` quando finisce il `loading`
+dell'auth (minimo 0,8 s, massimo 6 s). Icona, manifest e theme-color grafite; cache SW v4.
+Invariati: logica, calcoli, navigazione, verde/emerald (ok), rosso (errori), ambra del timer,
+fucsia (serie alterne), viola. Android nativo non toccato (carica il sito).
+
+**Cosa si è rotto e come:** `npm run build` senza variabili ha riscritto `dist/` servito da
+`server-locale` (porta 3001 / Funnel :10000). Ricompilato subito con le VITE_ di
+`server-locale/.env` caricate da node senza stamparle. **Per il server locale compilare sempre
+con quelle variabili.**
+
+**Verifiche:** build ok, 373 test verdi, lint pulito; foto 412 px di avvio, login, home, crea,
+profilo, coach (build di prova con Supabase finto); login reale su :10000 senza errori, font Manrope.
+
+**Prossimo passo:** controllo a occhio dell'utente sul telefono, in particolare Runner/timer.
 
 ### 2026-10-06 — Vercel in pausa: l'app gira sul PC di casa (server-locale/)
 

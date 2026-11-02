@@ -1,4 +1,4 @@
-const CACHE = 'gymbuilder-shell-v3'
+const CACHE = 'gymbuilder-shell-v4'
 const SHELL = ['/', '/manifest.webmanifest', '/gymbuilder-icon.svg']
 
 self.addEventListener('install', (event) => {

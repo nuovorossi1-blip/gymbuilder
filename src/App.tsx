@@ -22,12 +22,18 @@ import { ActiveTimerBanner } from './components/ActiveTimerBanner'
 import NativeUpdater from './components/NativeUpdater'
 import InstallBanner from './components/InstallBanner'
 import { ErrorBoundary } from './components/ErrorBoundary'
+import { chiudiAvvio } from './lib/avvio'
 
 function Guscio() {
   const { user, loading, recovering } = useAuth()
   const { workout, activeSession, resumeActiveSession } = useWorkout()
   const { pathname } = useLocation()
   const navigate = useNavigate()
+
+  // La schermata d'avvio sparisce quando l'accesso e' stato verificato.
+  useEffect(() => {
+    if (!loading) chiudiAvvio()
+  }, [loading])
 
   useEffect(() => {
     if (!('serviceWorker' in navigator)) return
