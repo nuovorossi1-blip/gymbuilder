@@ -102,6 +102,9 @@ public class WorkoutTimerPlugin extends Plugin {
         String label = call.getString("label", "Timer allenamento");
         String phase = call.getString("phase", "other");
         Boolean vibrate = call.getBoolean("vibrate", true);
+        String suono = call.getString("suono", "ding");
+        String avviso = call.getString("avviso", "tic");
+        Integer avvisoSecondi = call.getInt("avvisoSecondi", 5);
         Long deadline = call.getLong("deadline");
         if (deadline == null || deadline <= System.currentTimeMillis()) {
             call.reject("Scadenza timer non valida");
@@ -112,6 +115,9 @@ public class WorkoutTimerPlugin extends Plugin {
             .putExtra(WorkoutTimerService.EXTRA_LABEL, label)
             .putExtra(WorkoutTimerService.EXTRA_PHASE, phase)
             .putExtra(WorkoutTimerService.EXTRA_VIBRATE, vibrate == null || vibrate)
+            .putExtra(WorkoutTimerService.EXTRA_SUONO, suono)
+            .putExtra(WorkoutTimerService.EXTRA_AVVISO, avviso)
+            .putExtra(WorkoutTimerService.EXTRA_AVVISO_SECONDI, avvisoSecondi == null ? 5 : avvisoSecondi)
             .putExtra(WorkoutTimerService.EXTRA_DEADLINE, deadline);
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) getContext().startForegroundService(intent);

@@ -3210,3 +3210,17 @@ Conversazione vera con Nemotron gratuito sul caso spalla: domande sul dolore, sp
 - Chi ha già salvato le impostazioni audio mantiene le sue scelte (es. "Biiip lungo").
 - Verifiche: 381/381 test (aggiornato il test del suono predefinito), tsc, eslint, build con le VITE_
   del server locale. NON provato in un allenamento vero (serve login): da provare dal telefono.
+
+### 2026-11-03 23:15 — Stile "bip da cronometro" e suoni del timer in background su Android (Claude Opus 5.5)
+- Secondo video di riferimento dell'utente ("How to use the SmartWOD timer!"): analizzato lo spettro
+  audio (ffmpeg showspectrumpic) -> 3 bip bassi ~520 Hz da 0,5 s, uno al secondo, poi bip alto
+  ~1100 Hz da 0,75 s. Nuovo `avviso: 'tic' | 'bip'` in AudioTimerSettings e suono `bip_alto`;
+  menu "Stile dell'avviso" nelle impostazioni del timer (tic 5 s + Ding / bip 3 s + Bip alto).
+- Android in background (richiesta: "se uso il telefono per altro deve suonare e vibrare"): il
+  WorkoutTimerService vibrava ma era muto. Nuovo `TimerSuoni.java` (AudioTrack, stessi suoni
+  sintetizzati, uso SVEGLIA, abbassa la musica con audio focus "may duck"); il servizio programma
+  gli avvisi negli ultimi secondi e il suono alla scadenza SOLO se `MainActivity.inPrimoPiano` è
+  false. Il timer web tace quando la pagina è nascosta dentro l'app nativa (niente doppioni).
+  Permessi già presenti: POST_NOTIFICATIONS (chiesto prima del via), VIBRATE, FOREGROUND_SERVICE, WAKE_LOCK.
+- Verifiche: 381/381 test, tsc, eslint, `gradlew assembleDebug` sul PC riuscito (JDK 21).
+  NON provato su un telefono vero (serve un allenamento con login).

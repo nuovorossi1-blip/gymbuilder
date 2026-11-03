@@ -322,7 +322,7 @@ export default function Runner() {
       const next = Math.max(0, Math.ceil((restDeadline.current - Date.now()) / 1000))
       setRimanente(next)
       // Recupero: tic negli ultimi 5 secondi (03/11, richiesta di Rossi), poi il ding alla ripartenza.
-      if (next > 0 && next <= 5 && lastWarning.current !== `rest-${next}`) { lastWarning.current = `rest-${next}`; emit('WARNING', 'rest') }
+      if (next > 0 && next <= (audioSettings.avviso === 'bip' ? 3 : 5) && lastWarning.current !== `rest-${next}`) { lastWarning.current = `rest-${next}`; emit('WARNING', 'rest') }
     }
     const t = window.setInterval(tick, 200); tick()
     return () => window.clearInterval(t)
@@ -1305,7 +1305,7 @@ function WorkoutClock({ inizioRef, estimateMin, className = '' }: { inizioRef: {
 }
 
 function AudioControls({ settings, onChange }: { settings: AudioTimerSettings; onChange: (patch: Partial<AudioTimerSettings>) => void }) {
-  const sounds: TimerSound[] = ['beep', 'ding', 'ring', 'silent']
+  const sounds: TimerSound[] = ['ding', 'bip_alto', 'beep', 'ring', 'silent']
   const [notifPermission, setNotifPermission] = useState<NotificationPermission>(() =>
     typeof Notification !== 'undefined' ? Notification.permission : 'denied'
   )
@@ -1361,7 +1361,17 @@ function AudioControls({ settings, onChange }: { settings: AudioTimerSettings; o
           <AudioSelect label="Suono fine" value={settings.endSound} sounds={sounds} onChange={(endSound) => onChange({ endSound })} />
           <label className="col-span-2 flex items-center gap-3 text-sm text-slate2">
             <input type="checkbox" checked={settings.countdown} onChange={(event) => onChange({ countdown: event.target.checked })} />
-            Tic negli ultimi secondi (5 nel recupero)
+            Avviso prima della partenza
+          </label>
+          <label className="col-span-2 text-xs text-slate2">Stile dell'avviso
+            <select className="input mt-1 !py-2" value={settings.avviso} onChange={(event) => {
+              const avviso = event.target.value as AudioTimerSettings['avviso']
+              // Lo stile porta con sé il suono di partenza abbinato (si può poi cambiare a mano).
+              onChange(avviso === 'bip' ? { avviso, startSound: 'bip_alto', endSound: 'bip_alto' } : { avviso, startSound: 'ding', endSound: 'ding' })
+            }}>
+              <option value="tic">Tic tic tic (ultimi 5 s) + Ding</option>
+              <option value="bip">Bip bip bip (ultimi 3 s) + Bip alto, da cronometro</option>
+            </select>
           </label>
         </div>
       ) : null}
@@ -1370,5 +1380,5 @@ function AudioControls({ settings, onChange }: { settings: AudioTimerSettings; o
 }
 
 function AudioSelect({ label, value, sounds, onChange }: { label: string; value: TimerSound; sounds: TimerSound[]; onChange: (sound: TimerSound) => void }) {
-  return <label className="text-xs text-slate2">{label}<select className="input mt-1 !py-2" value={value} onChange={(event) => onChange(event.target.value as TimerSound)}>{sounds.map((sound) => <option key={sound} value={sound}>{sound === 'beep' ? 'Biiip lungo' : sound === 'ding' ? 'Ding (campana)' : sound === 'ring' ? 'Riiing' : 'Solo vibrazione / silenzioso'}</option>)}</select></label>
+  return <label className="text-xs text-slate2">{label}<select className="input mt-1 !py-2" value={value} onChange={(event) => onChange(event.target.value as TimerSound)}>{sounds.map((sound) => <option key={sound} value={sound}>{sound === 'beep' ? 'Biiip lungo' : sound === 'ding' ? 'Ding (campana)' : sound === 'bip_alto' ? 'Bip alto (cronometro)' : sound === 'ring' ? 'Riiing' : 'Solo vibrazione / silenzioso'}</option>)}</select></label>
 }

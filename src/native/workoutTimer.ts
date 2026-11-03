@@ -1,10 +1,11 @@
 import { Capacitor, registerPlugin } from '@capacitor/core'
 import { loadTimerSettings } from '../features/profile/timerSettings'
+import { loadAudioSettings } from '../engine/audio'
 
 export type NativeTimerPhase = 'work' | 'rest' | 'other'
 
 interface WorkoutTimerPlugin {
-  start(options: { label: string; deadline: number; phase: NativeTimerPhase; vibrate: boolean }): Promise<{ started: boolean; notificationsGranted: boolean }>
+  start(options: { label: string; deadline: number; phase: NativeTimerPhase; vibrate: boolean; suono: string; avviso: string; avvisoSecondi: number }): Promise<{ started: boolean; notificationsGranted: boolean }>
   stop(): Promise<void>
   ensurePermission(): Promise<{ granted: boolean }>
 }
@@ -23,7 +24,13 @@ export async function startNativeWorkoutTimer(label: string, deadline: number, p
   if (!isNativeWorkoutTimerAvailable()) return
   if (activeNativeTimer?.label === label && activeNativeTimer.phase === phase && Math.abs(activeNativeTimer.deadline - deadline) < 1_500) return
   const vibrate = loadTimerSettings().vibration
-  await NativeWorkoutTimer.start({ label, deadline, phase, vibrate })
+  // 03/11: in background suona il servizio nativo con gli stessi suoni scelti nel timer web.
+  // A fine recupero riparte la serie: suono di inizio; negli altri casi suono di fine.
+  const audio = loadAudioSettings()
+  const suono = !audio.enabled ? 'silent' : phase === 'rest' ? audio.startSound : audio.endSound
+  const avviso = audio.enabled && audio.countdown ? audio.avviso : 'none'
+  const avvisoSecondi = phase === 'rest' && audio.avviso === 'tic' ? 5 : 3
+  await NativeWorkoutTimer.start({ label, deadline, phase, vibrate, suono, avviso, avvisoSecondi })
   activeNativeTimer = { label, deadline, phase }
 }
 

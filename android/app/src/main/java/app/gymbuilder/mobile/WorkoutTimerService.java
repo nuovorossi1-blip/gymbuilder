@@ -31,6 +31,10 @@ public class WorkoutTimerService extends Service {
     public static final String EXTRA_PHASE = "phase";
     /** Preferenza dell'app (Profilo), non del singolo allenamento: vedi timerSettings.ts lato JS. */
     public static final String EXTRA_VIBRATE = "vibrate";
+    /** 03/11: suono alla scadenza (ding | bip_alto | beep | ring | silent) e avvisi prima. */
+    public static final String EXTRA_SUONO = "suono";
+    public static final String EXTRA_AVVISO = "avviso";
+    public static final String EXTRA_AVVISO_SECONDI = "avvisoSecondi";
     private static final String CHANNEL_ACTIVE = "gymbuilder_workout_timer";
     private static final int NOTIFICATION_ID = 4201;
     private static final int COLOR_WORK = 0xFFF59E0B;
@@ -41,6 +45,10 @@ public class WorkoutTimerService extends Service {
     private Runnable completion;
     private PowerManager.WakeLock wakeLock;
     private boolean vibrateEnabled = true;
+    private String suono = "ding";
+    private String avviso = "tic";
+    private int avvisoSecondi = 5;
+    private final java.util.List<Runnable> avvisi = new java.util.ArrayList<>();
     // Serve a completeTimer() per ricostruire la notifica "congelata" a fine round (sez. sotto):
     // l'ultima label/fase note, dato che li' non arrivano piu' come parametro.
     private String lastLabel = "";
@@ -81,6 +89,11 @@ public class WorkoutTimerService extends Service {
             String phase = intent.getStringExtra(EXTRA_PHASE);
             String safePhase = phase == null ? "other" : phase;
             vibrateEnabled = intent.getBooleanExtra(EXTRA_VIBRATE, true);
+            String s = intent.getStringExtra(EXTRA_SUONO);
+            suono = s == null ? "ding" : s;
+            String a = intent.getStringExtra(EXTRA_AVVISO);
+            avviso = a == null ? "tic" : a;
+            avvisoSecondi = intent.getIntExtra(EXTRA_AVVISO_SECONDI, 5);
             if (deadline <= System.currentTimeMillis()) {
                 // Questo Service e' stato avviato con startForegroundService(): se non e' ancora
                 // in foreground, il sistema pretende startForeground() entro pochi secondi anche
@@ -133,6 +146,19 @@ public class WorkoutTimerService extends Service {
             }
         };
         handler.postDelayed(completion, Math.max(0L, deadline - System.currentTimeMillis()));
+        // Avvisi negli ultimi secondi (tic o bip bassi), solo con l'app fuori dallo schermo.
+        for (Runnable r : avvisi) handler.removeCallbacks(r);
+        avvisi.clear();
+        if (!"none".equals(avviso) && !"silent".equals(suono)) {
+            String tipo = "bip".equals(avviso) ? "bip_basso" : "tic";
+            for (int k = Math.max(0, avvisoSecondi); k >= 1; k--) {
+                long quando = deadline - k * 1000L - System.currentTimeMillis();
+                if (quando < 0) continue;
+                Runnable r = () -> { if (!MainActivity.inPrimoPiano) TimerSuoni.suona(this, tipo); };
+                avvisi.add(r);
+                handler.postDelayed(r, quando);
+            }
+        }
     }
 
     private void promoteToForegroundThenStop(String label, String phase) {
@@ -219,6 +245,7 @@ public class WorkoutTimerService extends Service {
     private void completeTimer() {
         releaseWakeLock();
         if (vibrateEnabled) vibrateLong();
+        if (!MainActivity.inPrimoPiano) TimerSuoni.suona(this, suono);
         RemoteViews frozen = buildCountdownViews("Completato", lastPhase);
         frozen.setChronometer(R.id.notification_timer_chronometer, SystemClock.elapsedRealtime(), null, false);
         NotificationManager manager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
@@ -251,6 +278,8 @@ public class WorkoutTimerService extends Service {
 
     private void stopTimer() {
         if (completion != null) handler.removeCallbacks(completion);
+        for (Runnable r : avvisi) handler.removeCallbacks(r);
+        avvisi.clear();
         releaseWakeLock();
         stopForeground(STOP_FOREGROUND_REMOVE);
         foregrounded = false;

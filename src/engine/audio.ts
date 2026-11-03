@@ -1,11 +1,14 @@
 import type { TimerEvent, TimerEventType } from './timer'
 
-export type TimerSound = 'beep' | 'ding' | 'ring' | 'silent'
-export interface AudioTimerSettings { enabled: boolean; startSound: TimerSound; endSound: TimerSound; countdown: boolean; vibration: boolean }
+export type TimerSound = 'beep' | 'ding' | 'ring' | 'bip_alto' | 'silent'
+/** Stile degli avvisi prima della partenza (03/11): "tic" d'orologio (ultimi 5 s del recupero) o
+ *  "bip" da cronometro di box (3 bip bassi, poi il bip alto: riferimento video SmartWOD dell'utente). */
+export type StileAvviso = 'tic' | 'bip'
+export interface AudioTimerSettings { enabled: boolean; startSound: TimerSound; endSound: TimerSound; countdown: boolean; vibration: boolean; avviso: StileAvviso }
 
 // 03/11 (Rossi, video di riferimento "Clock Ticking Sound & Finish Ding"): tic negli ultimi
 // secondi e ding a campana quando riparte la serie.
-export const DEFAULT_AUDIO_SETTINGS: AudioTimerSettings = { enabled: true, startSound: 'ding', endSound: 'ding', countdown: true, vibration: true }
+export const DEFAULT_AUDIO_SETTINGS: AudioTimerSettings = { enabled: true, startSound: 'ding', endSound: 'ding', countdown: true, vibration: true, avviso: 'tic' }
 const STORAGE_KEY = 'gymbuilder:timer-audio:v1'
 
 export function loadAudioSettings(): AudioTimerSettings {
@@ -48,13 +51,18 @@ export class TimerAudio {
     if (this.context.state === 'suspended') await this.context.resume()
   }
   play(event: TimerEvent): void {
+    // App Android fuori dallo schermo: suona e vibra il servizio nativo (TimerSuoni.java), qui
+    // si tace per non sentire tutto due volte.
+    const cap = (globalThis as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor
+    if (typeof document !== 'undefined' && document.hidden && cap?.isNativePlatform?.()) return
     const vibration = vibrationForEvent(event.type, this.settings)
     if (vibration && typeof navigator !== 'undefined' && 'vibrate' in navigator) navigator.vibrate(vibration)
     const sound = soundForEvent(event.type, this.settings)
     if (!sound || sound === 'silent' || !this.context || this.context.state !== 'running') return
     const now = this.context.currentTime
     if (event.type === 'WARNING') {
-      this.tic(now)
+      if (this.settings.avviso === 'bip') this.bipBasso(now)
+      else this.tic(now)
     } else if (
       event.type === 'COUNTDOWN_COMPLETED' || event.type === 'TIMER_COMPLETED' ||
       event.type === 'TIME_CAP_REACHED' || event.type === 'REST_STARTED' ||
@@ -93,6 +101,9 @@ export class TimerAudio {
   private longSignal(at: number, sound: Exclude<TimerSound, 'silent'>, emphasized = false) {
     if (sound === 'ring') {
       this.playBoxingRingGong(at, emphasized ? 1.8 : 1.2)
+    } else if (sound === 'bip_alto') {
+      this.tone(at, 1100, 0.75, emphasized ? 0.45 : 0.32, 'sine')
+      this.tone(at, 2200, 0.75, 0.05, 'sine')
     } else if (sound === 'ding') {
       this.campana(at, emphasized ? 2.2 : 1.4, emphasized ? 0.42 : 0.28)
     } else {
@@ -103,6 +114,13 @@ export class TimerAudio {
   private tic(at: number) {
     this.tone(at, 2100, 0.05, 0.32, 'triangle')
     this.tone(at, 3300, 0.03, 0.12, 'sine')
+  }
+
+  /** Bip basso da cronometro (circa 520 Hz con armonici a 1400 e 2280 Hz, mezzo secondo). */
+  private bipBasso(at: number) {
+    this.tone(at, 520, 0.5, 0.36, 'sine')
+    this.tone(at, 1400, 0.5, 0.12, 'sine')
+    this.tone(at, 2280, 0.5, 0.06, 'sine')
   }
 
   /** "Ding" a campana: fondamentale e armonici non interi che si spengono lentamente. */
