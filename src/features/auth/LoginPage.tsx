@@ -1,5 +1,7 @@
 import { useState } from 'react'
+import { Capacitor } from '@capacitor/core'
 import { useAuth } from './AuthProvider'
+import { APK_URL } from '../../components/InstallBanner'
 
 export default function LoginPage() {
   const { signIn, signUp, requestPasswordReset } = useAuth()
@@ -119,6 +121,12 @@ export default function LoginPage() {
           <button type="button" className="w-full font-data text-[12px] text-slate2" onClick={() => { setMode('in'); setError(null); setNotice(null) }}>
             ← Torna all’accesso
           </button>
+        )}
+        {/* 03/11: l'APK si scarica sempre da qui (non dentro l'app installata). */}
+        {!Capacitor.isNativePlatform() && (
+          <a className="!mt-8 block w-full rounded-xl border border-gold/40 py-3 text-center font-display text-sm font-bold uppercase tracking-wide text-gold" href={APK_URL}>
+            ⬇ Scarica l’app Android (APK)
+          </a>
         )}
       </div>
     </main>

@@ -6,7 +6,9 @@ const config: CapacitorConfig = {
   webDir: 'dist',
   bundledWebRuntime: false,
   server: {
-    url: 'https://gymbuilder-lemon.vercel.app',
+    // 03/11/2026: Vercel in pausa (402), l'app è servita dal PC su gym.redapp.dev (Cloudflare
+    // Tunnel). Al ritorno su Vercel rimettere https://gymbuilder-lemon.vercel.app e rifare l'APK.
+    url: 'https://gym.redapp.dev',
     cleartext: false,
   },
   android: {

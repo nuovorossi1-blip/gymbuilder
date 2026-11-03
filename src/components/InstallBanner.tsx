@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Capacitor } from '@capacitor/core'
 
-const APK_URL = 'https://github.com/nuovorossi1-blip/gymbuilder/releases/latest/download/GymBuilder.apk'
+export const APK_URL ='https://github.com/nuovorossi1-blip/gymbuilder/releases/latest/download/GymBuilder.apk'
 const HIDDEN_KEY = 'gymbuilder.installBannerHidden'
 
 /**
@@ -43,7 +43,7 @@ export default function InstallBanner() {
       </div>
       <div className="flex shrink-0 items-center gap-2">
         <a
-          className="rounded-xl bg-cyan-300 px-4 py-2 font-display text-xs font-black uppercase tracking-wide text-ink shadow-lg shadow-cyan-500/20 active:scale-[0.98]"
+          className="rounded-xl bg-gradient-to-r from-[#FFC15E] via-[#F5A623] to-[#FF6B6B] px-4 py-2 font-display text-xs font-black uppercase tracking-wide text-ink shadow-lg active:scale-[0.98]"
           href={APK_URL}
         >
           Scarica app

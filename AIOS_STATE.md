@@ -3163,3 +3163,15 @@ Conversazione vera con Nemotron gratuito sul caso spalla: domande sul dolore, sp
   (Cloudflare Tunnel pc-windows -> 127.0.0.1:3001), non gymbuilder.redapp.dev.
 - **Aperto**: l'APK 1.0.56 apre gymbuilder-lemon.vercel.app, che risponde 402 (Vercel in pausa):
   proposto a Rossi di puntarlo a gym.redapp.dev con una release nuova, in attesa del suo ok.
+
+### 2026-11-03 22:30 — APK su gym.redapp.dev e cambio esercizio diretto (Claude Opus 5.5)
+- `capacitor.config.ts`: `server.url` da gymbuilder-lemon.vercel.app (402, Vercel in pausa) a
+  **https://gym.redapp.dev**. Fa partire build-apk.yml -> release apk-v1.0.<run>. **Al ritorno su
+  Vercel rimettere l'URL vecchio e rifare l'APK.**
+- Pagina di accesso: pulsante "Scarica l'app Android (APK)" (solo nel browser, non nell'app) verso
+  `releases/latest/download/GymBuilder.apk`; banner Android con il gradiente oro dello stile.
+- Prompt PREPARATORE: "CAMBIO ESERCIZIO" — si chiede se l'esercizio serve davvero per l'obiettivo,
+  ricerca_web prima di scegliere, mette SUBITO la scelta migliore nel piano e lascia 2-3 alternative
+  come pulsanti (opzioni).
+- Verifiche: 379/379 test, tsc, eslint, build con `--env-file=server-locale/.env`; foto Edge 412 px
+  della pagina di accesso con il pulsante.
