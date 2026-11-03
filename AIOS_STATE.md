@@ -3175,3 +3175,23 @@ Conversazione vera con Nemotron gratuito sul caso spalla: domande sul dolore, sp
   come pulsanti (opzioni).
 - Verifiche: 379/379 test, tsc, eslint, build con `--env-file=server-locale/.env`; foto Edge 412 px
   della pagina di accesso con il pulsante.
+
+### 2026-11-03 22:45 — chat vera di Rossi: scheda "nuda", calorie al posto del piano, elastici (Claude Opus 5.5)
+- **Visto nel DB (coach_messages, DeepSeek V4 Flash)**: dalle 22:15 il coach rispondeva
+  "[PIANO PROPOSTO] {note, sedute, calorie...}" imitando come l'app gli rimandava la storia
+  (`perLlm`: testo + "[PIANO PROPOSTO] json"). L'app leggeva messaggio = note, calorie = 2500,
+  piano = null → bolla "Nuove calorie proposte"; "Ho accettato" ha salvato SOLO daily_kcal 2500
+  (calorie_log 22:16:43), nessun coach_plans. Poi il pulsante 🧱 dava la scheda fissa di riempiScheletro.
+- **Correzioni**: `perLlm` rimanda la storia nel formato JSON {messaggio, piano}; `leggiRispostaCoach`
+  riconosce una scheda nuda (sedute al primo livello) e la incarta come piano; nel colloquio una
+  risposta con sole "calorie" fa richiedere il piano; pulsante 🧱 rinominato "Scheda automatica
+  dell'app (senza il coach)".
+- **Attrezzi esclusi**: cartella `attrezzi_esclusi` (elastico, kettlebell, corpo_libero, bilanciere,
+  manubri, macchina, cavo, multipower); `usaAttrezzoEscluso` toglie quegli esercizi dal catalogo del
+  coach e dalla scheda automatica; un piano che li contiene torna al coach per la correzione; se la
+  scheda attiva li contiene il coach la rifà subito. Prova dal vivo (Nemotron): 0 elastici nel piano.
+- Colloquio: categorie 7-8 unite, la scheda arriva da sola con calorie e macro dentro.
+- 381/381 test, build con le VITE_ del server locale, sito servito.
+- APK 1.0.57 (release apk-v1.0.57, run del commit c938434) contiene server.url https://gym.redapp.dev
+  (letto da assets/capacitor.config.json). Installazione su emulatore riuscita, ma l'emulatore si è
+  chiuso subito dopo: apertura dell'app nell'emulatore NON verificata.

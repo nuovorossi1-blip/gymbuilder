@@ -66,6 +66,8 @@ export interface CartellaCliente {
   obbligatori: EsercizioObbligatorio[]
   esercizi_da_migliorare: EsercizioDaMigliorare[]
   attrezzatura: string[]
+  /** Tipi di attrezzo che il cliente NON vuole (03/11, es. "elastico"): l'app toglie quegli esercizi. */
+  attrezzi_esclusi: string[]
   riscaldamento: { descrizione: string; minuti: number }
   /** Giorni di allenamento a settimana e minuti per seduta: decidono lo scheletro della scheda. */
   giorni_settimana: number | null
@@ -87,6 +89,7 @@ export const CARTELLA_VUOTA: CartellaCliente = {
   obbligatori: [],
   esercizi_da_migliorare: [],
   attrezzatura: [],
+  attrezzi_esclusi: [],
   riscaldamento: { descrizione: '2 giri addome (alti + bassi) + 3 giri rotazioni spalle', minuti: 8 },
   giorni_settimana: null,
   durata_min: null,

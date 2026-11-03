@@ -87,6 +87,7 @@ export function normalizzaCartella(raw: unknown, catalog?: Exercise[]): Cartella
       }
     }).filter((x) => x.nome),
     attrezzatura: (Array.isArray(c.attrezzatura) ? c.attrezzatura : []).map((x) => str(x, 80)).filter(Boolean),
+    attrezzi_esclusi: [...new Set((Array.isArray(c.attrezzi_esclusi) ? c.attrezzi_esclusi : []).map((x) => { const t = str(x, 40); return chiaveAttrezzo(t) ?? t.toLowerCase() }).filter(Boolean))],
     riscaldamento: {
       descrizione: str(risc.descrizione) || CARTELLA_VUOTA.riscaldamento.descrizione,
       minuti: num(risc.minuti) ?? CARTELLA_VUOTA.riscaldamento.minuti,
@@ -103,6 +104,43 @@ export function normalizzaCartella(raw: unknown, catalog?: Exercise[]): Cartella
       decisioni: str(k.decisioni, 3000) || undefined,
     })).filter((k) => k.data),
   }
+}
+
+/** Come si riconosce un tipo di attrezzo in un esercizio (03/11): attrezzo, attrezzi richiesti, nome. */
+const ATTREZZI: Record<string, { gear?: string[]; items?: string[]; nome: RegExp }> = {
+  elastico: { items: ['resistance_bands'], nome: /elastic|\bband/i },
+  kettlebell: { gear: ['kettlebell'], items: ['kettlebells'], nome: /kettlebell/i },
+  corpo_libero: { gear: ['bodyweight'], nome: /corpo libero|bodyweight/i },
+  bilanciere: { gear: ['barbell'], items: ['barbell'], nome: /bilanciere|barbell/i },
+  manubri: { gear: ['dumbbell'], items: ['dumbbells'], nome: /manubri|dumbbell/i },
+  macchina: { gear: ['machine'], items: ['machines'], nome: /macchina|machine/i },
+  cavo: { gear: ['cable'], items: ['cable'], nome: /\bcav[oi]\b|cable/i },
+  multipower: { nome: /multipower|smith/i },
+}
+
+/** La chiave dell'attrezzo scritta dal coach o dal cliente ("elastici" -> "elastico"). */
+export function chiaveAttrezzo(testo: string): string | null {
+  const t = testo.toLowerCase()
+  if (/elastic|band/.test(t)) return 'elastico'
+  if (/kettlebell/.test(t)) return 'kettlebell'
+  if (/corpo libero|corpo_libero|bodyweight|calisthenic/.test(t)) return 'corpo_libero'
+  if (/bilancier|barbell/.test(t)) return 'bilanciere'
+  if (/manubr|dumbbell/.test(t)) return 'manubri'
+  if (/macchin|machine/.test(t)) return 'macchina'
+  if (/\bcav[oi]\b|cable/.test(t)) return 'cavo'
+  if (/multipower|smith/.test(t)) return 'multipower'
+  return null
+}
+
+/** L'esercizio usa uno degli attrezzi che il cliente non vuole? */
+export function usaAttrezzoEscluso(e: Exercise, esclusi: string[]): boolean {
+  return esclusi.some((x) => {
+    const a = ATTREZZI[chiaveAttrezzo(x) ?? x]
+    if (!a) return false
+    return !!a.gear?.includes(String(e.equipment))
+      || !!a.items?.some((i) => (e.required_equipment ?? []).includes(i as never))
+      || a.nome.test(`${e.name} ${e.english_name ?? ''}`)
+  })
 }
 
 /** Esercizi vietati dai vincoli tassativi, riconosciuti nel catalogo: il motore li esclude. */
@@ -175,6 +213,7 @@ export function cartellaInMarkdown(d: DatiExport): string {
   out.push('## Esercizi obbligatori (il coach può spostarli di posizione)', tabella(['Esercizio', 'Seduta', 'Slot'], c.obbligatori.map((e) => [e.nome, e.seduta, e.slot])), '')
   out.push('## Esercizi da migliorare (prestazione, non carenza del muscolo)', tabella(['Esercizio', 'Oggi', 'Obiettivo', 'Ultimi test'], c.esercizi_da_migliorare.map((e) => [e.nome, e.attuale === null ? '' : `${e.attuale} ${e.unita}`, e.obiettivo === null ? '' : `${e.obiettivo} ${e.unita}`, e.test.slice(-3).map((t) => `${t.data}: ${t.valore}`).join(', ')])), '')
   out.push('## Attrezzatura disponibile', c.attrezzatura.length ? c.attrezzatura.map((a) => `- ${a}`).join('\n') : '_Non indicata._', '')
+  if (c.attrezzi_esclusi.length) out.push('## Attrezzi che non vuole (esercizi esclusi)', c.attrezzi_esclusi.map((a) => `- ${a}`).join('\n'), '')
   out.push('## Riscaldamento fisso (non conta negli esercizi)', `${c.riscaldamento.descrizione} (~${c.riscaldamento.minuti} min)`, '')
   out.push('# PARTE 3 — NUTRIZIONE', '')
   out.push(tabella(['Voce', 'Valore'], [

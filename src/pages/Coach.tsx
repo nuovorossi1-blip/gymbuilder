@@ -14,7 +14,7 @@ import { useCoach, type MessaggioCoach } from '../features/coach/useCoach'
 import { useWorkout } from '../features/workout/WorkoutContext'
 import { controllaPiano, differenzePiani, normalizzaPiano, sedutaComeWorkout, type CoachPlan, type EsitoControlli } from '../features/coach/plan'
 import { clienteConosciuto, leggiRispostaCoach, messaggioContesto, pianoCambiatoSenzaPiano, promptSistema, unisciCartella, type TipoConversazione } from '../features/coach/prompt'
-import { cartellaInMarkdown, normalizzaCartella, preferitiDallaCartella, vietatiDallaCartella } from '../features/cartella/cartella'
+import { cartellaInMarkdown, normalizzaCartella, preferitiDallaCartella, usaAttrezzoEscluso, vietatiDallaCartella } from '../features/cartella/cartella'
 import { allineaAlloScheletro, confrontaConScheletro, costruisciScheletro, riempiScheletro, scheletroPerLlm } from '../features/coach/scheletro'
 import { FileCartella } from '../features/cartella/FileCartella'
 import { cercaSulWeb, messaggioRisultati, PREFISSO_RICERCA } from '../lib/ricerca'
@@ -156,7 +156,10 @@ export default function Coach() {
 
   const catalogoCoach = useMemo(() => {
     const vietati = new Set(vietatiDallaCartella(cartella, catalogo))
-    const disponibili = catalogo.filter((e) => !vietati.has(e.id) && isExerciseAvailable(e, settings?.equipment ?? 'full_gym', settings?.available_equipment ?? null))
+    // 03/11 (Rossi: "non mi piacciono gli esercizi con elastico, li deve togliere"): via dal
+    // catalogo del coach tutti gli esercizi con un attrezzo che il cliente non vuole.
+    const esclusi = cartella?.attrezzi_esclusi ?? []
+    const disponibili = catalogo.filter((e) => !vietati.has(e.id) && !usaAttrezzoEscluso(e, esclusi) && isExerciseAvailable(e, settings?.equipment ?? 'full_gym', settings?.available_equipment ?? null))
     return escludiPerFastidi(disponibili, profile?.joint_issues)
   }, [catalogo, cartella, settings, profile])
   // Scheletro della scheda con le regole di Rossi: la struttura la decide l'app, il coach sceglie
@@ -206,7 +209,10 @@ export default function Coach() {
   const perLlm = (m: MessaggioCoach): LlmMessage => {
     if (m.role === 'utente') return { role: 'user', content: m.content }
     const p = (m.meta as { piano?: unknown } | null)?.piano
-    return { role: 'assistant', content: p ? `${m.content}\n[PIANO PROPOSTO] ${JSON.stringify(p)}` : m.content }
+    // 03/11: le risposte passate tornano al modello NEL FORMATO JSON richiesto. Prima erano
+    // "testo + [PIANO PROPOSTO] {...}" e DeepSeek le imitava: rispondeva con la scheda nuda,
+    // fuori da "piano", e l'app vedeva solo il riassunto e le calorie.
+    return { role: 'assistant', content: JSON.stringify({ messaggio: m.content, ...(p ? { piano: p } : {}) }) }
   }
 
   /** Dove sei nel ciclo delle calorie (26/09): il coach lo riceve già calcolato. */
@@ -286,7 +292,9 @@ export default function Coach() {
         await invia(kind, 'Rispondi alla mia ultima domanda in italiano, in modo semplice, scrivendo la risposta nel campo "messaggio".', true, true, [...base, mio], t)
         return
       }
-      if (risposta.aggiorna_cartella) await salvaCartella(unisciCartella(cartella, risposta.aggiorna_cartella, catalogo))
+      const cartellaAggiornata = risposta.aggiorna_cartella ? unisciCartella(cartella, risposta.aggiorna_cartella, catalogo) : cartella
+      if (risposta.aggiorna_cartella) await salvaCartella(cartellaAggiornata)
+      const byId = new Map(catalogo.map((e) => [e.id, e]))
       // Serie, ripetizioni e RIR li decide lo scheletro: l'app li allinea da sola (26/09).
       const grezzo = risposta.piano ? normalizzaPiano(risposta.piano, catalogo) : null
       const plan = grezzo && scheletro ? allineaAlloScheletro(grezzo, scheletro) : grezzo
@@ -312,14 +320,24 @@ export default function Coach() {
       const annunciato = !plan && (
         (kind === 'colloquio' && ((risposta.categoria ?? 0) >= 8 || /prepar|ecco il (tuo )?(piano|programma)|costruisco|elaboro|a breve|un momento/i.test(risposta.messaggio))) ||
         // 03/11 (prova con Nemotron): in chat "ho modificato la Push A" senza il piano.
-        (kind !== 'colloquio' && pianoCambiatoSenzaPiano(risposta.messaggio)))
-      if (annunciato && !tentativo) {
-        await invia(kind, 'Consegna adesso il piano completo dentro "piano", in questa stessa risposta, con una breve spiegazione della logica.', true, true, [...base, mio, suo], t)
+        (kind !== 'colloquio' && pianoCambiatoSenzaPiano(risposta.messaggio)) ||
+        // 03/11 (Rossi): nel primo colloquio proponeva solo "nuove calorie" invece della scheda.
+        (kind === 'colloquio' && risposta.calorie !== null))
+      // Attrezzi appena esclusi ma ancora nella scheda attiva: la scheda va rifatta subito.
+      const attivoConEsclusi = !plan && piano && cartellaAggiornata.attrezzi_esclusi.length > (cartella.attrezzi_esclusi?.length ?? 0)
+        ? piano.plan.sedute.flatMap((sd) => sd.esercizi.filter((e) => { const ex = byId.get(e.exercise_id); return ex && usaAttrezzoEscluso(ex, cartellaAggiornata.attrezzi_esclusi) }).map((e) => `${sd.nome}: ${e.nome}`))
+        : []
+      if ((annunciato || attivoConEsclusi.length) && !tentativo) {
+        const extra = attivoConEsclusi.length ? ` Togli dalla scheda attiva ${attivoConEsclusi.join('; ')}: il cliente non vuole esercizi con ${cartellaAggiornata.attrezzi_esclusi.join(', ')}. Mettili con esercizi del catalogo senza quegli attrezzi.` : ''
+        await invia(kind, `Consegna adesso il piano completo dentro "piano", in questa stessa risposta, con una breve spiegazione della logica.${extra}`, true, true, [...base, mio, suo], t)
         return
       }
       // Errori bloccanti e carenze sotto il loro range (regola di Rossi: la carenza prende il
       // volume) vengono rimandati al coach una volta, prima che il cliente debba accorgersene.
-      const daCorreggere = esito ? [...esito.errori, ...erroriScheletro, ...esito.avvisi.filter((a) => a.includes('(carenza)') && a.includes('sotto il range'))] : []
+      // Esercizi con un attrezzo che il cliente non vuole (anche se lo ha appena detto): via.
+      const conEsclusi = plan ? plan.sedute.flatMap((sd) => sd.esercizi.filter((e) => { const ex = byId.get(e.exercise_id); return ex && usaAttrezzoEscluso(ex, cartellaAggiornata.attrezzi_esclusi) }).map((e) => `${sd.nome}: ${e.nome}`)) : []
+      const erroriAttrezzi = conEsclusi.length ? [`Il cliente non vuole esercizi con: ${cartellaAggiornata.attrezzi_esclusi.join(', ')}. Sostituisci ${conEsclusi.join('; ')} con esercizi del catalogo senza quegli attrezzi.`] : []
+      const daCorreggere = esito ? [...esito.errori, ...erroriScheletro, ...erroriAttrezzi, ...esito.avvisi.filter((a) => a.includes('(carenza)') && a.includes('sotto il range'))] : []
       if (plan && daCorreggere.length && !tentativo) {
         await invia(kind, `Il controllo dell'app sul piano ha trovato: ${daCorreggere.join(' ')} Correggi (le carenze devono stare nel loro range di serie a settimana) e rimanda il piano intero, spiegando cosa hai cambiato.`, true, true, [...base, mio, suo], t)
       }
@@ -598,7 +616,7 @@ export default function Coach() {
               {piano && <button className="w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-steel" onClick={() => { void nuova('cambio') }}>✏️ Cambia il programma</button>}
               {piano && <button className="w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-steel" onClick={() => { void nuova('controllo') }}>📋 Fai il controllo</button>}
               <button className="w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-steel" onClick={() => { void nuova('programma') }}>🆕 Programma nuovo</button>
-              {scheletro && <button className="w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-steel" onClick={() => { setCassetto(false); void costruisciDalloScheletro(kind) }}>🧱 Costruisci il programma con le mie regole</button>}
+              {scheletro && <button className="w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-steel" onClick={() => { setCassetto(false); void costruisciDalloScheletro(kind) }}>🧱 Scheda automatica dell’app (senza il coach)</button>}
               {piano && <button className="w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-steel" onClick={() => { setCassetto(false); vai(null) }}>🗓 Il mio programma</button>}
             </div>
             <p className="mt-4 px-4 pb-1 text-[11px] uppercase tracking-wider text-slate2">Recenti</p>
@@ -658,7 +676,7 @@ export default function Coach() {
         )}
         {(kind === 'colloquio' || kind === 'chat') && !attesa && scheletro && visibili.length >= 2 && !ultimaPropostaValida && (
           <button className="w-full rounded-xl border border-cyan-500/40 bg-cyan-500/10 py-3 text-sm font-bold text-cyan-200" onClick={() => { void costruisciDalloScheletro(kind) }}>
-            🧱 Costruisci il programma con le mie regole
+            🧱 Scheda automatica dell’app (senza il coach)
           </button>
         )}
         {attesa && <p className="animate-pulse text-sm text-slate2" role="status">Sto scrivendo…</p>}

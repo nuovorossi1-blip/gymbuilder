@@ -205,3 +205,27 @@ describe('piano annunciato in chat senza piano (03/11)', () => {
     expect(c.vincoli[0].vietati).toEqual(['Shoulder press con manubri'])
   })
 })
+
+describe('attrezzi che il cliente non vuole (03/11)', () => {
+  it('"elastici" esclude tutti gli esercizi con elastico e nient\'altro', async () => {
+    const { normalizzaCartella, usaAttrezzoEscluso } = await import('../cartella/cartella')
+    const cat = (await import('../../generators/__tests__/fixtures/exercises.json')).default as unknown as import('../../types').Exercise[]
+    const c = normalizzaCartella({ attrezzi_esclusi: ['Elastici', 'elastico'] })
+    expect(c.attrezzi_esclusi).toEqual(['elastico'])
+    const via = cat.filter((e) => usaAttrezzoEscluso(e, c.attrezzi_esclusi)).map((e) => e.name)
+    expect(via.length).toBeGreaterThanOrEqual(4)
+    expect(via.every((n) => /elastic/i.test(n))).toBe(true)
+  })
+})
+
+describe('scheda nuda (DeepSeek, 03/11)', () => {
+  it('"[PIANO PROPOSTO] {note, sedute, calorie}" diventa un piano, non calorie proposte', async () => {
+    const { leggiRispostaCoach } = await import('./prompt')
+    const { leggiRispostaLibera } = await import('../../lib/deepseek')
+    const testo = '[PIANO PROPOSTO] {"note":"Normocalorica ~2500 kcal, niente elastici.","titolo":"PPL","giorni_settimana":5,"calorie":2500,"sedute":[{"nome":"Push A","esercizi":[{"exercise_id":"x","nome":"Chest press","serie":3,"reps":"8-10","rir":"1"}]}]}'
+    const r = leggiRispostaCoach({ ...leggiRispostaLibera(testo), _testo_originale: testo })
+    expect(r.piano).toBeTruthy()
+    expect(r.calorie).toBeNull()
+    expect(r.messaggio).toContain('Ecco la tua scheda')
+  })
+})

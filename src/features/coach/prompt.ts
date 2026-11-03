@@ -31,8 +31,7 @@ Una categoria alla volta, aspetta la risposta prima di passare alla successiva. 
 4. Problemi e fastidi: dolori articolari (dove esattamente, su quali esercizi, in quale momento del movimento, con quale posizione peggiora e con quale migliora, da quanto, se fa male anche a riposo o di notte), esercizi che evita, esercizi che ama e vuole nel programma, esercizi in cui senti meglio il muscolo (connessione mente-muscolo) e quelli in cui non lo senti.
 5. Logistica: giorni a settimana e minuti per seduta (salvali SUBITO in "aggiorna_cartella" come giorni_settimana e durata_min: decidono lo scheletro), attrezzi della palestra (cavi alto/basso/singolo, lat machine, hack o pendulum, T-bar, chest press, reverse pec deck, manubri) e cosa NON ha.
 6. Come ti alleni ora: split, esercizi per seduta, cedimento o ripetizioni in riserva, progressione o a sensazione, cosa non funziona, cosa non senti o ti stanca troppo. Chiedi sempre: "c'è qualche esercizio che non senti bene?". Chiedi anche quando ti senti troppo stanco (a metà seduta, a fine seduta, il giorno dopo, a fine settimana) e quando invece ti senti fresco ed energico: serve a decidere ordine e volume.
-7. PRIMA della scheda dai il consiglio nutrizionale: stima la normocalorica, di' se è in deficit/normo/surplus e se il deficit è troppo aggressivo, se conviene un mini cut o un mini surplus, quante proteine (1,6-2,2 g/kg), e come le calorie decideranno il volume della scheda. Aspetta la sua conferma.
-8. Consegna il piano con una breve spiegazione della logica e chiedi se vuole cambiare qualcosa. Se chiede modifiche, rimanda il piano intero corretto.
+7-8. Appena hai le risposte delle categorie 1-6, NELLA STESSA RISPOSTA, senza aspettare che il cliente lo chieda: consiglio nutrizionale (normocalorica stimata, deficit/normo/surplus, proteine 1,6-2,2 g/kg, grassi e carboidrati) e il PIANO INTERO in "piano" costruito sulle SUE risposte (giorni, minuti, carenze, punti forti, fastidi, esercizi che sente meglio, attrezzi che ha e che non vuole), con calorie e macro DENTRO il piano. In questa fase non usare il campo "calorie" da solo. Poi chiedi se vuole cambiare qualcosa; se chiede modifiche, rimanda il piano intero corretto.
 REGOLA FERREA: quando hai le informazioni per il piano NON scrivere "ora te lo preparo", "a breve", "un momento": il piano va NELLA STESSA risposta, dentro "piano". Un messaggio che annuncia il piano senza "piano" compilato è un errore.`
 
 export const PROCEDURA_RIPRESA = `## RIPRESA CON UN CLIENTE CHE CONOSCI (la visita con la cartella)
@@ -76,6 +75,7 @@ a) Prima chiediti e scrivi in una riga: "serve davvero questo esercizio per il t
 b) Se in questa conversazione non hai ancora i risultati di una ricerca su quel caso, chiedi PRIMA "ricerca_web" (es. "best shoulder press alternative for hypertrophy shoulder pain"). Se il dolore o il caso sono già chiari puoi chiedere la ricerca nella stessa risposta in cui fai la domanda che manca.
 c) Con i risultati: scegli TU l'esercizio migliore per quel cliente e mettilo SUBITO nella scheda (piano intero in "piano", con "sostituzione" se cambia distretto o ruolo), spiegando in 2-3 righe perché è il migliore per lui. Non chiedere il permesso prima: il cliente accetta o cambia con il pulsante.
 d) In "opzioni" metti 2-3 alternative valide che il cliente può scegliere al posto della tua (es. "Metti le alzate laterali alla macchina", "Metti il reverse pec deck"), più "Spiegami perché". Se ne sceglie una, rimanda il piano intero con quella.
+ATTREZZI CHE NON VUOLE (es. "non mi piacciono gli esercizi con elastico"): salvalo in "aggiorna_cartella" come {"attrezzi_esclusi":["elastico"]} (valori: elastico, kettlebell, corpo_libero, bilanciere, manubri, macchina, cavo, multipower; rimanda la lista completa), TOGLI dalla scheda TUTTI gli esercizi con quell'attrezzo e rimanda subito il piano intero. Mai riproporre un esercizio con un attrezzo escluso, nemmeno come alternativa. Il catalogo che ricevi è già senza quegli esercizi.
 Se il cliente dice che un attrezzo non c'è, salvalo nella cartella ("attrezzatura": cosa ha) e passa da solo alla variante successiva.
 Se non sei sicuro di un'alternativa o il caso è particolare, usa "ricerca_web".`
 
@@ -188,7 +188,16 @@ function trovaTesto(raw: unknown, profondita = 0): string {
   return ''
 }
 
-export function leggiRispostaCoach(raw: Record<string, unknown>): RispostaCoach {
+export function leggiRispostaCoach(grezza: Record<string, unknown>): RispostaCoach {
+  // 03/11 (visto con DeepSeek V4 Flash): il modello a volte manda la scheda NUDA, con "sedute" al
+  // primo livello invece che dentro "piano". La si riconosce e si incarta: è il piano.
+  const raw: Record<string, unknown> = !grezza.piano && Array.isArray(grezza.sedute)
+    ? {
+        messaggio: typeof grezza.messaggio === 'string' && grezza.messaggio.trim() ? grezza.messaggio : `Ecco la tua scheda aggiornata.${typeof grezza.note === 'string' && grezza.note.trim() ? ` ${grezza.note.trim()}` : ''}`,
+        piano: grezza, opzioni: grezza.opzioni, categoria: 8, aggiorna_cartella: grezza.aggiorna_cartella, ricerca_web: grezza.ricerca_web,
+        _testo_originale: grezza._testo_originale,
+      }
+    : grezza
   const opz = Array.isArray(raw.opzioni) ? raw.opzioni.filter((x): x is string => typeof x === 'string' && !!x.trim()).slice(0, 5) : []
   const cat = typeof raw.categoria === 'number' ? raw.categoria : Number(raw.categoria)
   const piano = raw.piano && typeof raw.piano === 'object' ? raw.piano : null
