@@ -3150,3 +3150,16 @@ Conversazione vera con Nemotron gratuito sul caso spalla: domande sul dolore, sp
 
 **Prossimo passo**: Rossi crea la chiave su opencode.ai/auth, la salva nel Profilo e prova
 "Prova la connessione" con GLM-5.3-Flash Free; poi il caso spalla nella chat del Coach.
+
+### Correzione 2026-11-03 22:10 — sito bianco dopo la build (Claude Opus 5.5)
+- **Cosa si è rotto**: dopo il lavoro sul Coach ho fatto `npm run build` senza le variabili VITE_:
+  gym.redapp.dev mostrava una pagina bianca con "Configurazione mancante: impostare
+  VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY" (segnalato da Rossi). Il .env della radice non le contiene.
+- **Come si è aggiustato**: `node --env-file=server-locale/.env node_modules/vite/bin/vite.js build`
+  (le variabili passano al processo senza leggerle o stamparle). Verificato con Edge headless a 412 px:
+  la pagina di accesso compare.
+- **TRAPPOLA**: con il server locale, la build di `dist` va SEMPRE fatta così (prima `npx tsc -b`
+  per i tipi). `npm run build` da solo rompe il sito. L'indirizzo pubblico è **gym.redapp.dev**
+  (Cloudflare Tunnel pc-windows -> 127.0.0.1:3001), non gymbuilder.redapp.dev.
+- **Aperto**: l'APK 1.0.56 apre gymbuilder-lemon.vercel.app, che risponde 402 (Vercel in pausa):
+  proposto a Rossi di puntarlo a gym.redapp.dev con una release nuova, in attesa del suo ok.
