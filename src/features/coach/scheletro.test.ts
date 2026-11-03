@@ -121,3 +121,24 @@ describe('esercizi da migliorare nello scheletro (26/09)', () => {
     expect(confrontaConScheletro(sbagliato, s, cat).join(' ')).toContain('esercizio da migliorare')
   })
 })
+
+describe('sostituzione per fastidio (03/11)', () => {
+  const pieno = riempiScheletro(sch, { catalogo: cat, preferiti: [], daEvitare: [], obbligatori: [] })
+  const idx = seduta('Push A').slot.findIndex((s) => s.muscolo === 'front_delts' && s.ruolo === 'multiarticolare')
+  const laterale = cat.find((e) => e.primary_muscles[0] === 'lateral_delts' && !e.roles.includes('compound'))!
+  const legPress = cat.find((e) => e.primary_muscles[0] === 'quads' && e.roles.includes('compound'))!
+  const conCambio = (ex: Exercise, sostituzione?: string) => ({
+    ...pieno,
+    sedute: pieno.sedute.map((sd) => sd.nome !== 'Push A' ? sd : { ...sd, esercizi: sd.esercizi.map((e, j) => j === idx ? { ...e, exercise_id: ex.id, nome: ex.name, sostituzione } : e) }),
+  })
+  it('il piano riempito dall\'app rispetta lo scheletro', () => {
+    expect(confrontaConScheletro(pieno, sch, cat)).toEqual([])
+  })
+  it('shoulder press -> alzate laterali: rifiutata senza motivo, accettata con "sostituzione"', () => {
+    expect(confrontaConScheletro(conCambio(laterale), sch, cat).length).toBeGreaterThan(0)
+    expect(confrontaConScheletro(conCambio(laterale, 'dolore alla spalla nella spinta sopra la testa'), sch, cat)).toEqual([])
+  })
+  it('fuori dal distretto resta un errore anche con "sostituzione"', () => {
+    expect(confrontaConScheletro(conCambio(legPress, 'non ho la macchina'), sch, cat).length).toBeGreaterThan(0)
+  })
+})

@@ -2,7 +2,11 @@ const DEEPSEEK_MODELS = new Set(['deepseek-v4-flash', 'deepseek-v4-pro'])
 const PROVIDER_URL = {
   deepseek: 'https://api.deepseek.com/chat/completions',
   openrouter: 'https://openrouter.ai/api/v1/chat/completions',
+  // OpenCode Zen (03/11/2026): modelli gratuiti come glm-5.3-flash-free, API compatibile OpenAI.
+  opencode: 'https://opencode.ai/zen/v1/chat/completions',
 }
+const NOME_FORNITORE = { deepseek: 'DeepSeek', openrouter: 'OpenRouter', opencode: 'OpenCode Zen' }
+const CHIAVE_DEL_FORNITORE = { deepseek: 'deepseek_key', openrouter: 'openrouter_key', opencode: 'opencode_key' }
 
 export const config = { maxDuration: 120 }
 
@@ -37,7 +41,7 @@ async function utenteAutenticato(token) {
 async function chiaveUtente(token, userId) {
   const { url, anon } = supabaseEnv()
   try {
-    const res = await fetch(`${url}/rest/v1/user_llm_keys?select=provider,model,api_key,deepseek_key,openrouter_key&user_id=eq.${encodeURIComponent(userId)}`, {
+    const res = await fetch(`${url}/rest/v1/user_llm_keys?select=provider,model,api_key,deepseek_key,openrouter_key,opencode_key&user_id=eq.${encodeURIComponent(userId)}`, {
       headers: { Authorization: `Bearer ${token}`, apikey: anon },
       signal: AbortSignal.timeout(10_000),
     })
@@ -66,7 +70,7 @@ export default async function handler(request, response) {
   let model = payload.model
   const propria = await chiaveUtente(token, user.id)
   // Una chiave per fornitore (25/09): si usa quella del fornitore scelto come attivo.
-  const chiavePropria = propria && (propria.provider === 'openrouter' ? propria.openrouter_key : propria.deepseek_key) || propria?.api_key
+  const chiavePropria = (propria && propria[CHIAVE_DEL_FORNITORE[propria.provider]]) || (propria?.provider !== 'opencode' && propria?.api_key)
   if (propria && PROVIDER_URL[propria.provider] && chiavePropria) {
     provider = propria.provider
     key = chiavePropria
@@ -86,7 +90,7 @@ export default async function handler(request, response) {
     const upstream = await fetch(PROVIDER_URL[provider], {
       method: 'POST',
       headers,
-      body: JSON.stringify(provider === 'openrouter' ? { ...payload, model, thinking: undefined } : { ...payload, model }),
+      body: JSON.stringify(provider === 'deepseek' ? { ...payload, model } : { ...payload, model, thinking: undefined }),
       signal: AbortSignal.timeout(110_000),
     })
     const body = await upstream.text()
@@ -94,7 +98,7 @@ export default async function handler(request, response) {
       // Il motivo esatto del fornitore aiuta a capire (chiave disattivata, limite, moderazione...).
       let motivo = ''
       try { const j = JSON.parse(body); motivo = (j && j.error && (j.error.message || j.error)) || '' } catch { motivo = '' }
-      const nome = provider === 'openrouter' ? 'OpenRouter' : 'DeepSeek'
+      const nome = NOME_FORNITORE[provider]
       return response.status(400).json({
         error: upstream.status === 401
           ? `${nome} rifiuta la chiave (errore 401${motivo ? `: ${String(motivo).slice(0, 160)}` : ''}). Di solito è disattivata o sbagliata: creane una nuova sul sito di ${nome} e incollala nel Profilo.`
@@ -106,8 +110,12 @@ export default async function handler(request, response) {
       try { const j = JSON.parse(body); motivo = (j && j.error && j.error.message) || '' } catch { motivo = '' }
       return response.status(400).json({ error: `OpenRouter non trova il modello "${model}"${motivo ? ` (${String(motivo).slice(0, 160)})` : ''}. Per i modelli gratuiti controlla anche su openrouter.ai, Settings -> Privacy, di aver consentito i fornitori gratuiti.` })
     }
+    if (provider === 'opencode' && /FreeUsageLimit/i.test(body)) {
+      return response.status(429).json({ error: 'OpenCode Zen: limite dei modelli gratuiti raggiunto (OpenCode li riserva soprattutto alla sua app). Riprova più tardi o scegli un altro fornitore nel Profilo.' })
+    }
+    if (upstream.status === 404 && provider === 'opencode') return response.status(400).json({ error: `OpenCode Zen non trova il modello "${model}": sceglilo dall'elenco nel Profilo.` })
     if (upstream.status === 402) return response.status(400).json({ error: 'Credito del tuo LLM esaurito (o modello a pagamento senza credito): ricaricalo o scegli un modello gratuito nel Profilo.' })
-    if (upstream.status === 429 && provider === 'openrouter') return response.status(429).json({ error: 'Limite dei modelli gratuiti di OpenRouter raggiunto: riprova tra un minuto o scegli un altro modello nel Profilo.' })
+    if (upstream.status === 429 && provider !== 'deepseek') return response.status(429).json({ error: `Limite dei modelli gratuiti di ${NOME_FORNITORE[provider]} raggiunto: riprova tra un minuto o scegli un altro modello nel Profilo.` })
     response.status(upstream.status)
     response.setHeader('Content-Type', upstream.headers.get('content-type') || 'application/json; charset=utf-8')
     return response.send(body)

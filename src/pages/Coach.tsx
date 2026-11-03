@@ -13,10 +13,11 @@ import { useCartella } from '../features/cartella/useCartella'
 import { useCoach, type MessaggioCoach } from '../features/coach/useCoach'
 import { useWorkout } from '../features/workout/WorkoutContext'
 import { controllaPiano, differenzePiani, normalizzaPiano, sedutaComeWorkout, type CoachPlan, type EsitoControlli } from '../features/coach/plan'
-import { clienteConosciuto, leggiRispostaCoach, messaggioContesto, promptSistema, unisciCartella, type TipoConversazione } from '../features/coach/prompt'
+import { clienteConosciuto, leggiRispostaCoach, messaggioContesto, pianoCambiatoSenzaPiano, promptSistema, unisciCartella, type TipoConversazione } from '../features/coach/prompt'
 import { cartellaInMarkdown, normalizzaCartella, preferitiDallaCartella, vietatiDallaCartella } from '../features/cartella/cartella'
 import { allineaAlloScheletro, confrontaConScheletro, costruisciScheletro, riempiScheletro, scheletroPerLlm } from '../features/coach/scheletro'
 import { FileCartella } from '../features/cartella/FileCartella'
+import { cercaSulWeb, messaggioRisultati, PREFISSO_RICERCA } from '../lib/ricerca'
 import { chiediJsonAlLlm, type LlmMessage } from '../lib/deepseek'
 import { caricaCatalogo, elencoStorico } from '../lib/api'
 import { determinaFase, escludiPerFastidi, patchCambioCalorie } from '../engine/nutrition'
@@ -241,8 +242,16 @@ export default function Coach() {
     return out
   }
 
-  async function invia(kind: TipoConversazione, contenuto: string, nascosto = false, tentativo = false, storiaBase?: MessaggioCoach[], threadForzato?: string | null) {
-    if (!cartella || (attesa && !tentativo)) return
+  /** Ultimi scambi delle ALTRE conversazioni (03/11): in una chat nuova il coach sa dove eravate rimasti. */
+  function conversazioniPrecedenti(kind: TipoConversazione, t: string | null) {
+    return (messaggi ?? [])
+      .filter((m) => !nellaConversazione(m, kind, t) && !(m.meta as { nascosto?: boolean } | null)?.nascosto && m.content !== '[APERTURA]')
+      .slice(-16)
+      .map((m) => ({ data: m.created_at.slice(0, 10), tipo: m.kind, chi: m.role === 'utente' ? 'cliente' : 'coach', testo: m.content.slice(0, 400) }))
+  }
+
+  async function invia(kind: TipoConversazione, contenuto: string, nascosto = false, tentativo = false, storiaBase?: MessaggioCoach[], threadForzato?: string | null, dopoRicerca = false) {
+    if (!cartella || (attesa && !tentativo && !dopoRicerca)) return
     setErrore(null); setAttesa(true)
     const t = kind === 'chat' ? (threadForzato !== undefined ? threadForzato : thread) : null
     try {
@@ -262,6 +271,7 @@ export default function Coach() {
           esercizio: e.nome, oggi: e.attuale, obiettivo: e.obiettivo, unita: e.unita, test: e.test.slice(-6),
           allenamenti: progressiEsercizio(e.exercise_id!, storico), riassunto: riassuntoProgressi(progressiEsercizio(e.exercise_id!, storico)),
         })),
+        conversazioniPrecedenti: conversazioniPrecedenti(kind, t),
       })
       const grezza = await chiediJsonAlLlm([
         { role: 'system', content: promptSistema(kind, conosciuto) },
@@ -291,9 +301,18 @@ export default function Coach() {
         // Inizio della risposta grezza del modello: serve a capire i casi strani senza chiedere a Rossi.
         meta: { opzioni: risposta.opzioni, categoria: risposta.categoria, piano: plan, esito, erroriScheletro, differenze, calorie: risposta.calorie, controllo: risposta.controllo, grezzo: String(grezza._testo_originale ?? '').slice(0, 800) },
       })
+      // Ricerca web chiesta dal coach (03/11): l'app la fa e gli rimanda i risultati, una volta.
+      if (risposta.ricerca_web && !dopoRicerca && !contenuto.startsWith(PREFISSO_RICERCA)) {
+        const risultati = await cercaSulWeb(risposta.ricerca_web).catch(() => null)
+        await invia(kind, messaggioRisultati(risposta.ricerca_web, risultati), true, false, [...base, mio, suo], t, true)
+        return
+      }
       // Alcuni modelli annunciano il piano ("ora te lo preparo") senza consegnarlo: glielo si
       // richiede subito, una volta, senza che il cliente debba insistere.
-      const annunciato = kind === 'colloquio' && !plan && ((risposta.categoria ?? 0) >= 8 || /prepar|ecco il (tuo )?(piano|programma)|costruisco|elaboro|a breve|un momento/i.test(risposta.messaggio))
+      const annunciato = !plan && (
+        (kind === 'colloquio' && ((risposta.categoria ?? 0) >= 8 || /prepar|ecco il (tuo )?(piano|programma)|costruisco|elaboro|a breve|un momento/i.test(risposta.messaggio))) ||
+        // 03/11 (prova con Nemotron): in chat "ho modificato la Push A" senza il piano.
+        (kind !== 'colloquio' && pianoCambiatoSenzaPiano(risposta.messaggio)))
       if (annunciato && !tentativo) {
         await invia(kind, 'Consegna adesso il piano completo dentro "piano", in questa stessa risposta, con una breve spiegazione della logica.', true, true, [...base, mio, suo], t)
         return

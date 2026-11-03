@@ -3084,3 +3084,69 @@ giorni (es. PPL 5 giorni), impostare "Density 3-6-9" solo su UN giorno tramite "
 generare quel giorno e controllare che (a) porti davvero a `/density-369` con la sessione giusta,
 (b) il pallino/stato di quel giorno nella vista settimanale risulti "generato", (c) gli altri
 giorni restino invariati col loro protocollo originale. Consegnato **direttamente su `main`**.
+
+## Aggiornamento stato — 2026-11-03: Coach "preparatore atletico", OpenCode Zen, ricerca web, memoria tra chat (Claude Opus 5.5)
+
+**Richiesta di Rossi**: il coach (qualsiasi LLM gratuito, anche GLM di OpenCode) deve comportarsi
+come un preparatore atletico che conosce la biomeccanica: capire il dolore con le domande giuste,
+spiegare, proporre DA SOLO di togliere un esercizio che fa male ("non è indispensabile per la
+crescita, ci sono varianti"), adattarsi agli attrezzi che mancano, cercare sul web, e in una chat
+nuova riprendere da dove si era rimasti (esercizi sentiti bene = si tengono, non sentiti o con
+fastidio = si sostituiscono, stanchezza = ordine/volume, energia = si mantiene o si aggiungono serie).
+
+**Cosa è stato fatto**
+- `src/features/coach/prompt.ts`: nuovo blocco `PREPARATORE` in tutte le conversazioni (ragiona sul
+  muscolo, non sull'esercizio; 5 passi: capisci, spiega, proponi tu, non perdere crescita, segui nel
+  tempo con dolore 0-10). Colloquio: carichi su 3-4 esercizi chiave, dolore con posizione che
+  peggiora/migliora, esercizi che senti meglio (mente-muscolo), quando sei stanco e quando fresco.
+  Chat: "DOMANDE DI RIPRESA" e uso di `conversazioni_precedenti`. Formato: campi `ricerca_web` e
+  `sostituzione`. Funzione `pianoCambiatoSenzaPiano`.
+- `src/features/coach/scheletro.ts`: `confrontaConScheletro` accetta in uno slot un esercizio dello
+  **stesso distretto** (tre capi della spalla; gambe; altrimenti stesso muscolo con altro ruolo) se
+  l'esercizio ha `sostituzione` (il motivo). Lo slot e le sue serie restano: il volume non cala.
+  Indicazioni di shoulder press e alzate frontali ora dicono che sono facoltative con il fastidio.
+  **Decisione**: la regola "spalle carenti = laterali + posteriori + frontali + shoulder press"
+  resta lo scheletro di base; cambia solo che, con un fastidio, la casella si può riempire con
+  un'altra variante di spalle.
+- `src/features/coach/plan.ts`: campo `sostituzione` conservato da `normalizzaPiano`.
+- `src/features/cartella/cartella.ts`: i vincoli accettano anche `esercizi_vietati` (visto con Nemotron).
+- `src/pages/Coach.tsx`: contesto `conversazioniPrecedenti` (ultimi 16 messaggi non nascosti delle
+  ALTRE conversazioni, 400 caratteri l'uno); ricerca web (se il coach scrive `ricerca_web`, l'app
+  chiama `/api/ricerca` e gli rimanda i risultati in un messaggio nascosto, una volta sola);
+  richiesta automatica del piano anche in chat/controllo quando il coach scrive "ho modificato la
+  Push A" senza il piano.
+- `api/ricerca.js` (nuovo) + `src/lib/ricerca.ts`: solo utenti autenticati; SearXNG
+  (`SEARXNG_URL`, predefinito 127.0.0.1:8888, quindi funziona solo col server locale) e poi Tavily
+  se c'è `TAVILY_API_KEY` (da aggiungere quando si torna su Vercel). Un risultato per sito, max 6.
+- Terzo fornitore **OpenCode Zen**: `api/deepseek.js` (endpoint `https://opencode.ai/zen/v1/chat/completions`,
+  colonna `opencode_key`, messaggio chiaro per `FreeUsageLimitError`), `api/llm-models.js?provider=opencode`
+  (modelli gratuiti dal vivo da `opencode.ai/zen/v1/models`, GLM per primo), `LlmSettings.tsx` con tre fornitori.
+  Migrazione `20261103210000_llm_opencode.sql` applicata al progetto Supabase geqhxhgrameaugawmaej
+  (colonna, vincolo provider, `llm_keys_stato` con `ha_opencode`); la riga esistente con le chiavi
+  DeepSeek/OpenRouter è rimasta intatta (verificato).
+
+**Cosa si è rotto durante il lavoro**
+- La prima `apply_migration` è scaduta (conferma non data in 2 minuti): ripetuta, riuscita.
+- Prova dal vivo: Gemma 4 31B gratuito sempre 429; Nemotron 3.5 Super gratuito ha risposto ma con
+  JSON rovinato al primo giro (letto correttamente con `leggiRispostaLibera`, lo stesso parser dell'app).
+- Nemotron ha scritto "ho modificato la Push A" senza il piano: da qui il controllo `pianoCambiatoSenzaPiano`.
+
+**Verifiche (03/11, 21:45-22:05)**: 379/379 test (nuovi: sostituzione accettata/rifiutata, fuori
+distretto rifiutata, ricerca_web, preparatore in tutti i prompt, piano annunciato, alias vincoli),
+tsc, eslint, build. Server locale riavviato 21:51 (attività "GymBuilder - Server locale"), locale e
+Funnel :10000 HTTP 200, `/api/llm-models?provider=opencode` restituisce 9+ modelli gratuiti (primo
+glm-5.3-flash-free), `/api/ricerca` senza sessione = 401, con sessione simulata = 6 risultati SearXNG.
+Conversazione vera con Nemotron gratuito sul caso spalla: domande sul dolore, spiegazione, Push A con
+2 `sostituzione` e 0 errori di scheletro, vincolo salvato. Chat nuova: riprende la spalla da
+`conversazioni_precedenti` e fa le domande di ripresa.
+
+**Problemi aperti**
+- OpenCode Zen senza chiave risponde `FreeUsageLimitError` ("Free models work in OpenCode... subscribe
+  to OpenCode Go"): non verificato con una chiave vera, potrebbe essere limitato all'app OpenCode.
+- Su OpenRouter oggi non esiste un GLM gratuito (il vecchio predefinito `z-ai/glm-5.2:free` è sparito):
+  nuovo predefinito `google/gemma-4-31b-it:free`.
+- Ricerca web su Vercel: serve `TAVILY_API_KEY`, altrimenti il coach risponde senza fonti.
+- Non provato nel browser con un utente reale (Profilo con tre fornitori, chat con ricerca web).
+
+**Prossimo passo**: Rossi crea la chiave su opencode.ai/auth, la salva nel Profilo e prova
+"Prova la connessione" con GLM-5.3-Flash Free; poi il caso spalla nella chat del Coach.

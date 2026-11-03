@@ -23,6 +23,9 @@ export interface CoachEsercizio {
   /** Esercizio equivalente se manca l'attrezzo o l'esercizio non va (testo del coach). */
   alternativa?: string
   tecnica?: string
+  /** Cambio di slot per fastidio o attrezzo mancante (03/11): il motivo. Lo scheletro accetta
+   *  un esercizio dello stesso distretto (es. shoulder press -> alzate laterali). */
+  sostituzione?: string
 }
 
 export interface CoachSeduta {
@@ -73,6 +76,7 @@ export function normalizzaPiano(raw: unknown, catalog: Exercise[]): CoachPlan | 
         nota: s(r.nota) || undefined,
         alternativa: s(r.alternativa, 120) || undefined,
         tecnica: s(r.tecnica, 120) || undefined,
+        sostituzione: s(r.sostituzione, 300) || undefined,
       }
     })
     const split = s(sd.split, 20) as Split

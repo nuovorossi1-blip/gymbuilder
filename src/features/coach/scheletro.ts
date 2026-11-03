@@ -108,8 +108,10 @@ function seduta(tipo: Tipo, v: 'A' | 'B', carenze: Set<Muscle>, forti: Set<Muscl
     add('lateral_delts', 'isolamento', v === 'A' ? 'alzate laterali con manubri (seduto, carico leggero)' : 'alzate laterali al cavo a un braccio')
     if (c('lateral_delts')) add('lateral_delts', 'isolamento', v === 'A' ? 'alzate laterali al cavo' : 'alzate laterali alla macchina o con manubri')
     if (c('front_delts')) {
-      if (v === 'A') add('front_delts', 'multiarticolare', 'shoulder press (manubri o macchina, in base al fastidio alla spalla)')
-      else add('front_delts', 'isolamento', 'alzate frontali (manubri o cavo)')
+      // Facoltativi (03/11): se la spinta sopra la testa o le frontali danno fastidio, il coach
+      // mette un'altra variante di spalle con "sostituzione" (vedi confrontaConScheletro).
+      if (v === 'A') add('front_delts', 'multiarticolare', 'shoulder press (macchina, manubri o cavo, in base al fastidio alla spalla; se fa male: un\'altra variante di alzate laterali o posteriori)')
+      else add('front_delts', 'isolamento', 'alzate frontali (manubri o cavo; facoltative: la panca inclinata allena già il deltoide anteriore)')
     }
     add('triceps', 'isolamento', c('triceps') ? 'tricipiti in allungamento (french press o overhead al cavo)' : 'pushdown al cavo')
     if (c('triceps')) add('triceps', 'isolamento', v === 'A' ? 'pushdown alla corda' : 'overhead al cavo a un braccio')
@@ -221,6 +223,16 @@ export function costruisciScheletro(opts: { giorni: number | null | undefined; c
 
 const normNome = (t: string) => t.toLowerCase().replace(/[^a-z0-9]/g, '')
 
+/** Distretti per le sostituzioni: i tre capi della spalla e i muscoli delle gambe sono intercambiabili. */
+const DISTRETTO: Partial<Record<Muscle, string>> = {
+  front_delts: 'spalle', lateral_delts: 'spalle', rear_delts: 'spalle',
+  quads: 'gambe', hamstrings: 'gambe', glutes: 'gambe', adductors: 'gambe',
+}
+export function stessoDistretto(muscolo: Muscle, primari: Muscle[]): boolean {
+  const d = DISTRETTO[muscolo]
+  return primari.includes(muscolo) || (!!d && primari.some((m) => DISTRETTO[m] === d))
+}
+
 /** La seduta dello scheletro con lo stesso nome (l'ordine della rotazione lo sceglie il cliente). */
 function sedutaCorrispondente(nome: string, sch: Scheletro): SedutaScheletro | undefined {
   const n = normNome(nome)
@@ -273,6 +285,10 @@ export function confrontaConScheletro(plan: CoachPlan, sch: Scheletro, catalog: 
       }
       const muscoloOk = ex.primary_muscles.includes(slot.muscolo)
       const ruoloOk = (slot.ruolo === 'multiarticolare') === ex.roles.includes('compound')
+      // Sostituzione per fastidio o attrezzo mancante (03/11): vale un esercizio dello stesso
+      // distretto, anche con un altro ruolo (shoulder press -> alzate laterali; panca -> croci).
+      // Lo slot resta lì con le sue serie: il volume del distretto non cala.
+      if ((!muscoloOk || !ruoloOk) && sd.esercizi[j].sostituzione && stessoDistretto(slot.muscolo, ex.primary_muscles)) return
       if (!muscoloOk || !ruoloOk) errori.push(`${atteso.nome}, slot ${j + 1}: serve ${slot.ruolo} per ${MUSCLE_LABELS[slot.muscolo]} (${slot.indicazione}), non ${ex.name}.`)
     })
   }

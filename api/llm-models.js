@@ -5,8 +5,29 @@ export const config = { maxDuration: 20 }
  * https://openrouter.ai/api/v1/models, così la lista resta aggiornata senza toccare il codice.
  * Solo modelli di testo (niente embedding, rerank, moderazione), prezzo 0 in ingresso e uscita.
  */
+/** OpenCode Zen (03/11/2026): stesso elenco dal vivo, modelli con prezzo 0 in ingresso e uscita. */
+async function gratisOpenCode() {
+  const res = await fetch('https://opencode.ai/zen/v1/models', { signal: AbortSignal.timeout(15_000) })
+  if (!res.ok) return null
+  const { data } = await res.json()
+  return (Array.isArray(data) ? data : [])
+    .filter((m) => m && typeof m.id === 'string' && m.type !== 'embedding')
+    .filter((m) => m.cost?.text?.input?.price === 0 && m.cost?.text?.output?.price === 0)
+    .filter((m) => !m.modalities?.output || m.modalities.output.includes('text'))
+    .map((m) => ({ id: m.id, name: m.name || m.id, context: m.limit?.context ?? null }))
+    .sort((a, b) => Number(/glm/i.test(b.id)) - Number(/glm/i.test(a.id)) || (b.context ?? 0) - (a.context ?? 0))
+}
+
 export default async function handler(request, response) {
   response.setHeader('Cache-Control', 'public, max-age=3600')
+  if ((request.query?.provider || '') === 'opencode') {
+    try {
+      const models = await gratisOpenCode()
+      return models ? response.status(200).json({ models }) : response.status(502).json({ error: 'Elenco modelli non disponibile.' })
+    } catch {
+      return response.status(502).json({ error: 'Elenco modelli non disponibile.' })
+    }
+  }
   try {
     const res = await fetch('https://openrouter.ai/api/v1/models', { signal: AbortSignal.timeout(15_000) })
     if (!res.ok) return response.status(502).json({ error: 'Elenco modelli non disponibile.' })

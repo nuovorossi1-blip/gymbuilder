@@ -182,3 +182,26 @@ describe('risposta del coach con campi inattesi (25/09)', () => {
     expect(leggiRispostaCoach({ piano: { sedute: [] } }).vuota).toBe(false)
   })
 })
+
+describe('ricerca web e preparatore (03/11)', () => {
+  it('legge "ricerca_web" solo se è un testo utile', async () => {
+    const { leggiRispostaCoach, promptSistema } = await import('./prompt')
+    expect(leggiRispostaCoach({ messaggio: 'Controllo', ricerca_web: 'shoulder press alternative' }).ricerca_web).toBe('shoulder press alternative')
+    expect(leggiRispostaCoach({ messaggio: 'Ciao', ricerca_web: null }).ricerca_web).toBeNull()
+    for (const t of ['colloquio', 'controllo', 'chat'] as const) expect(promptSistema(t)).toContain('PREPARATORE ATLETICO')
+  })
+})
+
+describe('piano annunciato in chat senza piano (03/11)', () => {
+  it('riconosce "ho modificato la Push A" e non le risposte normali', async () => {
+    const { pianoCambiatoSenzaPiano } = await import('./prompt')
+    expect(pianoCambiatoSenzaPiano('Ottimo! Ho modificato la Push A: slot 4 alzate frontali.')).toBe(true)
+    expect(pianoCambiatoSenzaPiano('Al suo posto metto il curl ai cavi.')).toBe(true)
+    expect(pianoCambiatoSenzaPiano('Come sta andando la scheda? E la spalla?')).toBe(false)
+  })
+  it('vincoli: accetta anche "esercizi_vietati"', async () => {
+    const { normalizzaCartella } = await import('../cartella/cartella')
+    const c = normalizzaCartella({ vincoli: [{ zona: 'spalla', problema: 'dolore', esercizi_vietati: ['Shoulder press con manubri'] }] })
+    expect(c.vincoli[0].vietati).toEqual(['Shoulder press con manubri'])
+  })
+})

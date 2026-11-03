@@ -1,5 +1,9 @@
 # Todo
 
+- [ ] (03/11) Rossi: chiave OpenCode Zen (opencode.ai/auth) nel Profilo e prova GLM-5.3-Flash Free; senza chiave Zen risponde FreeUsageLimitError.
+- [ ] (03/11) Provare nel browser il Coach "preparatore": caso spalla (sostituzione shoulder press), ricerca web con fonti, chat nuova che riprende dalla precedente.
+- [ ] (03/11) Al ritorno su Vercel: TAVILY_API_KEY per la ricerca web del Coach (SearXNG è solo sul PC).
+
 - [ ] (06/10) Vercel in pausa: GymBuilder gira dal PC di casa (https://pc-claude.tailcad625.ts.net:10000). Al rinnovo del ciclo Vercel tornare su gymbuilder-lemon.vercel.app e spegnere server-locale (vedi AIOS_STATE).
 - [ ] Rossi: provare dal vivo (26/09) Costruisci il programma, esercizi da migliorare (trazioni), Modifica scheda, pausa in normocalorica dopo 4 settimane di stallo.
 - [ ] Rossi: rigenerare la chiave OpenRouter incollata in chat il 25/09 e sostituirla nel Profilo ("Il tuo LLM").

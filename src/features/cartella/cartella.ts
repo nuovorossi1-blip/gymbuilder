@@ -59,10 +59,14 @@ export function normalizzaCartella(raw: unknown, catalog?: Exercise[]): Cartella
     versione: 1,
     livello_note: str(c.livello_note),
     obiettivo: { primario: str(ob.primario), secondario: str(ob.secondario), indiretto: str(ob.indiretto) },
-    vincoli: arr(c.vincoli).map((v) => ({
-      zona: str(v.zona, 80), problema: str(v.problema), strategia: str(v.strategia),
-      vietati: (Array.isArray(v.vietati) ? v.vietati : typeof v.vietati === 'string' ? v.vietati.split(',') : []).map((x) => str(x, 120)).filter(Boolean),
-    })).filter((v) => v.zona || v.problema),
+    vincoli: arr(c.vincoli).map((v) => {
+      // 03/11: alcuni LLM scrivono "esercizi_vietati" invece di "vietati" (visto con Nemotron).
+      const viet = v.vietati ?? v.esercizi_vietati
+      return {
+        zona: str(v.zona, 80), problema: str(v.problema), strategia: str(v.strategia),
+        vietati: (Array.isArray(viet) ? viet : typeof viet === 'string' ? viet.split(',') : []).map((x) => str(x, 120)).filter(Boolean),
+      }
+    }).filter((v) => v.zona || v.problema),
     carenze: noteMuscoli(c.carenze),
     punti_forti: noteMuscoli(c.punti_forti),
     esercizi_ok: esercizi(c.esercizi_ok, catalog),
