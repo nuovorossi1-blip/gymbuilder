@@ -91,6 +91,19 @@ export default function Runner() {
   // filo (es. dimenticato di avviarlo mentre si era già passati all'esercizio successivo).
   const [mostraElenco, setMostraElenco] = useState(false)
 
+  // Tasto Indietro del telefono (e del browser) durante l'allenamento: apre "Dove sei" invece di
+  // uscire dalla pagina. Una voce in più nella cronologia fa da "tappo" e si rimette ogni volta.
+  useEffect(() => {
+    if (!iniziato || sezione !== 'principale' || typeof window === 'undefined') return
+    window.history.pushState({ runner: true }, '')
+    const suIndietro = () => {
+      setMostraElenco(true)
+      window.history.pushState({ runner: true }, '')
+    }
+    window.addEventListener('popstate', suIndietro)
+    return () => window.removeEventListener('popstate', suIndietro)
+  }, [iniziato, sezione])
+
   // Previene lo standby dello schermo durante l'allenamento (Screen Wake Lock API)
   useEffect(() => {
     let wakeLock: WakeLockSentinel | null = null
@@ -308,7 +321,8 @@ export default function Runner() {
     const tick = () => {
       const next = Math.max(0, Math.ceil((restDeadline.current - Date.now()) / 1000))
       setRimanente(next)
-      if (next > 0 && next <= 3 && lastWarning.current !== `rest-${next}`) { lastWarning.current = `rest-${next}`; emit('WARNING', 'rest') }
+      // Recupero: tic negli ultimi 5 secondi (03/11, richiesta di Rossi), poi il ding alla ripartenza.
+      if (next > 0 && next <= 5 && lastWarning.current !== `rest-${next}`) { lastWarning.current = `rest-${next}`; emit('WARNING', 'rest') }
     }
     const t = window.setInterval(tick, 200); tick()
     return () => window.clearInterval(t)
@@ -539,7 +553,11 @@ export default function Runner() {
   }
 
   function tornaIndietro() {
-    if (iniziato) {
+    if (iniziato && sezione === 'principale') {
+      // 03/11 (Rossi): Indietro NON ferma l'allenamento, mostra dove sei (esercizio e serie).
+      // Per fermarlo c'è Stop.
+      setMostraElenco(true)
+    } else if (iniziato) {
       if (typeof window !== 'undefined' && !window.confirm('Vuoi davvero uscire dall\'allenamento in corso?')) return
       confermaUscita()
     } else {
@@ -710,19 +728,19 @@ export default function Runner() {
     return (
       <div className="px-5 pt-12 pb-8 min-h-dvh flex flex-col">
         <div className="flex items-center justify-between">
-          <button className="font-data text-[11px] uppercase tracking-[0.14em] text-slate2" onClick={() => setMostraElenco(false)}>← Indietro</button>
-          <p className="eyebrow">Sono qui</p>
-          <span className="w-14" aria-hidden />
+          <button className="font-data text-[11px] uppercase tracking-[0.14em] text-slate2" onClick={() => setMostraElenco(false)}>← Allenamento</button>
+          <p className="eyebrow">Dove sei</p>
+          <button className="font-data text-[11px] uppercase tracking-[0.14em] text-red-300" onClick={interrompiAllenamento}>Stop</button>
         </div>
         <p className="mt-3 text-[13px] text-slate2 leading-relaxed">
-          Se il timer ha perso il filo — per esempio non l'hai avviato e hai già fatto una serie —
-          tocca la serie a cui sei arrivato davvero.
+          Ecco a che punto sei: in oro l'esercizio e la serie in corso, barrati quelli fatti.
+          Il timer continua. Tocca una serie solo se vuoi spostarti lì (per esempio se il timer ha perso il filo).
         </p>
         <div className="mt-5">
           <WorkoutClock inizioRef={inizio} estimateMin={workout?.duration_min} />
         </div>
         <p className="mt-6 font-data text-[11px] uppercase tracking-[0.14em] text-slate2">
-          Esercizio {fase.iEs + 1} di {esercizi.length} · ne restano {Math.max(0, esercizi.length - fase.iEs - 1)}
+          Esercizio {fase.iEs + 1} di {esercizi.length} · {fase.tipo === 'recupero' ? `recupero dopo la serie ${fase.serie}` : `serie ${fase.serie} di ${esercizi[fase.iEs]?.sets ?? '?'}`} · ne restano {Math.max(0, esercizi.length - fase.iEs - 1)}
         </p>
         <ul className="mt-3 space-y-3">
           {esercizi.map((e, i) => {
@@ -737,14 +755,16 @@ export default function Runner() {
                 <p className="mt-1 font-data text-[12px] text-slate2">{e.reps} ripetizioni</p>
                 <div className="mt-2.5 flex flex-wrap gap-1.5">
                   {Array.from({ length: e.sets }, (_, s) => s + 1).map((serie) => {
-                    const attiva = corrente && fase.tipo === 'serie' && fase.serie === serie
+                    // Serie già fatte: in recupero anche quella appena chiusa.
+                    const fatte = corrente ? (fase.tipo === 'recupero' ? fase.serie : fase.serie - 1) : completato ? e.sets : 0
+                    const attiva = corrente && serie === fatte + 1
                     return (
                       <button
                         key={serie}
-                        className={`chip !py-1.5 !px-3 text-[12px] ${attiva ? 'chip-on' : ''}`}
+                        className={`chip !py-1.5 !px-3 text-[12px] ${attiva ? 'chip-on' : ''} ${serie <= fatte ? 'opacity-60' : ''}`}
                         onClick={() => selezionaEsercizio(i, serie)}
                       >
-                        Serie {serie}
+                        {serie <= fatte ? `✓ Serie ${serie}` : `Serie ${serie}`}
                       </button>
                     )
                   })}
@@ -753,6 +773,9 @@ export default function Runner() {
             )
           })}
         </ul>
+        <button className="btn !mt-6" onClick={() => setMostraElenco(false)}>
+          {fase.tipo === 'recupero' ? 'Torna al recupero' : 'Torna all’allenamento'}
+        </button>
       </div>
     )
   }
@@ -1338,7 +1361,7 @@ function AudioControls({ settings, onChange }: { settings: AudioTimerSettings; o
           <AudioSelect label="Suono fine" value={settings.endSound} sounds={sounds} onChange={(endSound) => onChange({ endSound })} />
           <label className="col-span-2 flex items-center gap-3 text-sm text-slate2">
             <input type="checkbox" checked={settings.countdown} onChange={(event) => onChange({ countdown: event.target.checked })} />
-            Tre bip: 3–2–1
+            Tic negli ultimi secondi (5 nel recupero)
           </label>
         </div>
       ) : null}
@@ -1347,5 +1370,5 @@ function AudioControls({ settings, onChange }: { settings: AudioTimerSettings; o
 }
 
 function AudioSelect({ label, value, sounds, onChange }: { label: string; value: TimerSound; sounds: TimerSound[]; onChange: (sound: TimerSound) => void }) {
-  return <label className="text-xs text-slate2">{label}<select className="input mt-1 !py-2" value={value} onChange={(event) => onChange(event.target.value as TimerSound)}>{sounds.map((sound) => <option key={sound} value={sound}>{sound === 'beep' ? 'Biiip lungo' : sound === 'ding' ? 'Diiing lungo' : sound === 'ring' ? 'Riiing' : 'Solo vibrazione / silenzioso'}</option>)}</select></label>
+  return <label className="text-xs text-slate2">{label}<select className="input mt-1 !py-2" value={value} onChange={(event) => onChange(event.target.value as TimerSound)}>{sounds.map((sound) => <option key={sound} value={sound}>{sound === 'beep' ? 'Biiip lungo' : sound === 'ding' ? 'Ding (campana)' : sound === 'ring' ? 'Riiing' : 'Solo vibrazione / silenzioso'}</option>)}</select></label>
 }

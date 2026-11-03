@@ -3195,3 +3195,18 @@ Conversazione vera con Nemotron gratuito sul caso spalla: domande sul dolore, sp
 - APK 1.0.57 (release apk-v1.0.57, run del commit c938434) contiene server.url https://gym.redapp.dev
   (letto da assets/capacitor.config.json). Installazione su emulatore riuscita, ma l'emulatore si è
   chiuso subito dopo: apertura dell'app nell'emulatore NON verificata.
+
+### 2026-11-03 23:00 — Allenamento: Indietro = "Dove sei", suoni tic/ding (Claude Opus 5.5)
+- `Runner.tsx`: "← Indietro" durante un allenamento (sezione principale) NON esce più (prima: conferma
+  e sessione cancellata). Apre la vista "Dove sei" (ex "Sono qui"): esercizio X di N, serie in corso o
+  "recupero dopo la serie X", serie fatte con ✓, Stop in alto, pulsante "Torna all'allenamento/al
+  recupero". Anche il tasto Indietro del telefono/browser apre "Dove sei" (voce "tappo" nella
+  cronologia con popstate, niente plugin @capacitor/app). Stop resta l'unico modo per fermare.
+  Metcon invariato (conferma come prima).
+- `engine/audio.ts`: "tic" d'orologio (triangle 2100 Hz + 3300 Hz, 50 ms) per gli avvisi; "ding" a
+  campana (880 Hz con armonici 2,76/5,4/8,93) per la fine; suono di inizio predefinito ora "ding".
+  Recupero: tic negli ultimi 5 secondi (prima 3). Riferimento dell'utente: video YouTube
+  "1 Minute Timer with Clock Ticking Sound & Finish Ding" (suoni sintetizzati, nulla copiato).
+- Chi ha già salvato le impostazioni audio mantiene le sue scelte (es. "Biiip lungo").
+- Verifiche: 381/381 test (aggiornato il test del suono predefinito), tsc, eslint, build con le VITE_
+  del server locale. NON provato in un allenamento vero (serve login): da provare dal telefono.

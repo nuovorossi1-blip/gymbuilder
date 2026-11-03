@@ -33,7 +33,7 @@ describe('Unified Timer Engine', () => {
     expect(completionEvent('for_time', true).type).toBe('TIME_CAP_REACHED')
   })
   it('Hybrid strength → metcon usa un segnale di avvio', () => {
-    expect(soundForEvent('TIMER_STARTED', DEFAULT_AUDIO_SETTINGS)).toBe('beep')
+    expect(soundForEvent('TIMER_STARTED', DEFAULT_AUDIO_SETTINGS)).toBe('ding')
   })
   it('gli ultimi tre secondi hanno beep e vibrazione distinti', () => {
     expect(soundForEvent('WARNING', DEFAULT_AUDIO_SETTINGS)).toBe('beep')

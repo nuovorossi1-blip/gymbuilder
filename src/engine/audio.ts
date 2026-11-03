@@ -3,7 +3,9 @@ import type { TimerEvent, TimerEventType } from './timer'
 export type TimerSound = 'beep' | 'ding' | 'ring' | 'silent'
 export interface AudioTimerSettings { enabled: boolean; startSound: TimerSound; endSound: TimerSound; countdown: boolean; vibration: boolean }
 
-export const DEFAULT_AUDIO_SETTINGS: AudioTimerSettings = { enabled: true, startSound: 'beep', endSound: 'ding', countdown: true, vibration: true }
+// 03/11 (Rossi, video di riferimento "Clock Ticking Sound & Finish Ding"): tic negli ultimi
+// secondi e ding a campana quando riparte la serie.
+export const DEFAULT_AUDIO_SETTINGS: AudioTimerSettings = { enabled: true, startSound: 'ding', endSound: 'ding', countdown: true, vibration: true }
 const STORAGE_KEY = 'gymbuilder:timer-audio:v1'
 
 export function loadAudioSettings(): AudioTimerSettings {
@@ -52,7 +54,7 @@ export class TimerAudio {
     if (!sound || sound === 'silent' || !this.context || this.context.state !== 'running') return
     const now = this.context.currentTime
     if (event.type === 'WARNING') {
-      this.tone(now, 760, 0.1, 0.28, 'square')
+      this.tic(now)
     } else if (
       event.type === 'COUNTDOWN_COMPLETED' || event.type === 'TIMER_COMPLETED' ||
       event.type === 'TIME_CAP_REACHED' || event.type === 'REST_STARTED' ||
@@ -89,15 +91,26 @@ export class TimerAudio {
   }
 
   private longSignal(at: number, sound: Exclude<TimerSound, 'silent'>, emphasized = false) {
-    const duration = emphasized ? 1.5 : 0.8
     if (sound === 'ring') {
       this.playBoxingRingGong(at, emphasized ? 1.8 : 1.2)
     } else if (sound === 'ding') {
-      this.tone(at, 1040, duration, emphasized ? 0.38 : 0.24)
+      this.campana(at, emphasized ? 2.2 : 1.4, emphasized ? 0.42 : 0.28)
     } else {
       this.tone(at, 720, emphasized ? 1.3 : 0.7, emphasized ? 0.42 : 0.3, 'square')
     }
   }
+/** "Tic" d'orologio: colpo secco e brevissimo, due toni alti che si spengono in 50 ms. */
+  private tic(at: number) {
+    this.tone(at, 2100, 0.05, 0.32, 'triangle')
+    this.tone(at, 3300, 0.03, 0.12, 'sine')
+  }
+
+  /** "Ding" a campana: fondamentale e armonici non interi che si spengono lentamente. */
+  private campana(at: number, duration: number, gainValue: number) {
+    const parziali: [number, number, number][] = [[1, 1, 1], [2.76, 0.45, 0.6], [5.4, 0.2, 0.35], [8.93, 0.08, 0.2]]
+    for (const [mult, g, d] of parziali) this.tone(at, 880 * mult, duration * d, gainValue * g)
+  }
+
   private tone(at: number, frequency: number, duration: number, gainValue: number, type: OscillatorType = 'sine') {
     if (!this.context) return
     const oscillator = this.context.createOscillator()
