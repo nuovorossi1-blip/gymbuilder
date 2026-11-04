@@ -64,6 +64,10 @@ Rispondi da coach. Se serve cambiare il piano, fallo subito e rimanda il piano I
 /** 03/11 (Rossi): il coach ragiona da preparatore atletico che conosce la biomeccanica, non da
  *  esecutore di una scheda fissa. Vale in tutte le conversazioni. */
 export const PREPARATORE = `## COME UN PREPARATORE ATLETICO (biomeccanica)
+SEI TU IL PROFESSIONISTA (04/11, Rossi: "non deve dire hai ragione, dovrebbe già saperlo lui"):
+- Prima di ogni decisione su volume e serie controlla TU la fase nel contesto (calorie, normocalorica, andamento_peso, diario_peso con peso e girovita, "dati_da_verificare"). Se i dati si contraddicono (es. calorie uguali alla normocalorica ma peso "in calo"), non scegliere in silenzio: dillo al cliente nella prima risposta utile, chiedi peso e girovita delle ultime 2-3 settimane e salva la fase giusta con "aggiorna_profilo".
+- Quando spieghi serie e volume, di' su quale fase stai ragionando e perché (es. "sei in normocalorica: 2500 kcal, peso fermo"), così un errore nei dati si vede subito.
+- Non cominciare MAI con "Hai ragione". Se il cliente ti corregge, controlla sui dati: se hai sbagliato tu, di' cosa avevi letto e cosa hai sbagliato (es. "nel profilo il peso risultava in calo e l'ho preso per deficit senza controllarlo con le calorie: errore mio"), correggi SUBITO nel piano e nei dati, senza chiedere il permesso; se il cliente sbaglia, spiegagli con calma il perché, da esperto.
 Ragiona sul MUSCOLO da far crescere, non sull'esercizio: nessun esercizio è obbligatorio per l'ipertrofia. Esempi: il deltoide laterale cresce soprattutto con le alzate laterali (cavo, manubri, macchina, inclinate su panca); il posteriore con reverse pec deck, aperture e face pull; l'anteriore è già allenato da panca inclinata e chest press, quindi shoulder press e alzate frontali non sono indispensabili.
 Quando il cliente racconta un dolore o un esercizio che non riesce a fare bene:
 1. CAPISCI: fai le domande che mancano (dove esattamente, in quale momento del movimento, con quale posizione peggiora e con quale migliora — gomiti larghi o stretti, presa, angolo —, da quanto, se fa male anche a riposo o di notte). Una o due per messaggio.
@@ -129,6 +133,15 @@ export interface ContestoCoach {
   conversazioniPrecedenti?: { data: string; tipo: string; chi: string; testo: string }[]
 }
 
+/** Contraddizioni nei dati della fase (04/11): calorie = normocalorica ma il peso "scende" o "sale". */
+export function datiDaVerificare(p: Profile | null | undefined): string[] {
+  if (!p?.daily_kcal || !p.maintenance_kcal) return []
+  const uguali = Math.abs(p.daily_kcal - p.maintenance_kcal) < 125
+  if (uguali && p.weight_trend === 'losing') return [`Calorie ${p.daily_kcal} uguali alla normocalorica dichiarata, ma l'andamento del peso è "in calo": l'app lo conta come deficit. Chiedi peso e girovita delle ultime settimane e correggi con aggiorna_profilo.`]
+  if (uguali && p.weight_trend === 'gaining') return [`Calorie ${p.daily_kcal} uguali alla normocalorica dichiarata, ma l'andamento del peso è "in salita": l'app lo conta come surplus. Chiedi se sale anche il girovita e correggi con aggiorna_profilo.`]
+  return []
+}
+
 /** Il contesto va come primo messaggio: il coach lo "legge" prima della conversazione. */
 export function messaggioContesto(ctx: ContestoCoach): string {
   const p = ctx.profile
@@ -147,6 +160,7 @@ export function messaggioContesto(ctx: ContestoCoach): string {
     diario_peso: ctx.diarioPeso ?? [],
     carichi_registrati: ctx.carichi ?? {},
     storico_calorie: ctx.storicoCalorie ?? [],
+    dati_da_verificare: datiDaVerificare(p),
     allenamenti_fatti: ctx.allenamentiFatti ?? [],
     volume_calcolato_dall_app: ctx.volumeCalcolato ?? [],
     scheletro_programma: ctx.scheletro ?? null,

@@ -244,3 +244,16 @@ describe('Coach: dati del cliente detti in chat (04/11)', () => {
     expect(promptSistema('chat', true)).toContain('girovita conta più della bilancia')
   })
 })
+
+describe('Coach: contraddizioni nei dati della fase (04/11)', () => {
+  it('2500 kcal = normocalorica ma peso in calo: da verificare', async () => {
+    const { datiDaVerificare } = await import('./prompt')
+    const base = { id: 'u', display_name: null, daily_kcal: 2500, maintenance_kcal: 2500 }
+    expect(datiDaVerificare({ ...base, weight_trend: 'losing' })).toHaveLength(1)
+    expect(datiDaVerificare({ ...base, weight_trend: 'stable' })).toEqual([])
+    expect(datiDaVerificare({ ...base, daily_kcal: 2000, weight_trend: 'losing' })).toEqual([])
+  })
+  it('il prompt vieta di cominciare con "Hai ragione"', () => {
+    expect(promptSistema('chat', true)).toContain('Non cominciare MAI con "Hai ragione"')
+  })
+})
