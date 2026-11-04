@@ -80,10 +80,77 @@ function statico(req, res, percorso) {
   fs.createReadStream(file).pipe(res)
 }
 
+// APK servita da qui (04/11/2026): dal telefono il download via GitHub (redirect a
+// release-assets.githubusercontent.com) restava fermo su "download in corso". Si tiene sul PC
+// una copia dell'ultima release (controllo ogni 10 minuti) e la si manda con Content-Length e Range.
+const APK_CACHE = path.join(QUI, 'apk-cache')
+const APK_RELEASE = 'https://api.github.com/repos/nuovorossi1-blip/gymbuilder/releases/latest'
+let apkControllo = 0
+let apkInCorso = null
+
+async function aggiornaApk() {
+  fs.mkdirSync(APK_CACHE, { recursive: true })
+  const r = await fetch(APK_RELEASE, { headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'gymbuilder-server-locale' }, signal: AbortSignal.timeout(15_000) })
+  if (!r.ok) throw new Error(`GitHub release ${r.status}`)
+  const rel = await r.json()
+  const asset = (rel.assets || []).find((a) => a.name === 'GymBuilder.apk')
+  if (!asset) throw new Error('APK assente nella release')
+  const tag = String(rel.tag_name || 'sconosciuto').replace(/[^a-zA-Z0-9.-]/g, '')
+  const file = path.join(APK_CACHE, `GymBuilder-${tag}.apk`)
+  if (fs.existsSync(file) && fs.statSync(file).size === asset.size) return file
+  const d = await fetch(asset.browser_download_url, { headers: { 'User-Agent': 'gymbuilder-server-locale' }, signal: AbortSignal.timeout(120_000) })
+  if (!d.ok) throw new Error(`download APK ${d.status}`)
+  const dati = Buffer.from(await d.arrayBuffer())
+  if (dati.length !== asset.size) throw new Error('APK scaricata incompleta')
+  fs.writeFileSync(file + '.tmp', dati)
+  fs.renameSync(file + '.tmp', file)
+  for (const vecchio of fs.readdirSync(APK_CACHE)) if (vecchio !== path.basename(file)) fs.rmSync(path.join(APK_CACHE, vecchio), { force: true })
+  console.log(new Date().toISOString(), 'APK in cache', tag, dati.length)
+  return file
+}
+
+function apkInCache() {
+  if (!fs.existsSync(APK_CACHE)) return null
+  const f = fs.readdirSync(APK_CACHE).find((n) => n.endsWith('.apk'))
+  return f ? path.join(APK_CACHE, f) : null
+}
+
+async function apk(req, res) {
+  let file = apkInCache()
+  if (!file || Date.now() - apkControllo > 10 * 60 * 1000) {
+    apkInCorso ??= aggiornaApk().finally(() => { apkInCorso = null })
+    try { file = await apkInCorso; apkControllo = Date.now() } catch (e) {
+      console.error(new Date().toISOString(), 'APK: aggiornamento fallito', e?.message)
+      if (!file) { res.writeHead(302, { Location: 'https://github.com/nuovorossi1-blip/gymbuilder/releases/latest/download/GymBuilder.apk' }); return res.end() }
+    }
+  }
+  const totale = fs.statSync(file).size
+  const intestazioni = {
+    'Content-Type': 'application/vnd.android.package-archive',
+    'Content-Disposition': 'attachment; filename="GymBuilder.apk"',
+    'Accept-Ranges': 'bytes', 'Cache-Control': 'no-cache',
+  }
+  const m = /^bytes=(d*)-(d*)$/.exec(String(req.headers.range || ''))
+  if (m && (m[1] || m[2])) {
+    let inizio = m[1] ? Number(m[1]) : totale - Number(m[2])
+    let fine = m[1] && m[2] ? Number(m[2]) : totale - 1
+    if (inizio < 0) inizio = 0
+    if (fine >= totale) fine = totale - 1
+    if (inizio > fine) { res.writeHead(416, { 'Content-Range': `bytes */${totale}` }); return res.end() }
+    res.writeHead(206, { ...intestazioni, 'Content-Range': `bytes ${inizio}-${fine}/${totale}`, 'Content-Length': fine - inizio + 1 })
+    if (req.method === 'HEAD') return res.end()
+    return fs.createReadStream(file, { start: inizio, end: fine }).pipe(res)
+  }
+  res.writeHead(200, { ...intestazioni, 'Content-Length': totale })
+  if (req.method === 'HEAD') return res.end()
+  fs.createReadStream(file).pipe(res)
+}
+
 http.createServer(async (req, res) => {
   const percorso = new URL(req.url || '/', 'http://x').pathname
   try {
-    if (percorso.startsWith('/api/')) await funzione(req, res, percorso.slice(5).replace(/\/$/, ''))
+    if (percorso.toLowerCase() === '/gymbuilder.apk') await apk(req, res)
+    else if (percorso.startsWith('/api/')) await funzione(req, res, percorso.slice(5).replace(/\/$/, ''))
     else statico(req, res, percorso)
   } catch (e) {
     console.error(new Date().toISOString(), req.method, percorso, e)

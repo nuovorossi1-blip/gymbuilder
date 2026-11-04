@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Capacitor } from '@capacitor/core'
 
-export const APK_URL ='https://github.com/nuovorossi1-blip/gymbuilder/releases/latest/download/GymBuilder.apk'
+// 04/11: dal nostro dominio (server locale); su Vercel /GymBuilder.apk rimanda alla release GitHub.
+export const APK_URL = '/GymBuilder.apk'
 const HIDDEN_KEY = 'gymbuilder.installBannerHidden'
 
 /**

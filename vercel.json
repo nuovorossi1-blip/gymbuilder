@@ -11,5 +11,12 @@
       "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
+  ],
+  "redirects": [
+    {
+      "source": "/GymBuilder.apk",
+      "destination": "https://github.com/nuovorossi1-blip/gymbuilder/releases/latest/download/GymBuilder.apk",
+      "permanent": false
+    }
   ]
 }
