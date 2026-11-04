@@ -29,6 +29,11 @@ export interface CoachEsercizio {
   /** Serie decise dal cliente (04/11): il motivo. Se c'è, l'app non riporta le serie a quelle
    *  dello scheletro (prima il coach diceva "le porto a 3" e l'app le rimetteva a 2). */
   serie_cliente?: string
+  /** Esercizio scelto esplicitamente dal cliente per questo slot (04/11): il motivo. Il controllo
+   *  dello scheletro non lo rimanda più al coach e le sue serie contano per la carenza che copre. */
+  esercizio_cliente?: string
+  /** Muscolo dello slot dello scheletro per un esercizio scelto dal cliente (lo scrive l'app). */
+  muscolo_slot?: Muscle
 }
 
 export interface CoachSeduta {
@@ -81,6 +86,8 @@ export function normalizzaPiano(raw: unknown, catalog: Exercise[]): CoachPlan | 
         tecnica: s(r.tecnica, 120) || undefined,
         sostituzione: s(r.sostituzione, 300) || undefined,
         serie_cliente: s(r.serie_cliente, 300) || undefined,
+        esercizio_cliente: s(r.esercizio_cliente, 300) || undefined,
+        muscolo_slot: typeof r.muscolo_slot === 'string' && r.esercizio_cliente ? (r.muscolo_slot as Muscle) : undefined,
       }
     })
     const split = s(sd.split, 20) as Split
@@ -105,7 +112,9 @@ export function sedutaComeWorkout(sd: CoachSeduta, catalog: Exercise[], cartella
   const byId = new Map(catalog.map((e) => [e.id, e]))
   const main: PrescribedExercise[] = sd.esercizi.map((e) => {
     const ex = byId.get(e.exercise_id)
-    const muscle = ex?.primary_muscles.find((m) => carenze.includes(m)) ?? ex?.primary_muscles[0] ?? null
+    // Esercizio scelto dal cliente (es. chest press nello slot del deltoide anteriore): conta anche
+    // per la carenza che allena come secondario, altrimenti la carenza risulterebbe scoperta.
+    const muscle = ex?.primary_muscles.find((m) => carenze.includes(m)) ?? (e.esercizio_cliente && e.muscolo_slot && ex?.secondary_muscles?.includes(e.muscolo_slot) ? e.muscolo_slot : undefined) ?? ex?.primary_muscles[0] ?? null
     return {
       exercise_id: e.exercise_id,
       name: ex?.name ?? e.nome,

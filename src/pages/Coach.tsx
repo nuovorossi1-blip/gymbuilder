@@ -790,6 +790,17 @@ function Bolla({ m, ultimo, attesa, haPiano, onOpzione, onAccetta, onDomanda, on
               {bloccato ? 'Il coach deve correggere gli errori' : fuoriScheletro.length ? `${etichetta} (salva comunque)` : etichetta}
             </button>
           )}
+          {/* 04/11 (Rossi): una proposta superata da quella dopo (es. la chest press poi rimessa a
+              piegamenti a V dal controllo automatico) si può ancora salvare. */}
+          {!ultimo && meta.piano && !bloccato && (
+            <button
+              className="w-full rounded-xl border border-edge py-2.5 text-xs" disabled={attesa}
+              onClick={() => {
+                const avviso = fuoriScheletro.length ? ` Non segue le tue regole in ${fuoriScheletro.length} punti.` : ''
+                if (confirm(`Salvare questa versione del programma, non l'ultima proposta?${avviso}`)) onAccetta(meta)
+              }}
+            >💾 Salva questa versione</button>
+          )}
           {ultimo && (
             <div className="grid grid-cols-2 gap-2">
               <button className="rounded-xl border border-edge py-2.5 text-xs" onClick={onDomanda}>❓ Ho una domanda / cambio qualcosa</button>

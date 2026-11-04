@@ -251,7 +251,7 @@ export function allineaAlloScheletro(plan: CoachPlan, sch: Scheletro): CoachPlan
       const atteso = sedutaCorrispondente(sd.nome, sch)
       if (!atteso || atteso.slot.length !== sd.esercizi.length) return sd
       // Serie chieste dal cliente ("serie_cliente"): restano le sue; reps e RIR seguono la fase.
-      return { ...sd, esercizi: sd.esercizi.map((e, j) => ({ ...e, serie: e.serie_cliente ? e.serie : atteso.slot[j].serie, reps: atteso.slot[j].reps, rir: atteso.slot[j].rir })) }
+      return { ...sd, esercizi: sd.esercizi.map((e, j) => ({ ...e, serie: e.serie_cliente ? e.serie : atteso.slot[j].serie, reps: atteso.slot[j].reps, rir: atteso.slot[j].rir, ...(e.esercizio_cliente ? { muscolo_slot: atteso.slot[j].muscolo } : {}) })) }
     }),
   }
 }
@@ -290,6 +290,9 @@ export function confrontaConScheletro(plan: CoachPlan, sch: Scheletro, catalog: 
       // distretto, anche con un altro ruolo (shoulder press -> alzate laterali; panca -> croci).
       // Lo slot resta lì con le sue serie: il volume del distretto non cala.
       if ((!muscoloOk || !ruoloOk) && sd.esercizi[j].sostituzione && stessoDistretto(slot.muscolo, ex.primary_muscles)) return
+      // Scelta esplicita del cliente (04/11, Rossi: chest press al posto dei piegamenti a V): vale
+      // se l'esercizio allena il muscolo dello slot almeno come secondario o è dello stesso distretto.
+      if ((!muscoloOk || !ruoloOk) && sd.esercizi[j].esercizio_cliente && (stessoDistretto(slot.muscolo, ex.primary_muscles) || (ex.secondary_muscles ?? []).includes(slot.muscolo))) return
       if (!muscoloOk || !ruoloOk) errori.push(`${atteso.nome}, slot ${j + 1}: serve ${slot.ruolo} per ${MUSCLE_LABELS[slot.muscolo]} (${slot.indicazione}), non ${ex.name}.`)
     })
   }

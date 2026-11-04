@@ -3237,3 +3237,9 @@ Conversazione vera con Nemotron gratuito sul caso spalla: domande sul dolore, sp
   Permessi già presenti: POST_NOTIFICATIONS (chiesto prima del via), VIBRATE, FOREGROUND_SERVICE, WAKE_LOCK.
 - Verifiche: 381/381 test, tsc, eslint, `gradlew assembleDebug` sul PC riuscito (JDK 21).
   NON provato su un telefono vero (serve un allenamento con login).
+
+## 2026-11-04 — Esercizio scelto dal cliente (chest press) — Claude Opus 5.5
+- Problema (chat di Rossi 18:25-18:26 UTC): Rossi chiede la chest press al posto dei piegamenti a V nel Push A (slot multiarticolare deltoide anteriore). Il coach la mette (18:26:30), ma il controllo automatico dell'app (`confrontaConScheletro`, rimandato al coach da Coach.tsx) la rifiuta perché la chest press ha come primario il petto; il coach rimette i piegamenti a V (18:26:47). L'Accetta compariva solo sull'ultima proposta, quindi la versione con la chest press non si poteva più salvare.
+- Fatto: campo `esercizio_cliente` (plan.ts, prompt "ESERCIZIO DEL CLIENTE"): lo slot accetta l'esercizio se allena il muscolo dello slot almeno come secondario o è dello stesso distretto. `allineaAlloScheletro` scrive `muscolo_slot` e `sedutaComeWorkout` conta le serie per quel muscolo (chest press = deltoide anteriore, niente falso "carenza sotto il range"). Modifica scheda: lo scambio a mano in una seduta del coach mette `esercizio_cliente`. Coach.tsx: "💾 Salva questa versione" sulle proposte superate (con conferma).
+- Verifica: 390/390 test (2 nuovi), tsc, eslint, build con VITE_; gym.redapp.dev serve index-CxsoGoLO.js con il pulsante (19:31).
+- Aperto: da provare in chat dall'utente (chiedere di nuovo la chest press oppure salvare la proposta delle 18:26:30 con "Salva questa versione").

@@ -117,7 +117,7 @@ export default function EditScheda() {
   function scegli(e: Exercise) {
     if (!scelta) return
     const nuova: Riga = { exercise_id: e.id, nome: e.name, serie: 3, reps: e.default_reps ?? '10-12', rir: '1', recupero_sec: e.default_rest ?? 90 }
-    setRighe((r) => (scelta.indice === null ? [...r!, nuova] : r!.map((x, j) => (j === scelta.indice ? { ...x, exercise_id: e.id, nome: e.name, originale: undefined } : x))))
+    setRighe((r) => (scelta.indice === null ? [...r!, nuova] : r!.map((x, j) => (j === scelta.indice ? { ...x, exercise_id: e.id, nome: e.name, originale: undefined, ...(iCoach !== null ? { esercizio_cliente: 'scelta del cliente (modifica manuale)' } : {}) } : x))))
     setScelta(null)
   }
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { allineaAlloScheletro, confrontaConScheletro, costruisciScheletro, riempiScheletro } from './scheletro'
 import { violazioniInterleave } from '../../engine/programming'
+import { sedutaComeWorkout } from './plan'
 import type { Exercise, Muscle } from '../../types'
 import catalogo from '../../generators/__tests__/fixtures/exercises.json'
 
@@ -150,5 +151,21 @@ describe('sostituzione per fastidio (03/11)', () => {
   })
   it('fuori dal distretto resta un errore anche con "sostituzione"', () => {
     expect(confrontaConScheletro(conCambio(legPress, 'non ho la macchina'), sch, cat).length).toBeGreaterThan(0)
+  })
+  it('esercizio scelto dal cliente (04/11): chest press nello slot del deltoide anteriore accettata con "esercizio_cliente"', () => {
+    const chest = cat.find((e) => e.primary_muscles[0] === 'chest' && e.roles.includes('compound') && (e.secondary_muscles ?? []).includes('front_delts'))!
+    expect(chest).toBeTruthy()
+    expect(confrontaConScheletro(conCambio(chest), sch, cat).length).toBeGreaterThan(0)
+    const scelto = conCambio(chest)
+    scelto.sedute = scelto.sedute.map((sd) => sd.nome !== 'Push A' ? sd : { ...sd, esercizi: sd.esercizi.map((e, j) => j === idx ? { ...e, esercizio_cliente: 'il cliente non vuole i piegamenti a V' } : e) })
+    expect(confrontaConScheletro(scelto, sch, cat)).toEqual([])
+    // Le sue serie contano per il deltoide anteriore (carenza), non per il petto.
+    const w = sedutaComeWorkout(allineaAlloScheletro(scelto, sch).sedute.find((sd) => sd.nome === 'Push A')!, cat, null, carenzeSpalleBraccia)
+    expect(w.blocks.find((b) => b.kind === 'main')!.exercises[idx].muscle).toBe('front_delts')
+  })
+  it('esercizio scelto dal cliente che non allena il muscolo dello slot resta un errore', () => {
+    const scelto = conCambio(legPress)
+    scelto.sedute = scelto.sedute.map((sd) => sd.nome !== 'Push A' ? sd : { ...sd, esercizi: sd.esercizi.map((e, j) => j === idx ? { ...e, esercizio_cliente: 'voglio la leg press' } : e) })
+    expect(confrontaConScheletro(scelto, sch, cat).length).toBeGreaterThan(0)
   })
 })
