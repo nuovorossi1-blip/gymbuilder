@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Icona a tema (Android 13+): solo la sagoma del manubrio, il colore lo sceglie il telefono. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <group android:scaleX="0.19" android:scaleY="0.19" android:translateX="5.36" android:translateY="5.36">
+        <path android:fillColor="#FFFFFFFF" android:pathData="M92 218h48v76H92zm280 0h48v76h-48zM152 194h42v124h-42zm166 0h42v124h-42zM194 238h124v36H194z"/>
+    </group>
+</vector>

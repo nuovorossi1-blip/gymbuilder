@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Icona GymBuilder (04/11/2026): lo stesso manubrio oro sfumato della schermata d'avvio
+     (public/gymbuilder-icon.svg), su sfondo grafite. Viewport 108 dp, manubrio nella zona sicura. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <group android:scaleX="0.19" android:scaleY="0.19" android:translateX="5.36" android:translateY="5.36">
+        <path android:pathData="M92 218h48v76H92zm280 0h48v76h-48zM152 194h42v124h-42zm166 0h42v124h-42zM194 238h124v36H194z">
+            <aapt:attr name="android:fillColor">
+                <gradient android:type="linear" android:startX="92" android:startY="194" android:endX="420" android:endY="318">
+                    <item android:offset="0" android:color="#FFFFC15E"/>
+                    <item android:offset="0.55" android:color="#FFF5A623"/>
+                    <item android:offset="1" android:color="#FFFF6B6B"/>
+                </gradient>
+            </aapt:attr>
+        </path>
+    </group>
+</vector>
