@@ -91,6 +91,16 @@ describe('scheletro: correzioni del 26/09', () => {
     expect(allineato.sedute[0].esercizi[0].serie).toBe(sch.sedute[0].slot[0].serie)
     expect(confrontaConScheletro(allineato, sch, cat)).toEqual([])
   })
+  it('le serie chieste dal cliente (serie_cliente) restano le sue, reps e RIR seguono lo scheletro (04/11)', () => {
+    const atteso = sch.sedute[0].slot[0]
+    const voluto = atteso.serie + 1
+    const chiesto = { ...piano, sedute: piano.sedute.map((sd, i) => (i === 0 ? { ...sd, esercizi: sd.esercizi.map((e, j) => (j === 0 ? { ...e, serie: voluto, reps: '5', serie_cliente: 'dorso a 3 serie, normocalorica' } : e)) } : sd)) }
+    const allineato = allineaAlloScheletro(chiesto, sch)
+    expect(allineato.sedute[0].esercizi[0].serie).toBe(voluto)
+    expect(allineato.sedute[0].esercizi[0].reps).toBe(atteso.reps)
+    expect(allineato.sedute[0].esercizi[1].serie).toBe(sch.sedute[0].slot[1].serie)
+    expect(confrontaConScheletro(allineato, sch, cat)).toEqual([])
+  })
 })
 
 describe('esercizi da migliorare nello scheletro (26/09)', () => {

@@ -4,7 +4,16 @@
 > da qui. Va **aggiornato** a ogni sessione, non accodato all'infinito.
 > L'identità del progetto e il percorso di AI-OS stanno in `AIOS_PROJECT.json`.
 
-**Ultimo aggiornamento:** 2026-11-02 (grafica standard AI-OS: grafite/oro, Manrope + Barlow Condensed, schermata d'avvio) - Claude (Opus 5.5)
+**Ultimo aggiornamento:** 2026-11-04 (serie decise dal cliente, campo Serie in Modifica scheda, APK da gym.redapp.dev) - Claude (Opus 5.5)
+
+### 2026-11-04 — Serie chieste dal cliente e download dell'APK
+- **Problema (chat di Rossi 04/11 01:17-01:21):** chiede il dorso a 3 serie invece di 2; il coach dice "ho fatto il cambio" ma la scheda resta a 2. Causa: `allineaAlloScheletro` (Coach.tsx) riportava SEMPRE serie/reps/RIR a quelle dello scheletro, quindi qualunque cambio di serie del coach spariva. Poi il coach ha concluso (sbagliando) che "il controllo rifiuta il piano".
+- **Fix:** campo `serie_cliente` (motivo) su CoachEsercizio, conservato da normalizzaPiano; con il campo l'allineamento tiene le serie del piano (reps e RIR seguono ancora la fase). Prompt: sezione SERIE DEL CLIENTE nello scheletro + campo nel FORMATO; "mai dire che hai cambiato le serie senza scriverlo nel piano". Test nuovo in scheletro.test.ts.
+- **Modifica scheda (EditScheda.tsx):** il campo Serie correggeva ogni tasto (svuotato = 1, poi "4" = 14 → 10): ora c'è una bozza di testo e il numero si applica solo se valido. Nelle sedute del coach, le serie cambiate a mano prendono `serie_cliente`, così il coach non le rimette allo scheletro.
+- **Fase calorica:** Rossi ha daily_kcal 2500 = maintenance_kcal 2500 ma weight_trend 'losing': `gradinoCalorie` dà -500 (il peso misurato vince sulla normo dichiarata), quindi scheletro in deficit. Non cambiato: è la regola voluta; se il peso è stabile va messo "stabile" nel Profilo.
+- **APK:** dal telefono il redirect GitHub restava su "download in corso". server-locale/server.mjs serve /GymBuilder.apk (cache in server-locale/apk-cache, ignorata da git, aggiornata dalla release latest ogni 10 min, Content-Length + Range); APK_URL = '/GymBuilder.apk'; vercel.json rimanda a GitHub.
+- **Errore durante il lavoro:** il primo riavvio del server con l'attività pianificata non chiudeva il vecchio node (PID 27248): chiuso quel processo e riavviata l'attività.
+- **Aperto:** Rossi deve confermare download dal telefono e riprovare il cambio serie in chat.
 
 ### 2026-11-02 — Grafica standard AI-OS (solo aspetto)
 

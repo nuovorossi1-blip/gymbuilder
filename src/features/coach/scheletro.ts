@@ -250,7 +250,8 @@ export function allineaAlloScheletro(plan: CoachPlan, sch: Scheletro): CoachPlan
     sedute: plan.sedute.map((sd) => {
       const atteso = sedutaCorrispondente(sd.nome, sch)
       if (!atteso || atteso.slot.length !== sd.esercizi.length) return sd
-      return { ...sd, esercizi: sd.esercizi.map((e, j) => ({ ...e, serie: atteso.slot[j].serie, reps: atteso.slot[j].reps, rir: atteso.slot[j].rir })) }
+      // Serie chieste dal cliente ("serie_cliente"): restano le sue; reps e RIR seguono la fase.
+      return { ...sd, esercizi: sd.esercizi.map((e, j) => ({ ...e, serie: e.serie_cliente ? e.serie : atteso.slot[j].serie, reps: atteso.slot[j].reps, rir: atteso.slot[j].rir })) }
     }),
   }
 }

@@ -26,6 +26,9 @@ export interface CoachEsercizio {
   /** Cambio di slot per fastidio o attrezzo mancante (03/11): il motivo. Lo scheletro accetta
    *  un esercizio dello stesso distretto (es. shoulder press -> alzate laterali). */
   sostituzione?: string
+  /** Serie decise dal cliente (04/11): il motivo. Se c'è, l'app non riporta le serie a quelle
+   *  dello scheletro (prima il coach diceva "le porto a 3" e l'app le rimetteva a 2). */
+  serie_cliente?: string
 }
 
 export interface CoachSeduta {
@@ -77,6 +80,7 @@ export function normalizzaPiano(raw: unknown, catalog: Exercise[]): CoachPlan | 
         alternativa: s(r.alternativa, 120) || undefined,
         tecnica: s(r.tecnica, 120) || undefined,
         sostituzione: s(r.sostituzione, 300) || undefined,
+        serie_cliente: s(r.serie_cliente, 300) || undefined,
       }
     })
     const split = s(sd.split, 20) as Split

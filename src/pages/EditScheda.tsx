@@ -102,6 +102,10 @@ export default function EditScheda() {
   const titolo = salvata?.name ?? (iCoach !== null && piano ? `${piano.plan.sedute[iCoach]?.nome} · ${piano.plan.titolo}` : 'Scheda')
 
   const set = (i: number, p: Partial<Riga>) => setRighe((r) => r!.map((x, j) => (j === i ? { ...x, ...p } : x)))
+  // Testo del campo Serie mentre si scrive; le serie cambiate a mano restano anche quando il
+  // coach rimanda il piano (serie_cliente).
+  const [bozzaSerie, setBozzaSerie] = useState<Record<number, string>>({})
+  const cambiaSerie = (i: number, serie: number) => set(i, { serie, ...(iCoach !== null ? { serie_cliente: 'scelta del cliente (modifica manuale)' } : {}) })
   const sposta = (i: number, d: -1 | 1) => setRighe((r) => {
     const a = [...r!]
     const j = i + d
@@ -193,7 +197,15 @@ export default function EditScheda() {
             </div>
             <div className="mt-2 grid grid-cols-3 gap-2">
               <label className="block"><span className="field-label">Serie</span>
-                <input className="input" inputMode="numeric" value={r.serie} onChange={(e) => set(i, { serie: Math.max(1, Math.min(10, Number(e.target.value) || 1)) })} />
+                {/* 04/11: si può svuotare e riscrivere (prima diventava subito 1, poi 14 → 10). */}
+                <input className="input" inputMode="numeric" value={bozzaSerie[i] ?? String(r.serie)}
+                  onChange={(e) => {
+                    const testo = e.target.value.replace(/D/g, '').slice(0, 2)
+                    setBozzaSerie((b) => ({ ...b, [i]: testo }))
+                    const n = Number(testo)
+                    if (testo && n >= 1) cambiaSerie(i, Math.min(10, n))
+                  }}
+                  onBlur={() => setBozzaSerie((b) => { const c = { ...b }; delete c[i]; return c })} />
               </label>
               <label className="block"><span className="field-label">Ripetizioni</span>
                 <input className="input" value={r.reps} onChange={(e) => set(i, { reps: e.target.value.slice(0, 20) })} />

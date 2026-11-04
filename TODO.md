@@ -1,5 +1,6 @@
 # Todo
 
+- [ ] (04/11) Rossi: riprovare in chat "dorso a 3 serie" (serie_cliente) e il campo Serie in Modifica scheda; confermare il download APK da https://gym.redapp.dev/GymBuilder.apk.
 - [ ] (03/11) Rossi: chiave OpenCode Zen (opencode.ai/auth) nel Profilo e prova GLM-5.3-Flash Free; senza chiave Zen risponde FreeUsageLimitError.
 - [ ] (03/11) Provare nel browser il Coach "preparatore": caso spalla (sostituzione shoulder press), ricerca web con fonti, chat nuova che riprende dalla precedente.
 - [ ] (03/11) Al ritorno su Vercel: TAVILY_API_KEY per la ricerca web del Coach (SearXNG è solo sul PC).
