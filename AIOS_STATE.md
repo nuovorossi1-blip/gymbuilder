@@ -13,6 +13,7 @@
 - **Fase calorica:** Rossi ha daily_kcal 2500 = maintenance_kcal 2500 ma weight_trend 'losing': `gradinoCalorie` dà -500 (il peso misurato vince sulla normo dichiarata), quindi scheletro in deficit. Non cambiato: è la regola voluta; se il peso è stabile va messo "stabile" nel Profilo.
 - **APK:** dal telefono il redirect GitHub restava su "download in corso". server-locale/server.mjs serve /GymBuilder.apk (cache in server-locale/apk-cache, ignorata da git, aggiornata dalla release latest ogni 10 min, Content-Length + Range); APK_URL = '/GymBuilder.apk'; vercel.json rimanda a GitHub.
 - **Errore durante il lavoro:** il primo riavvio del server con l'attività pianificata non chiudeva il vecchio node (PID 27248): chiuso quel processo e riavviata l'attività.
+- **Rampa del volume (secondo giro, 04/11):** Rossi ha messo andamento "stabile" alle 01:26 UTC ma il volume restava in deficit: `rampaVolume` trattava il passaggio -500 -> 0 come un cambio di dieta (7 giorni di attesa). In `determinaFase` le ultime voci di calorie_log con le stesse kcal di oggi prendono il gradino attuale: correzione dei dati = niente rampa; un vero cambio di kcal segue ancora la scala. Test in nutrition.test.ts. Con i suoi dati: fase normocalorica, carenze a 4-5 serie, ma il dorso (mantenimento, tetto 12) resta 2 nel Pull A: le 3 serie arrivano solo con serie_cliente.
 - **Aperto:** Rossi deve confermare download dal telefono e riprovare il cambio serie in chat.
 
 ### 2026-11-02 — Grafica standard AI-OS (solo aspetto)

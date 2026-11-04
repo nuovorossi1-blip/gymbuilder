@@ -77,6 +77,17 @@ describe('la scala (Principio 11 di Rossi, 23/09)', () => {
     expect([2000, 2250, 2500, 2750, 3000, 3250, 3500].map((daily_kcal) => gradinoCalorie({ ...p, daily_kcal }))).toEqual([-500, -250, 0, 250, 500, 750, 1000])
   })
 
+  it('stesse calorie, andamento del peso corretto da "in calo" a "stabile": niente rampa, volume subito in normocalorica (04/11)', () => {
+    const p = { ...base, maintenance_kcal: 2500, daily_kcal: 2500, weight_trend: 'stable' as const }
+    const log = [{ kcal: 2500, maintenance_kcal: 2500, step: -500, created_at: giorno(0) }]
+    const info = determinaFase(p, log, oggi(1))!
+    expect(info.calorie_step).toBe(0)
+    expect(info.training_step).toBe(0)
+    // Un vero cambio di calorie invece segue ancora la rampa.
+    const cambio = [{ kcal: 2000, maintenance_kcal: 2500, step: -500, created_at: giorno(0) }]
+    expect(determinaFase(p, cambio, oggi(1))!.training_step).toBe(-500)
+  })
+
   it('salto 2000 -> 3000 in un giorno: il volume sale un gradino a settimana, dopo 7 giorni', () => {
     const log = [
       { kcal: 2000, maintenance_kcal: 2500, step: -500, created_at: giorno(0) },

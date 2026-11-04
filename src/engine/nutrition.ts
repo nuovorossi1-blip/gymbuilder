@@ -217,7 +217,14 @@ export function determinaFase(profile: Profile | null | undefined, log: CalorieL
   if (calorieStep === null) return null
   const normo = normocaloricaEffettiva(profile)
   const kcal = profile.daily_kcal ?? null
-  const ramp = rampaVolume(calorieStep, log, now)
+  // 04/11 (Rossi): se le calorie sono rimaste le stesse e cambia solo il gradino (andamento del
+  // peso corretto da "in calo" a "stabile", normocalorica corretta), non è un cambio di dieta ma
+  // una correzione dei dati: il periodo a queste calorie prende il gradino giusto, senza rampa.
+  const ordinato = [...log].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+  let coda = ordinato.length
+  while (kcal && coda > 0 && ordinato[coda - 1].kcal === kcal) coda--
+  const logCorretto = ordinato.map((e, i) => (i >= coda ? { ...e, step: calorieStep } : e))
+  const ramp = rampaVolume(calorieStep, logCorretto, now)
   const limited = recuperoLimitato(profile)
   const trainingStep = (limited ? Math.max(-500, ramp.volume_step - 250) : ramp.volume_step) as CalorieStep
   const phase = stepToPhase(calorieStep)
