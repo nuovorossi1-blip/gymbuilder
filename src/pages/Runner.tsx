@@ -1103,14 +1103,17 @@ export default function Runner() {
     const prossimo = fase.serie < es.sets ? es : esercizi[fase.iEs + 1]
     const prossimaSerie = fase.serie < es.sets ? fase.serie + 1 : 1
     return (
-      <div className="px-5 pt-16 pb-8 min-h-dvh flex flex-col">
-        <div className="flex items-center justify-between">
+      // 04/11 (Rossi): tutto in una schermata, i pulsanti mai sotto la barra di Android;
+      // se il contenuto non ci sta scorre solo la parte centrale.
+      <div className="px-5 pt-[max(1.25rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] h-dvh flex flex-col overflow-hidden">
+        <div className="flex shrink-0 items-center justify-between">
           <button className="font-data text-[11px] uppercase tracking-[0.14em] text-slate2" onClick={tornaIndietro}>← Indietro</button>
           <p className="eyebrow">Recupero</p>
           <button className="font-data text-[11px] uppercase tracking-[0.14em] text-red-300" onClick={interrompiAllenamento}>Stop</button>
         </div>
-        <WorkoutClock inizioRef={inizio} estimateMin={workout?.duration_min} className="mt-4" />
-        <p className="mt-8 text-center font-data text-[5.5rem] leading-none tabular-nums text-amber2">
+        <WorkoutClock inizioRef={inizio} estimateMin={workout?.duration_min} className="mt-3 shrink-0" />
+        <div className="-mx-5 min-h-0 flex-1 overflow-y-auto px-5">
+        <p className="mt-6 text-center font-data text-[5rem] leading-none tabular-nums text-amber2">
           {String(Math.floor(rimanente / 60))}:{String(rimanente % 60).padStart(2, '0')}
         </p>
 
@@ -1129,18 +1132,26 @@ export default function Runner() {
           </div>
         )}
 
-        <div className="slab mt-12">
+        <div className="slab mt-6">
           <p className="eyebrow mb-2">Poi tocca a</p>
           <p className="text-[16px] font-medium">{prossimo.name}</p>
           <p className="mt-1 font-data text-[13px] text-slate2">
             serie {prossimaSerie} di {prossimo.sets} · {prossimo.reps} ripetizioni
           </p>
+          {/* 04/11 (Rossi): durante il recupero si legge sempre come si esegue l'esercizio che
+              viene dopo: la nota del coach (presa, gomiti) oppure la descrizione del catalogo. */}
+          {prossimo.coach_nota ? (
+            <p className="mt-3 whitespace-pre-line rounded-xl border border-amber-400/40 bg-amber-400/10 px-3 py-2 text-[13px] leading-relaxed text-chalk"><span className="font-bold text-amber2">Come si fa: </span>{prossimo.coach_nota}</p>
+          ) : prossimo.instructions ? (
+            <p className="mt-3 text-[13px] leading-relaxed text-slate2"><span className="font-bold text-chalk">Come si fa: </span>{prossimo.instructions}</p>
+          ) : null}
+        </div>
         </div>
 
-        <div className="mt-auto space-y-2.5 pt-10">
+        <div className="shrink-0 space-y-2 pt-3">
           <button className="btn !py-4" onClick={avanza}>Salta il recupero</button>
           <button
-            className="w-full rounded-xl border border-edge py-3.5 font-data text-[11px] uppercase tracking-[0.14em] text-slate2 active:bg-steel"
+            className="w-full rounded-xl border border-edge py-3 font-data text-[11px] uppercase tracking-[0.14em] text-slate2 active:bg-steel"
             onClick={toggleRestPause}
           >
             {inPausa ? 'Riprendi' : 'Pausa'}
@@ -1158,21 +1169,21 @@ export default function Runner() {
 
   // — Serie in corso —
   return (
-    <div className="px-5 pt-12 pb-8 min-h-dvh flex flex-col">
-      <div className="flex items-baseline justify-between">
+    <div className="px-5 pt-[max(1.25rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] h-dvh flex flex-col overflow-hidden">
+      <div className="flex shrink-0 items-baseline justify-between">
         <button className="font-data text-[11px] uppercase tracking-[0.14em] text-slate2" onClick={tornaIndietro}>← Indietro</button>
         <p className="eyebrow">Esercizio {fase.iEs + 1} di {esercizi.length}</p>
         <button className="font-data text-[11px] uppercase tracking-[0.14em] text-red-300" onClick={interrompiAllenamento}>Stop</button>
       </div>
 
       {/* Barra di avanzamento */}
-      <div className="mt-3 flex gap-1" aria-hidden>
+      <div className="mt-3 flex shrink-0 gap-1" aria-hidden>
         {esercizi.map((_, i) => (
           <span key={i} className={`h-[3px] flex-1 rounded-full ${i < fase.iEs ? 'bg-chalk' : i === fase.iEs ? 'bg-amber2' : 'bg-edge'}`} />
         ))}
       </div>
 
-      <div className="mt-3 flex items-center justify-between gap-3">
+      <div className="mt-3 flex shrink-0 items-center justify-between gap-3">
         <WorkoutClock inizioRef={inizio} estimateMin={workout?.duration_min} className="flex-1" />
         <button
           className="whitespace-nowrap font-data text-[10px] uppercase tracking-[0.12em] text-slate2 underline decoration-dotted"
@@ -1182,7 +1193,8 @@ export default function Runner() {
         </button>
       </div>
 
-      <h1 className="mt-9 font-display font-extrabold uppercase leading-[0.95] tracking-tight text-[2.1rem]">
+      <div className="-mx-5 min-h-0 flex-1 overflow-y-auto px-5">
+      <h1 className="mt-5 font-display font-extrabold uppercase leading-[0.95] tracking-tight text-[1.9rem]">
         {es.name}
       </h1>
       {(es.muscle || isLaggingNote(es.note) || es.note === 'avvicinamento' || es.note === 'top_set' || es.note === 'back_off' || es.note === 'fst7_finisher') && (
@@ -1218,9 +1230,11 @@ export default function Runner() {
       {es.coach_nota && (
         <p className="mt-3 whitespace-pre-line rounded-xl border border-amber-400/40 bg-amber-400/10 px-3 py-2.5 text-[14px] leading-relaxed text-chalk"><span className="font-bold text-amber2">Dal coach: </span>{es.coach_nota}</p>
       )}
-      {es.instructions && <p className="mt-2 text-[13px] text-slate2 leading-relaxed">{es.instructions}</p>}
+      {es.instructions && (es.coach_nota
+        ? <details className="mt-2 text-[13px] text-slate2"><summary className="cursor-pointer">Descrizione dell'esercizio</summary><p className="mt-1 leading-relaxed">{es.instructions}</p></details>
+        : <p className="mt-2 text-[13px] text-slate2 leading-relaxed">{es.instructions}</p>)}
 
-      <label className="mt-5 block">
+      <label className="mt-4 block">
         <span className="eyebrow mb-1.5 block">Peso usato (kg)</span>
         <input
           type="number"
@@ -1252,24 +1266,26 @@ export default function Runner() {
         </label>
       )}
 
-      <div className="mt-12 text-center">
-        <p className="eyebrow mb-3">Serie</p>
-        <p className="font-data text-[4.5rem] leading-none tabular-nums">
+      <div className="mt-6 pb-2 text-center">
+        <p className="eyebrow mb-2">Serie</p>
+        <p className="font-data text-[3.75rem] leading-none tabular-nums">
           {fase.serie}<span className="text-slate2 text-[2rem]">/{es.sets}</span>
         </p>
-        <p className="mt-6 font-data text-2xl">{es.reps} <span className="text-slate2 text-base">ripetizioni</span></p>
+        <p className="mt-3 font-data text-2xl">{es.reps} <span className="text-slate2 text-base">ripetizioni</span></p>
         {es.rir && <p className="mt-2 font-data text-base text-chalk">RIR {es.rir} <span className="text-slate2 text-sm">· ripetizioni lasciate in riserva</span></p>}
         {es.technique && fase.serie === es.sets && <p className="mt-2 text-sm text-amber2">{es.technique}</p>}
         {/* Nessun sensore collegato: architettura predisposta (sez. 55-58), mai un valore inventato. */}
-        <p className="mt-5 flex items-center justify-center gap-4 font-data text-[12px] text-slate2">
+        <p className="mt-3 flex items-center justify-center gap-4 font-data text-[12px] text-slate2">
           <span>♡ FC non disponibile</span>
           {!!es.est_kcal && <span>~{es.est_kcal} kcal stimate</span>}
         </p>
       </div>
 
-      <div className="mt-auto pt-10">
+      </div>
+
+      <div className="shrink-0 pt-3">
         <button
-          className="mb-2.5 w-full rounded-xl border border-edge py-3.5 font-data text-[11px] uppercase tracking-[0.14em] text-slate2 active:bg-steel"
+          className="mb-2 w-full rounded-xl border border-edge py-3 font-data text-[11px] uppercase tracking-[0.14em] text-slate2 active:bg-steel"
           onClick={() => setInPausa((value) => !value)}
         >
           {inPausa ? 'Riprendi allenamento' : 'Pausa allenamento'}

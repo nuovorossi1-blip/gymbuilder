@@ -13,6 +13,9 @@ const config: CapacitorConfig = {
   },
   android: {
     allowMixedContent: false,
+    // 04/11 (Rossi): con Android 15 l'app finiva sotto la barra dei pulsanti di sistema e
+    // copriva "Correggi" e "Serie completata": la WebView ora lascia lo spazio delle barre.
+    adjustMarginsForEdgeToEdge: 'auto',
   },
 }
 
