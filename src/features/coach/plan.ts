@@ -83,7 +83,7 @@ export function normalizzaPiano(raw: unknown, catalog: Exercise[]): CoachPlan | 
         reps: s(r.reps, 20) || '8-12',
         rir: s(r.rir, 10),
         recupero_sec: Math.max(0, Math.min(300, Math.round(n(r.recupero_sec, 90)!))),
-        nota: s(r.nota) || undefined,
+        nota: s(r.nota, 800) || undefined,
         alternativa: s(r.alternativa, 120) || undefined,
         tecnica: s(r.tecnica, 120) || undefined,
         sostituzione: s(r.sostituzione, 300) || undefined,
@@ -132,6 +132,7 @@ export function sedutaComeWorkout(sd: CoachSeduta, catalog: Exercise[], cartella
       // Esercizio da migliorare (26/09): nell'allenamento si segnano le ripetizioni pulite.
       prestazione: cartella?.esercizi_da_migliorare.some((x) => x.exercise_id === e.exercise_id) || undefined,
       instructions: ex?.instructions || undefined,
+      coach_nota: e.nota || undefined,
     }
   })
   const risc = cartella?.riscaldamento ?? { descrizione: 'Riscaldamento generale', minuti: 8 }

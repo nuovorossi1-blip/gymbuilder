@@ -177,7 +177,7 @@ export default function WorkoutPreview() {
     const blocks = displayed.blocks.map((block, index) => index !== blockIndex ? block : {
       ...block, exercises: block.exercises.map((exercise, itemIndex) => itemIndex !== exerciseIndex ? exercise : {
         ...exercise, exercise_id: replacement.id, name: replacement.name,
-        muscle: replacement.primary_muscles[0] ?? null, instructions: replacement.instructions,
+        muscle: replacement.primary_muscles[0] ?? null, instructions: replacement.instructions, coach_nota: undefined,
       }),
     })
     const excluded = permanent || reason === 'discomfort' ? [...new Set([...cfg.preferences.excluded_exercise_ids, original.id])] : cfg.preferences.excluded_exercise_ids
@@ -347,6 +347,9 @@ export default function WorkoutPreview() {
                       </span>
                     )}
                   </p>
+                )}
+{e.coach_nota && (
+                  <p className="mt-2 ml-7 whitespace-pre-line rounded-xl border border-amber-400/40 bg-amber-400/10 px-3 py-2 text-[12px] leading-relaxed text-chalk"><span className="font-bold text-amber2">Dal coach: </span>{e.coach_nota}</p>
                 )}
                 {e.instructions && (
                   <p className="mt-1.5 pl-7 text-[12px] text-slate2 leading-relaxed">{e.instructions}</p>

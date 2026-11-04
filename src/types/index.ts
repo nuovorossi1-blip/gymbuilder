@@ -127,6 +127,8 @@ export interface PrescribedExercise {
   rest_sec: number
   note?: string
   instructions?: string
+  /** 04/11: cosa ha detto il coach per questo esercizio (perché, presa, gomiti, esecuzione). */
+  coach_nota?: string
   /** Calorie attive stimate per l'intero esercizio (sez. 60): mai "esatte". */
   est_kcal?: number
   /** Peso usato dall'utente per questo esercizio (kg), inserito a mano durante l'allenamento —

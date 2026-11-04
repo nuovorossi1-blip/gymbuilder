@@ -1215,6 +1215,9 @@ export default function Runner() {
           )}
         </p>
       )}
+      {es.coach_nota && (
+        <p className="mt-3 whitespace-pre-line rounded-xl border border-amber-400/40 bg-amber-400/10 px-3 py-2.5 text-[14px] leading-relaxed text-chalk"><span className="font-bold text-amber2">Dal coach: </span>{es.coach_nota}</p>
+      )}
       {es.instructions && <p className="mt-2 text-[13px] text-slate2 leading-relaxed">{es.instructions}</p>}
 
       <label className="mt-5 block">
