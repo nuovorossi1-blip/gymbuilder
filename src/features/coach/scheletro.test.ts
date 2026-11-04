@@ -163,6 +163,13 @@ describe('sostituzione per fastidio (03/11)', () => {
     const w = sedutaComeWorkout(allineaAlloScheletro(scelto, sch).sedute.find((sd) => sd.nome === 'Push A')!, cat, null, carenzeSpalleBraccia)
     expect(w.blocks.find((b) => b.kind === 'main')!.exercises[idx].muscle).toBe('front_delts')
   })
+  it('esercizio in più chiesto dal cliente (aggiunto_cliente) non sposta gli slot (04/11)', () => {
+    const add = cat.find((e) => e.primary_muscles[0] === 'adductors') ?? legPress
+    const conExtra = { ...pieno, sedute: pieno.sedute.map((sd) => sd.nome !== 'Push A' ? sd : { ...sd, esercizi: [...sd.esercizi, { exercise_id: add.id, nome: add.name, serie: 3, reps: '12-15', rir: '1', recupero_sec: 60, nota: 'chiesto dal cliente', aggiunto_cliente: 'interno coscia debole' }] }) }
+    expect(confrontaConScheletro(conExtra, sch, cat)).toEqual([])
+    const al = allineaAlloScheletro(conExtra, sch).sedute.find((sd) => sd.nome === 'Push A')!
+    expect(al.esercizi[al.esercizi.length - 1]).toMatchObject({ exercise_id: add.id, serie: 3, reps: '12-15' })
+  })
   it('esercizio scelto dal cliente che non allena il muscolo dello slot resta un errore', () => {
     const scelto = conCambio(legPress)
     scelto.sedute = scelto.sedute.map((sd) => sd.nome !== 'Push A' ? sd : { ...sd, esercizi: sd.esercizi.map((e, j) => j === idx ? { ...e, esercizio_cliente: 'voglio la leg press' } : e) })

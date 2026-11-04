@@ -34,6 +34,8 @@ export interface CoachEsercizio {
   esercizio_cliente?: string
   /** Muscolo dello slot dello scheletro per un esercizio scelto dal cliente (lo scrive l'app). */
   muscolo_slot?: Muscle
+  /** Esercizio in più chiesto dal cliente, fuori dagli slot dello scheletro (04/11): il motivo. */
+  aggiunto_cliente?: string
 }
 
 export interface CoachSeduta {
@@ -87,6 +89,7 @@ export function normalizzaPiano(raw: unknown, catalog: Exercise[]): CoachPlan | 
         sostituzione: s(r.sostituzione, 300) || undefined,
         serie_cliente: s(r.serie_cliente, 300) || undefined,
         esercizio_cliente: s(r.esercizio_cliente, 300) || undefined,
+        aggiunto_cliente: s(r.aggiunto_cliente, 300) || undefined,
         muscolo_slot: typeof r.muscolo_slot === 'string' && r.esercizio_cliente ? (r.muscolo_slot as Muscle) : undefined,
       }
     })

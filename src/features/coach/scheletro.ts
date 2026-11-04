@@ -249,9 +249,12 @@ export function allineaAlloScheletro(plan: CoachPlan, sch: Scheletro): CoachPlan
     ...plan,
     sedute: plan.sedute.map((sd) => {
       const atteso = sedutaCorrispondente(sd.nome, sch)
-      if (!atteso || atteso.slot.length !== sd.esercizi.length) return sd
+      // Gli esercizi aggiunti dal cliente ("aggiunto_cliente") non occupano slot e restano com'erano.
+      const base = sd.esercizi.filter((e) => !e.aggiunto_cliente)
+      if (!atteso || atteso.slot.length !== base.length) return sd
+      let k = 0
       // Serie chieste dal cliente ("serie_cliente"): restano le sue; reps e RIR seguono la fase.
-      return { ...sd, esercizi: sd.esercizi.map((e, j) => ({ ...e, serie: e.serie_cliente ? e.serie : atteso.slot[j].serie, reps: atteso.slot[j].reps, rir: atteso.slot[j].rir, ...(e.esercizio_cliente ? { muscolo_slot: atteso.slot[j].muscolo } : {}) })) }
+      return { ...sd, esercizi: sd.esercizi.map((e) => e.aggiunto_cliente ? e : ((j) => ({ ...e, serie: e.serie_cliente ? e.serie : atteso.slot[j].serie, reps: atteso.slot[j].reps, rir: atteso.slot[j].rir, ...(e.esercizio_cliente ? { muscolo_slot: atteso.slot[j].muscolo } : {}) }))(k++)) }
     }),
   }
 }
@@ -273,12 +276,13 @@ export function confrontaConScheletro(plan: CoachPlan, sch: Scheletro, catalog: 
   for (const sd of plan.sedute) {
     const atteso = sedutaCorrispondente(sd.nome, sch)
     if (!atteso) continue
-    if (sd.esercizi.length !== atteso.slot.length) {
-      errori.push(`${atteso.nome}: servono ${atteso.slot.length} esercizi nell'ordine dello scheletro, non ${sd.esercizi.length}.`)
+    const esercizi = sd.esercizi.filter((e) => !e.aggiunto_cliente)
+    if (esercizi.length !== atteso.slot.length) {
+      errori.push(`${atteso.nome}: servono ${atteso.slot.length} esercizi nell'ordine dello scheletro, non ${esercizi.length}.`)
       continue
     }
     atteso.slot.forEach((slot, j) => {
-      const ex = byId.get(sd.esercizi[j].exercise_id)
+      const ex = byId.get(esercizi[j].exercise_id)
       if (!ex) return // già segnalato da controllaPiano
       if (slot.exercise_id) {
         if (ex.id !== slot.exercise_id) errori.push(`${atteso.nome}, slot ${j + 1}: deve essere ${slot.indicazione.split(' — ')[0]} (esercizio da migliorare), non ${ex.name}.`)
@@ -289,10 +293,10 @@ export function confrontaConScheletro(plan: CoachPlan, sch: Scheletro, catalog: 
       // Sostituzione per fastidio o attrezzo mancante (03/11): vale un esercizio dello stesso
       // distretto, anche con un altro ruolo (shoulder press -> alzate laterali; panca -> croci).
       // Lo slot resta lì con le sue serie: il volume del distretto non cala.
-      if ((!muscoloOk || !ruoloOk) && sd.esercizi[j].sostituzione && stessoDistretto(slot.muscolo, ex.primary_muscles)) return
+      if ((!muscoloOk || !ruoloOk) && esercizi[j].sostituzione && stessoDistretto(slot.muscolo, ex.primary_muscles)) return
       // Scelta esplicita del cliente (04/11, Rossi: chest press al posto dei piegamenti a V): vale
       // se l'esercizio allena il muscolo dello slot almeno come secondario o è dello stesso distretto.
-      if ((!muscoloOk || !ruoloOk) && sd.esercizi[j].esercizio_cliente && (stessoDistretto(slot.muscolo, ex.primary_muscles) || (ex.secondary_muscles ?? []).includes(slot.muscolo))) return
+      if ((!muscoloOk || !ruoloOk) && esercizi[j].esercizio_cliente && (stessoDistretto(slot.muscolo, ex.primary_muscles) || (ex.secondary_muscles ?? []).includes(slot.muscolo))) return
       if (!muscoloOk || !ruoloOk) errori.push(`${atteso.nome}, slot ${j + 1}: serve ${slot.ruolo} per ${MUSCLE_LABELS[slot.muscolo]} (${slot.indicazione}), non ${ex.name}.`)
     })
   }

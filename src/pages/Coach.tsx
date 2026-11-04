@@ -349,7 +349,14 @@ export default function Coach() {
       // Esercizi con un attrezzo che il cliente non vuole (anche se lo ha appena detto): via.
       const conEsclusi = plan ? plan.sedute.flatMap((sd) => sd.esercizi.filter((e) => { const ex = byId.get(e.exercise_id); return ex && usaAttrezzoEscluso(ex, cartellaAggiornata.attrezzi_esclusi) }).map((e) => `${sd.nome}: ${e.nome}`)) : []
       const erroriAttrezzi = conEsclusi.length ? [`Il cliente non vuole esercizi con: ${cartellaAggiornata.attrezzi_esclusi.join(', ')}. Sostituisci ${conEsclusi.join('; ')} con esercizi del catalogo senza quegli attrezzi.`] : []
-      const daCorreggere = esito ? [...esito.errori, ...erroriScheletro, ...erroriAttrezzi, ...esito.avvisi.filter((a) => a.includes('(carenza)') && a.includes('sotto il range'))] : []
+      // 04/11 (Rossi): "se stiamo ragionando e gli ho detto io una cosa, non deve autocorreggersi".
+      // In chat le differenze dallo scheletro e il volume restano solo segnalate (il coach aggiunge
+      // una "Nota del coach" se la soluzione di prima era migliore); si rimandano solo gli esercizi
+      // che l'app non conosce. Nel primo colloquio e nel controllo il coach costruisce da solo: lì
+      // la correzione automatica resta.
+      const daCorreggere = !esito ? [] : kind === 'chat'
+        ? esito.errori.filter((e) => e.includes('non presenti nel catalogo'))
+        : [...esito.errori, ...erroriScheletro, ...erroriAttrezzi, ...esito.avvisi.filter((a) => a.includes('(carenza)') && a.includes('sotto il range'))]
       if (plan && daCorreggere.length && !tentativo) {
         await invia(kind, `Il controllo dell'app sul piano ha trovato: ${daCorreggere.join(' ')} Correggi (le carenze devono stare nel loro range di serie a settimana) e rimanda il piano intero, spiegando cosa hai cambiato.`, true, true, [...base, mio, suo], t)
       }
