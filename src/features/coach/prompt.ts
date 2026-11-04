@@ -9,7 +9,8 @@ import type { Exercise, Profile } from '../../types'
 import type { PhaseInfo } from '../../engine/nutrition'
 
 export const FORMATO_RISPOSTA = `Rispondi SEMPRE e SOLO con un JSON object:
-{"messaggio":"testo per il cliente, in italiano semplice","opzioni":["risposte rapide, massimo 5, facoltative"],"categoria":1,"aggiorna_cartella":null,"piano":null,"calorie":null,"controllo":null,"ricerca_web":null}
+{"messaggio":"testo per il cliente, in italiano semplice","opzioni":["risposte rapide, massimo 5, facoltative"],"categoria":1,"aggiorna_cartella":null,"piano":null,"calorie":null,"controllo":null,"ricerca_web":null,"aggiorna_profilo":null}
+- "aggiorna_profilo": quando il cliente ti dice quanto mangia, com'è andato il peso o il girovita, salva SUBITO i dati e la fase che ne deduci: {"calorie":2500,"normocalorica":2500,"andamento_peso":"losing|stable|gaining","peso_kg":84,"girovita_cm":94} (solo i campi che sai). Come leggere i dati: calorie di oggi e peso fermo (±1 kg in 2-3 settimane) = quelle calorie SONO la normocalorica, andamento "stable"; peso salito ma girovita uguale (es. +2 kg, girovita sempre 94 cm) = non è grasso ma muscolo, acqua o glicogeno: andamento "stable" e normocalorica = calorie attuali (sei in normocalorica, ricomposizione); peso e girovita in salita = "gaining" (surplus); peso e girovita in discesa = "losing" (deficit). Il girovita conta più della bilancia. Nel messaggio di' in una riga cosa hai capito e salvato (es. "Sei in normocalorica a 2500 kcal: +2 kg con girovita fermo a 94 cm è massa magra, non grasso"). La fase nuova cambia lo scheletro (serie e volume) dal messaggio successivo: in questa risposta non mandare il piano, offri in "opzioni" di rifarlo con la fase nuova.
 - "ricerca_web": quando ti serve una conferma dal web (alternative a un esercizio per un dolore preciso, una tecnica, uno studio) scrivi qui UNA ricerca breve, meglio in inglese (es. "shoulder press alternative shoulder pain elbows flared"), e nel messaggio di' solo che stai controllando. L'app fa la ricerca e ti rimanda i risultati: allora rispondi usandoli e cita 1-3 fonti (nome del sito). Al massimo una ricerca per risposta; se hai già i risultati non chiederne un'altra.
 - "sostituzione" (dentro un esercizio del piano): quando uno slot dello scheletro non va bene per un fastidio o un attrezzo mancante, metti un esercizio dello stesso distretto (es. slot shoulder press -> alzate laterali al cavo, oppure reverse pec deck) e scrivi qui il motivo (es. "dolore alla spalla sinistra nella spinta sopra la testa"). Serie, reps e RIR restano quelli dello slot.
 - "aggiorna_cartella": quando il cliente ti dà un'informazione da conservare, metti SOLO i campi della cartella da aggiornare, con la stessa forma della cartella che ricevi (es. {"carenze":[{"muscolo":"lateral_delts","note":"..."}]}). Le liste che mandi SOSTITUISCONO quelle esistenti: rimanda la lista completa. Non toccare "controlli".
@@ -171,6 +172,25 @@ export interface RispostaCoach {
   controllo: Record<string, unknown> | null
   /** Ricerca web chiesta dal coach (03/11): l'app la fa e gli rimanda i risultati. */
   ricerca_web: string | null
+  /** Dati del cliente detti in chat (04/11): calorie, normocalorica, andamento, peso, girovita. */
+  aggiorna_profilo: AggiornaProfilo | null
+}
+
+export interface AggiornaProfilo { calorie?: number; normocalorica?: number; andamento_peso?: 'losing' | 'stable' | 'gaining'; peso_kg?: number; girovita_cm?: number }
+
+function leggiAggiornaProfilo(raw: unknown): AggiornaProfilo | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
+  const o = raw as Record<string, unknown>
+  const num = (v: unknown, min: number, max: number) => { const n = typeof v === 'number' ? v : Number(String(v ?? '').replace(',', '.')); return Number.isFinite(n) && n >= min && n <= max ? n : undefined }
+  const a = String(o.andamento_peso ?? '').toLowerCase()
+  const andamento = a === 'losing' || a === 'stable' || a === 'gaining' ? a : undefined
+  const r: AggiornaProfilo = {
+    calorie: num(o.calorie, 800, 8000), normocalorica: num(o.normocalorica, 800, 8000), andamento_peso: andamento,
+    peso_kg: num(o.peso_kg, 30, 300), girovita_cm: num(o.girovita_cm, 40, 200),
+  }
+  if (r.calorie) r.calorie = Math.round(r.calorie)
+  if (r.normocalorica) r.normocalorica = Math.round(r.normocalorica)
+  return Object.values(r).some((v) => v !== undefined) ? r : null
 }
 
 const CHIAVI_TESTO = ['messaggio', 'message', 'risposta', 'testo', 'text', 'reply', 'answer', 'content', 'output']
@@ -223,6 +243,7 @@ export function leggiRispostaCoach(grezza: Record<string, unknown>): RispostaCoa
     calorie,
     controllo,
     ricerca_web: typeof raw.ricerca_web === 'string' && raw.ricerca_web.trim().length >= 3 ? raw.ricerca_web.trim().slice(0, 200) : null,
+    aggiorna_profilo: leggiAggiornaProfilo(raw.aggiorna_profilo),
   }
 }
 

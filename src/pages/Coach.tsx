@@ -24,7 +24,7 @@ import { determinaFase, escludiPerFastidi, patchCambioCalorie } from '../engine/
 import { analizzaStallo, gradinoDiOggi, nomeCiclo } from '../engine/stallo'
 import { progressiEsercizio, riassuntoProgressi } from '../engine/prestazioni'
 import { isExerciseAvailable } from '../generators/equipment'
-import { MUSCLE_LABELS, type CompletedWorkout, type Exercise } from '../types'
+import { MUSCLE_LABELS, type CompletedWorkout, type Exercise, type Profile } from '../types'
 import { Markdown } from '../components/Markdown'
 import { logJsError } from '../lib/jsErrorLog'
 import { BackButton } from '../components/BackButton'
@@ -111,7 +111,7 @@ export default function Coach() {
   const navigate = useNavigate()
   const location = useLocation()
   const { user } = useAuth()
-  const { profile, calorieLog, bodyLog, settings, saveProfile } = useSettings(user?.id)
+  const { profile, calorieLog, bodyLog, settings, saveProfile, addBodyEntry } = useSettings(user?.id)
   const { cartella, salva: salvaCartella } = useCartella(user?.id)
   const { messaggi, piano, versioni, aggiungi, eliminaMessaggi, eliminaPiano, eliminaConversazione, cancellaConversazione, accettaPiano, impostaProssima } = useCoach(user?.id)
   const { catalog: ctxCatalog, setCatalog, setWorkout, setGenerationConfig } = useWorkout()
@@ -294,6 +294,18 @@ export default function Coach() {
       }
       const cartellaAggiornata = risposta.aggiorna_cartella ? unisciCartella(cartella, risposta.aggiorna_cartella, catalogo) : cartella
       if (risposta.aggiorna_cartella) await salvaCartella(cartellaAggiornata)
+      // 04/11 (Rossi): "mangio 2500, +2 kg ma girovita fermo a 94" -> il coach salva calorie,
+      // normocalorica e andamento del peso; peso e girovita vanno anche nel diario.
+      const ap = risposta.aggiorna_profilo
+      if (ap && profile) {
+        const patch: Partial<Profile> = {}
+        if (ap.calorie) patch.daily_kcal = ap.calorie
+        if (ap.normocalorica) patch.maintenance_kcal = ap.normocalorica
+        if (ap.andamento_peso) patch.weight_trend = ap.andamento_peso
+        if (ap.peso_kg) patch.weight_kg = ap.peso_kg
+        if (Object.keys(patch).length) await saveProfile(patch)
+        if (ap.peso_kg || ap.girovita_cm) await addBodyEntry({ weight_kg: ap.peso_kg ?? Number(profile.weight_kg), waist_cm: ap.girovita_cm ?? null, feels_flat: false })
+      }
       const byId = new Map(catalogo.map((e) => [e.id, e]))
       // Serie, ripetizioni e RIR li decide lo scheletro: l'app li allinea da sola (26/09).
       const grezzo = risposta.piano ? normalizzaPiano(risposta.piano, catalogo) : null
@@ -307,7 +319,7 @@ export default function Coach() {
       const suo = await aggiungi({
         role: 'coach', kind, content: risposta.messaggio, thread_id: t,
         // Inizio della risposta grezza del modello: serve a capire i casi strani senza chiedere a Rossi.
-        meta: { opzioni: risposta.opzioni, categoria: risposta.categoria, piano: plan, esito, erroriScheletro, differenze, calorie: risposta.calorie, controllo: risposta.controllo, grezzo: String(grezza._testo_originale ?? '').slice(0, 800) },
+        meta: { opzioni: risposta.opzioni, categoria: risposta.categoria, piano: plan, esito, erroriScheletro, differenze, calorie: risposta.calorie, controllo: risposta.controllo, aggiornaProfilo: risposta.aggiorna_profilo, grezzo: String(grezza._testo_originale ?? '').slice(0, 800) },
       })
       // Ricerca web chiesta dal coach (03/11): l'app la fa e gli rimanda i risultati, una volta.
       if (risposta.ricerca_web && !dopoRicerca && !contenuto.startsWith(PREFISSO_RICERCA)) {

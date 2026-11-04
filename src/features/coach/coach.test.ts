@@ -229,3 +229,18 @@ describe('scheda nuda (DeepSeek, 03/11)', () => {
     expect(r.messaggio).toContain('Ecco la tua scheda')
   })
 })
+
+describe('Coach: dati del cliente detti in chat (04/11)', () => {
+  it('legge aggiorna_profilo: 2500 kcal, +2 kg ma girovita fermo = normocalorica stabile', () => {
+    const r = leggiRispostaCoach({ messaggio: 'Sei in normocalorica.', aggiorna_profilo: { calorie: 2500, normocalorica: '2500', andamento_peso: 'stable', peso_kg: '84,5', girovita_cm: 94 } })
+    expect(r.aggiorna_profilo).toEqual({ calorie: 2500, normocalorica: 2500, andamento_peso: 'stable', peso_kg: 84.5, girovita_cm: 94 })
+  })
+  it('scarta valori assurdi e andamenti sconosciuti', () => {
+    expect(leggiRispostaCoach({ messaggio: 'ok', aggiorna_profilo: { calorie: 50, andamento_peso: 'boh' } }).aggiorna_profilo).toBeNull()
+    expect(leggiRispostaCoach({ messaggio: 'ok' }).aggiorna_profilo).toBeNull()
+  })
+  it('il prompt spiega che il girovita conta più della bilancia', () => {
+    expect(promptSistema('chat', true)).toContain('aggiorna_profilo')
+    expect(promptSistema('chat', true)).toContain('girovita conta più della bilancia')
+  })
+})
