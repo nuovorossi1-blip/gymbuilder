@@ -1,0 +1,2618 @@
+# DIARIO DELLE SESSIONI — GYMBUILDER
+
+> Spostato da `AIOS_STATE.md` il 15/11/2026 (contenuto invariato). Lo stato attuale e il piano
+> stanno in `AIOS_STATE.md`. Le voci nuove si aggiungono in cima, sotto questa nota.
+
+## Voci per data (dalla più recente)
+
+### 2026-11-04 — Serie chieste dal cliente e download dell'APK
+- **Problema (chat di Rossi 04/11 01:17-01:21):** chiede il dorso a 3 serie invece di 2; il coach dice "ho fatto il cambio" ma la scheda resta a 2. Causa: `allineaAlloScheletro` (Coach.tsx) riportava SEMPRE serie/reps/RIR a quelle dello scheletro, quindi qualunque cambio di serie del coach spariva. Poi il coach ha concluso (sbagliando) che "il controllo rifiuta il piano".
+- **Fix:** campo `serie_cliente` (motivo) su CoachEsercizio, conservato da normalizzaPiano; con il campo l'allineamento tiene le serie del piano (reps e RIR seguono ancora la fase). Prompt: sezione SERIE DEL CLIENTE nello scheletro + campo nel FORMATO; "mai dire che hai cambiato le serie senza scriverlo nel piano". Test nuovo in scheletro.test.ts.
+- **Modifica scheda (EditScheda.tsx):** il campo Serie correggeva ogni tasto (svuotato = 1, poi "4" = 14 → 10): ora c'è una bozza di testo e il numero si applica solo se valido. Nelle sedute del coach, le serie cambiate a mano prendono `serie_cliente`, così il coach non le rimette allo scheletro.
+- **Fase calorica:** Rossi ha daily_kcal 2500 = maintenance_kcal 2500 ma weight_trend 'losing': `gradinoCalorie` dà -500 (il peso misurato vince sulla normo dichiarata), quindi scheletro in deficit. Non cambiato: è la regola voluta; se il peso è stabile va messo "stabile" nel Profilo.
+- **APK:** dal telefono il redirect GitHub restava su "download in corso". server-locale/server.mjs serve /GymBuilder.apk (cache in server-locale/apk-cache, ignorata da git, aggiornata dalla release latest ogni 10 min, Content-Length + Range); APK_URL = '/GymBuilder.apk'; vercel.json rimanda a GitHub.
+- **Errore durante il lavoro:** il primo riavvio del server con l'attività pianificata non chiudeva il vecchio node (PID 27248): chiuso quel processo e riavviata l'attività.
+- **Rampa del volume (secondo giro, 04/11):** Rossi ha messo andamento "stabile" alle 01:26 UTC ma il volume restava in deficit: `rampaVolume` trattava il passaggio -500 -> 0 come un cambio di dieta (7 giorni di attesa). In `determinaFase` le ultime voci di calorie_log con le stesse kcal di oggi prendono il gradino attuale: correzione dei dati = niente rampa; un vero cambio di kcal segue ancora la scala. Test in nutrition.test.ts. Con i suoi dati: fase normocalorica, carenze a 4-5 serie, ma il dorso (mantenimento, tetto 12) resta 2 nel Pull A: le 3 serie arrivano solo con serie_cliente.
+- **Il coach aggiorna la fase dai dati detti in chat (04/11):** nuovo campo di risposta `aggiorna_profilo` {calorie, normocalorica, andamento_peso, peso_kg, girovita_cm} letto da `leggiAggiornaProfilo` (prompt.ts) e salvato SUBITO in Coach.tsx (saveProfile + addBodyEntry nel diario se c'è peso o girovita). Regole nel FORMATO: peso fermo = normocalorica; peso su ma girovita fermo = massa magra, "stable" e normo = calorie attuali; peso e girovita su = gaining; giù = losing; il girovita conta più della bilancia. Lo scheletro nuovo arriva al messaggio successivo (il coach offre di rifare il piano). Test in coach.test.ts.
+- **Il coach non dice "hai ragione" (04/11):** in PREPARATORE la sezione SEI TU IL PROFESSIONISTA: controlla lui la fase prima di decidere il volume, dice su quale fase ragiona, segnala le contraddizioni, se sbaglia spiega cosa aveva letto e corregge subito. Nel contesto `dati_da_verificare` (datiDaVerificare: calorie = normo dichiarata ma peso in calo/salita).
+- **Icona e avvio Android (04/11):** al posto di quelle predefinite di Capacitor: manubrio oro sfumato di public/gymbuilder-icon.svg su grafite. PNG mipmap (quadro e tondo) disegnati con Edge headless; icona adattiva con drawable vettoriali ic_launcher_foreground_gb / ic_launcher_monochrome_gb, sfondo #1A1A1A; splash.png grafite con manubrio e GYMBUILDER in Barlow Condensed; styles.xml con windowSplashScreenBackground/AnimatedIcon per Android 12+. gradlew assembleDebug locale OK (serve ANDROID_HOME=%LOCALAPPDATA%/Android/Sdk), aapt2 conferma l'icona adattiva.
+- **Aperto:** Rossi deve confermare download dal telefono e riprovare il cambio serie in chat.
+
+### 2026-11-02 — Grafica standard AI-OS (solo aspetto)
+
+**Perché:** richiesta dell'utente; regola AI-OS `ai-os/STILE_GRAFICO.md` (grafite, oro, vetro).
+
+**Cosa:** `tailwind.config.js` ridefinisce i valori senza cambiare le classi nei componenti:
+ink #1A1A1A, steel #242424, edge #333333, chalk #FFFFFF, slate2 #A1A1AA, amber2/gold #F5A623;
+la scala `cyan` (accento decorativo) diventa oro, `blue` (fine dei gradienti) corallo,
+`slate`/`zinc` grigi grafite. Font: display = Barlow Condensed, body/data = Manrope, file in
+`public/fonts/` (tolto Google Fonts). `src/index.css`: @font-face, `.btn` e `.chip-on` col
+gradiente oro-corallo e testo grafite, `.eyebrow` oro, `.glass-card` vetro grafite, i gradienti
+`from-cyan-500 to-blue-600` e `from-amber-500 to-orange-600` diventano il pulsante principale.
+Schermata d'avvio in `index.html`, chiusa da `src/lib/avvio.ts` quando finisce il `loading`
+dell'auth (minimo 0,8 s, massimo 6 s). Icona, manifest e theme-color grafite; cache SW v4.
+Invariati: logica, calcoli, navigazione, verde/emerald (ok), rosso (errori), ambra del timer,
+fucsia (serie alterne), viola. Android nativo non toccato (carica il sito).
+
+**Cosa si è rotto e come:** `npm run build` senza variabili ha riscritto `dist/` servito da
+`server-locale` (porta 3001 / Funnel :10000). Ricompilato subito con le VITE_ di
+`server-locale/.env` caricate da node senza stamparle. **Per il server locale compilare sempre
+con quelle variabili.**
+
+**Verifiche:** build ok, 373 test verdi, lint pulito; foto 412 px di avvio, login, home, crea,
+profilo, coach (build di prova con Supabase finto); login reale su :10000 senza errori, font Manrope.
+
+**Prossimo passo:** controllo a occhio dell'utente sul telefono, in particolare Runner/timer.
+
+### 2026-10-06 — Vercel in pausa: l'app gira sul PC di casa (server-locale/)
+
+**Perché:** il 05/10 Vercel ha messo in pausa il team gratuito `nuovorossi1-5879s-projects`
+(CPU Fluid Active al 127% delle 4 ore). Il consumo era tutto di PronoBlast (battito ogni 15 s +
+orologio ogni minuto), ma la pausa vale per tutto il team: `gymbuilder-lemon.vercel.app`
+risponde 402. GymBuilder non ha colpe e non è stato toccato nel codice dell'app.
+
+**Cosa:** `server-locale/server.mjs` (Node, porta 3001) fa quello che fa Vercel: `/api/<nome>`
+-> `api/<nome>.js` con request/response stile Vercel (`request.body` letto, `status().json()`,
+`send()`), il resto da `dist/` con `index.html` di riserva, e il keep-alive di Supabase una volta
+al giorno al posto del cron di Vercel. Variabili in `server-locale/.env` (non su git: DeepSeek e
+LLM_FALLBACK_USER_ID da Vercel; URL e chiave publishable di Supabase da `api/keep-alive.js`;
+CRON_SECRET non serve). `dist/` compilato con le VITE_ di quel file. `installa.ps1` crea
+l'operazione pianificata "GymBuilder - Server locale" (all'accesso, `conhost --headless`,
+registro `server.log`) e Tailscale Funnel `--https=10000`.
+Indirizzo provvisorio: **https://pc-claude.tailcad625.ts.net:10000** (dal browser del telefono:
+l'APK punta a gymbuilder-lemon.vercel.app). Provati da internet: home, rotta SPA, `/api/llm-models`
+(15 modelli), `/api/deepseek` senza login -> 401, keep-alive 200.
+
+**Problemi aperti:** il link "recupera password" di Supabase porta al Site URL di Vercel, quindi
+finché si è sul PC non funziona. Il PC deve restare acceso. In ufficio `*.ts.net` è bloccato.
+**Kit di ripristino:** `E:\RIPRISTINO-PC\strumenti\installa.ps1` (passo 10b) reinstalla il server locale solo se esiste `server-locale/ATTIVO.txt` (file locale, ignorato da git).
+**Prossimo passo:** al rinnovo del ciclo Vercel tornare su gymbuilder-lemon.vercel.app, poi cancellare `server-locale/ATTIVO.txt`,
+`Unregister-ScheduledTask "GymBuilder - Server locale"` e `tailscale funnel --https=10000 off`.
+
+### 2026-09-26 (5) — Punti 4, 5 e 2: piano in 6 punti completato
+
+**Punto 4 — ciclo delle calorie (regola di Rossi):** `stallo.ts` riscritto. In deficit: 4
+settimane dall'ultimo cambio senza progressi (pendenza del peso > -0,1 kg/sett e girovita che
+non cala di 1 cm), oppure "piatto" dopo almeno 2 settimane -> pausa: normocalorica (kcal -
+gradino) per 14 giorni, poi -250 a settimana fino alle calorie di prima (2000: 2500x14, 2250x7,
+2000x7). In surplus: peso > +0,5 kg/sett per 2 settimane o girovita +2 cm -> normocalorica per 14
+giorni poi +250 a settimana fino a prima. `nomeCiclo` ("Pausa in normocalorica (dal
+deficit/surplus)"); diario e Home aggiornati; Principio 8 riscritto; il coach riceve
+`ciclo_calorico` (pausa in corso con gradino e giorni, stallo rilevato con proposta, o niente).
+Nomi interni 'mini_surplus'/'mini_cut' mantenuti per i piani già salvati.
+
+**Punto 5 — esercizi da migliorare:** cartella `esercizi_da_migliorare` (esercizio del catalogo,
+misura ripetizioni/kg, oggi, obiettivo, test del massimo con data; sezione in cartella con
+"Registra un test" e riassunto dei progressi; nel file .md). Scheletro: casella `prestazione`
+con `exercise_id` fisso IN APERTURA in tutte le sedute del suo tipo (trazioni -> Pull A e Pull
+B: 2 volte a settimana), al posto del primo esercizio dello stesso muscolo e ruolo (il volume
+non cresce), senza lo stesso muscolo subito dopo. Schema per gradino: A = FORZA (deficit 5x3-4
+RIR 2; normo 5x3-5 RIR 1-2; surplus 5x4-6 RIR 1 con zavorra a 3x6), B = VOLUME E CONTROLLO
+(deficit 3x"massimo meno 2" RIR 2 + 2 negative lente; normo 4x5-6; surplus 4x6-8). Il controllo
+pretende quell'esercizio; `riempiScheletro` lo mette da solo. Allenamento: campo "ripetizioni
+pulite in questa serie" (`logged_reps`) per gli esercizi `prestazione`. `engine/prestazioni.ts`:
+serie migliore e totale per seduta; il coach riceve `progressi_esercizi` e nei controlli chiede e
+salva il test del massimo.
+
+**Punto 2 — Modifica scheda:** pagina `/modifica?s=<id>` (scheda salvata: aggiorna i blocchi con
+`aggiornaSalvato`) e `/modifica?coach=<i>` (seduta del coach: nuova versione con nota "Modifica
+manuale: <differenze>"). Cambia esercizio (prima lo stesso muscolo, poi ricerca nel catalogo
+filtrato per attrezzatura e fastidi), serie, ripetizioni, RIR, sposta su/giù, togli, aggiungi.
+Per il coach avvisa (non blocca) se la seduta non segue più lo scheletro. Pulsanti ✏️ in Salvati
+(schede e sedute del coach) e "✏️ Modifica" su ogni seduta del programma.
+
+Provato in Chromium mobile: modifica di una scheda salvata (cambio, sposta, serie) e di una
+seduta del coach (aggiunta -> v2 attiva, v1 archiviata). 373 test verdi, tsc/eslint puliti.
+### 2026-09-26 (4) — Punti 6 e 1: Salvati in tre sezioni, nomi delle schede
+
+- Salvati: "Programma del coach" (programma attivo con ✏️ sul titolo -> `useCoach.rinominaPiano`,
+  sedute del coach salvate), "Le mie schede" (salvate da te: Analizza e allenamento rapido),
+  "Archivio" (vecchi programmi settimanali del wizard e le loro sedute; ✏️ rinomina ->
+  `rinominaProgramma`). Una riga di spiegazione sotto le schede.
+- Ogni scheda mostra il SUO nome (prima si vedeva lo split, es. "Spinta"), con ✏️ Rinomina
+  (`rinominaSalvato`), l'origine ("Protocollo del coach", "Scritta da te", "Allenamento rapido",
+  "Da un vecchio programma"), split, durata e data; badge "Nome doppio" se due schede si chiamano
+  uguale.
+- Analizza: se il nome esiste già si salva come "Nome (2)" (`nomeLibero`) e lo si dice.
+- Provato in Chromium mobile: sezioni, origine, nome doppio, rinomina (PATCH name). 366 test verdi.
+**Da fare:** punto 2 (Modifica scheda), 4 (cicli calorici), 5 (esercizi da migliorare).
+### 2026-09-26 (3) — Piano concordato in 6 punti con Rossi + fix degli errori (punto 3)
+
+**Piano concordato (26/09, confermato da Rossi):** 1) rinominare le schede (nomi doppi segnalati,
+✏️ Rinomina, origine e data visibili); 2) "Modifica scheda" permanente (cambia/sposta/togli/aggiungi
+esercizi, serie, reps, RIR; per il programma del coach = nuova versione); 3) errori: programma del
+coach non salvato, tasto Salva della cartella nascosto; 4) calorie a cicli: dopo 4 settimane di
+stallo (peso medio e girovita) risalita DIRETTA a normocalorica (2500) per 2 settimane, poi
+discesa a gradini a 2000; simmetrico in surplus (troppo grasso -> discesa, poi risalita);
+l'app calcola la fase del ciclo e la passa al coach; 5) "Esercizi da migliorare" (trazioni,
+shoulder press, panca…): casella fissa nei primi posti 2 volte a settimana, schema per fase
+(deficit poche serie brevi senza cedimento; normo/surplus più serie e poi carico), ripetizioni
+per serie registrate, test del massimo al controllo; 6) Salvati in 3 sezioni: Programma del
+coach, Le mie schede, Archivio.
+
+**Punto 3 fatto (verificato):**
+- Causa (DB): nessun `coach_plans` di Rossi. Le proposte del coach avevano errori di scheletro:
+  serie diverse (5 invece di 3) e, dopo che Rossi ha chiesto di invertire Pull e Push, 14 errori
+  perché il confronto era per POSIZIONE; il coach alla richiesta di correzione rispondeva solo a
+  parole -> nessuna proposta salvabile, "Mi piace, salvalo" sempre bloccato.
+- `confrontaConScheletro` confronta le sedute per NOME (ordine della rotazione libero);
+  `allineaAlloScheletro` porta serie/reps/RIR a quelli dello scheletro (non sono più errori); gli
+  errori di scheletro sono in `meta.erroriScheletro`, separati dagli errori bloccanti (catalogo,
+  vietati, fastidi): si può salvare comunque con conferma ("salva comunque").
+- `riempiScheletro`: l'app costruisce da sola il programma dallo scheletro (obbligatori della
+  seduta, esercizi che il cliente sente bene, somiglianza con l'indicazione, niente ripetizioni
+  tra A e B, penalità per perdita di tensione). Pulsante "🧱 Costruisci il programma con le mie
+  regole" in chat/colloquio (quando in fondo non c'è una proposta valida) e nell'elenco ☰.
+- Cartella: "Salva la cartella" a 96 px + safe area dal fondo (sopra il tasto Coach rialzato).
+- `rangeVolume(muscolo, carenza, gradino)`: posteriore carente 7-10 / 10-12 / 12-16 (tabella di
+  Rossi), anteriore carente 6-10 / 8-12 / 10-14 (lavora nelle spinte); usato da scheletro e controlli.
+- Provato in Chromium mobile: costruisci -> proposta senza avvisi di volume -> salvalo -> v1
+  attiva; tasto Salva della cartella sopra la barra. 365 test verdi, tsc/eslint puliti.
+**Da fare:** punti 6+1 (Salvati e nomi), 2 (Modifica scheda), 4 (cicli calorici), 5 (esercizi da migliorare).
+### 2026-09-26 (2) — Scheletro della scheda: la struttura la decide l'app, il coach sceglie gli esercizi
+
+1. **Segnalazione di Rossi** — il coach inventa la scheda invece di seguire le regole della chat di
+   esempio: volume dalle carenze, carenze nei primi slot, mai multiarticolare in fondo; gambe
+   forti = 1 multi quadricipiti + 1 multi femorali + 1 iso quadricipiti + 1 iso femorali + 1
+   polpacci, niente hip thrust se i glutei sono forti; spalle carenti = alzate laterali, aperture
+   posteriori, alzate frontali, shoulder press (manubri o macchina in base ai fastidi); braccia
+   carenti = più esercizi e volume più alto di spalle, bicipiti e tricipiti.
+2. **Fatto (verificato)** —
+   - Catalogo (DB, migration nel repo, fixture): `alzate_frontali_man`, `alzate_frontali_cavo`.
+   - `features/coach/scheletro.ts`: `costruisciScheletro(giorni, carenze, forti, gradino)`:
+     sedute a rotazione (3 P/P/L; 4 Pull A/Push A/Legs/Push B; 5 Pull A/Push A/Legs/Pull B/Push B;
+     6 PPL x2), slot per seduta con muscolo, ruolo, tipo (carenza/mantenimento/richiamo), serie,
+     reps, RIR e indicazione della famiglia di esercizio. Regole: carenza piccola 2 esercizi nella
+     sua seduta; petto forte 1 per Push; dorso 3/2 (3/3 se carente, con secondo bicipite per
+     alternare); posteriore 1 per Pull (+1 serie); spalle carenti con shoulder press (A) e alzate
+     frontali (B); gambe come sopra con richiamo della carenza superiore in apertura; richiamo
+     antagonista. Ordine con `ordinaSessione` (stesse regole del motore). Volume: carenze portate
+     nel range del gradino aggiungendo serie agli isolamenti (max 5; il deltoide anteriore escluso
+     perché lavora nelle spinte), mantenimento ridotto se sopra il massimo; gambe forti 3 serie
+     per esercizio, polpacci mai sotto 3.
+   - `confrontaConScheletro`: stesse sedute, stessi slot nello stesso ordine, muscolo principale e
+     ruolo giusti, serie +-1 -> altrimenti ERRORE (il coach corregge da solo, loop già esistente).
+   - Contesto del coach: `scheletro_programma` (sedute, slot, volume settimanale); prompt:
+     "SCHELETRO OBBLIGATORIO", giorni/durata da salvare subito in cartella.
+   - Cartella: `giorni_settimana`, `durata_min` (sezione "Quanto ti alleni", file .md).
+   Esempio (spalle+braccia carenti, petto/gambe forti, 5 giorni, deficit): bicipiti 16, tricipiti
+   16, laterali 15, posteriori 10, dorso 12, petto 6, quadricipiti 6, femorali 6, polpacci 3.
+   362 test verdi (+9), tsc/eslint puliti, build ok.
+3. **Nota** — nella cartella di Rossi le carenze sono deltoidi (ant/lat/post) e DORSO; le braccia
+   sono solo nell'obiettivo secondario: per avere bicipiti/tricipiti come carenza va aggiornata.
+### 2026-09-26 — Il vero motivo di "Non ho capito bene": DeepSeek risponde vuoto in modalità JSON
+
+1. **Segnalazione di Rossi** — dopo il fix del 25/09 la chat mostra ancora "Non ho capito bene,
+   puoi ripetere?" (a "Voglio prima capire come impostare il programma" e a "5 giorni a
+   settimana").
+2. **Causa (verificata nel DB, `meta.grezzo`)** — in quei messaggi il modello ha restituito SOLO
+   spazi vuoti (101 e 178 caratteri di spazio). È un comportamento noto di DeepSeek con
+   `response_format: json_object`. Il nuovo tentativo del 25/09 usava la stessa modalità e
+   tornava vuoto anch'esso.
+3. **Fatto (verificato)** — `requestDeepSeek(..., formato)`: 'testo' toglie `response_format`.
+   `chiediJsonAlLlm`: se la risposta è vuota (o solo spazi) rifà SUBITO la richiesta senza il
+   vincolo JSON, con un'ultima riga "Rispondi ora…"; la risposta in testo normale (o JSON scritto
+   a mano) è letta da `leggiRispostaLibera`. Se è vuota anche così: errore chiaro ("risposta
+   vuota: riprova o cambia modello") invece di "non ho capito". Test con fetch simulato (2).
+   353 test verdi, tsc/eslint puliti, build ok.
+### 2026-09-25 (15) — Fix: il coach rispondeva "Non ho capito bene, puoi ripetere?"
+
+1. **Segnalazione di Rossi** (screenshot dal telefono) — alla domanda "Voglio prima capire come
+   impostare il programma" la chat mostra "Non ho capito bene, puoi ripetere?".
+2. **Causa (verificata nel codice)** — è la frase di riserva di `leggiRispostaCoach` quando la
+   risposta del modello non ha il campo "messaggio" (nome diverso, annidato, o solo altri
+   campi). Il DB non era consultabile in questa sessione per vedere la risposta esatta.
+3. **Fatto (verificato)** —
+   - `chiediJsonAlLlm` restituisce anche `_testo_originale`.
+   - `leggiRispostaCoach`: cerca il testo in messaggio / message / risposta / testo / text /
+     reply / answer / content / output, anche annidato; altrimenti il testo più lungo del primo
+     livello; altrimenti il testo originale se non è solo JSON; se c'è solo una proposta
+     "Ecco la mia proposta."; flag `vuota` se non c'è niente.
+   - Coach.tsx: con risposta vuota si richiede UNA volta al modello (messaggio nascosto) invece
+     di mostrare "non ho capito"; l'evento finisce nel registro errori (Profilo -> Errori
+     JavaScript) con l'inizio della risposta; ogni messaggio del coach salva in `meta.grezzo` i
+     primi 800 caratteri della risposta del modello, per indagare i casi strani.
+   351 test verdi (+2), tsc/eslint puliti, build ok.
+### 2026-09-25 (14) — Coach al centro, chat come con un LLM, cancellare le conversazioni
+
+1. **Richieste di Rossi** — poter cancellare le chat storiche; chat come con un LLM (chiedere
+   qualsiasi cosa, stesso carattere, risposte semplici non verbose, analizza la domanda); "Parla
+   con il Coach" al centro della barra in basso, tra Ultimo e Salvati.
+2. **Fatto (verificato)** —
+   - `BottomNav`: 5 voci, al centro "Coach" (cerchio 💬 rialzato) -> `/coach?c=chat`, che apre
+     l'ultima chat o una nuova vuota (effetto in Coach.tsx, con replace).
+   - Chat: titolo e testo in carattere normale (font-sans, 15 px), risposte del coach senza
+     riquadro con `components/Markdown.tsx` (paragrafi, elenchi, grassetto, corsivo, codice, senza
+     HTML grezzo), messaggi dell'utente a destra in bolla, "✏️ Modifica" sull'ultimo, schermata
+     vuota "Come posso aiutarti?" con 4 suggerimenti, "Sto scrivendo…", campo arrotondato,
+     Invio per inviare da tastiera fisica. "✎ Nuova chat" ora parte VUOTA (niente messaggio
+     automatico); l'apertura automatica del coach resta solo per "Parla col coach" dopo un
+     programma nuovo.
+   - Prompt chat: chat libera (qualsiasi domanda, anche fuori dall'allenamento), leggi e analizza
+     la domanda, risposte brevi e dirette, approfondisci solo se richiesto, opzioni solo se utili.
+   - Cancellazione: 🗑 su ogni conversazione nell'elenco ☰ (chat per thread, colloquio,
+     controllo), con conferma; `useCoach.eliminaConversazione`. Se era aperta si apre una chat nuova.
+   Provato in Chromium mobile 360 px: tasto Coach -> chat -> nuova chat vuota -> domanda ->
+   risposta formattata -> 🗑 conversazione (DELETE per thread). 349 test verdi, tsc/eslint puliti.
+### 2026-09-25 (13) — "Risposta non valida" in chat, volume delle carenze, tasto indietro visibile
+
+1. **Segnalazioni di Rossi** — tasto indietro poco visibile e troppo in alto; il coach ha dato un
+   piano con spalle e braccia (carenze) a 8 serie a settimana su un minimo di 12-14; alla domanda
+   "perché così poco?" l'app ha mostrato "Risposta non valida": "non è una chat come con un LLM".
+2. **Cause (verificate)** — `chiediJsonAlLlm` pretendeva un oggetto JSON: se il modello risponde
+   in testo libero (tipico per le spiegazioni e per molti modelli OpenRouter) lanciava "Risposta
+   AI non valida". Il coach conta male le serie: il volume corretto lo calcolava solo l'app e
+   non glielo passava.
+3. **Fatto (verificato)** —
+   - `leggiRispostaLibera`: JSON valido (anche dentro ```json) -> usato; JSON rovinato -> si
+     recupera "messaggio"; testo libero -> diventa il messaggio (tolti <think> e recinti).
+   - Contesto del coach: `volume_calcolato_dall_app` (programma attivo e ultima proposta della
+     conversazione: serie/settimana, volte, carenza, range della fase, avvisi). Prompt chat: usa
+     SEMPRE quei numeri, riconosci con franchezza, correggi rimandando il piano; il messaggio può
+     essere lungo come in una normale conversazione.
+   - Correzione automatica (una volta) anche per le carenze sotto il loro range, oltre agli
+     errori bloccanti.
+   - `BackButton`: pillola grande (44 px), bordo ciano, "← Indietro", attaccata in cima mentre si
+     scorre (sticky sotto la safe area). Nella chat: pillola "← Indietro" alta 40 px.
+   Provato in Chromium mobile: tasto a y=12 dopo lo scorrimento; risposta in testo libero
+   mostrata come messaggio; volume passato al coach. 349 test verdi (+4), tsc/eslint puliti.
+### 2026-09-25 (12) — Coach come una chat con Claude, tasto indietro ovunque
+
+1. **Richiesta di Rossi** — l'obiettivo è una chat come questa con Claude, ma con l'LLM che sceglie
+   lui; serve il tasto indietro per ogni cosa aperta, per tornare a quello che stava vedendo.
+2. **Fatto (verificato)** —
+   - `components/BackButton.tsx`: ← unico; torna alla schermata precedente (navigate(-1)) o, se
+     la pagina è stata aperta direttamente, a un fallback. Usato in Analizza, Peso e girovita,
+     Cartella, Salvati, Profilo, Ultimo allenamento, Anteprima (fallback /coach per le sedute del
+     coach) e nel programma del Coach.
+   - Coach: la vista è nell'indirizzo (`/coach`, `/coach?c=colloquio|controllo`,
+     `/coach?c=chat&t=<id>`): il ← dell'app e il tasto indietro del telefono ripercorrono le
+     conversazioni aperte. Dopo "Accetta" si torna al programma con replace.
+   - Intestazione chat: ←, titolo, ✎ (nuova chat), ☰ (elenco). Elenco come la barra laterale di
+     Claude: "✎ Nuova chat", Cambia il programma, Fai il controllo, Programma nuovo, Il mio
+     programma; "Recenti" con tutte le conversazioni (titolo = primo messaggio, data), quella
+     aperta evidenziata. Pagina del programma: "Conversazioni recenti" (ultime 5) e
+     "✎ Nuova chat con il coach". Tolta la tendina.
+   Provato in Chromium mobile 360 px: Home -> Coach -> chat -> ☰ -> altra chat -> ← app -> chat
+   precedente -> indietro del telefono -> programma -> Home. 345 test verdi, tsc/eslint puliti.
+### 2026-09-25 (11) — Chat del Coach per il telefono e menu delle conversazioni
+
+1. **Segnalazione di Rossi** — grafica della chat fuori scala sul telefono; nessuno storico /
+   menu a tendina per vedere le conversazioni precedenti, chiedere informazioni, cambiare il
+   piano o farne uno nuovo.
+2. **Misurato (Chromium 360 px, isMobile)** — pagina del programma larga 363 px (parole lunghe
+   nelle note); chat come pagina che scorre tutta: intestazione e menu storico fuori schermo,
+   `scrollIntoView` spostava anche la finestra, campo di testo alto, programma proposto che
+   occupava tutto lo schermo; menu storico visibile solo con 2+ chat e solo con un programma.
+3. **Fatto (verificato)** —
+   - Chat come app di messaggi: `main` fisso sopra la barra (100dvh - 68 px - safe area),
+     intestazione fissa (←, titolo, "＋ Nuova") con il menu "Conversazioni precedenti" SEMPRE
+     visibile (colloquio/ripresa, ultimo controllo, tutte le chat con data e primo messaggio),
+     lista messaggi che scorre da sola (scroll del contenitore, non della pagina), campo compatto
+     che cresce fino a 4 righe (testo 16 px: niente zoom su iPhone), pulsante ➤.
+   - "＋ Nuova": 💬 Nuova chat, ✏️ Cambia il programma (chat nuova con "Vorrei cambiare il
+     programma: " già scritto), 📋 Fai il controllo, 🆕 Programma nuovo.
+   - Si può chattare anche senza programma (il coach risponde e, se serve, costruisce il piano).
+   - Bolle e note che vanno a capo; nella proposta sedute e volume ripiegati ("Vedi le
+     sedute", "Volume settimanale"). Programma: "🗂 Conversazioni precedenti (N)".
+   Rimisurato: 360/360 px su programma e chat. 345 test verdi, tsc/eslint puliti, build ok.
+### 2026-09-25 (10) — Eliminare definitivamente e crearne uno nuovo
+
+1. **Richiesta di Rossi** — dopo aver salvato una scheda, un programma o un piano, poterlo
+   eliminare definitivamente se non piace e crearne uno nuovo.
+2. **Fatto (verificato)** —
+   - Anteprima: dopo "Salva in Libreria" il riquadro ha "🗑 Non mi piace, elimina" (usa l'id
+     restituito da `salvaAllenamento`) e "✨ Creane uno nuovo" (seduta del coach -> /coach,
+     altrimenti nuovo allenamento rapido). Il pulsante in basso diventa "Torna al coach" /
+     "✨ Creane un'altra" quando non c'è una settimana.
+   - Coach: "🗑 Non mi piace: elimina e creane uno nuovo" (elimina la versione attiva da
+     `coach_plans`, pulisce il colloquio, riparte dal colloquio o dalla ripresa se la cartella è
+     compilata); 🗑 su ogni versione archiviata. `useCoach.eliminaPiano`.
+   - Salvati: pulsante 🗑 visibile (con conferma) su ogni scheda e ogni programma, oltre allo
+     swipe; nella sezione Coach "🗑 Elimina e creane uno nuovo".
+   - Analizza: dopo il salvataggio "🗑 Non mi piace, elimina" e "✨ Nuova analisi".
+   Provato in Chromium: salva -> elimina (DELETE saved_workouts), elimina programma -> colloquio.
+   345 test verdi, tsc/eslint puliti, build ok.
+### 2026-09-25 (9) — Fix: "Sostituisci" diceva sempre "Nessuna alternativa compatibile"
+
+1. **Segnalazione di Rossi** — sostituendo un esercizio (es. Curl ai cavi) in una scheda del
+   Coach: "Nessuna alternativa compatibile disponibile con questa attrezzatura".
+2. **Causa (verificata nel codice)** — `WorkoutPreview.candidatiSostituzione` e
+   `applicaSostituzione` uscivano subito se `generationConfig` era null. Le sedute del Coach
+   (`sedutaComeWorkout`), le schede di "Analizza" e alcuni salvati non hanno configurazione di
+   generazione -> lista sempre vuota.
+3. **Fatto (verificato)** — `configRiserva()` in WorkoutPreview: senza configurazione se ne
+   ricava una dal profilo (attrezzatura e attrezzi disponibili, esperienza, intensità, esclusi e
+   preferiti dalle impostazioni + vietati e preferiti della cartella, carenze della cartella,
+   split e durata della scheda). Le alternative escludono anche i fastidi articolari del profilo.
+   Provato in Chromium: seduta del Coach -> Sostituisci -> elenco di alternative per gruppo di
+   attrezzi. 345 test verdi, tsc/eslint puliti, build ok.
+### 2026-09-25 (8) — Coach: cliente conosciuto o nuovo, il perché delle scelte, regole di decisione
+
+1. **Richiesta di Rossi** — se il coach conosce già l'utente (programma già avuto / cartella)
+   deve fare domande e, se l'utente chiede, spiegare perché ha scelto quegli esercizi, perché in
+   quella posizione e in base a cosa; se non lo conosce segue il colloquio concordato. Esempio:
+   il suo file completo (2 parti) con regole di decisione, logica energia per seduta, "perché
+   lì" per ogni esercizio, alternative, onda della fatica, varianti A/B, check-in con 10 domande.
+2. **Fatto (verificato)** —
+   - `clienteConosciuto(cartella, haPiano)`: programma, controlli, o cartella con carenze e
+     obiettivo. Colloquio: `PROCEDURA_RIPRESA` se conosciuto (riassume la cartella, chiede
+     conferma, solo le domande mancanti e di controllo, poi programma con logica e perché; parte
+     dalla scheda del file se c'è); altrimenti le 6 categorie. UI: "Riprendiamo da dove eravamo"
+     / "Riprendi con il coach".
+   - REGOLE_COACH: regole di decisione (mantenere, alzare/abbassare calorie, mini surplus/cut
+     con trigger, alzare/abbassare volume con i minimi 10 serie per laterali/bi/tri carenti,
+     scarico deciso dal coach, cambiare esercizio SENZA limite fisso — decisione di Rossi), onda
+     della fatica, varianti A/B senza esercizi ripetuti, posizione del richiamo bicipiti nel
+     Push, "spiegare le scelte".
+   - Piano: `sedute[].logica` (sequenza e logica energia), `esercizi[].nota` OBBLIGATORIA (perché
+     questo esercizio e perché qui), `esercizi[].alternativa`. Avviso se mancano i perché. UI:
+     logica sotto la seduta, "Perché: …", "Alternativa: …". Chat: se il cliente chiede, spiega
+     esercizio per esercizio; suggerimento rapido "Spiegami perché hai scelto questi esercizi".
+   - File .md: colonne "Perché lì" e "Alternativa", logica per seduta, Parte 6 con le 10 domande
+     del check-in e l'output (valutazione, decisioni, scheda, target, file aggiornato).
+   345 test verdi (+4), tsc/eslint puliti, build ok.
+### 2026-09-25 (7) — Chat del Coach come un vero dialogo, Salvati "Coach", errori OpenRouter
+
+1. **Segnalazioni di Rossi** — con OpenRouter: "La chiave OpenRouter è stata rifiutata"; in chat
+   manca "nuova chat" / storico; non si può correggere un messaggio sbagliato; dopo aver
+   confermato il programma la chat deve ripartire pulita con il coach che chiede "eccoci, come
+   va il programma?"; le sedute del programma del coach vanno viste in Salvati come
+   "Protocollo del coach".
+2. **Indagine OpenRouter (verificato)** — la chiave nel DB è quella giusta (73 caratteri, senza
+   spazi, inizio e fine corrispondenti): è OpenRouter a rifiutarla (401/403). Probabile chiave
+   disattivata. Da qui non si raggiunge openrouter.ai per provarla.
+3. **Fatto (verificato)** —
+   - `api/deepseek.js`: per 401/403/404 riporta il motivo esatto del fornitore (e per 404 dei
+     gratuiti ricorda le impostazioni Privacy di OpenRouter). Profilo: "🔌 Prova la connessione"
+     (richiesta minima con fornitore e modello salvati, mostra "Funziona" o l'errore esatto).
+   - DB (applicato, migration nel repo): `coach_messages.thread_id` (conversazioni separate),
+     `saved_workouts.origine` ('coach').
+   - Coach: "Parla col coach" riprende l'ultima chat, ma se il programma è più recente (o non ci
+     sono chat) ne apre una NUOVA e la inizia il coach (messaggio nascosto "[APERTURA]": saluto,
+     breve valutazione su allenamenti fatti / peso / calorie rispetto all'obiettivo, "il
+     programma come va?", opzioni: racconta, analizziamo, spiegami, aggiorniamo). Pulsante
+     "＋ Nuova chat" e menu "Storico chat" (data + primo messaggio). "✏️ Correggi questo
+     messaggio" sull'ultimo messaggio dell'utente: lo toglie con le risposte successive e lo
+     rimette nel campo di testo. La storia inviata all'LLM è solo quella della chat aperta.
+   - Salvati: nuova sezione "Coach" (prima): il programma attivo con badge "Protocollo del
+     coach · vN", sedute con "▶ Inizia" (la prossima evidenziata), link al programma; le sedute
+     del coach salvate dall'anteprima hanno `origine: 'coach'` e il badge.
+   Provato in Chromium: apertura del coach, correzione, nuova risposta, storico con la chat
+   vecchia, Salvati -> Coach. 338 test verdi, tsc/eslint puliti, build ok.
+4. **Cosa deve fare Rossi** — OpenRouter: creare una chiave nuova su openrouter.ai, incollarla
+   nel Profilo, Salva LLM, "Prova la connessione".
+### 2026-09-25 (6) — Primo colloquio vero di Rossi + Fase 5 (Home)
+
+1. **Segnalazione** — Rossi ha fatto il colloquio con DeepSeek (dopo aver caricato il suo .md):
+   il coach ha scritto "Ora ti preparo il piano" e si è fermato, senza piano. Richieste: una
+   schermata finale "ecco il programma" con salva / domande; il programma deve restare come
+   base delle sessioni successive (come mi sono trovato, a che punto sono con l'obiettivo);
+   .md scaricabile e caricabile con qualunque LLM; Home con Coach LLM, Allenamento rapido,
+   Analizza la mia scheda, e il resto (peso e girovita, cartella) in Strumenti.
+2. **Fatto (verificato)** —
+   - Prompt: "REGOLA FERREA" (il piano va nella stessa risposta in cui lo si annuncia).
+     Coach.tsx: se la risposta annuncia il piano senza consegnarlo (categoria >= 8 o frasi tipo
+     "ti preparo", "a breve") il piano viene richiesto in automatico una volta; pulsante
+     "📋 Genera il programma adesso" nel colloquio (dopo 6 messaggi senza piano) — sblocca anche
+     la conversazione già ferma di Rossi.
+   - Proposta: "📋 Ecco il tuo programma" con la logica, sedute, errori/avvisi, volume;
+     "✅ Mi piace, salvalo", "❓ Ho una domanda / cambio qualcosa" (porta al campo di testo),
+     "⬇ Scarica .md".
+   - Chat: il coach vede l'ultimo programma e gli allenamenti fatti (ultimi 15: nome, data,
+     minuti, voto); prompt: riparti da lì, chiedi come si è trovato, a che punto è con
+     l'obiettivo. Suggerimenti rapidi all'apertura della chat.
+   - File .md: il blocco nascosto ora porta `{cartella, piano}`; `leggiMarkdown` restituisce
+     anche il piano (compatibile con i file vecchi); la lettura via LLM estrae anche il
+     programma. Nuovo componente `FileCartella` (Scarica / Carica .md, anteprima, "Usa questi
+     dati" = salva la cartella e rende attivo il programma del file come nuova versione) usato
+     nella cartella e nella pagina del piano.
+   - Fase 5: Home = card grande "Oggi: <prossima seduta>" se c'è il programma del Coach; "Il tuo
+     allenamento": Coach LLM (con "Oggi: …"), Allenamento rapido, Analizza la mia scheda;
+     "Strumenti": Peso e girovita, La mia cartella. Tolta "Pianifica settimana": il wizard crea
+     solo la sessione singola (programmi vecchi ancora apribili da Salvati -> Programmi).
+   Provato in Chromium con Supabase e LLM simulati: Home -> Coach -> piano annunciato ->
+   richiesto in automatico -> proposta -> scarica .md -> salva -> Home "Oggi: Push A".
+   338 test verdi, tsc/eslint puliti, build ok.
+3. **Da fare** — "Scrivila tu" come voce separata non fatta: "Analizza la mia scheda" copre già
+   il caso (scrivi, abbini al catalogo, salvi). Da decidere con Rossi.
+4. **Cosa aspettarsi** — Coach: se la conversazione è ferma, "📋 Genera il programma adesso".
+### 2026-09-25 (5) — Modelli gratuiti di OpenRouter e una chiave per fornitore
+
+1. **Richiesta di Rossi** — usare i modelli gratuiti di OpenRouter (elenco: Laguna S/XS 2.1,
+   Inkling, North Mini Code, GLM 5.2, Nemotron 3 Ultra/Super/Nano Omni, Gemma 4 26B/31B; esclusi
+   embedding, rerank, moderazione) accanto alla chiave DeepSeek che già usa.
+2. **Fatto (verificato)** —
+   - DB (applicato, migration nel repo): `user_llm_keys.deepseek_key` e `openrouter_key` (una
+     chiave per fornitore, `api_key` resta per compatibilità), funzione `llm_keys_stato()` che
+     restituisce solo SE le chiavi ci sono (il browser non rilegge mai i valori).
+   - Chiavi di Rossi salvate nel suo account (OpenRouter incollata in chat il 25/09: da
+     rigenerare). Il suo fornitore attivo era già OpenRouter con `deepseek/deepseek-chat`
+     (NON gratuito): lasciato com'è, lo sceglie lui dal Profilo.
+   - `api/deepseek.js`: usa la chiave del fornitore attivo; messaggi per 402 (modello a pagamento
+     senza credito) e 429 (limite dei gratuiti). `api/llm-models.js`: elenco LIVE dei modelli
+     `:free` di OpenRouter (prezzo 0, output testo, esclusi embed/rerank/safety/guard),
+     ordinati per contesto, cache 1 h.
+   - Profilo "Il tuo LLM": fornitore attivo, modello (DeepSeek Flash/Pro, oppure elenco gratuito
+     OpenRouter con contesto, oppure id scritto a mano, avviso se non è gratuito), due chiavi.
+   Provato in Chromium: elenco, scelta di `z-ai/glm-5.2:free`, salvataggio. NB: in sviluppo il
+   service worker (public/sw.js) inoltra i GET /api/* e Playwright non li intercetta: nei test
+   serve `serviceWorkers: 'block'`. In produzione non è un problema.
+   NON verificato dal vivo: chiamata reale a OpenRouter e compatibilità di ogni modello gratuito
+   con risposte JSON (response_format) e con prompt lunghi (GLM 5.2 dichiara 33K di contesto).
+3. **Cosa aspettarsi** — Profilo -> Il tuo LLM -> OpenRouter -> modello gratuito -> Salva.
+### 2026-09-25 (4) — Piano "Coach personale", Fase 4: Coach sempre disponibile
+
+Nuovo materiale di Rossi integrato: (a) "carenze vs punti forti": range serie/settimana
+CARENZA 14-18 deficit / 18-22 normo / 20-24 surplus, PUNTO FORTE 5-12 / 6-12 / 8-14, MEV ~6,
+rapporto 2-2,5x, 85% delle serie extra alle carenze, carenza che diventa forte -> scende al MEV;
+(b) "due scenari": primo incontro con 6 categorie (chi sei, cosa mangi, corpo e obiettivo,
+problemi e fastidi, logistica, come ti alleni ora) + consiglio nutrizionale PRIMA della scheda;
+controllo con le 10 domande (corpo 2, specchio 3, palestra 3, alimentazione e sonno 2) e
+output valutazione/decisioni/target 4 settimane. Tenute le decisioni già prese da Rossi dove il
+file le contraddice: nessun limite di cambi per controllo; interleave per fase (in surplus
+consentite coppie sui muscoli non carenti).
+
+1. **Fatto (verificato)** —
+   - `weeklyVolume.TARGET_VOLUME` e Principio 6 delle regole del coach con i nuovi range.
+   - `controllaPiano`: range per gradino, avvisi solo per scostamenti netti (carenza sotto il
+     minimo di oltre 2 serie, punto forte sopra il massimo di oltre 3); tabella con colonna range.
+   - `differenzePiani`: calorie, giorni, sedute nuove/tolte, esercizi tolti/aggiunti, serie,
+     ripetizioni, RIR, tecniche, ordine. Il piano salvato si normalizza prima del confronto.
+   - Prompt: `promptSistema(tipo)` per colloquio / controllo / chat; formato JSON con
+     `calorie` (solo calorie, a gradini di 250) e `controllo` (dati + decisioni). Contesto con
+     piano attivo, diario peso (ultimi 12), carichi registrati per gli esercizi del piano
+     (ultime 3 volte), storico calorie.
+   - `/coach`: dal piano attivo "💬 Parla col coach" (conversazione continua, il coach può
+     cambiare il piano subito) e "📋 Controllo" (dovuto 28 giorni dopo il piano o l'ultimo
+     controllo: pulsante giallo "È ora del controllo"; riparte da una conversazione pulita).
+     Proposte con "Cosa cambia", sedute, errori/avvisi, volume; un solo pulsante applica tutto:
+     nuova versione del piano (sorgente chat/controllo, nota = differenze), calorie nel Profilo con
+     la scala, controllo aggiunto a `cartella.controlli`. Elenco "Versioni del piano".
+   - Export .md: la "scheda attuale" è il piano del Coach se esiste.
+   Provato in Chromium con Supabase e LLM simulati: chat -> modifica -> "Push A: tolto Chest
+   press alla macchina; aggiunto Croci ai cavi" -> v2 attiva, v1 archiviata; controllo -> dati
+   salvati nella cartella. 337 test verdi, tsc/eslint puliti, build ok.
+2. **Da fare** — Fase 5: Home (Il mio piano / Allenamento singolo / Strumenti), togliere il
+   wizard settimanale, "Scrivila tu". Prova con un LLM vero.
+3. **Cosa aspettarsi** — Coach -> piano: "Parla col coach" e "Controllo"; ogni cambio mostra
+   cosa cambia e diventa una nuova versione.
+### 2026-09-25 (3) — Piano "Coach personale", Fase 3: Coach (primo colloquio) e LLM per utente
+
+1. **Obiettivo** — il piano settimanale nasce da un colloquio con il Coach LLM; ogni utente
+   usa il suo LLM e la sua chiave (decisione di Rossi: DeepSeek + OpenRouter, nessun limite).
+2. **Fatto (verificato)** —
+   - DB (applicato, migration nel repo): `user_llm_keys` (provider deepseek|openrouter, model,
+     api_key; RLS propria riga), `coach_plans` (versioni, status attivo/archiviato, source,
+     plan jsonb, next_index della rotazione), `coach_messages` (role coach/utente, kind
+     colloquio/controllo/chat, meta con opzioni, piano, esito dei controlli).
+   - Vercel: `LLM_FALLBACK_USER_ID` = utente di Rossi. `api/deepseek.js` ora: verifica la
+     sessione, legge la chiave dell'utente con il SUO token (RLS), chiama DeepSeek o OpenRouter
+     con il modello scelto; la chiave del server solo per Rossi se non ha la sua; messaggi chiari
+     per chiave rifiutata / credito esaurito / chiave mancante.
+   - Profilo: sezione "Il tuo LLM" (fornitore, modello con suggerimenti, chiave mai riletta dal
+     browser, rimuovi). Tolta la vecchia scelta del modello DeepSeek.
+   - `features/coach/plan.ts`: CoachPlan (rotazione di sedute con esercizi del catalogo, calorie,
+     macro, durata, giorni/settimana), `normalizzaPiano` (abbina per nome se manca l'id, non
+     inventa), `sedutaComeWorkout` (riscaldamento FISSO della cartella), `controllaPiano`:
+     ERRORI (fuori catalogo, vietati dalla cartella, fastidi articolari, doppioni) che bloccano
+     "Accetta"; AVVISI (interleave per fase, multiarticolare a pesi liberi in fondo, durata,
+     carenza assente); volume settimanale calcolato dal codice (serie per giro x giorni/sedute).
+   - `features/coach/prompt.ts`: sistema = REGOLE_COACH + procedura del colloquio (6 categorie
+     del prompt di Rossi, niente domande su dati già noti, "c'è qualche esercizio che non senti
+     bene?") + formato JSON (messaggio, opzioni rapide, categoria, aggiorna_cartella, piano);
+     contesto = profilo, fase, cartella, catalogo compatto già filtrato per attrezzatura,
+     fastidi e vietati; `unisciCartella` applica gli aggiornamenti del coach alla cartella.
+   - Pagina `/coach` (card "Il mio piano (Coach)" in Home): chat con risposte rapide; se il
+     piano proposto ha errori il coach lo corregge da solo una volta (messaggio nascosto con gli
+     errori); proposta con sedute, errori, avvisi, tabella volume, "Accetta il piano" (salva
+     nuova versione, archivia la precedente, macro nella cartella, calorie nel Profilo con
+     `patchCambioCalorie` quindi con lo storico della scala). Piano attivo: sedute A, B, C...
+     con la PROSSIMA evidenziata, "Inizia" apre l'anteprima e sposta la rotazione avanti;
+     "Rifai il colloquio da capo".
+   Provato in Chromium con Supabase e LLM simulati: colloquio -> risposta rapida -> proposta ->
+   aggiornamento cartella -> accetta -> piano -> inizia -> anteprima con riscaldamento fisso.
+   333 test verdi (+8), tsc/eslint puliti, build ok. NON provato con un LLM vero.
+3. **Da fare** — Fase 4: controlli ogni 4 settimane, "Parla col coach" in qualsiasi momento,
+   modifiche con versioni e differenze. Fase 5: Home e rimozione wizard settimanale.
+4. **Obiettivo** — il piano settimanale ora è del Coach, verificato dal codice.
+5. **Cosa aspettarsi** — Home -> "Il mio piano (Coach)" -> "Inizia il colloquio". Senza chiave
+   propria funziona solo per Rossi (chiave del server); gli altri utenti la mettono nel Profilo.
+### 2026-09-25 (2) — Piano "Coach personale", Fase 2: cartella del cliente
+
+1. **Obiettivo** — la "cartella clinica" del file unico di Rossi dentro l'app, una per utente,
+   base del Coach LLM (Fasi 3-4).
+2. **Fatto (verificato)** —
+   - DB (applicato): tabella `client_folder` (user_id PK, data jsonb, updated_at) con RLS
+     sulla propria riga. Migration nel repo.
+   - `features/cartella/types.ts`: CartellaCliente (livello, obiettivo, vincoli tassativi con
+     esercizi vietati, carenze e punti forti con note, esercizi ok / perdita di tensione /
+     obbligatori con seduta e slot, attrezzatura, riscaldamento fisso ~8 min, macro in grammi,
+     note del coach, storico controlli). Sesso, età, peso, calorie, sonno, stress, fastidi,
+     storico calorie e peso NON sono duplicati: restano nel Profilo e nei diari.
+   - `coachRules.ts`: Principi 1-12 + "cosa non fare", allineati alle decisioni di Rossi
+     (interleave per fase, scala, protocolli, nessun limite di cambi). Servirà anche al prompt
+     del Coach.
+   - `cartella.ts`: `normalizzaCartella` (dati parziali, vecchi o scritti da un LLM; muscoli
+     riconosciuti anche dal nome italiano; esercizi abbinati al catalogo), `cartellaInMarkdown`
+     (file unico con le 6 parti del file di Rossi + blocco JSON nascosto con firma del testo),
+     `leggiMarkdown` (JSON esatto se il testo non è cambiato; altrimenti segnala modifica).
+     Import di un .md modificato: `leggiCartellaConLlm` (DeepSeek riporta il testo nella
+     struttura, il testo vince sul JSON precedente), poi anteprima e conferma.
+   - Pagina `/cartella` ("La mia cartella", card in Home): modifica di tutte le sezioni,
+     "Scarica .md", "Carica .md" con anteprima, salvataggio.
+   - Genera: gli esercizi vietati dai vincoli (riconosciuti nel catalogo) sono esclusi, quelli
+     che senti bene e gli obbligatori sono preferiti (motore e DeepSeek).
+   Provato in Chromium con Supabase simulato: compilazione, salvataggio (upsert), download del
+   file (7 kB, 6 parti), ricaricamento riconosciuto come "non modificato". 325 test verdi
+   (+5), tsc/eslint puliti, build ok.
+3. **Da fare** — Fase 3 Coach (primo colloquio). Il riscaldamento fisso della cartella non
+   sostituisce ancora quello generato: entrerà con il piano del Coach. Macro solo registrati.
+4. **Obiettivo** — il coach avrà una cartella strutturata, esportabile e portabile.
+5. **Cosa aspettarsi** — Home -> "La mia cartella": compila, Salva, Scarica .md; il file si
+   può incollare in qualsiasi LLM e ricaricare anche se modificato.
+### 2026-09-25 — Piano "Coach personale", Fase 1: protocolli corretti
+
+1. **Problemi** — "CBum" = top set/back-off su OGNI esercizio (20 voci, sedute lunghissime);
+   FST-7 = 3 esercizi + finisher (seduta troppo corta); Density = tri-set a 3 stazioni del
+   21/08, non il metodo EDT 3-6-9 che Rossi intende (definizione nella sua chat del 24/09).
+2. **Fatto (verificato)** —
+   - Stile CBum e FST-7 seguono ora la programmazione dello Standard (fase, carenze, interleave,
+     specializzazione). Top set + back-off (2 avvicinamenti 12-15 e 8-10, top 6-8, back-off
+     10-12, 1 in deficit / 2 altrimenti) su UN solo multiarticolare: quello carente se c'è
+     (regola di Rossi), altrimenti il primo.
+   - Stile CBum: -1 serie sugli isolamenti in mantenimento, superserie finale sugli ultimi due
+     isolamenti se uno è carente (mai in deficit), nota con discesa controllata 3 s, movimento
+     completo, posa tra le serie.
+   - FST-7: l'ultimo esercizio del muscolo carente (o del principale) diventa 7x8-12, 40 s, su
+     cavi/macchine (sostituito se serve); un blocco per seduta; niente in deficit; quota a
+     settimana in Create (`fst7Attivo`: 0 deficit, 2 normo/+250, 4 da +500), prima alle sedute con
+     carenze. Tolto il pre-loading (UI e motore).
+   - Density 3-6-9 EDT: nuovo `generators/densityEdt.ts` (zone da 15 min, 3 se >= 60 min, 2
+     sotto; pausa 5 min; coppie antagoniste o non interferenti per push/pull/legs/upper/lower/
+     full_body; scelta deterministica; rotazione 9 -> 6 -> 3 -> scarico (2 zone da 10 min, 6 rip,
+     RIR 3) letta dallo storico degli allenamenti completati; record per coppia e ripetizioni;
+     suggerimento +5% quando l'ultimo totale supera il record precedente del 20%).
+     `PrescribedExercise.edt` salva zona/fase/ripetizioni fatte nello storico. Nuova
+     `DensityRunner.tsx`: intro con sostituzioni, zona con timer e "+N fatte"/±1, pausa, riepilogo
+     con pesi e salvataggio. Rimossi density369.ts, densityRunnerEngine.ts e i loro test.
+     Provato in Chromium con Supabase simulato: dal wizard alla zona, al riepilogo, al salvataggio.
+   - Etichette: "Stile CBum (top set + back-off)", "Density 3-6-9 (EDT)".
+   320 test verdi (i ~55 del vecchio tri-set rimossi, +10 nuovi), tsc/eslint puliti, build ok.
+3. **Da fare** — Fasi 2-5. Density: il runner usa attrezzatura/esclusioni delle impostazioni
+   utente, non quelle del wizard (come il vecchio); bro split non supportati.
+4. **Obiettivo** — i protocolli ora corrispondono ai metodi reali indicati da Rossi.
+5. **Cosa aspettarsi** — CBum: una sola alzata con top set, il resto normale; FST-7: seduta
+   completa con un blocco da 7 serie (non in deficit); Density: schermata a zone con timer.
+### 2026-09-24 (2) — Piano "Coach personale", Fase 0
+
+**Piano confermato da Rossi (6 fasi):** 0 correzioni; 1 protocolli corretti (Stile CBum con
+top set/back-off sul primo multiarticolare — o sul multiarticolare CARENTE se c'è; FST-7 =
+seduta normale + ultimo esercizio della carenza 7x8-12 30-45s su cavi/macchine, top set anche
+qui, blocchi/sett. 0 deficit, 1-2 normo, 3-4 surplus, tolto il preloading; Density 3-6-9 =
+EDT di Staley (zone PR 15 min, coppie antagoniste, record ripetizioni, +20% -> +5% carico) con
+ripetizioni 9 -> 6 -> 3 -> scarico, SOSTITUISCE il tri-set del 21/08); 2 cartella del cliente
+per ogni utente (profilo, vincoli, carenze, punti forti, esercizi che sente bene / perdita
+tensione, obbligatori spostabili, attrezzatura, riscaldamento fisso ~8 min, nutrizione con
+calorie e macro solo come obiettivi, storico) con export e import .md; 3 Coach LLM primo
+colloquio -> piano A-B-C a rotazione ("fai il prossimo") + calorie/macro, l'LLM scrive e il
+codice verifica, Accetta; 4 Coach sempre disponibile (controllo ogni 4 settimane con le 8
+domande + carichi chiave dai pesi registrati, "Parla col coach" in qualsiasi momento, cambi
+senza limite, scarico deciso dal coach, versioni con differenze); 5 Home = Il mio piano /
+Allenamento singolo (Generala o Scrivila tu, senza LLM) / Strumenti (Analizza la mia scheda,
+Peso e girovita), wizard settimanale TOLTO. Multiutente: ogni utente ha il suo coach; LLM e
+chiave li sceglie l'utente, nessun limite di messaggi (da fare in Fase 3: chiave per utente).
+Progressione automatica dei carichi: NON serve.
+
+1. **Problemi** — CBum a 60 min: 80 min stimati, rifiutata dal validatore (max 69). Nessun
+   recupero password. Salvati mescolava giorni del piano e sessioni singole.
+2. **Fatto (verificato)** —
+   - `adattaAlTempo` riscritto: recuperi, poi serie di avvicinamento e mantenimento, poi
+     antagonista (serie, poi esercizio), poi esercizi non carenti (isolamenti, poi composti, mai
+     l'ultimo composto); gli esercizi si tolgono solo se si sfora oltre il 12% della durata;
+     le carenze si toccano solo come ultima risorsa, con avviso. Prima si tagliavano per PRIME
+     proprio le carenze. Test sul caso di Rossi (CBum 60 min Spinta/Tirata/Gambe <= 69 min).
+   - Recupero password: "Password dimenticata?" nel login -> `resetPasswordForEmail`
+     (redirect al sito, anche dall'app Android) -> evento PASSWORD_RECOVERY -> pagina "Nuova
+     password" -> `updateUser`. Provato in Chromium con Supabase simulato: richiesta
+     /auth/v1/recover, arrivo dal link, PUT /auth/v1/user, ingresso nell'app.
+   - Salvati: tre sezioni "Sessioni singole" / "Dal piano" (generation_config.program_kind
+     'program') / "Programmi" (training_programs: il più recente "Piano attuale", apri la
+     settimana o elimina). `elencoProgrammi`, `eliminaProgramma` in api.ts.
+   371 test verdi, tsc/eslint puliti, build ok.
+3. **Da fare** — Fasi 1-5. Rossi deve controllare in Supabase -> Authentication -> URL
+   Configuration che l'indirizzo del sito sia autorizzato come redirect.
+4. **Obiettivo** — base pulita prima del Coach.
+5. **Cosa aspettarsi** — CBum a 60 minuti si genera; login con recupero password; Salvati
+   diviso in tre.
+### 2026-09-24 — "Clicco su Genera e non succede niente" (PPL + CBum, carenze spalle/braccia)
+
+1. **Segnalazione** — Rossi: dopo aver compilato il profilo, sessione singola e programma
+   PPL + CBum con carenze spalle e braccia, "Genera" non fa nulla.
+2. **Indagine (verificato)** — riprodotto con i SUOI dati reali (profilo 82 kg, 2000 kcal, peso
+   in calo, fastidi spalle + schiena bassa, preferiti e carenze salvate) in Chromium headless con
+   Supabase simulato, sia in dev sia sulla build di produzione: sessione singola Spinta/Tirata/
+   Gambe e programma PPL + CBum con "Genera & Apri" su Lun/Mar/Mer -> tutto genera e apre
+   l'anteprima. Anche il motore puro (tutte le combinazioni fase/variante/protocollo, con i
+   fastidi applicati al catalogo con axial_load reale) genera e passa il validatore. Nel DB c'è
+   un programma CBum salvato stanotte alle 22:23 UTC: "Genera Programma" è arrivato al server.
+   NON riprodotto: causa ancora ignota.
+   Punto debole trovato: `generateDay` chiamato da "Genera & Apri" non aveva try/catch (un
+   errore finiva solo in console) e l'errore della settimana era in FONDO alla pagina (sul
+   telefono sotto "Mostra volume settimanale", invisibile).
+3. **Fatto** — try/catch in generateDay con messaggio "Generazione non riuscita: ..." ;
+   rifiuti del validatore ed errori di creazione programma registrati nel log errori (sorgente
+   'genera', Profilo -> Errori JavaScript); errore della settimana spostato in cima con
+   scorrimento automatico; catalogo non caricato ora dà un messaggio invece di non fare nulla.
+   369 test verdi, tsc/eslint puliti, build ok.
+4. **Da fare** — con il prossimo tentativo di Rossi: leggere il messaggio rosso o copiare
+   Profilo -> Errori JavaScript per trovare la causa vera.
+5. **Cosa aspettarsi** — se qualcosa fallisce ora si vede SEMPRE un messaggio rosso in alto.
+### 2026-09-23 (5) — Blocco 3: diario peso/girovita, stallo e scala proposta
+
+1. **Problema** — l'app non sapeva quando proporre mini cut / mini surplus (Principio 11).
+2. **Fatto (verificato)** — DB (applicato): tabella `body_log` (peso, girovita, "mi sento
+   piatto") con RLS; `profiles.ladder_plan` (jsonb). Migration nel repo; aggiunta anche quella di
+   `calorie_log`, che era stata applicata al DB ma mancava nel repo.
+   `engine/stallo.ts`: pendenza del peso in kg/sett (regressione) sulle ultime 2 settimane, solo
+   dopo 14+ giorni dall'ultimo cambio di calorie. Cut (gradino <0): peso fermo (calo <0,1
+   kg/sett) o "piatto" nell'ultima settimana -> mini surplus K+250, K+500, K+250, K. Bulk
+   (gradino >0): >0,5 kg/sett o girovita +2 cm -> mini cut K-250, K-500, K-250, K. Normo: nulla.
+   7 giorni per gradino; `gradinoDiOggi` dice le calorie previste dal piano accettato.
+   Pagina `/peso` (card "Peso e girovita" in Home): registrazione, grafico, proposta con
+   "Accetta la scala" (imposta subito il primo gradino), piano in corso con "Aggiorna le calorie a
+   X" e "Interrompi". `patchCambioCalorie` conserva la normocalorica se il peso era "stabile".
+   La card in Home diventa gialla quando c'è un gradino da applicare o uno stallo.
+   Il volume della scheda segue da solo (rampaVolume, blocco 2). 369 test verdi (+8), tsc/eslint
+   puliti, build ok.
+3. **Da fare** — prova su browser reale di tutto il piano; mesociclo/deload (fuori piano).
+4. **Obiettivo** — la scala di Rossi è completa: calorie a gradini decise da lui con dati reali,
+   volume che segue, scheda specializzata.
+5. **Cosa aspettarsi** — dopo 2 settimane di misure settimanali, se il peso stalla in cut (o
+   sale troppo in bulk) la card in Home lo segnala e `/peso` mostra la scala; nulla cambia
+   senza "Accetta".
+### 2026-09-23 (4) — Blocco 4: specializzazione (esempio di Rossi)
+
+1. **Problema** — il motore dava una carenza = uno slot e sempre 6 esercizi: l'esempio di Rossi
+   (Pull A/B, Push A/B con bicipiti e laterali in 2 slot, richiamo laterali ad aprire le gambe)
+   specializzava molto di più.
+2. **Fatto (verificato)** — `GenerationConfig` + `specializzazione`, `variante` (A/B, già in
+   `WeeklySession.variant`), `carenze_globali`; Create la attiva quando ci sono carenze
+   (protocollo Standard). `specializzaSlot` in bodybuilding.ts:
+   - una sola carenza piccola raddoppiata per seduta, nella sua "casa" (push: laterali,
+     tricipiti, anteriori; pull: bicipiti, posteriori; legs: polpacci), tetto spalle a 2;
+   - seduta A = 7 esercizi se durata >= 65 min, B = 6; se non c'è posto si sostituisce un
+     doppione non carente (mai il petto/dorso sotto 2, preferito un isolamento): Pull B passa a
+     2 dorsi + 2 bicipiti come nell'esempio;
+   - giorno gambe: la prima carenza superiore apre come richiamo;
+   - varianti con motivo: 1ª volta del muscolo = pesi liberi in A, cavo/macchina in B; 2ª volta
+     = profilo opposto e capo diverso (curl inclinata -> Scott, alzate manubri -> macchina).
+   Fix trovati strada facendo: con il solo `nutrition_step` l'interleave non si attivava
+   (ora fase ricavata dal gradino); un composto può chiudere la seduta solo se a cavo/macchina
+   ("pulley slot 6, regge la fatica") e solo quando serve; prima di mettere un peso libero in
+   fondo si accetta una coppia di un muscolo NON carente (avviso in anteprima).
+   Test: 361 verdi (+7 specializzazione), tsc/eslint puliti, build ok.
+3. **Da fare** — blocco 3 (diario peso/girovita e stallo). Qualità catalogo gambe: per
+   `full_gym` il motore può scegliere thruster come composto quadricipiti (pre-esistente).
+4. **Obiettivo** — la settimana ora specializza come un coach: più slot e frequenza alle
+   carenze piccole, varianti A/B motivate, mantenimento al minimo efficace.
+5. **Cosa aspettarsi** — con carenze dichiarate: Pull/Push A a 7 esercizi (con 65+ minuti),
+   B a 6, la carenza della seduta compare 2 volte con attrezzi diversi, le gambe aprono con le
+   alzate laterali (se carenti). Senza carenze nulla cambia.
+### 2026-09-23 (3) — Blocco 5: dalla scheda analizzata alla scheda salvata
+
+1. **Problema** — "Analizza la mia scheda" dava solo un parere: la scheda corretta non si poteva
+   salvare né eseguire.
+2. **Fatto (verificato)** — DeepSeek riceve il catalogo e restituisce `tua` (le righe
+   dell'utente abbinate a exercise_id, nel SUO ordine) e `proposta` (la sua versione con id).
+   In `/analizza` nuovo riquadro "Scheda finale": per ogni slot Mia/Proposta (default =
+   vincitore del confronto, pari -> la tua), tasti "Tutta la mia"/"Tutta la proposta", select
+   per cambiare esercizio (stesso muscolo primario), righe non abbinate evidenziate e Salva
+   bloccato finché mancano. `engine/schedaUtente.ts` compone il GeneratedWorkout (ruolo dal
+   catalogo, recuperi di default, RIR, nota carenza, riscaldamento contestuale) SENZA riordinare:
+   aggiunge solo avvisi (interleave per fase, composto all'ultimo slot). Salva -> Salvati;
+   Inizia subito -> anteprima. 354 test verdi, tsc/eslint puliti, build ok.
+3. **Da fare** — blocchi 4 (specializzazione) e 3 (diario peso/stallo). La scheda salvata non
+   entra in un programma settimanale (scelta dichiarata del piano).
+4. **Obiettivo** — la scheda scritta e confermata dall'utente diventa una scheda vera dell'app.
+5. **Cosa aspettarsi** — Home -> Analizza -> scrivere la scheda -> Analizza -> in fondo
+   "Scheda finale" -> Salva (la ritrovi in Salvati) o Inizia subito. Non verificato su browser.
+### 2026-09-23 (2) — Piano "programmazione a scala": blocchi 1 e 2
+
+Piano concordato con Rossi in 5 blocchi (ordine 1+2 -> 5 -> 4 -> 3):
+1 livelli di volume + dip; 2 storico calorie e "il volume segue"; 5 scheda analizzata ->
+scheda salvata; 4 specializzazione (2 slot per carenze piccole, sedute A/B, 7 esercizi,
+richiamo carenza in slot 1 del giorno gambe); 3 diario peso/girovita e stallo -> proposta di
+mini cut / mini surplus a scala (l'app suggerisce, Rossi conferma). Scelte confermate: volume
+segue dopo 7 giorni, un gradino a settimana, seduta A 7 esercizi / B 6, nella scheda finale
+ogni slot preselezionato sul vincitore del confronto.
+
+1. **Problemi rilevati**
+   - Solo 3 livelli (deficit/normo/surplus): 3000 e 3500 kcal trattate uguali.
+   - Il dip (registrato come tricipiti) poteva finire all'ultimo slot: il vincolo "mai in
+     fondo" valeva solo per petto/dorso/gambe.
+   - Cambiando le calorie la scheda saltava subito al nuovo livello. Regola di Rossi (Principio
+     11): sempre a scala, in salita e in discesa; le calorie guidano, il volume segue.
+2. **Cosa è stato fatto (verificato)**
+   - DB (applicato): `profiles.maintenance_kcal`; tabella `calorie_log` (kcal, maintenance_kcal,
+     step, created_at) con RLS sulle proprie righe. Migration nel repo.
+   - `nutrition.ts`: gradini di 250 kcal dalla normocalorica (-500..+1000); normocalorica
+     dichiarata (peso stabile a quelle kcal, salvata in `maintenance_kcal`) > formula; il trend
+     del peso vince se contraddice la formula. `rampaVolume`: simulazione giorno per giorno,
+     il volume insegue il gradino tenuto da >=7 giorni, un gradino ogni 7 giorni, su e giù.
+     `PhaseInfo` ha `calorie_step`, `training_step` (volume effettivo, -1 gradino se sonno/stress),
+     `ramp` e un riassunto in italiano ("il volume è ancora al livello 2500 kcal e sale...").
+   - `programming.ts`: `applicaFase` usa la tabella master per gradino (serie carenze/
+     mantenimento, RIR, richiami, numero di drop set/rest-pause/myo-reps); il volume extra va
+     prima alle carenze. Nessun multiarticolare all'ultimo slot (dip compreso); composti
+     "piccoli" in fascia media. Da +750 la nota suggerisce 6° giorno e gambe 2x.
+   - Profilo: campo normocalorica, storico degli ultimi cambi; cambiando le kcal con peso
+     "stabile" le kcal di prima diventano la normocalorica e l'andamento torna "non lo so".
+     `useSettings.saveProfile` scrive in `calorie_log` a ogni cambio di calorie.
+   - Create/weeklyVolume/DeepSeek/Analizza usano il gradino (target volume per gradino,
+     Principio 11 nei prompt).
+   - Test: 351 verdi (+9 nuovi su scala, gradini, tecniche, dip), tsc ed eslint puliti, build ok.
+3. **Cosa resta da fare** — blocchi 5, 4, 3 del piano; mesociclo/deload fuori piano.
+4. **Legame con l'obiettivo** — la scheda segue la nutrizione reale dell'utente come una scala.
+5. **Cosa deve aspettarsi Rossi** — Profilo: salvando le calorie compare lo storico e la frase
+   sulla rampa. Genera: RIR/serie/tecniche del gradino effettivo (non di quello delle calorie
+   finché non sono passati 7 giorni). Il primo salvataggio non ha rampa (nessuno storico).
+### 2026-09-23 — Prompt di programmazione di Rossi integrato (livelli A + B)
+
+1. **Problemi rilevati**
+   - Il motore non conosceva la fase nutrizionale: stesso volume, nessun RIR, nessuna tecnica
+     per chi è in deficit o in surplus. Il prompt di Rossi ("coach bodybuilding natural") dice
+     che lo STESSO programma vale nelle tre fasi e cambiano solo volume, RIR e tecniche.
+   - Ordine: il compound apriva sempre, anche con carenze su muscoli piccoli. Regola di Rossi
+     (23/09): senza carenze grandi prima; con carenze piccole apre la carenza e i grandi stanno
+     in fascia accettabile (slot 2-4 su 6, 2-5 su 7-8), mai ultimi.
+   - Nessun interleave esplicito: Pull usciva sempre dorso-dorso-dorso anche in deficit.
+     Regola di Rossi: deficit mai due in fila, normo max 2, surplus fino a 3; sul muscolo
+     carente l'interleave vale SEMPRE, anche in surplus.
+   - C8 (seconda metà): la chiave DeepSeek passava dal browser.
+2. **Cosa è stato fatto (verificato)**
+   - DB: migration `20260923090000_profile_nutrition_recovery.sql` (applicata su Supabase):
+     `profiles` + daily_kcal, job_activity, weight_trend, sleep_hours, stress_level, joint_issues.
+   - `src/engine/nutrition.ts`: normocalorica Mifflin-St Jeor x fattore lavoro; fase dal
+     trend del peso se dichiarato (vince sulla formula), altrimenti <90% deficit / >110% surplus;
+     sonno <6h o stress alto = volume della fase inferiore (`training_phase`); fase ignota = null
+     e motore identico a prima. `escludiPerFastidi` toglie i movimenti stressanti per
+     spalle/gomiti/polsi/schiena bassa (axial_load>=2)/ginocchia.
+   - `src/engine/programming.ts`: `applicaFase` (RIR per fase, mantenimento -1 serie in deficit,
+     carenze +1 in surplus, drop set/rest-pause solo sulle carenze isolamento) e richiamo
+     antagonista (nota `antagonista`, NON "richiamo" per non attivare isLaggingNote): bicipiti in
+     Push, tricipiti in Pull, 2 serie deficit / 3 normo-surplus, RIR 1. `ordinaSessione`: ricerca
+     esaustiva con potatura su vincoli duri (apertura, interleave per fase, grande mai ultimo) e
+     costi morbidi (spostamento minimo, grandi in fascia, antagonista a metà Push/fine Pull,
+     sinergie). Vincoli allentati in ordine: prima "grande mai ultimo", poi limite di fase, per
+     ultimo l'interleave sulla carenza (es. Bro Petto: 5 petto, impossibile alternare).
+   - `bodybuilding.ts`: usa i due passaggi solo col protocollo Standard (FST-7/CBum/Density hanno
+     ordine di protocollo). Con ordine programmato `portaCompoundInApertura` non scatta più.
+   - `Create.tsx`: fase dal profilo, fastidi sul catalogo (motore e DeepSeek), workout DeepSeek
+     riordinati con le stesse regole, avviso se l'interleave è impossibile, nota di fase in
+     anteprima; `engineWorkoutFor` estratta da `generateDay`; tabella "Volume settimanale
+     stimato" nella vista settimana (`engine/weeklyVolume.ts`, target per fase, carenze ★).
+   - Profilo: sezione "Alimentazione e recupero" con fase calcolata dal vivo; tolto il campo chiave.
+   - Anteprima e Runner: RIR, tecnica sull'ultima serie, badge richiamo antagonista.
+   - DeepSeek: prompt con tutte le regole di Rossi + `programmazione` nel brief; nuova pagina
+     `/analizza` ("Analizza la mia scheda", card in Home) = Fase 3 del prompt: analisi, confronto
+     slot per slot, ibrido. Chiave SOLO su Vercel (`DEEPSEEK_API_KEY`, impostata il 23/09);
+     `api/deepseek.js` accetta solo utenti con sessione Supabase valida (senza, l'endpoint
+     sarebbe un proxy aperto sul credito di Rossi); una vecchia chiave salvata sul dispositivo
+     viene cancellata al primo avvio.
+   - Test: 6 test vecchi codificavano "il compound apre sempre" -> aggiornati alla regola del
+     23/09; +25 test nuovi (nutrition, programming, weeklyVolume, prompt). 342 verdi, tsc ed
+     eslint puliti, `vite build` ok.
+3. **Cosa resta da fare**
+   - Forza/CrossFit/Hybrid non usano ancora fase e interleave (solo Bodybuilding Standard).
+   - Varianti del mesociclo 8 settimane / double progression del prompt: non implementate.
+   - Nessun test end-to-end su browser vero: `/analizza` e la chiamata DeepSeek autenticata vanno
+     provate da Rossi. Restano aperti C6 (CRON_SECRET) e C12 (crash Tabata).
+   - Punto 4 del 18/09 (etichetta del muscolo carente nella scheda) ancora da decidere.
+4. **Legame con l'obiettivo** — la sessione ora non sceglie solo gli esercizi ma li programma:
+   dove stanno, cosa c'è prima e dopo, quanto volume a carenze e mantenimento secondo le calorie.
+5. **Cosa deve aspettarsi Rossi** — dopo il deploy: Profilo -> compilare "Alimentazione e
+   recupero" (la fase compare subito sotto). Senza quei dati l'app si comporta come prima,
+   TRANNE l'ordine con carenze piccole (ora apre la carenza). In anteprima RIR e nota di fase;
+   in Pull in deficit si vede dorso -> posteriore -> dorso -> bicipiti -> dorso -> tricipiti.
+   Settimana: "Mostra volume settimanale". Home: "Analizza la mia scheda". DeepSeek funziona
+   senza chiave nel Profilo. Il token GitHub e la chiave DeepSeek incollati in chat vanno
+   rigenerati (la chiave nuova si sostituisce su Vercel).
+### 2026-09-18 (3) — Fixture dei test riallineata al catalogo Supabase (C10)
+
+1. **Problema rilevato** — `src/generators/__tests__/fixtures/exercises.json` era fermo
+   a 98 esercizi contro i 146 attivi in Supabase: mancavano 48 movimenti, quasi tutti
+   quelli tecnici del CrossFit e diverse macchine (clean_jerk, power_clean, power_snatch,
+   push_jerk, overhead_squat, chest_to_bar, toes_to_bar, bar_muscle_up, turkish_get_up,
+   wall_ball, double_under, assault_bike, ski_erg, running, pec_deck, t_bar_row,
+   pendulum_squat, rematore_macchina...). I generatori venivano quindi provati su un
+   catalogo che non esiste piu': i test passavano anche su comportamenti che nella
+   realta' non si verificavano mai.
+2. **Cosa e' stato fatto** — esportati da Supabase i 48 mancanti e uniti alla fixture,
+   che ora ha 146 voci ordinate per id, **nessun esercizio della fixture e' assente dal
+   DB**. Manteni-uta la stessa forma a 16 campi degli esercizi gia' presenti: aggiungere
+   `metcon_safe`, `unilateral` e `required_equipment` solo ai nuovi avrebbe reso la
+   fixture disomogenea, con meta' catalogo sui valori reali e meta' sulle euristiche di
+   `inferRequiredEquipment`. Va fatto per tutti insieme, quando serve.
+3. **Un test e' caduto, ed era giusto che cadesse** — `crossfit.test.ts`, "se una carenza
+   entra nella parte Forza/Skill la richiama con carico ridotto". Con il catalogo nuovo e
+   `priority_muscles: ['front_delts']` il generatore sceglie **Clean & Jerk**, che ha
+   `primary_muscles: ["quads","front_delts"]`. Il campo `muscle` dell'esercizio generato
+   riporta il PRIMO muscolo primario, cioe' "quads", e l'asserzione `toBe('front_delts')`
+   falliva. Il comportamento e' corretto (nota "focus carenza: carico ridotto" e reps 6-8
+   sono quelle attese, e l'esercizio allena davvero i deltoidi anteriori): sbagliata era
+   l'asserzione, che funzionava solo perche' nel vecchio catalogo non esisteva un
+   esercizio multi-primario sui front_delts. Ora il test verifica che l'esercizio scelto
+   abbia `front_delts` fra i muscoli primari. 317 test verdi, `tsc` e eslint puliti,
+   `vite build` ok.
+4. **Da valutare, NON fatto** — nella scheda un esercizio scelto per una carenza si
+   presenta col suo primo muscolo primario ("quads" per Clean & Jerk) e non con la
+   carenza che lo ha fatto scegliere. Non e' un bug, ma per chi legge la scheda e'
+   fuorviante. Decisione di Rossi: lasciare com'e' o etichettare col muscolo carente.
+5. **Cosa deve aspettarsi Rossi** — nell'app non cambia niente: la fixture e' solo per i
+   test. Cambia che d'ora in poi i test coprono anche i movimenti CrossFit veri.
+### 2026-09-18 (2) — Pipeline APK ripulita (C2, C3, C4, C5, C7, C8, C9)
+
+1. **Problemi rilevati**
+   - **C2** Ogni push su main generava un commit "chore: update Android APK" da 4,3 MB:
+     il repo cresceva a ogni modifica e serviva un `VERCEL_TOKEN` per ridistribuirlo.
+   - **C3** `build-apk.yml` girava su OGNI push, senza filtro di percorsi. Ma l'APK e'
+     un guscio che carica `gymbuilder-lemon.vercel.app` (`capacitor.config.ts`,
+     `server.url`): per una modifica solo-web l'APK e' identico a parte il numero, e
+     sul telefono compariva "Aggiorna app" senza motivo.
+   - **C4** `android-release.yml` compilava con i valori fermi di `build.gradle`
+     (versionCode 1 / versionName 1.0.0). Una release firmata sarebbe risultata piu'
+     VECCHIA di qualsiasi build debug (1.0.N): Android l'avrebbe rifiutata.
+   - **C5** `version.json` (commit) e APK (deploy Vercel) non erano atomici: fra i due
+     passaggi il sito poteva servire metadati nuovi con APK vecchio.
+   - **C7** `InstallBanner` compariva sempre, anche su desktop e a chi l'app ce l'ha
+     gia' installata, senza modo di chiuderlo.
+   - **C8** `src/lib/deepseek.ts` spediva la chiave API dell'utente a `api/deepseek.js`
+     a ogni richiesta: la chiave transitava dal browser invece di stare sul server.
+   - **C9** `src/pages/Runner.tsx`: `useEffect` di ripristino senza `activeSession?.id`
+     fra le dipendenze, proprio il valore con cui decide se lo stato salvato
+     appartiene alla sessione corrente.
+
+2. **Cosa e' stato fatto (verificato)**
+   - `build-apk.yml` riscritto sullo schema di PronoBlast: l'APK esce come **GitHub
+     Release** `apk-v1.0.<run_number>` con `GymBuilder.apk` e `version.json` allegati.
+     Nessun commit, nessun `VERCEL_TOKEN`, i due file escono insieme (chiude anche C5).
+     Trigger limitato a `android/**`, `capacitor.config.ts`, `package.json`,
+     `package-lock.json` e al workflow stesso, piu' `workflow_dispatch` per il lancio
+     a mano. In caso di errore le ultime righe del log finiscono in un commento sul
+     commit (i log grezzi di Actions stanno su un dominio irraggiungibile da Claude).
+   - `src/native/versioning.ts`: `fetchRemoteVersion()` legge
+     `api.github.com/repos/nuovorossi1-blip/gymbuilder/releases/latest` invece di
+     `/version.json`; dal tag ricava versione e versionCode, dall'asset l'URL.
+   - `InstallBanner.tsx`: compare solo nel browser di un telefono Android e fuori
+     dall'app nativa, punta alla release e ha un tasto "Nascondi" che salva in
+     `localStorage` (`gymbuilder.installBannerHidden`).
+   - `public/gymbuilder.apk` e `public/version.json` tolti dal tracking e aggiunti a
+     `.gitignore`. **La keystore `android/app/debug.keystore` NON e' stata toccata**:
+     cambiarla impedirebbe l'aggiornamento sopra l'app gia' installata.
+   - `android-release.yml`: aggiunto il calcolo versione con base 1000
+     (`versionCode = 1000 + run_number`, `versionName = 1.1.<run_number>`) e tolto lo
+     step che ripuliva l'APK dagli asset, non piu' necessario.
+   - `api/deepseek.js`: usa `process.env.DEEPSEEK_API_KEY` se presente e ignora il
+     campo del body; il fallback sul body resta finche' la variabile non e'
+     configurata su Vercel, altrimenti l'app smetterebbe di funzionare.
+   - `Runner.tsx`: aggiunta la dipendenza mancante, con commento sul perche' serve.
+   - `android-apk-auto-update.md` riscritto, con l'avviso esplicito che **debug e
+     release non sono intercambiabili sullo stesso telefono** (firme diverse).
+   - Verifica: `tsc` 0 errori, eslint 0 errori 0 warning, **317 test verdi**,
+     `vite build` ok.
+
+3. **Cosa resta da fare**
+   - **C6** keep-alive: `api/keep-alive.js` risponde 401 senza `CRON_SECRET` nelle env
+     Vercel, e in quel caso dopo 7 giorni Supabase mette in pausa il database.
+     Deve verificarlo Rossi dal pannello.
+   - **C8 seconda meta'**: quando `DEEPSEEK_API_KEY` sara' nelle env Vercel, togliere
+     `apiKey` dal body in `src/lib/deepseek.ts` e lasciare nel Profilo la sola scelta
+     del modello.
+   - **C10** fixture dei test stale (~98 esercizi contro il catalogo vero di Supabase).
+   - **C12** crash Tabata e `WorkoutTimerService` a schermo spento: nessuna modifica
+     finche' non arriva il log vero da Profilo -> Diagnostica crash. Due giri di
+     correzioni "per ipotesi" non hanno risolto.
+   - C11 risultava aperto nell'audit ma era gia' a posto: `deploy.site_url` in
+     `AIOS_PROJECT.json` e' popolato.
+
+4. **Legame con l'obiettivo** — l'app deve arrivare sul telefono di Rossi e
+   aggiornarsi da sola, senza che il repository diventi ingestibile e senza avvisi
+   di aggiornamento che non aggiornano niente.
+
+5. **Cosa deve aspettarsi Rossi** — nell'app non cambia nulla di visibile, tranne il
+   banner di installazione che non compare piu' su desktop. Il primo push fa partire
+   il nuovo workflow e crea la prima Release `apk-v1.0.N`: **finche' quella build non
+   e' finita non esiste nessuna release**, quindi il controllo aggiornamenti dentro
+   l'APK fallisce in silenzio (e' gia' gestito, non blocca l'avvio) e il vecchio link
+   `/gymbuilder.apk` sul sito smette di funzionare. NON e' ancora vero che la chiave
+   DeepSeek sia al sicuro: lo diventa solo quando Rossi aggiunge la variabile su Vercel.
+### 2026-09-18 — package-lock.json riallineato (punto C1 dell'audit)
+
+1. **Problema rilevato** — `npm ci` falliva con "Missing: esbuild@0.28.2 from lock file":
+   il lockfile non corrispondeva più a `package.json`. Causa vera: un aggiornamento di
+   dipendenza entrato senza rigenerare il lock. Non si vedeva perché il runner GitHub usa
+   ancora npm 11, più permissivo; al primo aggiornamento di npm sul runner, `build-apk.yml`
+   e `android-release.yml` si sarebbero fermati al passo `npm ci`.
+2. **Cosa è stato fatto** — `npm install` (tocca solo `package-lock.json`: verificato con
+   `git diff --stat`, 756 righe aggiunte e nessun altro file). Poi verificato: `npm ci`
+   pulito passa, `tsc` 0 errori, 317 test verdi su 24 file, `vite build` ok.
+3. **Cosa resta da fare** — i punti C2-C12 dell'audit: APK committato in `public/` a ogni
+   build (repo che cresce di 4 MB per push), ricompilazione dell'APK anche per modifiche
+   solo-web, versione ferma a 1.0.0 in `build.gradle`, keep-alive legato a `CRON_SECRET`,
+   `InstallBanner` sempre visibile, chiave DeepSeek in transito dal browser, `useEffect`
+   con dipendenza mancante in `Runner.tsx`, fixture dei test stale, `site_url` vuoto in
+   `AIOS_PROJECT.json`. Restano aperti anche i crash Tabata e `WorkoutTimerService`:
+   servono i log veri dal telefono di Rossi, niente correzioni a ipotesi.
+4. **Legame con l'obiettivo** — senza `npm ci` funzionante non si costruisce più l'APK,
+   quindi Rossi non riceve più aggiornamenti dell'app installata.
+5. **Cosa deve aspettarsi Rossi** — nulla di visibile nell'app. NON è ancora vero che la
+   pipeline APK sia sana: C2/C3/C4 restano aperti.
+Etichette: `[FACT]` verificato nel codice · `[RICOSTRUITO]` dedotto da indizi ·
+`[IGNOTO]` non ricavabile dal repository
+
+---
+
+
+---
+
+## Aggiornamenti stato di agosto-novembre (in ordine cronologico, come erano in coda)
+
+## Aggiornamento stato — 2026-08-17: APK Android e auto-update
+
+La base Capacitor esistente è stata completata con un sistema di aggiornamento nativo. `public/version.json` è il contratto remoto; React confronta la versione installata tramite il plugin `ApkUpdater`, mostra un modal e demanda download e installazione al sistema Android. Una nuova finestra di installazione viene aperta solo dopo un download HTTPS riuscito. Android richiede conferma esplicita e, al primo aggiornamento, il permesso per installare app sconosciute.
+
+La CI `.github/workflows/android-ci.yml` compila un APK debug con Java 21 sulle modifiche native; `.github/workflows/android-release.yml` costruisce `GymBuilder.apk` sui tag `android-v*`. Prima della prima Release devono essere configurati `ANDROID_KEYSTORE_BASE64`, `ANDROID_STORE_PASSWORD`, `ANDROID_KEY_ALIAS` e `ANDROID_KEY_PASSWORD` nei GitHub Actions Secrets. La stessa keystore deve essere conservata per tutte le versioni future. Finché `apkUrl` in `version.json` resta vuoto, il modal nativo non propone aggiornamenti inesistenti; il banner web rimanda alla pagina Releases. La compilazione Gradle locale non è verificabile nel Codespace attuale perché espone solo Java 25; la CI è fissata a Java 21 proprio per rendere la verifica riproducibile.
+
+Il commit `436fbb1` ha introdotto `.github/workflows/build-apk.yml`; i commit
+successivi `5e30396` e `65457ce` hanno corretto l'invocazione Gradle, aggiunto le
+variabili pubbliche della build e il deploy Vercel esplicito. L'esecuzione
+definitiva `32037676638` è verde e il bot ha pubblicato l'APK nel commit
+`5ec68a0`. Il file pubblico verificato è
+`https://gymbuilder-lemon.vercel.app/gymbuilder.apk`. Vedere la sez. 10 per il
+prossimo passo: passare da APK debug a release firmata con keystore stabile.
+## Aggiornamento stato — 2026-08-17: countdown e contratto LLM
+
+Il countdown di avvio emette avvisi brevi su 3 e 2 e il segnale lungo `COUNTDOWN_COMPLETED` quando viene visualizzato 1; allo zero avvia l'azione senza produrre un quarto segnale. La generazione diretta DeepSeek condivide lo stesso prompt professionale fra i modelli configurabili e riceve un brief strutturato di tutte le scelte utente. Le discipline hanno regole esplicite: CrossFit deve produrre un WOD autentico e non Bodybuilding mascherato; il catalogo inviato è filtrato anche per inventario attrezzatura.
+## Aggiornamento stato — 2026-08-17: trasporto DeepSeek affidabile
+
+Le richieste LLM non partono più direttamente dal browser: `/api/deepseek` inoltra in modo stateless la richiesta a DeepSeek, senza salvare o loggare la chiave personale. Il client e la funzione hanno timeout espliciti, JSON Output e `thinking: disabled` per evitare generazioni strutturate indefinite. La UI distingue chiave non valida, credito insufficiente, rate limit, timeout e problemi di connessione invece di restare su `loading` per sempre.
+## Aggiornamento stato — 2026-08-17: contratto segnali lavoro/recupero
+
+Il contratto audio/vibrazione è uniforme: ogni countdown di fase emette WARNING brevi su 3, 2 e 1; il successivo evento di transizione (`SET_STARTED`, `WORK_STARTED`, `ROUND_STARTED` o `REST_STARTED`) emette un unico segnale lungo da un secondo. Anche completamento e time-cap sono prolungati. Il modulo notifiche non vibra più direttamente in primo piano, evitando duplicazioni con `TimerAudio`; in background la notifica usa una singola vibrazione lunga.
+## Aggiornamento stato — 2026-08-17: ordine configurazione → LLM
+
+Il wizard non permette più di invocare DeepSeek subito dopo la sola scelta della disciplina. Il pulsante LLM si trova esclusivamente in fondo allo Step 2: prima vengono definiti tutti i parametri, poi l'utente sceglie fra generazione deterministica e generazione DeepSeek. Entrambi i percorsi ricevono la stessa configurazione finale.
+
+## Aggiornamento stato — 2026-08-17: Spinta senza dorso implicito
+
+Il validatore impone ora la coerenza muscolare degli split Bodybuilding e Forza
+anche sui workout restituiti dall'LLM. Una sessione `push` accetta come target
+primari petto, deltoide anteriore/laterale e tricipiti; un esercizio primario per
+il dorso viene rifiutato, salvo che `back` sia stato indicato esplicitamente fra
+i muscoli carenti. La stessa regola split + eccezione carenze vale per tutti gli
+altri split. Aggiunti due test dedicati; suite completa: 213 test verdi e build
+produzione verde.
+
+## Aggiornamento stato — 2026-08-17: avambracci, adduttori e addome
+
+`Muscle` include ora `forearms` e `adductors` (etichetta UI: “Adduttori ·
+interno coscia”); trapezi non sono stati aggiunti. Pull, Legs, Upper, Bro e
+Front/Back riconoscono i nuovi distretti senza confonderli con dorso, bicipiti
+o glutei. Il core non occupa più gli slot Bodybuilding principali previsti per
+gambe/full body: `scegliRiscaldamento` inserisce sempre 1-2 attivazioni core
+quando il catalogo le offre. Migrazione versionata
+`20260817145218_add_forearms_adductors_core_warmup.sql` con adductor machine,
+Copenhagen plank, due wrist curl e Bird dog. Suite: 215 test verdi; build verde.
+
+**Migrazione remota completata:**
+`20260817145218_add_forearms_adductors_core_warmup.sql` è stata applicata al
+progetto `geqhxhgrameaugawmaej`. Un dry-run successivo ha restituito
+`upToDate: true`, zero migrazioni pendenti. La CLI va autenticata passando
+`SUPABASE_ACCESS_TOKEN` direttamente al processo: il portachiavi persistente
+del Codespace può restituire 401 anche con un token valido.
+
+## Aggiornamento stato — 2026-08-17: CrossFit per componenti
+
+CrossFit Standard non viene più gonfiato fino a sei esercizi né filtrato sui
+singoli muscoli carenti. La struttura è compatta: warm-up, un solo elemento
+Skill/Strength, WOD da 3-4 movimenti e 1-2 Accessory/Prehab. Le carenze
+orientano Skill e accessori, mentre il WOD conserva varietà di pattern. Il
+livello beginner usa davvero soltanto esercizi beginner; intensità e
+complessità restano scalate. Inventario e attrezzatura sono vincoli rigidi in
+tutti i blocchi: test dedicato con soli manubri conserva la struttura usando
+solo manubri/corpo libero. Prompt DeepSeek e validatore condividono lo stesso
+contratto; il Runner include entrambi i blocchi `main`. Suite completa: 216
+test verdi e build produzione verde.
+
+## Aggiornamento stato — 2026-08-17: barra Scarica app
+
+La versione web mostra sempre in alto una barra sticky “GymBuilder Android”
+con pulsante `Scarica app`, anche prima del login. Il link punta direttamente a
+`/gymbuilder.apk` e usa il filename `gymbuilder.apk`. La barra è esclusa dentro
+la piattaforma nativa Capacitor per non proporre all'APK di scaricare sé stesso.
+Rimossa la vecchia dipendenza del banner da dispositivo, dismiss persistente e
+`version.json.apkUrl`. Suite completa verificata insieme alla correzione Spinta:
+218 test verdi; build produzione verde.
+
+## Aggiornamento stato — 2026-08-17: carenze esplicite e split Spinta
+
+Il profilo biomeccanico non inventa più carenze in base al sesso: se l'utente
+seleziona “standard”, l'elenco resta vuoto. Nelle sessioni preset, le carenze
+sono richiami separati e non vengono più trasformate in `target_muscles`; i
+target rigidi sono applicati soltanto quando l'utente sceglie esplicitamente i
+muscoli della seduta. Lo stesso contratto è stato applicato al prompt e alla
+validazione DeepSeek. Risultato: `push` standard non contiene dorso, rematori o
+tirate; il dorso può entrare soltanto come singolo `richiamo carenza` quando
+`back` è stato scelto esplicitamente. Test dedicati inclusi nella suite di 218
+test verdi; build produzione verde.
+
+## Aggiornamento stato — 2026-08-17: avvio Tabata sicuro su Android
+
+Rimosso l'auto-start del Tabata all'ingresso nel Runner: la schermata di
+anteprima mostra `Avvia Tabata` e il countdown parte soltanto dal tocco
+esplicito dell'utente. Nell'APK la WebView non richiede più in parallelo il
+permesso Web Notification: `POST_NOTIFICATIONS` viene gestito esclusivamente
+dal plugin Android. Se il permesso viene negato oppure Android rifiuta il
+foreground service, il plugin restituisce un fallback non fatale e il timer
+React continua senza terminare l'app. Suite completa: 218 test verdi; build web
+verde e `cap sync android` riuscito. La build Gradle locale resta non eseguibile
+nel Codespace privo di Android SDK; la GitHub Action dispone dell'SDK e deve
+validare/produrre il nuovo APK.
+
+## Aggiornamento stato — 2026-08-17: sessione fix multipli (Tabata, CrossFit, Android nativo) + Hybrid pianificato ma non iniziato
+
+Sessione lunga con l'utente che ha testato l'app dal vivo (web e APK) e segnalato bug uno alla
+volta. In ordine cronologico, tutti corretti e verificati (test + build + lint), tutti pushati e
+deployati (Vercel auto-deploy su push a `main`; GitHub Action ricompila l'APK a ogni push, vedi
+`.github/workflows/build-apk.yml`):
+
+- **Tabata bloccava l'app**: `Create.tsx` marcava la sessione "attiva" e saltava all'anteprima del
+  Runner prima ancora che l'utente premesse Inizia, per il solo Tabata; combinato col redirect
+  automatico su `/avvia` quando c'è una sessione attiva (`App.tsx`), l'utente restava intrappolato
+  senza tasto Indietro. Ora il Tabata segue lo stesso percorso di anteprima di tutte le altre
+  modalità.
+- **"Ultimo allenamento" non cliccabile**: aggiunti i tasti Vedi dettagli/Ripeti.
+- **Sessione singola Bodybuilding a gruppi scelti multi-split** (es. deltoide anteriore+laterale+
+  posteriore) veniva rifiutata dal validatore perché lo split restava sull'ultimo preset (`push`)
+  anche in modalità gruppi-a-scelta. Ora lo split resta `null` in quel caso, come già per CrossFit/
+  Hybrid; `Create.tsx` ricade su `full_body` solo per generare, la validazione passa dal controllo
+  sui target scelti.
+- **"Cindy adattata sui muscoli target"** (nuova funzione): scegliendo Cindy senza altro resta la
+  Cindy ufficiale; scegliendo anche muscoli target, il WOD usa movimenti esclusivamente su quei
+  muscoli mantenendo la struttura di Cindy (3 movimenti, AMRAP 20', schema 5-10-15). Fran/Grace/
+  Helen restano benchmark fissi non toccati.
+- **Benchmark CrossFit fisso (Cindy/Fran/Grace/Helen) non deve avere Forza/Skill né Accessory**:
+  un benchmark è già un allenamento completo da solo; quei due blocchi restano solo quando
+  l'utente sceglie "WOD personalizzato sui target" (`benchmark: 'custom'`). Adattato anche il
+  controllo minimo-esercizi del validatore, che altrimenti avrebbe sempre rifiutato Grace
+  (ufficialmente un solo movimento, "30 Clean & Jerk").
+- **Crash Android "premo avvia, fa 3-2-1 e si chiude" su qualsiasi allenamento**: la vera
+  `ServiceCompat.startForeground()` avviene dentro `onStartCommand()` di `WorkoutTimerService`,
+  fuori dal try/catch che un fix precedente aveva messo solo sulla chiamata Capacitor lato plugin.
+  Su target SDK 35 un'eccezione lì crashava l'intero processo. Avvolto anche questo in try/catch:
+  in caso di errore il servizio nativo si ferma da solo, il timer React resta comunque la fonte di
+  verità del countdown.
+- **Vibrazione non funzionava mai in APK**: mancava `android.permission.VIBRATE` nel manifest.
+- **"Solo vibrazione" non era davvero silenzioso**: i tre bip del conto alla rovescia 3-2-1 non
+  rispettavano l'impostazione "silenzioso" di inizio/fine. Corretto in `audio.ts`.
+- **Crash dopo la seconda pausa**: `publishBackgroundTimer` fermava/riavviava il servizio Android
+  in foreground a ogni pausa/ripresa — stessa famiglia del crash "3-2-1" sopra. In pausa il
+  servizio nativo ora non viene più fermato, solo alla fine/uscita reale della sessione.
+- **Notifica/banner in background**: ora mostra fase e giro corrente (es. "Lavoro · Giro 3/8" per
+  Tabata/EMOM/Intervals, "AMRAP · 2 giri"), non solo l'etichetta generica; aggiunto
+  `VISIBILITY_PUBLIC` alle notifiche così il countdown resta leggibile a schermo bloccato.
+
+**In sospeso, non ancora iniziato — richiesta esplicita dell'utente:** sostituire il motore
+`generators/hybrid.ts` (oggi: warmup + 2 alzate forza + metcon che alterna cardio/isolamento, vedi
+sopra) con una nuova architettura "Functional Bodybuilding" a 3 blocchi sequenziali a costo
+neurale decrescente — Blocco A: 2 esercizi forza (~35% tempo), Blocco B: metcon EMOM/AMRAP/For Time
+a 3-4 stazioni con alternanza Anaerobico pesi/Aerobico cardio/Anaerobico corpo libero (~30%),
+Blocco C: 1 superserie da 2 esercizi isolamento carenze, 2 round, 60s recupero (~20%) — con
+scalabilità dinamica sul tempo (Express 30-40', Standard 45-60', Extended 70-80') e fallback
+attrezzatura espliciti. L'utente ha confermato di voler **sostituire** l'Hybrid esistente (non
+aggiungere una modalità nuova). Un piano dettagliato è stato scritto e approvato
+(`~/.claude/plans/wondrous-tickling-boole.md` nella sessione Claude Code, non nel repo) ma
+l'implementazione non è partita: due domande di chiarimento (tenere il blocco Riscaldamento? scelta
+manuale o automatica del formato EMOM/AMRAP/For Time nella sessione singola?) sono state poste ma
+l'utente è passato ad altro prima di rispondere. Punto di ripartenza: il Blocco C (superserie: due
+esercizi consecutivi senza recupero, poi recupero solo a fine coppia, per N round) non ha nessun
+equivalente nell'attuale modello `WorkoutBlock`/`PrescribedExercise`/Runner — serve un nuovo
+`format` per i blocchi `kind: 'metcon'` (es. `'superset'`) e una nuova sezione di rendering/
+esecuzione in `Runner.tsx`, sul modello di come oggi convivono già i rami `aGiri`/`aIntervalli`/
+`amrap`. Il resto dell'architettura Hybrid attuale (tipi, weekly programming PPL+HY, UI generica a
+blocchi) può restare com'è: sostituire in loco richiede di toccare solo `generators/hybrid.ts` e
+`generators/__tests__/hybrid.test.ts`.
+
+Verifica di questa sessione: 227 test verdi, build production verde, lint senza errori (resta il
+warning storico in `Runner.tsx`). I fix lato nativo Android (foreground service, vibrazione,
+notifiche) non sono verificabili in locale: manca un dispositivo/emulatore Android in questo
+ambiente, verificati solo per compilazione tramite la GitHub Action che ricompila l'APK a ogni push.
+
+## Aggiornamento stato — 2026-08-18: crash timer nativo in background (secondo fix)
+
+L'utente ha segnalato che l'app si chiude ancora durante l'allenamento (schermo spento, dopo un
+cambio fase come lavoro→riposo), nonostante il fix del 17/08 (`a125bd8`, try/catch su
+`onStartCommand`). Causa: quel fix intercetta solo le `RuntimeException` sincrone dentro
+`onStartCommand()`. Il ramo che gestiva un `deadline` già scaduto chiamava `stopTimer()` senza mai
+chiamare `startForeground()` — ma `WorkoutTimerPlugin` avvia questo servizio con
+`startForegroundService()`, che impone `startForeground()` entro pochi secondi *da ogni esito*,
+non solo da quello valido. Se non arriva, Android lancia
+`ForegroundServiceDidNotStartInTimeException` **dopo** che `onStartCommand()` è già tornato: un
+crash lanciato dal sistema, non dal codice del Service, che nessun try/catch Java o JS può
+intercettare. Un deadline già scaduto arriva quando il tick React che lo calcola
+(`Runner.tsx` → `publishBackgroundTimer`) viene eseguito in ritardo perché throttled da Chromium
+con l'app in background/schermo spento — il valore è corretto quando viene calcolato, ma può
+arrivare al lato nativo dopo essere già scaduto.
+
+Fix: `onStartCommand()` ora chiama sempre `startForeground()` — con una notifica "a zero secondi"
+quando il deadline è già scaduto, tramite il nuovo metodo `promoteToForegroundThenStop()` — prima
+di fermare il servizio, in ogni ramo raggiungibile da un avvio via `startForegroundService()`.
+Non cambia nulla nel percorso normale (deadline valido): notifica persistente con countdown e
+tap-per-tornare all'allenamento (`openWorkoutIntent()` → `MainActivity` → resume automatico su
+`/avvia` via `activeSession`) restano gli stessi. **Non riproducibile né verificabile in questo
+Codespace** (niente Android SDK, sez. 9/TODO): individuato per lettura del contratto Android per
+`startForegroundService`, non da un log di crash reale — resta da confermare su un telefono vero,
+vedi TODO.
+
+## Aggiornamento stato — 2026-08-18: riorganizzazione wizard Genera a 9 step
+
+Il wizard di `Genera` (`src/pages/Create.tsx`) passa da 2 a 9 step con gating in avanti (non si
+può passare allo step successivo se quello corrente non è valido; il ritorno indietro resta
+sempre libero): **1** Livello, **2** Cosa vuoi creare (Programma/Sessione + numero giorni), **3**
+Seduta di oggi (disciplina/e), **4** Split — o Timer Tabata, o Benchmark/Metodica CrossFit più
+Muscoli Target di Oggi per CrossFit/Hybrid, a seconda della disciplina scelta — **5** Attrezzi,
+**6** Muscoli carenti, **7** Preferenze (corpo libero/elastici + avanzate per preferiti/esclusi),
+**8** Durata, **9** Genera. Il Tabata salta direttamente dallo step 4 al 9 (non usa
+attrezzatura/carenze/preferenze/durata, come già in precedenza). Le note per l'LLM si aprono
+inline nello step 9 al tap su "Genera con DeepSeek", invece di un campo sempre visibile.
+
+Rimossa solo la modalità libera "Gruppi a Scelta" della sessione singola Bodybuilding/Forza
+(sceglievi i muscoli da zero, senza split): su richiesta esplicita dell'utente, che ha chiarito
+come i muscoli carenti già ripartiscano gli slot dentro lo split scelto (es. PPL Push + carenze
+spalle/braccia → invece di 3 petto: 1 petto, 2 spalle, 1 misto, 1 bicipiti, 1 tricipiti, con
+richiamo settimanale sugli altri giorni compatibili) — un secondo modo di scegliere i muscoli era
+ridondante. La sessione singola BB/Forza ora usa sempre split preimpostato + carenze. **Non
+toccato** invece il campo "Muscoli Target di Oggi (opzionale)" per CrossFit/Hybrid aggiunto nella
+sessione precedente (18/08, Codex): CrossFit/Hybrid non hanno un concetto di split (`split` resta
+sempre `null` per quei modi in `generateWeeklyProgram`), quindi quel target picker non è
+ridondante con le carenze nello stesso modo — resta l'unico modo di orientare un WOD full-body.
+
+Nessuna modifica al motore di generazione: la riorganizzazione è solo di `Create.tsx` (UI/gating),
+riapplicata sopra le modifiche della sessione precedente (spostati nello step 4 il campo
+"Metodica / Benchmark CrossFit" e il nuovo "Muscoli Target di Oggi" con lo stesso contenuto/copy
+già scritto da Codex, non riscritti da zero). 227 test verdi, `tsc`/`eslint` puliti, build
+produzione verde. Verificata a mano nel browser (Playwright headless, catalogo finto perché le
+credenziali Supabase reali risultano oscurate in questo ambiente): tutti e 9 gli step si aprono
+nell'ordine giusto con i titoli corretti, il gating dello step 3 blocca "Continua" senza
+discipline selezionate, la navigazione indietro dallo step 9 allo step 1 funziona, e il salto
+Tabata step 4→9 funziona. Non verificato invece il percorso di generazione vera (serve un
+catalogo reale) né il comportamento su dispositivo Android reale.
+
+## Aggiornamento stato — 2026-08-18: il fix del crash non bastava, permesso e resume Tabata
+
+L'utente ha installato la build 1.0.20 (commit `0d7dca3`, il fix `promoteToForegroundThenStop`
+sopra) e ha comunque riscontrato lo stesso pattern: al primo Tabata il permesso notifiche gli è
+stato chiesto 2-3 volte invece di una, e l'app si è chiusa comunque al primo passaggio
+lavoro→riposo; riaprendo torna sempre alla schermata "Avvia Tabata" invece di riprendere il round.
+Trovate e corrette due cause reali distinte, entrambe più probabili del bug già risolto:
+
+- **Permesso richiesto implicitamente in corsa con i round**: `requestTimerNotifications()`
+  lato JS non chiedeva mai davvero il permesso nativo (`if (isNativeWorkoutTimerAvailable())
+  return true`, un no-op ottimistico): la vera richiesta avveniva solo al primo
+  `WorkoutTimer.start()`, dentro il primo cambio di fase. Con un Tabata che cambia fase ogni
+  10-20s, se l'utente non rispondeva al dialogo di sistema abbastanza in fretta, i round
+  successivi arrivavano mentre la Promise del primo `start()` era ancora pendente:
+  `activeNativeTimer` (il guard anti-duplicati in `workoutTimer.ts`) restava `null` finché quella
+  Promise non si risolveva, quindi ogni round nel frattempo tentava un nuovo `start()`. Quando la
+  richiesta finiva per risolversi, poteva farlo con un `deadline` ormai di round precedenti,
+  quindi già scaduto — la stessa famiglia di crash del fix precedente, solo con una causa diversa
+  a monte. Aggiunto un nuovo metodo nativo `ensurePermission` (stessa guardia
+  `permissionRequestInFlight`/`permissionDenied` di `start()`, ma senza avviare alcun timer) e
+  `requestTimerNotifications()` ora lo chiama e lo attende *prima* del countdown iniziale: il
+  dialogo di sistema compare una sola volta, upfront, prima che qualunque round cominci.
+- **Il resume dopo crash non funzionava mai per un Tabata puro**: lo stato di avanzamento salvato
+  in `RUNNER_PROGRESS_KEY` viene ripristinato solo se `progress.iniziato === true`, ma quel flag
+  si imposta solo nella schermata di Riscaldamento (`setIniziato(true)` al tap su "Comincia") o
+  nella sezione principale a serie. Un Tabata puro (niente riscaldamento, niente esercizi
+  principali, tutto nel blocco Metcon) passa dritto alla schermata "Avvia Tabata" — il cui
+  handler non impostava mai `iniziato`. Risultato: il guard di ripristino restava sempre falso, e
+  ogni riapertura (dopo un crash o anche solo dopo aver chiuso l'app) mostrava di nuovo la
+  schermata iniziale invece di riprendere il round in corso, anche quando lo stato dettagliato
+  (round, fase, deadline) era salvato correttamente. Aggiunto `setIniziato(true)` anche in quel
+  handler.
+
+227 test verdi, `tsc`/`eslint` puliti (entrambi i fix sono minimi e mirati, nessuna modifica al
+motore). **Nessuno dei due è verificabile in questo Codespace** (niente Android SDK/dispositivo):
+individuati per lettura del codice a partire dalla sequenza esatta di sintomi riportata
+dall'utente (permesso chiesto più volte + crash al primo cambio fase + resume rotto), non da un
+log di crash reale. Resta da confermare su un telefono vero che il permesso compaia una sola
+volta e che il Tabata non si chiuda più — vedi TODO.
+
+Sistemato anche il secret GitHub Actions `VERCEL_TOKEN` (era scaduto/non valido: lo step "Deploy
+APK to Vercel" falliva da almeno il 17/08, senza impatto reale sugli utenti perché il deploy vero
+passa dall'integrazione automatica GitHub→Vercel, ma lasciava una ✗ rossa ad ogni build).
+
+## Aggiornamento stato — 2026-08-18: il Tabata continua a chiudersi, aggiunta diagnostica crash reale
+
+L'utente ha installato 1.0.21 (i due fix sopra) e il crash si ripresenta **a ogni singolo giro**
+(non solo al primo), con il "richiede avvio più volte" ancora presente prima del primo giro.
+Nota positiva: il fix del resume funziona — riaprendo l'app dopo ogni crash riprende dal giro
+giusto (2°, poi 3°) invece di tornare sempre alla schermata iniziale, come confermato
+dall'utente. Terza ipotesi via lettura del codice senza log reale rischiava di essere un altro
+tentativo alla cieca: **invece di correggere ancora per ipotesi, aggiunta cattura del crash
+reale**.
+
+Nuovo `CrashLogger.java`: installa un `Thread.setDefaultUncaughtExceptionHandler` che scrive
+ogni eccezione fatale non gestita (incluse quelle lanciate dal sistema come
+`ForegroundServiceDidNotStartInTimeException`, che arrivano comunque come eccezione Java normale
+sul thread principale, catturabile da questo handler) su file, poi richiama l'handler precedente
+così il comportamento di chiusura resta quello standard. Nuovo `DiagnosticsPlugin.java` +
+`src/native/diagnostics.ts` espongono quel log alla WebView. Nuova sezione "Diagnostica crash" in
+Profilo (`ProfilePage.tsx`, visibile solo su Android nativo): mostra il testo del crash più
+recente con pulsanti Copia/Cancella, così l'utente può incollarlo qui in chat senza bisogno di
+adb o di un file manager.
+
+**Prossimo passo reale**: chiedere all'utente di riprodurre ancora il crash Tabata, poi aprire
+Profilo → Diagnostica crash e incollare il contenuto. Da lì si potrà correggere la causa vera
+invece di continuare per ipotesi. 227 test verdi, `tsc`/`eslint` puliti, build verde. Il logger
+stesso non è testabile in questo Codespace (niente Android SDK/dispositivo).
+
+## Aggiornamento stato — 2026-08-19: regola di aggiornamento memoria esplicita + restyling banner notifica timer
+
+**Nuovo `CLAUDE.md`** in root: rende vincolante, per qualsiasi sessione Claude Code aperta su
+questo repo (non solo via `/handoff`), la regola di "salvataggio automatico" già presente nel
+protocollo AI-OS centrale — aggiornare `AIOS_STATE.md` (e `TODO.md` se pertinente) prima di
+dichiarare concluso un lavoro, poi commit insieme al codice. Prima esisteva solo nel repo
+esterno `ai-os` e nella sezione `SALVATAGGIO AUTOMATICO` di `AIOS_PROTOCOL.md`: valeva solo se
+qualcuno la faceva leggere all'AI. Ora è caricata automaticamente all'apertura di questa cartella
+in Claude Code.
+
+**Restyling banner notifica timer Android** (`WorkoutTimerService.java` +
+`res/layout/notification_timer.xml` + nuovi drawable `notification_card_bg`,
+`notification_icon_bg_{work,rest,other}`, `notification_badge_bg`), su richiesta esplicita
+dell'utente con mockup HTML di riferimento (card scura arrotondata, badge icona colorato per
+fase, countdown grande centrato, pillola col testo fase/giro sotto invece della vecchia riga di
+testo separata in alto a sinistra). Colore lavoro cambiato da giallo puro (`#FFD600`) ad ambra
+(`#F59E0B`) per aderire al riferimento; riposo resta blu (`#40C4FF`).
+
+Rimossa la TextView `notification_timer_label` (fase in maiuscolo, es. "LAVORO") perché
+ridondante col testo già passato da JS nella pillola (es. "Lavoro · Giro 1/15", da
+`Runner.tsx`); di conseguenza rimosso anche `phaseTitle()` in Java, non più usato.
+`buildCountdownViews()` ha cambiato firma (un solo testo — `badgeText` — invece di
+`exerciseLabel`+`topLabel`); lo stato "completato" ora mostra "Completato" nella pillola invece
+del vecchio "COMPLETATO" in alto.
+
+**Non verificabile in questo Codespace** (niente Android SDK/dispositivo, vedi sopra): solo XML
+validati con `xmllint` (ben formati) e coerenza letta a mano nel Java (nessun riferimento
+residuo a `notification_timer_label`/`phaseTitle`). **Prossimo passo**: verificare sul telefono
+reale, dopo la prossima build APK via GitHub Actions, che il banner appaia come nel riferimento
+sia a schermo acceso (banner in alto) sia su lock screen, e che i colori/badge cambino
+correttamente fra lavoro e riposo.
+
+**Chiarimento aggiunto in `CLAUDE.md` nella stessa sessione**: l'utente ha chiesto esplicitamente
+che l'app si aggiorni da sola a ogni modifica, come regola obbligatoria. Verificato che il
+meccanismo **esiste già** e non richiede nulla di nuovo: `build-apk.yml` si attiva a ogni push su
+`main` (non al solo commit locale), bumpa `versionCode`/`versionName`, builda un APK debug,
+aggiorna `public/gymbuilder.apk` + `public/version.json` e pubblica su Vercel da solo — senza
+bisogno di tag `android-v*` (quello serve solo per la release firmata "ufficiale", un passo
+separato). Il tag `android-v*` menzionato nella risposta precedente della chat non era quindi
+necessario per l'aggiornamento automatico standard. Il pezzo mancante era solo **il push**: il
+commit precedente di questa sessione (banner timer) era rimasto solo locale. Aggiunta la regola
+in `CLAUDE.md` per fare sempre `git push origin main` dopo ogni commit, senza chiederlo, salvo
+richiesta esplicita contraria dell'utente.
+
+## Aggiornamento stato — 2026-08-19: correzione manuale esercizio/serie + tempo totale allenamento in `Runner.tsx`
+
+Richiesta utente: durante l'allenamento deve poter vedere a che esercizio/serie è arrivato e
+quanti ne restano; se il timer perde il filo (es. dimenticato di avviarlo mentre si era già
+passati all'esercizio successivo) deve poter scegliere lui l'esercizio/serie corretti; deve
+esserci un tempo totale stimato dell'allenamento, separato dal timer di recupero, che scorre
+dall'avvio vero (dopo il conto alla rovescia) e resta visibile sia sull'esercizio corrente sia
+quando si guardano gli esercizi rimanenti.
+
+**Aggiunto in `src/pages/Runner.tsx`**:
+- `WorkoutClock`: componente che mostra `mm:ss / ~N min` (la stima è `GeneratedWorkout.duration_min`,
+  mai un tetto che chiude l'allenamento da solo), tick ogni secondo leggendo `inizio.current`
+  (il ref esistente, non nuovo stato). Mostrato in "Serie in corso", "Recupero" e nella nuova
+  schermata "Sono qui".
+- Schermata "Sono qui" (`mostraElenco`, guardia messa prima dei rami `sezione === 'metcon'` e
+  `fase.tipo === 'recupero'`): elenco di tutti gli esercizi del blocco principale, esercizi
+  precedenti barrati "✓ fatto", esercizio corrente con bordo ambra, un chip "Serie N" per ogni
+  serie di ogni esercizio. Toccare un chip chiama `selezionaEsercizio(iEs, serie)`, che imposta
+  `fase = { tipo:'serie', iEs, serie }`, toglie la pausa e chiude la schermata — riporta
+  l'utente esattamente dove dice di essere, senza toccare timer di recupero/metcon (che restano
+  quello che erano, dato che si esce sempre dallo stato 'recupero' quando si sceglie una serie).
+  **Scope**: solo blocco principale (esercizi/serie), non il Metcon — la richiesta dell'utente
+  descriveva esplicitamente esercizi in sequenza con serie, non round Metcon.
+- Link di ingresso: "Non sei qui?" nella barra sotto il progresso in "Serie in corso", "Non è
+  la serie giusta? Correggi" in fondo a "Recupero".
+
+**Verificato in un browser reale** (non solo `tsc`/`eslint`/test, per una volta possibile: la
+Runner non richiede login se c'è già un workout in `localStorage['gymbuilder:allenamento']`).
+Avviato `npm run dev` con le `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` pubbliche già note (le
+stesse del workflow CI), pilotato con Playwright headless (Chromium della cache
+`~/.cache/ms-playwright`, non nei `devDependencies` del progetto: usato solo per questa verifica
+manuale, non aggiunto al repo). Confermato via screenshot e testo pagina: l'orologio scorre
+(0:00 → 0:02 → 0:03), la schermata "Sono qui" mostra "Esercizio 1 di 2 · ne restano 1" con i
+chip corretti, selezionare "Serie 1" del secondo esercizio porta davvero lì (titolo cambiato in
+"Alzate laterali"), e dopo aver completato quella serie il Recupero mostra correttamente "serie
+2 di 2". Nessun errore console. 229 test verdi, `tsc`/`eslint` puliti (1 warning preesistente
+non legato a queste modifiche), `npm run build` verde.
+
+**Non verificato**: comportamento su un allenamento reale con riscaldamento (il workout di test
+non ne aveva, quindi è entrato dritto in "Serie in corso" invece di passare dalla schermata
+"Comincia" — comportamento preesistente, non toccato da questa modifica) e la coerenza con la
+notifica Android in background quando si usa "Sono qui" mentre l'app è in background (dovrebbe
+funzionare, dato che `selezionaEsercizio` fa uscire `fase` da `recupero`, quindi l'effetto che
+pubblica lo stato in background smette di mostrare un countdown, come già succede oggi entrando
+in "Serie in corso" — ma non testato su device reale).
+
+## Aggiornamento stato — 2026-08-19: Lagging Muscle Engine (focus_portion, swap navigabile, rotazione settimanale, sequenziamento fatica/sinergie, parità DeepSeek)
+
+Richiesta utente (due feature: "Lagging Muscle Engine" e "Smart Exercise Swap", con spec
+dettagliata stile PPL/BroSplit generico). **Prima di implementare, verificato che gran parte del
+richiesto esisteva già in produzione**, in forma più sofisticata della spec: `weakPoints.ts`
+calcola volume settimanale reale dai workout completati e decide i richiami (non uno schema
+fisso); `bodybuilding.ts` (`applicaPrioritaAssegnate`) già riserva slot carenza e taglia gli
+slot non prioritari per restare a 6 esercizi (compensazione volume); `replacement.ts`
+(`findExerciseReplacements`, plurale) già fa scoring per muscolo/pattern/attrezzo/fatica con
+apprendimento adattivo, ma non era esposta in UI — `WorkoutPreview.tsx` chiamava solo la
+versione singolare e applicava automaticamente il primo risultato. Piano concordato con
+l'utente (via plan mode, poi esteso in conversazione): estendere questi moduli, non ricostruirli.
+Piano completo in `/home/codespace/.claude/plans/synchronous-cooking-engelbart.md` (locale alla
+sessione, non nel repo).
+
+**Gap reale colmato — 6 step, tutti implementati:**
+
+1. **`focus_portion`** (`src/types/index.ts`): nuovo tipo `'long_head'|'short_head'|'brachialis'|
+   'lateral_head'|'medial_head'`, campo opzionale su `Exercise` (non NOT NULL: ha senso solo per
+   bicipiti/tricipiti, non per l'intero catalogo). Migrazione
+   `supabase/migrations/20260819120000_exercise_focus_portion.sql` tagga ~15 esercizi reali
+   (curl/estensioni/dip) seguendo la logica biomeccanica descritta dall'utente. Fixture di test
+   aggiornata con gli stessi tag + 5 righe mancanti da una migrazione precedente mai
+   risincronizzata (`bayesian_curl`, `preacher_curl_macchina`, `curl_inclinata_man`,
+   `pushdown_unilaterale`, `estensione_tricipiti_cavo_alto`) — la fixture resta comunque stale
+   rispetto a Supabase per altri ~50 esercizi non toccati da questo lavoro, problema preesistente
+   segnalato ma non risolto qui.
+2. **Swap navigabile** (`replacement.ts` + `WorkoutPreview.tsx`): `findExerciseReplacements`
+   ora filtra/pesa per `focus_portion` con fallback a 4 passaggi (mai fallisce per mancanza di
+   tag). La modale "Sostituisci" è diventata due passi — motivo poi lista di alternative
+   raggruppate per attrezzo (Manubri&Panca/Corpo Libero&Sbarra/Cavi&Elastici/Macchine&Guidati) —
+   invece di applicare automaticamente la prima trovata. `sets`/`reps`/`rest_sec` erano già
+   preservati dallo swap esistente, nessuna modifica necessaria lì.
+3. **Rotazione settimanale per porzione** (`weeklyPlan.ts`): nuovo campo `WeeklySession.
+   priority_portions`, additivo — non tocca `priority_muscles`, quindi gli 8+ test con array
+   esatti in `weeklyProgram.test.ts` restano intatti. Bicipiti/tricipiti ruotano long_head→
+   short_head→brachialis (o lateral/medial per tricipiti) fra le sedute della settimana che li
+   richiamano. Sessione singola: nessuna settimana su cui ruotare, default fisso `long_head` in
+   `bodybuilding.ts`/`strength.ts`.
+4. **Badge visivo**: `note` (`'carenza'`/`'richiamo carenza'`/`'richiamo'`) non era mai mostrato
+   nel blocco principale — nuovo helper `isLaggingNote` in `types/index.ts` (riconosce le note
+   leggermente diverse fra bodybuilding.ts e strength.ts), badge ambra aggiunto in
+   `WorkoutPreview.tsx` e in `Runner.tsx` (schermata "Serie in corso").
+5. **Sequenziamento fatica/sinergie** (`shared.ts`, nuova `riordinaPerSinergie`, chiamata da
+   `bodybuilding.ts` e `strength.ts` dopo la selezione esercizi): usa `secondary_muscles` e
+   `local_fatigue` (già esistenti, mai letti da `ordinaSlot`). Due passaggi — priming (anticipa
+   un isolamento carente subito prima del primo esercizio, anche precedente nell'ordine di
+   partenza, che lo coinvolge come secondario) e anti-concatenazione (evita due slot consecutivi
+   che condividono un muscolo ad alta fatica, ma **solo** quando il secondo lo coinvolge come
+   secondario — mai quando condividono semplicemente lo stesso muscolo primario, che è accumulo
+   di volume intenzionale, es. Bro Split). **Mai sui compound** (tier 0): il loro ordine è già
+   deciso da `faticaSort`/identità dello split.
+   **Trovata e corretta una regressione durante l'implementazione**: la prima versione
+   dell'anti-concatenazione scattava anche su isolamenti con lo stesso muscolo primario,
+   rompendo "sessione Bro Petto usa 2 compound e 3 isolamenti tutti per il petto" (3 isolamenti
+   petto consecutivi sono voluti, non un bug) — corretto restringendo il trigger al solo caso
+   secondario-su-primario. Verificato con test sintetici dedicati in un nuovo describe block di
+   `shared.test.ts` (7 test) oltre alla suite generatori esistente.
+   **Fix minimo incluso**: `adattaAlTempo` in `bodybuilding.ts` confrontava `note === 'richiamo'`
+   (stringa di strength.ts) invece di riconoscere anche `'carenza'`/`'richiamo carenza'`
+   (bodybuilding.ts): i richiami carenza di bodybuilding non venivano mai deprioritizzati nel
+   taglio per budget di tempo. Ora usa `isLaggingNote`.
+6. **Parità con DeepSeek** (`lib/deepseek.ts`): `CatalogExerciseSnapshot`/`toCatalogSnapshot`
+   arricchiti con `local_fatigue`, `technical_complexity`, `focus_portion`.
+   `PROFESSIONAL_WORKOUT_SYSTEM_PROMPT` ha nuove regole esplicite (stesso principio dello step 5
+   in prosa): non concatenare esercizi ad alta fatica sullo stesso muscolo anche secondario,
+   priming sulle carenze, non più di due esercizi pesanti di fila, sostituzione che preserva
+   `focus_portion`/`local_fatigue`.
+
+**Verificato**: 240 test verdi (229 esistenti + 11 nuovi/estesi), `tsc`/`eslint` puliti,
+`npm run build` verde. Badge "Carenza" verificato in un browser reale via Playwright headless
+(stessa tecnica già usata in questa sessione per il Runner) — screenshot conferma lo stile
+corretto, nessun errore console. **Non verificabile in browser**: il nuovo swap navigabile in
+`WorkoutPreview.tsx` — a differenza di `/avvia`, quella rotta non ha un bypass per l'autenticazione
+e richiede un utente Supabase reale, non disponibile in questo Codespace. Verificato solo con
+`tsc`/`eslint` e lettura attenta della macchina a stati (motivo → lista raggruppata → applica).
+
+**Prossimo passo**: verificare manualmente in produzione (utente autenticato) che "Sostituisci"
+mostri davvero i 4 gruppi per attrezzo e che scegliere un'alternativa aggiorni la scheda; generare
+un programma settimanale con carenza bicipiti/tricipiti e controllare che sedute diverse
+propongano davvero porzioni diverse; generare via DeepSeek con una carenza selezionata e valutare
+a occhio se l'ordine rispetta le nuove regole (non verificabile in automatico, dipende da una
+risposta reale del modello esterno).
+
+**Migrazione applicata**: `20260819120000_exercise_focus_portion.sql` eseguita in produzione via
+MCP Supabase (progetto `geqhxhgrameaugawmaej`) su richiesta esplicita dell'utente. Verificato via
+query diretta: 15 righe taggate correttamente (6 bicipiti, 9 tricipiti). `focus_portion` è quindi
+già attivo in produzione, non solo nel codice.
+
+## Aggiornamento stato — 2026-08-19: protocolli Bodybuilding avanzati FST-7 e Top Set & Back-Off (stile CBum)
+
+Richiesta utente: tre protocolli avanzati Bodybuilding (3-6-9 Density Tri-Set, FST-7, Top Set &
+Back-Off/CBum). Dopo esplorazione e due chiarimenti con l'utente: **il 3-6-9 è rimandato** (serve
+un vero motore a circuito che oggi non esiste — il Runner esegue solo sequenze flat, mai stazioni
+interlacciate per round — e un carve-out più ampio nel validatore); **il logging automatico CBum
+("+2.5kg se chiudi 8 rep pulite") è rimandato su richiesta esplicita** — verificato che l'app non
+registra MAI reps/peso reali da nessuna parte (Runner.tsx: "Serie completata" non cattura nulla;
+nessun campo simile in nessun tipo o tabella Supabase). Implementati invece **FST-7 e Top Set &
+Back-Off**, che si incastrano nel motore Runner esistente senza un nuovo sistema di esecuzione.
+
+**Dati**: `WeeklyProgramConfig.protocol?: 'standard'|'fst7'|'cbum_top_backoff'` +
+`fst7_preloading?: boolean` (`types/index.ts`), additivo — nessuna migrazione, persistito
+wholesale come jsonb in `training_programs.config` (`api.ts`).
+
+**Generatore** (`bodybuilding.ts`): `GenerationConfig` guadagna `protocol`/`fst7_preloading`.
+FST-7: tronca gli slot a 3 esercizi base (8-12 rep, 90-120s recupero — prescrizione dedicata,
+non quella legata all'obiettivo), poi aggiunge un finisher a parte (`sets:7, reps:'10-12',
+rest_sec:30, note:'fst7_finisher'`, filtrato per cavi/macchine/isolamento tramite
+`isFst7FinisherEligible` in `replacement.ts`, riusata anche dallo swap). CBum: 4-5 esercizi
+selezionati con la logica a slot esistente, poi ciascuno **espanso in due voci consecutive**
+sullo stesso `exercise_id` — Top Set (`1x6-8 rest:180`) e Back-Off (`1x10-12 rest:150`), entrambe
+scalate da `intensity` come il resto del motore. Il carico del Back-Off (-15/20%) resta
+un'indicazione testuale in UI, non un numero calcolato — nessun peso registrato da nessuna parte.
+
+**Bug reali trovati e corretti durante l'implementazione** (non nella spec, scoperti generando
+davvero l'output):
+- `target` per FST-7 non teneva conto del troncamento a 3 slot (restava legato a
+  `baseSlot.length`, sempre ≥5): il ciclo di completamento aggiungeva comunque esercizi fino a 5.
+  Corretto forzando `target = 3` quando `protocol === 'fst7'`.
+- `rimuoviDuplicati` (shared.ts) e `validator.ts:46` rifiutano/cancellano ID esercizio ripetuti:
+  un Top Set + Back-Off dello stesso esercizio veniva trattato come duplicato accidentale — il
+  validatore bloccava OGNI sessione CBum generata (`Create.tsx` la respinge con un errore secco
+  se `validateWorkout` fallisce). Corretto in entrambi i punti riconoscendo `note === 'top_set'/
+  'back_off'` come coppia legittima, non un duplicato.
+- `portaCompoundInApertura` avrebbe scavalcato il finisher FST-7 in preloading (lo sposta sempre
+  in testa un compound se non è già lì): aggiunta stessa eccezione già usata per le carenze.
+- Il warning "solo N esercizi, attrezzatura insufficiente" usava una soglia fissa di 6, sempre
+  sbagliata per FST-7 (4 attesi) e CBum (8-10 attesi dopo l'espansione).
+
+**UI**: selettore "Protocollo di Allenamento" in Create.tsx Step 4 (stesso pattern chip di
+"Sistema Split Bodybuilding"), toggle Pre-Loading solo per FST-7. Badge Top Set/Back-Off/FST-7 in
+`WorkoutPreview.tsx` e `Runner.tsx` (stesso meccanismo del badge Carenza). Messaggio alternato
+FST-7 nella schermata Recupero di Runner.tsx: serie dispari appena completata → "Posa ·
+Contrazione isometrica (10s)" + promemoria acqua; serie pari → "Allungamento fasciale passivo
+(10s)" — deciso da `fase.serie % 2` sull'esercizio con `note === 'fst7_finisher'`.
+
+**Verificato**: 246 test verdi (240 + 6 nuovi/estesi: generatore FST-7/CBum su tutti gli split,
+filtro swap finisher, carve-out validatore), `tsc`/`eslint`/`npm run build` puliti. Verificato in
+un browser reale (Playwright via `/avvia`, bypassa l'auth): badge Top Set/Back-Off/FST-7 con
+contatore serie live, messaggio alternato che cambia correttamente fra serie dispari e pari,
+nessun errore console.
+
+**Non fatto, esplicitamente rimandato su richiesta dell'utente**: protocollo 3-6-9 Density
+Tri-Set (serve un motore a circuito nuovo); logging automatico CBum (serve una tabella di log
+reps/peso e un input in Runner, oggi assenti ovunque nell'app) — il badge/target CBum resta
+puramente informativo, senza rilevare cosa l'utente fa davvero.
+
+## Aggiornamento stato — 2026-08-19: fix reale — le carenze affollavano Push/Pull svuotando petto/dorso
+
+Bug segnalato dall'utente: pianificando un PPL con carenze deltoidi+bicipiti+tricipiti, il
+sistema affollava Push (o Pull) di esercizi spalle/braccia fino a ridurre il petto (o il dorso,
+il muscolo identitario dello split) a **un solo esercizio invece dei 2 standard**. Riprodotto e
+confermato con uno script diretto prima di toccare codice. **Non era un'impressione: era un
+comportamento già deliberatamente testato come "corretto"** da una sessione precedente (test
+"usa un solo esercizio per ogni distretto") — l'utente ha corretto quella scelta di design.
+
+**Causa reale, due parti**:
+1. `weeklyPlan.ts` (`splitAccogliePriorita`, sistema 'ppl'): bicipiti e tricipiti erano
+   "compatibili" sia con Push sia con Pull contemporaneamente (non solo con la loro sessione
+   biomeccanica naturale — tricipiti spinge, bicipiti tira), quindi ogni carenza braccia
+   reclamava uno slot dedicato in ENTRAMBE le sessioni. Corretto: tricipiti nativo solo di Push,
+   bicipiti nativo solo di Pull (la seconda esposizione settimanale resta comunque garantita dal
+   richiamo incrociato esistente, non dalla doppia compatibilità).
+2. `bodybuilding.ts` (`applicaPrioritaAssegnate`, riscritta): con molte carenze dichiarate,
+   tagliava slot al muscolo identitario dello split per farle stare, fino a ridurlo a 1 copia.
+   Nuova logica su richiesta esplicita dell'utente ("si deve sempre partire dallo standard per
+   poi modificarlo"):
+   - **Mai duplicare** un muscolo già coperto dalla struttura standard: si tagga lo slot
+     esistente, non se ne aggiunge un secondo.
+   - **Sostituisce, non allunga**: una carenza assente dallo split rimpiazza uno slot esistente
+     invece di far crescere la sessione oltre 6 (prima: append poi taglio a valle).
+   - **Sacrifica prima la ridondanza**: fra gli slot sostituibili si preferisce chi ha più copie
+     (es. una delle 2 panche petto) — mai l'identitario finché esiste un'alternativa reale.
+   - **Massimo 3 carenze dedicate per sessione, sempre** (prima: fino a 6 se l'utente ne
+     dichiarava molte). Le carenze in eccesso restano fuori da oggi: la settimana le richiama
+     in un altro giorno compatibile, invece di sovraccaricare questa sessione.
+   - Conserva il ruolo (composto/isolamento) dello slot sostituito, MA solo se il muscolo
+     carente lo supporta davvero (bicipiti/tricipiti/deltoidi non hanno varianti composte nel
+     catalogo — altrimenti lo slot restava vuoto, nessun candidato trovato).
+
+**Due bug secondari trovati e corretti mentre si verificava il fix con l'output reale** (non
+nella richiesta iniziale):
+- La sostituzione poteva creare uno slot "bicipiti composto" (inesistente nel catalogo): lo slot
+  restava vuoto e un fallback casuale lo riempiva con un duplicato a sorpresa. Corretto
+  vincolando `compound` a `COMPOUND_CAPABLE_MUSCLES` anche nel percorso di sostituzione.
+- Nel caso mono-muscolo (Bro Petto, dove l'identitario è l'unico muscolo esistente e quindi
+  l'unica alternativa possibile), l'ordine naturale degli slot faceva sacrificare i 2 compound
+  per primi, lasciando la sessione priva di un compound in apertura — violando l'invariante
+  "apre sempre con un compound" verificato altrove nel motore. Corretto con una preferenza
+  esplicita a sacrificare un isolamento prima di un compound, **ma solo in quel caso limite**:
+  nel caso normale (più muscoli distinti disponibili) non c'è motivo di preferire isolamento a
+  compound, e applicarlo ovunque faceva sparire tricipiti da un altro test legittimo.
+
+**Verificato**: 247 test verdi (246 + 1 nuovo test end-to-end che genera l'intero programma
+settimanale PPL con 5 carenze e verifica che petto/dorso restino sempre ≥2 in ogni seduta),
+`tsc`/`eslint`/`npm run build` puliti. Riprodotto lo scenario esatto dell'utente con uno script
+diretto (generateWeeklyProgram + generaBodybuilding insieme): Push ora mantiene la sua struttura
+piena (2 compound + 1 isolamento petto) più 3 carenze ben distribuite, Pull idem con dorso —
+invece di 1 solo esercizio petto sommerso da spalle/braccia. Tre test esistenti aggiornati con
+commenti che spiegano il cambio di comportamento (erano scritti per il vecchio design, ora
+esplicitamente corretto).
+
+**Non verificato su un allenamento reale generato dall'app** (solo unit test + script diretto):
+prossimo passo suggerito in TODO.md.
+
+## Aggiornamento stato — 2026-08-19: FST-7 sempre rigettato, dip esclusi dal motore, ristrutturazione Push/Legs, tetto spalle nelle carenze PPL, avvicinamento CBum
+
+Feedback utente (messaggio unico, denso, tradotto e verificato punto per punto prima di
+toccare codice): "FST-7 non vedo nulla" (poi chiarito: seduta generata vuota/con errore); nel
+CBum manca "l'avvicinamento" prima del Top Set; nel PPL le carenze deltoidi non devono togliere
+i bicipiti quando ci sono già 2 esercizi spalle; in Push, dopo 2 panche uno shoulder press
+pesante come 3° esercizio è "non serve, non è utile, controproducente" — il 3° deve essere
+alzate laterali, con un dip come esercizio intermedio "a più muscoli" (tricipiti+petto+deltoide
+anteriore); Legs: 2 composti quad/femorali, 1 isolamento quad, 1 isolamento femorali, 1
+polpacci, 1 glutei. Il protocollo 3-6-9 resta esplicitamente rimandato su richiesta dell'utente
+(nessuna modifica). Pull lasciato invariato: l'utente non ha dato un esempio concreto di
+"esercizio a più muscoli" per Pull come il dip per Push (a differenza di Push, qui il
+complaint riguardava solo il tetto carenze, non la struttura di default) — se ne vuole uno,
+serve un esempio concreto prima di inventare una struttura non richiesta.
+
+**Bug reale #1 — causa vera di "FST-7 non vedo nulla" (seduta vuota/con errore)**:
+`WorkoutGenerationConfig` (types/index.ts) non ha mai avuto un campo `protocol`, quindi
+`Create.tsx` (`buildGenerationConfig`) non lo passava mai al validatore. `validator.ts`
+impone un minimo fisso di 6 esercizi per ogni sessione bodybuilding, ma FST-7 ne produce
+apposta solo 4 (3 base + finisher): la sessione veniva **sempre** rigettata come non valida.
+Corretto aggiungendo `protocol?: BodybuildingProtocol` a `WorkoutGenerationConfig`, passandolo
+da `Create.tsx` (solo per `session.mode === 'bodybuilding'`), e rendendo il minimo del
+validatore consapevole del protocollo (`4` per `fst7`, altrimenti `6`). Riprodotto e coperto da
+un nuovo test in `validator.test.ts` che genera una seduta FST-7 vera e verifica sia che il
+generatore produca 4 esercizi sia che il validatore li accetti.
+
+**Bug reale #2 — i dip erano esclusi dal motore per qualunque slot**: `dip_parallele`
+(catalogo: tricipiti primario, petto+deltoide anteriore secondari — l'unico esercizio "a più
+muscoli" del catalogo Push, esattamente quello descritto dall'utente) ha
+`movement_pattern: 'horizontal_push'`, ma `PATTERN_PER_MUSCOLO.triceps` in `bodybuilding.ts`
+accettava solo `'elbow_extension'`: l'esercizio non poteva mai essere scelto, indipendentemente
+dalla struttura degli slot. Corretto aggiungendo `'horizontal_push'` ai pattern ammessi per
+tricipiti (verificato: nessun altro esercizio del catalogo ha primary_muscles=triceps con quel
+pattern, quindi l'aggiunta è mirata, non allarga il pool oltre i dip).
+
+**Ristrutturazione Push** (`BASE_SLOTS.push`, `EXTRA_SLOTS.push`, `ordinaSlot` ramo push):
+rimosso lo shoulder press pesante fisso come 3° slot (front_delts composto non è più nella
+struttura di default). Nuovo ordine: 2× petto composto, alzate laterali (isolamento, 3°), dip
+(tricipiti composto — allena anche petto/deltoide anteriore come secondari, 4°), tricipiti
+isolamento (5°), 6° slot extra = petto isolamento o alzate laterali extra. Un front_delts
+composto resta comunque disponibile SE dichiarato carenza esplicitamente (non più di default).
+
+**Bug reale #3, scoperto verificando l'output reale dopo la ristrutturazione Push**: una
+carenza front_delts dichiarata spariva silenziosamente, sostituita da un ripiego casuale. Causa:
+`applicaPrioritaAssegnate` forza a isolamento (`compound: compoundCount < 2 && ...`) un nuovo
+slot carenza quando la seduta ha già ≥2 composti — e Push ne ha sempre almeno 3 di default (2
+petto + 1 dip) dopo la ristrutturazione. Il catalogo però **non ha nessun esercizio di
+isolamento per i deltoidi anteriori** (solo military press/shoulder press/thruster, tutti
+composti): lo slot isolamento forzato restava senza candidati. Corretto con
+`MUSCOLI_SENZA_ISOLAMENTO = new Set(['front_delts'])`: per questo muscolo lo slot resta sempre
+composto, sia nel ramo append sia nel ramo sostituzione di `applicaPrioritaAssegnate`.
+
+**Tetto 2 esercizi spalle nelle carenze PPL** (`applicaPrioritaAssegnate`): sez. feedback
+utente, "non devi rimuovere bicipiti per fare spazio ai deltoidi se già ci sono 2 esercizi di
+deltoidi". Prima, con 3+ carenze spalle dichiarate (fronte/laterale/post.), la 3ª scippava lo
+slot a un muscolo non ridondante come i bicipiti (unico slot sacrificabile rimasto non-
+identitario). Corretto: appena `SHOULDER_MUSCLES` (front/lateral/rear delts) raggiunge 2
+esercizi in seduta, una carenza spalle aggiuntiva resta fuori da oggi (la settimana la richiama
+altrove, weeklyPlan.ts) invece di sacrificare un altro slot. Vale sia nel ramo append sia nel
+ramo sostituzione.
+
+**Ristrutturazione Legs** (`BASE_SLOTS.legs`, `EXTRA_SLOTS.legs`): 5° slot fisso ora è polpacci
+(prima adduttori); 6° slot extra ora è glutei+adduttori (prima calves+adduttori, ridondante col
+5° già fisso). 2 composti (quad+femorali) e 2 isolamenti (quad+femorali) restano invariati.
+`lower`/`bro_legs` non toccati: l'utente ha parlato esplicitamente solo di "legs" in PPL.
+
+**Avvicinamento CBum** (`prescrizioneCbum`, blocco 7d di `bodybuilding.ts`): sez. feedback
+utente, "nel cbum devi dire avvicinamento". Il vero protocollo Top Set & Back-Off (stile CBum)
+precede sempre la serie a cedimento con serie di riscaldamento specifico a carico crescente.
+Ogni esercizio scelto ora diventa **4** voci tracciate consecutive (prima 2): Avvicinamento
+1×12-15 (recupero breve), Avvicinamento 1×8-10, Top Set 1×6-8 @ RIR0, Back-Off 1×10-12 — tutte
+sullo stesso `exercise_id`. Carico non calcolabile (nessun peso registrato da nessuna parte
+dell'app, invariante già noto): resta un'indicazione testuale. Effetti a catena sistemati:
+- `rimuoviDuplicati` (shared.ts) e il controllo duplicati di `validator.ts` riconoscevano solo
+  `top_set`/`back_off` come coppia legittima; estesi a `avvicinamento`. `rimuoviDuplicati`
+  semplificata: le note multi-serie (avvicinamento/top_set/back_off) non vengono più valutate
+  affatto per la dedup (prima si tentava una chiave `id:note`, che avrebbe comunque collassato
+  le due serie di avvicinamento identiche fra loro, stessa nota).
+- `minimoAtteso` per `cbum_top_backoff` in `bodybuilding.ts` non è più una soglia fissa (`8`,
+  pensata per 2 voci/esercizio): ora è `cbumBaseCount * 4`, calcolato sul numero di esercizi
+  scelti PRIMA dell'espansione.
+- Badge "Avvicinamento · carico crescente" aggiunto in `WorkoutPreview.tsx` e `Runner.tsx`,
+  stesso meccanismo dei badge Top Set/Back-Off/FST-7 esistenti.
+
+**Verificato**: 250 test verdi (247 + 1 nuovo test validatore FST-7 che riproduce esattamente il
+bug segnalato dall'utente e verifica il fix, + 2 nuovi test generatore: dip_parallele
+raggiungibile su 40 seed, nessuno shoulder press fisso su 20 seed), `tsc`/`eslint`/
+`npm run build` puliti. Tre test esistenti aggiornati con commenti che spiegano il cambio di
+comportamento voluto (ordine Push, struttura Legs, conteggio voci CBum).
+
+**Non verificato in un browser reale**: stesso limite già documentato per FST-7/CBum in questo
+Codespace — il wizard `Create.tsx` a 9 step richiede un utente Supabase autenticato, non
+disponibile qui (a differenza di `/avvia`, che bypassa l'auth solo per `Runner.tsx`). Prossimo
+passo suggerito in TODO.md: generare davvero FST-7/CBum dal wizard con un utente reale e
+controllare a occhio badge Avvicinamento, assenza di shoulder press in Push, 5°/6° slot Legs.
+
+## Aggiornamento stato — 2026-08-19 (pomeriggio): PPL Standard Biomeccanico a 6 Slot
+
+Richiesta utente (specifica dettagliata, con `PPLSlotConfig` d'esempio e default per esercizio):
+sostituire la composizione dinamica di Push/Pull/Legs con un template **fisso a 6 slot**, ognuno
+con un ruolo anatomico preciso (muscolo + angolo/capo biomeccanico) pensato per alternare
+distretti e creare un "cuscinetto di recupero attivo" fra un esercizio pesante e l'altro. Punto
+più rilevante della spec: **sia Push sia Pull allenano bicipiti E tricipiti**, con angoli
+complementari (capo lungo/allungamento su Push — es. Incline DB Curl, French Press —, capo
+corto/laterale-mediale/accorciamento su Pull — es. Preacher Curl, Pushdown). Chiarito con 4
+domande mirate prima di implementare (risposte tutte "consigliato"):
+1. Gli slot sono fissi per ruolo (muscolo+angolo), l'esercizio scelto viene dal pool compatibile
+   (attrezzatura/varietà) — il default della spec è la prima scelta preferita, non l'unica.
+2. **Inversione voluta** del fix di stamattina ("una casa sola per muscolo": bicipiti solo Pull,
+   tricipiti solo Push) — la nuova spec fa apposta il contrario.
+3. Le carenze settimanali continuano a poter sostituire lo slot più ridondante, come già faceva
+   `applicaPrioritaAssegnate`.
+4. Si applica SOLO al sistema PPL (push/pull/legs) — Upper/Lower, Full Body, Bro Split invariati.
+
+**Scoperta chiave**: il campo `focus_portion` (long_head/short_head/lateral_head/medial_head/
+brachialis, aggiunto il 19/08 mattina per la Lagging Muscle Engine) mappa ESATTAMENTE sugli
+angoli richiesti dalla spec — la migrazione di stamattina aveva già taggato `curl_inclinata_man`/
+`bayesian_curl`=long_head, `curl_panca_scott`/`preacher_curl_macchina`=short_head, `french_press`/
+`estensioni_sopra_testa`=long_head, `pushdown`=lateral_head: sono esattamente i default della
+nuova spec. Nessuna migrazione catalogo nuova necessaria, solo plumbing nel generatore.
+
+**Generatore** (`bodybuilding.ts`):
+- `SlotDef` guadagna `preferredPortion?: FocusPortion`: uno slot fisso di template (non una
+  carenza) può chiedere un capo specifico. La logica di selezione ora ha due rami — `isRichiamo`
+  (carenza, usa `cfg.priority_portions` con rotazione settimanale, esistente) ha sempre priorità
+  su `preferredPortion` (slot fisso di default) quando entrambi si applicano allo stesso slot.
+- `BASE_SLOTS.push` (6 fissi): 2× petto composto, alzate laterali, dip (tricipiti composto — già
+  ristrutturato stamattina), bicipiti isolamento (long_head), tricipiti isolamento (long_head).
+- `BASE_SLOTS.pull` (6 fissi): 3× dorso composto (verticale, orizzontale 45°, orizzontale basso —
+  il catalogo non distingue formalmente 45° da "basso", varietà garantita dall'esclusione
+  duplicati), rear delt (face pull), tricipiti isolamento (lateral_head), bicipiti isolamento
+  (short_head).
+- `BASE_SLOTS.legs` (6 fissi): 2× quad composto (squat + leg press/hack — niente più composto
+  femorali fisso), isolamento quad, isolamento femorali, glutei composto (hip thrust/stacco
+  rumeno, hinge — chiude la catena posteriore DOPO le isolamenti, non subito dopo i composti),
+  polpacci.
+- `EXTRA_SLOTS.push/pull/legs` svuotati (mai più consultati: la base è già a 6 slot, il target è
+  sempre 6). Avambracci non è più nel default di Pull (era nell'EXTRA_SLOTS di prima).
+- `SPLIT_MUSCLE_POOL.push` += biceps, `.pull` += triceps.
+- `ordinaSlot`: separati i rami `legs` (nuovo ordine) da `lower`/`bro_legs` (ordine invariato,
+  fuori scope) e `pull` da `bro_back`/`back_body` (idem) — per non alterare split non toccati
+  dalla spec pur condividendo la stessa funzione.
+
+**Bug reale scoperto durante l'implementazione (non nella spec)**: con Push/Pull sempre a 6 slot
+pieni, il protocollo Top Set & Back-Off (CBum) partiva da 6 esercizi base invece di 5 (il tetto
+esisteva solo per FST-7), producendo 24 voci tracciate (6×4) — sempre oltre qualunque budget di
+tempo ragionevole (validator.test.ts: 85 min stimati contro 69 max, sessione sempre invalida).
+Corretto estendendo lo stesso pattern di troncamento già usato per FST-7 (`target`/`slot` tagliati
+a `targetEsercizi('cbum_top_backoff')` = 5, sugli slot a priorità più alta dopo `ordinaSlot`) anche
+a `cbum_top_backoff`.
+
+**Validator/weeklyPlan**: `SPLIT_PRIMARY_MUSCLES.push` += biceps, `.pull` += triceps
+(`validator.ts`, altrimenti ogni sessione di default veniva rigettata: "bicipiti non appartiene a
+Push"). `splitAccogliePriorita` (`weeklyPlan.ts`, sistema `ppl`) invertito: bicipiti e tricipiti
+ora compatibili sia con Push sia con Pull (era l'opposto, fix esplicito di stamattina — invertito
+di proposito su richiesta utente, commento aggiornato per spiegare perché).
+
+**Punto 3 della spec ("Slot-Restricted Swap") già esistente, non serviva codice nuovo**:
+`findExerciseReplacements` (`replacement.ts`) filtra già le alternative per stesso
+`focus_portion` dell'esercizio originale quando noto (pass 1), con fallback progressivo solo se
+non ci sono abbastanza candidati (mai un vicolo cieco per l'utente) — costruito durante la
+Lagging Muscle Engine di stamattina. Verificato che si applica automaticamente anche ai nuovi
+slot fissi bicipiti/tricipiti di Push/Pull, senza bisogno di toccare `replacement.ts`.
+
+**Non toccato, per scelta esplicita**: `lower`/`bro_legs`/`bro_back`/`back_body` (fuori scope,
+solo sistema PPL); Pull non ha un vero equivalente del "dip a 3 muscoli" di Push — l'utente non
+ha dato un esempio concreto per Pull, quindi la struttura a 3 composti dorso resta così com'è
+invece di inventare uno slot non richiesto.
+
+**Verificato**: 252 test verdi (250 + 2 nuovi: default Push bicipiti/tricipiti long_head, tetto
+di 6 esercizi mai superato su Push/Pull/Legs anche con carenze al massimo), più 4 test esistenti
+riscritti con commenti che spiegano il cambio di comportamento voluto (non un bug). `tsc`/
+`eslint`/`npm run build` puliti.
+
+**Non verificato in un browser reale**: stesso limite già noto in questo Codespace (nessun utente
+Supabase autenticato disponibile per il wizard `Create.tsx`).
+
+## Aggiornamento stato — 2026-08-19 (sera): rimossa la policy sempre/mai su corpo libero/elastici
+
+Bug segnalato dall'utente, mid-turn durante il lavoro sul PPL Standard a 6 Slot: la scelta
+"corpo libero: sempre/mai/solo finisher" ed "elastici: sempre/mai/solo finisher" (Create.tsx
+Step 7) escludeva esercizi utili come i dip **anche quando l'attrezzatura richiesta era
+disponibile davvero** — `isExerciseAllowed` applicava questo filtro globale IN AGGIUNTA a
+`isExerciseAvailable` (che già verifica se l'utente ha `parallel_bars`/`resistance_bands` in
+inventario), rendendoli ridondanti quando concordi ma silenziosamente distruttivi quando in
+conflitto (es. utente ha le parallele nell'inventario ma `bodyweight_policy: 'never'`: il dip
+spariva comunque). Richiesta esplicita: rimuovere del tutto questa sezione; tenere solo
+"preferenza esercizio" (avanzate, dichiarazione esplicita "voglio questo esercizio") ed
+"esclusione esercizio" (dichiarazione esplicita "mai questo esercizio") — già esistenti in
+Create.tsx Step 7 — e affidarsi allo swap "Sostituisci" nella scheda (già raggruppato per
+attrezzo: Manubri&Panca/Corpo Libero&Sbarra/Cavi&Elastici/Macchine&Guidati, `WorkoutPreview.tsx`
+`SWAP_EQUIPMENT_GROUPS`, già esistente) per lasciare all'utente la scelta fra alternative a pari
+effort (es. trazioni alla sbarra ↔ lat machine ↔ trazioni assistite con elastico).
+
+**Rimosso interamente** (nessun backward-compat shim, il campo era davvero morto):
+- `ExercisePolicy` type e `EXERCISE_POLICY_LABELS` (`types/index.ts`).
+- `bodyweight_policy`/`elastic_policy` da `ExercisePreference` (`types/index.ts`) — i programmi
+  già salvati su Supabase (config jsonb) portano ancora questi campi extra nel JSON: innocuo,
+  ignorati a runtime, nessuna migrazione necessaria.
+- `bodyweightPolicy`/`elasticPolicy`/il parametro `placement` da `RuntimePreferences`/
+  `isExerciseAllowed`/`filterExercisesByPreferences` (`engine/preferences.ts`) — la funzione ora
+  controlla solo `excludedExerciseIds`. `ExercisePlacement`/`preferencePlacementForMode` rimossi
+  con loro: servivano solo a decidere la policy 'finisher_only', ora inutile.
+- `placement` da `findExerciseReplacements` (`engine/replacement.ts`), passato a
+  `isExerciseAllowed`.
+- Sezione UI "Corpo libero"/"Elastici" e componente `Policy` in Create.tsx Step 7, sostituiti da
+  una nota che spiega il nuovo comportamento (swap nella scheda). `setPolicy` rimosso.
+- Riferimenti in `WorkoutPreview.tsx` (swap), `weeklyPlan.ts` (warning `mode_density` legato a
+  `bodyweight_policy === 'never'`: la precondizione non può più verificarsi, corpo libero non è
+  più disattivabile), `deepseek.ts` (prompt DeepSeek, sia planner sia generazione diretta).
+
+**Cosa NON è cambiato**: `isExerciseAvailable` (`equipment.ts`) resta l'unico filtro di
+disponibilità reale, basato sull'inventario attrezzatura dichiarato dall'utente
+(`parallel_bars`, `resistance_bands`, ecc.) — è quello corretto e resta intatto. Lo swap
+"Sostituisci" già raggruppava per attrezzo e già rispettava `focus_portion` per le alternative
+(Lagging Muscle Engine, stessa mattina): nessun codice nuovo necessario lì, solo la rimozione
+del filtro ridondante a monte.
+
+**Verificato**: 250 test verdi (rimossi 3 test sulla policy ormai inesistente in
+`engine.test.ts`, sostituiti con 1 test sulla sola esclusione esplicita; aggiornati i fixture di
+preferenze in `weeklyProgram.test.ts`/`validator.test.ts`/`replacement.test.ts`/
+`bodybuilding.test.ts` che dichiaravano `bodyweight_policy`/`elastic_policy`), `tsc`/`eslint`/
+`npm run build` puliti.
+
+**Non verificato in un browser reale**: stesso limite già noto in questo Codespace.
+
+## Aggiornamento stato — 2026-08-19 (notte): bug reale grave in Create.tsx — le carenze sostituivano interamente lo split settimanale
+
+Segnalato dall'utente testando in produzione (PPL 5 giorni, carenze alzate laterali+bicipiti+
+tricipiti, protocollo CBum): "la prima sessione è Spinta e mi porta le alzate laterali, non mi
+porta esercizi di spinta" + "la dinamica di CBum non cambia dal PPL, prima era diversa ed era
+corretta". Riprodotto esattamente con uno script diretto prima di correggere.
+
+**Causa reale (bug pre-esistente, non introdotto oggi — presente almeno dal commit `6425c3e`,
+17/08, "fix: separate BB targets from weak points")**: in `Create.tsx` (`generateDay`),
+`todayTargets` (che alimenta `target_muscles` in TUTTI i generatori: bodybuilding, forza,
+crossfit, hybrid) era `session.priority_muscles` per qualunque programma **non**
+`single_session` — le stesse carenze già passate correttamente a `priority_muscles`/
+`todayPriorities`. Con `target_muscles` non vuoto, `generaBodybuilding` imbocca
+`buildCustomTargetSlots` (pensato SOLO per la sessione singola a gruppi scelti esplicitamente
+dall'utente) invece di `BASE_SLOTS`/`applicaPrioritaAssegnate`: la seduta viene ricostruita da
+zero usando SOLO i muscoli in `target_muscles`, niente più petto/dorso. Il bug era già presente
+da giorni ma è diventato molto più visibile oggi pomeriggio: da quando bicipiti/tricipiti sono
+compatibili sia con Push sia con Pull (PPL Standard a 6 Slot), quasi ogni seduta della settimana
+ha `session.priority_muscles` non vuoto, quindi il bug scatta quasi sempre invece che solo
+occasionalmente.
+
+**Riprodotto con script diretto** (`generateWeeklyProgram` + `generaBodybuilding`, PPL 5 giorni,
+carenze `['lateral_delts','biceps','triceps']`, protocollo CBum): con `target_muscles:
+priority_muscles` (bug) Push diventa `alzate_laterali, curl_inclinata_man, estensione_tricipiti,
+alzate_laterali_elastico` — zero petto, alzate laterali duplicate (il riempimento generico di
+`buildCustomTargetSlots` ripete i target quando sono troppo pochi per 6 slot). Con
+`target_muscles: []` (fix) Push torna quella corretta: 2 panca, alzate laterali, dip, bicipiti —
+tutti con avvicinamento/top set/back off del protocollo CBum regolarmente presenti. Questo
+spiega **anche** il secondo report ("CBum non cambia dal PPL"): la sessione degenerata del bug,
+dominata da isolamenti carenza, "sembra sempre uguale" a prescindere dal protocollo — non è che
+CBum non applicasse le sue serie, è che la selezione degli esercizi sotto era già rotta.
+
+**Fix**: `todayTargets` in `Create.tsx` è ora sempre `[]` per un programma non `single_session`
+(commento esteso sul posto che spiega perché). Aggiunto un test in `bodybuilding.test.ts` che
+blocca il caso specifico (target_muscles=priority_muscles → petto sparisce) e uno che aggiorna
+il test end-to-end esistente per passare esplicitamente `target_muscles: []`, come fa ora
+davvero `Create.tsx`.
+
+**Tre richieste UX nello stesso messaggio, tutte implementate**:
+- Tasto "Indietro" mancante SOLO nello step 1 del wizard (tutti gli altri step 2-9 lo avevano
+  già, verificato leggendo `StepNav`): ora step 1 torna alla Home (`navigate('/')`), sia via
+  bottone sia via swipe. Lo swipe-per-tornare-indietro (`onSwipeRight={goBack}`, convenzione già
+  usata identica in tutti gli altri step) NON è stato invertito verso sinistra come letteralmente
+  chiesto ("swipe verso sinistra"): avrebbe reso lo step 1 incoerente con gli altri 8 step, che
+  usano tutti swipe-destra-per-tornare-indietro. Da confermare con l'utente se vuole davvero
+  invertire la direzione ovunque.
+- "Se scelgo programma settimanale, la pagina dopo non deve chiedermelo di nuovo": la Home
+  (`HomeDashboard.tsx`) già passa `program_kind` come query param (`/crea?program_kind=...&
+  fresh=1`) quando l'utente sceglie da lì, ma lo step 2 del wizard (la stessa domanda) veniva
+  comunque mostrato. Aggiunto `skipKindStep` (vero solo quando si arriva fresh da Home con
+  `program_kind` esplicito in URL): `stepAfter`/`stepBefore` saltano lo step 2 in entrambe le
+  direzioni solo in quel caso — un ingresso diretto sull'URL senza quel parametro può ancora
+  scegliere.
+
+**Verificato**: 251 test verdi (250 + 1 nuovo test mirato sul bug target_muscles), `tsc`/
+`eslint`/`npm run build` puliti.
+
+**Non verificato in un browser reale**: l'utente ha offerto credenziali di produzione per un
+test live, ma non ho un tool di automazione browser disponibile in questo ambiente (nessun
+Playwright installato nel progetto, nessun tool MCP di navigazione nella lista strumenti di
+questa sessione) — non ho tentato un test live per non rischiare di usare le credenziali senza
+poterle davvero sfruttare. Prossimo passo: l'utente deve riverificare in produzione dopo il
+deploy di questo fix, in particolare se il report "CBum non cambia dal PPL" è davvero risolto
+o se c'è dell'altro.
+
+## Aggiornamento stato — 2026-08-21: dip Push vincolato a dip_parallele (non più casuale) + tasto "Torna alla Settimana" dopo il salvataggio
+
+Due bug segnalati da Rossi in chat (non da script di riproduzione, testati direttamente in produzione/uso reale).
+
+**Bug reale #1 — il dip di Push era ancora casuale nonostante il fix del 19/08 mattina**: quel fix
+aveva aggiunto `'horizontal_push'` a `PATTERN_PER_MUSCOLO.triceps`, ma quel filtro agisce a livello
+di *muscolo*, non di singolo slot — verificato sulla fixture catalogo
+(`src/generators/__tests__/fixtures/exercises.json`): `dip_panca` ha `movement_pattern:
+'elbow_extension'` (già ammesso da sempre) e `dip_parallele` ha `movement_pattern: 'horizontal_push'`
+(ammesso dal 19/08). Con `PATTERN_PER_MUSCOLO.triceps = ['elbow_extension', 'horizontal_push']`
+**entrambi** passavano il filtro di coerenza, e la scelta finale fra i due restava affidata al
+sorteggio fra i primi 3 candidati per fatica (`testa[Math.floor(random() * testa.length)]`) — il
+motore non aveva mai smesso di scegliere a caso, aveva solo smesso di escludere sempre
+`dip_parallele`. Corretto aggiungendo `preferredPatterns: ['horizontal_push']` allo slot 4 di
+`BASE_SLOTS.push` (non al filtro globale per muscolo): il pool si restringe ai soli esercizi con
+quel pattern esatto, e nel catalogo solo `dip_parallele` lo ha — `dip_panca` resta candidato per
+altri slot triceps (es. isolamento) ma non più per questo. Aggiunto anche `maxSets: 3` sullo
+stesso slot (prima 4, come tutti i compound): sez. feedback utente, "le 4 serie standard erano
+eccessive per uno slot che funge da recupero attivo dopo due panche pesanti" — nuovo campo
+opzionale `SlotDef.maxSets`, applicato nel calcolo della prescrizione solo quando il protocollo non
+è FST-7 (FST-7 ha già una sua prescrizione dedicata, non tocca `maxSets`).
+
+**Bug reale #2 — il programma settimanale si perdeva dopo aver salvato una giornata**: dal modal
+"Allenamento Salvato!" (`WorkoutPreview.tsx`) le uniche due uscite erano "Vai alla Libreria
+Salvati" e "Torna alla Home" — nessuna delle due riportava alla settimana in corso
+(`weeklyProgram`, tenuta in `sessionStorage`), quindi chi stava costruendo un programma multi-
+giorno la perdeva di vista non appena salvava una seduta. Aggiunto un pulsante "📅 Torna alla
+Settimana" (`naviga('/crea')`), sia in cima alla pagina di anteprima sia nel modal di conferma
+salvataggio, visibile solo quando `weeklyProgram.config.program_kind === 'program'` e
+`weeklyProgram.week.length > 1` (cioè un vero programma multi-giorno, non una seduta singola). Il
+bottone "Vai alla Libreria Salvati" diventa stilisticamente secondario (bordo invece di sfondo
+pieno) quando quello nuovo compare, per non avere due call-to-action ugualmente primarie.
+
+**Verificato**: `tsc --noEmit` pulito, **251/251 test verdi** (suite intera, non solo il file
+toccato — invariata rispetto al 19/08 tranne il test riscritto sotto), `eslint` pulito sui file
+toccati, `npm run build` pulita. Il test `bodybuilding.test.ts` sul dip (sez. "Push senza shoulder
+press fisso...") è stato riscritto: prima verificava solo che `dip_parallele` fosse *raggiungibile*
+su 40 seed (troppo debole: passava anche se metà delle volte usciva `dip_panca`), ora verifica per
+ogni seed che l'esercizio scelto sia sempre `dip_parallele` e abbia sempre al massimo 3 serie.
+
+**Non verificato in un browser reale**: stesso limite di sempre in questo Codespace (nessun utente
+Supabase autenticato disponibile per il wizard `Create.tsx`/`WorkoutPreview.tsx`). Prossimo passo:
+Rossi deve generare un Push vero e controllare a occhio che lo slot 4 sia sempre il dip alle
+parallele con 3 serie, e provare il salvataggio di una giornata dentro un programma settimanale
+multi-giorno per vedere comparire il nuovo pulsante "Torna alla Settimana".
+
+**Lavoro consegnato e mergiato su `main`** (squash commit `94070fb`, 21/08): la PR #30 è stata
+mergiata, Vercel ha buildato e pubblicato in produzione con successo (check GitHub: Vercel
+success sul commit `94070fb`). **Non verificato personalmente aprendo il link**: restrizioni di
+rete di questa sessione impediscono l'accesso a `gymbuilder-lemon.vercel.app` da qui — il
+prossimo LLM (o Rossi) deve aprire il sito e controllare a occhio prima di considerare la
+verifica completa, non fidarsi solo del pannello verde di Vercel.
+
+## Aggiornamento stato — 2026-08-21 (continua): Indietro nativo Android cancellava il programma settimanale
+
+**Problemi rilevati**: segnalato dall'utente testando in produzione dopo il fix precedente — creato
+un programma PPL Bodybuilding + CrossFit Hybrid a 5 giorni, aperto il giorno Push (esercizi
+generati e visibili), poi usato il tasto/gesto **Indietro nativo di Android** (non un pulsante
+interno) per tornare alla settimana e guardare un altro giorno (es. Pull): l'app riportava alla
+Home e **l'intero programma settimanale spariva**, non solo il giorno aperto.
+
+**Cosa è stato fatto**: causa vera trovata leggendo `Create.tsx` — `freshEntry`/`skipKindStep`
+venivano ricalcolati da `searchParams` a ogni render, e l'URL con `fresh=1` (usato per dire "azzera
+tutto, sono appena arrivato dalla Home") non veniva mai ripulito dopo il primo uso. Il tasto
+Indietro nativo riapre la voce di cronologia così com'era, `fresh=1` compreso: tornare su `/crea`
+da `/allenamento` la faceva ricomportare come un ingresso fresco, azzerando `weeklyProgram`. Fix:
+`freshEntry`/`skipKindStep` congelati una sola volta al mount (`useState` lazy init, mai riletti
+dopo), e l'URL ripulito da `fresh=1` (`setSearchParams` con `replace`, non `push`) subito dopo
+l'unico reset legittimo. `program_kind` resta nell'URL apposta: serve ancora per riconoscere un
+arrivo diretto dalla Home in futuro.
+
+**Cosa c'è ancora da fare**: nessun seguito diretto di questo fix. Restano aperte le voci più
+vecchie di verifica manuale già in `TODO.md` (FST-7/CBum/PPL 6 slot nel wizard reale, badge
+Avvicinamento, ecc.) — non toccate oggi, non cancellate.
+
+**Dove deve arrivare il progetto**: coerente con l'obiettivo finale (sez. 1) — un motore
+deterministico affidabile, ma altrettanto importante è che l'esperienza attorno (navigazione,
+salvataggio, ripresa) non perda mai il lavoro dell'utente: questo bug rientrava proprio in quella
+seconda categoria, non nel motore di generazione.
+
+**Cosa deve aspettarsi l'utente**: **verificato solo con `tsc`/`npx vitest run` (251/251
+verdi)/`eslint`/`npm run build`, non ancora in un browser o dispositivo reale** (stesso limite di
+sempre in questo Codespace: nessun utente Supabase autenticato disponibile per `Create.tsx`).
+Prossimo passo per Rossi: rifare esattamente lo scenario segnalato (programma multi-giorno →
+apri un giorno → Indietro nativo Android) e controllare che il programma resti intatto invece di
+sparire. Consegnato **direttamente su `main`** (non via PR, su indicazione esplicita dell'utente
+"sempre e poi deploy"): il deploy automatico Vercel parte da solo dopo il push.
+
+## Aggiornamento stato — 2026-08-21 (continua): Home non offriva un modo non distruttivo di riprendere un programma settimanale a metà
+
+**Problemi rilevati**: segnalato dall'utente — stesso sintomo del fix precedente (perdita del
+programma settimanale) ma causa diversa. Dentro un giorno generato (es. Push) l'utente vede il
+link "← Torna alla Settimana" appena aggiunto, ma sotto è sempre visibile la barra di
+navigazione principale con l'icona 🏠 "Oggi", molto più prominente — istintivo toccare quella.
+Il problema vero è dopo: la Home **non mostrava mai** un programma settimanale a metà.
+`activeSession` (allenamento in corso) ha una card dedicata con "Continua Allenamento", ma
+`weeklyProgram` no: ogni CTA grande su Home ("Pianifica Settimana", "Crea nuovo allenamento")
+chiama `createFreshWorkout`, che chiama esplicitamente `setWeeklyProgram(null)` — cancella il
+programma appena lo tocchi, senza alcuna alternativa non distruttiva per dire "no, voglio
+riprendere quello che stavo già facendo".
+
+**Cosa è stato fatto**: aggiunta in `HomeDashboard.tsx` una terza card di stato (fra
+`activeSession` e `lastCompleted`, stesso stile visivo delle altre due) che riconosce
+`weeklyProgram.config.program_kind === 'program' && weeklyProgram.week.length > 1`: mostra
+quanti giorni sono già generati (`X/Y giorni generati`), l'elenco delle etichette dei giorni,
+e un pulsante "📅 CONTINUA LA SETTIMANA" che naviga a `/crea` **senza** passare da
+`createFreshWorkout` — nessun reset. Aggiunto anche `weeklyProgram` (il valore, prima si
+leggeva solo il setter) alla destrutturazione di `useWorkout()` in questo file.
+
+**Cosa c'è ancora da fare**: nessun seguito diretto. Resta aperta, come nota per il futuro,
+una domanda di prodotto non decisa oggi (non toccata perché fuori dallo scope del bug
+segnalato): se convenga anche avvisare l'utente con una conferma ("hai un programma in corso,
+sei sicuro di volerne creare uno nuovo?") quando tocca "Pianifica Settimana"/"Crea nuovo"
+mentre `weeklyProgram` esiste già, invece di limitarsi a offrire la via d'uscita non
+distruttiva come fatto oggi.
+
+**Dove deve arrivare il progetto**: stessa area dell'obiettivo finale (sez. 1) toccata dal fix
+precedente — l'esperienza attorno al motore di generazione non deve mai far perdere il lavoro
+dell'utente senza che lui lo scelga esplicitamente.
+
+**Cosa deve aspettarsi l'utente**: **verificato solo con `tsc`/`npx vitest run` (251/251
+verdi)/`eslint`/`npm run build`, non ancora in un browser o dispositivo reale** (stesso limite
+di sempre). Prossimo passo per Rossi: rifare lo scenario — programma PPL+Hybrid 5 giorni,
+apri giorno 1, tocca 🏠 Oggi nella barra in basso, e controllare che sulla Home compaia ora la
+card viola "Programma Settimanale in Corso" con il pulsante per riprendere, invece di dover
+ricominciare da zero. Consegnato **direttamente su `main`** (stessa modalità di oggi, non via
+PR): il deploy automatico Vercel parte da solo dopo il push.
+
+## Aggiornamento stato — 2026-08-21 (continua): nuovo protocollo "Density Tri-Set 3-6-9" — Fase 1 (modello dati + generatore, solo PPL)
+
+**Problemi rilevati**: nessun bug — è una richiesta di nuova funzionalità. Rossi ha fornito una
+specifica dettagliata (due blocchi A/B, ognuno un tri-set di 3 stazioni a rep fisse 3-6/6-12/9-25,
+timer a tre livelli, regole di sostituzione vincolate) più, dopo una mia richiesta di chiarimento,
+una tabella di sostituzione per 9 distretti muscolari × 3 stazioni. Ho verificato quella tabella
+riga per riga contro il catalogo VERO di Supabase (non la fixture di test, nota già stale): ~85%
+degli esercizi citati esiste già, ~15 mancano (elenco completo in `TODO.md`).
+
+**Cosa è stato fatto**: creato `src/generators/density369.ts` — motore dedicato (non dentro
+`bodybuilding.ts`, struttura troppo diversa dal resto). Copre Push/Pull/Legs (Fase 1 concordata
+esplicitamente con Rossi, non tutti gli split della spec). Pool di esercizi per 9 distretti
+muscolari × 3 stazioni, verificati uno per uno contro il catalogo reale; mappa
+split->distretto/stazione ricostruita riconciliando i due documenti di Rossi dove non
+combaciavano esattamente (vedi commento in testa al file per il caso specifico, Pull Blocco A
+Stazione 2). Le regole "salva-effort" di Rossi (mai cavo/macchina in Stazione 1 tranne le due
+eccezioni esplicite della spec — Chest Press convergente, Leg Press; mai bilanciere pesante in
+Stazione 3) sono rispettate per costruzione dei pool, verificate anche a test su 30 seed per
+split. **Bug trovato e corretto PRIMA del push, dai test stessi**: `dip_parallele` era candidato
+sia per Petto Stazione 2 sia — come unico candidato — per Tricipiti Stazione 1 dello stesso Push:
+se il Blocco A lo sceglieva per il petto, il Blocco B restava senza nessun esercizio per quella
+stazione. Rimosso da Petto Stazione 2 (restava comunque un solo esercizio lì, Panca Inclinata
+Manubri: le due alternative citate da Rossi, Panca Declinata e Smith Machine, non esistono a
+catalogo).
+
+**Cosa c'è ancora da fare**: tre voci aperte in `TODO.md`, tutte con dettaglio completo lì —
+(1) arricchimento catalogo per i ~15 esercizi mancanti citati da Rossi ma non a catalogo, non
+blocca l'uso del protocollo, solo la varietà; (2) mappa split->distretto per Upper/Lower, Bro
+Split, Front/Back — la spec originale li descrive ma non sono stati fatti in questa fase;
+(3) Fase 2 — motore di esecuzione a circuito nel Runner (oggi esegue solo sequenze piatte o i
+formati Metcon esistenti; valutare se riusare `kind: 'circuit'` già esistente per Condizionamento
+o serve un motore dedicato), poi Fase 3 — guida/tooltip UI (sez. 5 della spec).
+
+**Dove deve arrivare il progetto**: nuova capacità nella sezione Bodybuilding, coerente con
+l'obiettivo finale (sez. 1) — motore deterministico guidato dai dati, non un'eccezione hardcoded:
+per questo il generatore pesca da pool filtrati per attrezzatura/esclusioni/preferiti come tutto
+il resto del motore, non esercizi fissi per split come nella lettera originale della spec.
+
+**Cosa deve aspettarsi l'utente**: **questa è Fase 1 SOLO: modello dati + generatore, testato con
+273/273 test verdi (251 prima + 22 nuovi), `tsc`/`eslint`/`npm run build` puliti — ma non
+raggiungibile da nessuna parte dell'interfaccia oggi.** Non c'è ancora un modo di generare questo
+protocollo dall'app: nessun pulsante, nessuna opzione nel wizard. Serve la Fase 2 (motore Runner)
+prima che sia usabile per davvero da un utente. Consegnato **direttamente su `main`** (stessa
+modalità di oggi): il file nuovo non è importato da nessuna parte dell'app esistente, quindi il
+deploy Vercel non cambia nulla di visibile — è codice pronto ma "spento" finché non viene
+collegato all'interfaccia.
+
+## Aggiornamento stato — 2026-08-21 (continua): Density 3-6-9 Fase 2 — motore di esecuzione dal vivo (ISOLATO, rischio da leggere prima di fidarsi)
+
+**Problemi rilevati**: nessun bug, seguito diretto della Fase 1. Prima di scrivere codice ho
+segnalato a Rossi un rischio reale: `Runner.tsx` (1234 righe) è il punto dell'app con storia di
+crash documentata (`ForegroundServiceDidNotStartInTimeException`, sez. Handoff corrente più
+sopra) — il fix già in produzione tiene vivo il servizio nativo Android per tutta la sessione e
+non lo ferma mai fra un round e l'altro. Il Density 3-6-9 ha molti più cambi di fase ravvicinati
+di un allenamento normale (3 stazioni per giro, più giri, più blocchi): rischio concreto di
+reintrodurre lo stesso tipo di crash se integrato male, e nessun modo di testarlo dal vivo in
+questa sessione (serve un telefono Android reale con l'app in background). **Rossi ha scelto
+esplicitamente: isolarlo**, invece di integrarlo dentro la macchina a stati di Runner.tsx.
+
+**Cosa è stato fatto**:
+- `src/engine/densityRunnerEngine.ts` — motore PURO di transizione di stato (nessun React,
+  nessun timer reale, nessun codice nativo): dato lo stato attuale (blocco/giro/stazione/fase)
+  e l'evento "questa fase è finita", dice qual è lo stato dopo. Testato a fondo: 6 test,
+  incluso un cammino completo dell'intera sessione (17 transizioni) verificato passo-passo, non
+  solo lo stato finale.
+- `src/pages/DensityRunner.tsx` — pagina nuova, dedicata, isolata: **non tocca `Runner.tsx` per
+  niente** (verificato: `git diff` su quel file è vuoto). Riusa però le stesse utility
+  condivise già testate nel resto dell'app — `timer.ts` (TimerClock, calcolo deterministico via
+  timestamp, stesso pattern di Runner.tsx), `backgroundTimer.ts` (stesso servizio nativo
+  Android, stesso `publishBackgroundTimer` mai fermato fra una fase e l'altra — solo alla vera
+  fine sessione, via `resetBackgroundTimer(true)` — per non ripetere l'errore del vecchio bug),
+  `audio.ts` (stessi beep di avviso). Non una macchina a stati nuova scollegata da tutto: eredita
+  il comportamento già corretto, non lo reinventa.
+- Route nuova `/density-369?split=push|pull|legs` (in `App.tsx`, 2 righe aggiunte, nessun'altra
+  modifica a quel file). Genera la sessione al volo con l'attrezzatura/esclusioni/preferiti
+  salvati dell'utente (`useSettings`), non hardcoded.
+- Al completamento: salva in `completed_workouts` tramite `registraCompletato` già esistente —
+  la sessione viene "appiattita" in un formato compatibile (un esercizio per stazione, `sets`
+  pari ai giri del blocco): perde il dettaglio giro-per-giro nello storico, ma resta leggibile
+  senza dover cambiare lo schema del database.
+- 279/279 test verdi (273 prima + 6 nuovi), `tsc`/`eslint`/`npm run build` puliti.
+
+**Limite noto e accettato, non nascosto**: `ActiveTimerState.href` (in `backgroundTimer.ts`) è
+scritto fisso a `/avvia` — se l'utente tocca la notifica di sistema mentre una sessione Density è
+in pausa/background, viene riportato al Runner normale (vuoto), non a `/density-369`. Il
+servizio nativo e il countdown continuano comunque a funzionare correttamente; è solo il "tocca
+per tornare esattamente qui" che punta al posto sbagliato. Non l'ho corretto: farlo avrebbe
+richiesto generalizzare `ActiveTimerState`, cioè toccare codice condiviso con `Runner.tsx` — la
+stessa cosa che Rossi ha chiesto di evitare.
+
+**Cosa c'è ancora da fare**: (1) Fase 3 — nessun modo di raggiungere `/density-369` dall'interno
+dell'app (nessun pulsante, nessuna voce nel wizard): oggi ci si arriva solo scrivendo l'indirizzo
+a mano; (2) il limite dell'href sopra; (3) le tre voci già aperte da Fase 1 (arricchimento
+catalogo, altri split, verifica bodyweight) restano tali, non toccate oggi.
+
+**Dove deve arrivare il progetto**: stessa area dell'obiettivo finale di sempre — qui in più
+vale la pena ripeterlo: l'affidabilità del timer in background non è un dettaglio secondario per
+GymBuilder, è già costata un giro di crash risolto con fatica. Isolare questa Fase 2 non è stata
+prudenza eccessiva: era la scelta esplicita dell'utente dopo aver capito il rischio vero.
+
+**Cosa deve aspettarsi l'utente — leggere con più attenzione del solito**: tutto verificato SOLO
+con test automatici e compilazione, **MAI su un browser o telefono vero**, per nessuna parte di
+questa sessione — ma qui vale un avviso più forte del solito "non ancora verificato": questa è
+la prima volta che questo tipo di codice (timer che deve sopravvivere a schermo bloccato /
+app in background) viene scritto senza poter nemmeno indirettamente testarlo, su un'app che ha
+già avuto un crash vero in quella stessa area. **Prima di fidarsi per un allenamento reale**:
+provare `/density-369?split=push` con schermo che si blocca a metà di un riposo lungo (i 180s di
+fine giro sono il caso più a rischio, il più lungo), controllare che il countdown riprenda giusto
+riaprendo lo schermo e che l'app non crashi. Consegnato **direttamente su `main`**: la nuova
+pagina non è raggiungibile da nessun punto dell'interfaccia esistente (serve l'URL diretto),
+quindi il rischio per chi usa l'app normalmente oggi è zero — il rischio è solo per chi va a
+provare deliberatamente `/density-369`.
+
+## Aggiornamento stato — 2026-08-21 (continua): Density 3-6-9 Fase 3 — punto d'ingresso in Home + guida delle 4 regole
+
+**Problemi rilevati**: nessun bug, seguito diretto di Fase 2 su richiesta di Rossi ("procedi fino
+al deploy"). Fino a questo punto `/density-369` esisteva ma era raggiungibile solo scrivendo
+l'indirizzo a mano — nessun utente vero l'avrebbe mai trovato.
+
+**Cosa è stato fatto**: nuova pagina `src/pages/Density369Scegli.tsx` (route
+`/density-369/scegli`) — sceglie lo split (Push/Pull/Legs) e mostra le 4 regole operative della
+sez. 5 della spec originale di Rossi (Autoregolazione dei Carichi, Buffer RIR, Doppia
+Progressione, Logistica Salva-Postazione) prima di avviare la sessione vera. Aggiunta una card
+su `HomeDashboard.tsx` ("Nuovo — Density Tri-Set 3-6-9") che porta lì. Modifica a
+`HomeDashboard.tsx` minima e non distruttiva: un blocco JSX in più, nessuna riga esistente
+toccata. 279/279 test verdi (invariato, nessuna logica nuova da testare — solo UI di
+navigazione), `tsc`/`eslint`/`npm run build` puliti.
+
+**Cosa c'è ancora da fare**: le voci rimaste in TODO.md — arricchimento catalogo (~14
+esercizi), altri split oltre a PPL, messaggio chiaro quando l'attrezzatura è "solo corpo
+libero" (oggi fallisce silenziosamente restituendo null), il limite `ActiveTimerState.href`, e
+soprattutto — resta la voce più importante di tutte — **la verifica su un telefono Android vero
+con schermo bloccato durante un riposo lungo, non ancora fatta da nessuno**.
+
+**Dove deve arrivare il progetto**: con questo la funzione Density 3-6-9 è ora completa end-to-end
+dal punto di vista del codice — si trova dalla Home, si sceglie lo split, si vede la guida, si
+allena, si salva. Manca solo la verifica umana su dispositivo reale prima di potersi fidare per
+un allenamento vero, e l'arricchimento del catalogo per più varietà.
+
+**Cosa deve aspettarsi l'utente**: apri l'app, sulla Home vedi la nuova card viola "Density
+Tri-Set 3-6-9" — toccala, scegli uno split, leggi le regole, premi lo split e parte. Stesso
+avviso già scritto per la Fase 2: **non ancora provato su un telefono vero**, in particolare col
+timer in background durante un riposo lungo. Consegnato **direttamente su `main`**: la card è ora
+visibile a chiunque apra l'app, quindi — a differenza delle fasi precedenti — questa modifica SI
+vede subito da chiunque usi GymBuilder normalmente, non solo da chi cerca l'URL apposta.
+
+## Aggiornamento stato — 2026-08-21 (continua): "Torna alla settimana" diceva una cosa e ne faceva un'altra + link ridondante rimosso
+
+**Problemi rilevati**: Rossi ha mandato due screenshot segnalando un pulsante "Torna alla
+settimana" ridondante in cima alla pagina. Verificando ho trovato qualcosa di più serio di una
+ridondanza: nella riga di azioni principale di `WorkoutPreview.tsx` (quella con "Inizia"/"Salva
+in Libreria", SEMPRE visibile, non quella del modal post-salvataggio) esisteva **già da prima
+delle mie modifiche di oggi** un bottone con scritto "Torna alla settimana" che in realtà
+navigava a `/` (Home), non a `/crea` (la settimana). Funzionava per puro caso quando l'utente
+finiva comunque sulla Home senza accorgersi della discrepanza fra testo e comportamento — non
+l'avevo notato quando ho corretto gli altri due bug collegati (Indietro nativo Android, Home che
+non riprendeva il programma) perché quella riga specifica non era coinvolta in quegli scenari.
+
+**Cosa è stato fatto**: rimosso il link "← Torna alla Settimana" in cima alla pagina (quello
+aggiunto da me oggi in una sessione precedente — davvero ridondante, come detto da Rossi).
+Corretto il bottone preesistente nella riga di azioni: stesso testo, `onClick` cambiato da
+`naviga('/')` a `naviga('/crea')` — ora fa davvero quello che dice. Non toccato il terzo punto,
+il bottone "📅 Torna alla Settimana" dentro al modal "Allenamento Salvato!" (contesto diverso,
+dopo il salvataggio, funzionava già correttamente e non era nelle due schermate segnalate).
+279/279 test verdi (invariato — nessuna logica di generazione toccata, solo navigazione),
+`tsc`/`eslint`/`npm run build` puliti.
+
+**Cosa c'è ancora da fare**: nessun seguito diretto. Buona occasione per ricordare (a me stesso
+e a chi legge questo file dopo): quando si corregge un bug di navigazione, vale la pena cercare
+`naviga('/')`/`navigate('/')` nell'intero file, non solo nel punto segnalato — questo bottone
+mislabeled esisteva a poche righe da dove ho lavorato due volte oggi senza che lo notassi.
+
+**Dove deve arrivare il progetto**: stessa area di sempre — la navigazione dentro un programma
+settimanale deve fare esattamente quello che dice di fare, senza eccezioni nascoste.
+
+**Cosa deve aspettarsi l'utente**: **verificato solo con test/build, non ancora in un browser o
+dispositivo reale** (stesso limite di sempre). Prossimo passo: aprire un giorno generato dentro
+un programma settimanale e controllare che in fondo alla pagina ci sia un solo bottone "Torna
+alla settimana" (non più il link doppio in cima) e che tocandolo si veda davvero la settimana,
+non la Home. Consegnato **direttamente su `main`**.
+
+## Aggiornamento stato — 2026-08-21 (continua): Density 3-6-9 selezionabile davvero nel wizard, come protocollo — 8 nuovi split oltre a PPL
+
+**Problemi rilevati**: nessun bug — richiesta esplicita di Rossi dopo aver visto lo step
+"Protocollo di Allenamento" del wizard (screenshot) e aver notato che il Density 3-6-9 non c'era.
+Voleva poterlo scegliere lì, con generazione dei Blocchi A/B in base allo split di seduta scelto
+(non solo PPL: anche Bro Split, Upper/Lower, Front/Back).
+
+**Cosa è stato fatto**:
+- `DensitySplit` (in `density369.ts`) ampliato da 3 a 11 valori: push/pull/legs (già c'erano) +
+  upper/lower/bro_chest/bro_back/bro_arms/bro_legs/front_body/back_body. Per ognuno, template
+  distretto/stazione costruito a mano, verificando PRIMA di scrivere codice che nessuna coppia
+  di stazioni nello stesso giorno condividesse un pool con un solo candidato (lo stesso tipo di
+  bug trovato ieri su Push/dip_parallele) — analisi fatta a tavolino, poi confermata dai 45 nuovi
+  test (30 seed × conflitti-stazione + 20 seed × regole salva-effort, per ciascuno degli 11
+  split): **zero conflitti al primo tentativo**, l'analisi preventiva ha retto.
+- **Non coperto, di proposito**: `bro_shoulders` (giornata Spalle da sola nel Bro Split a 5) —
+  nessun esercizio a catalogo può fare da "composto pesante" per i deltoidi posteriori, quindi
+  la Stazione 1 sarebbe sempre stata una macchina/cavo, violando la Regola 1 salva-effort di
+  Rossi. Ho preferito lasciarlo scoperto (nessun template = nessuna generazione, errore chiaro)
+  piuttosto che costruire un template che rompe la regola dell'utente per riempire una casella.
+- `BodybuildingProtocol` (in `types/index.ts`) ha ora un quarto valore, `density_369`, con
+  etichetta "Density Tri-Set 3-6-9" — compare da solo nella Grid dello step Protocollo, che
+  legge quell'enum senza bisogno di toccare la UI del componente.
+- In `Create.tsx`, dentro `generateDay` (il punto unico che genera sia sessioni singole sia
+  giorni di un programma settimanale): nuovo ramo in testa alla funzione, PRIMA di tutta la
+  logica esistente di `generaBodybuilding`. Se il protocollo scelto è `density_369`, non genera
+  nulla qui — verifica solo che lo split abbia un template (`DENSITY_SPLIT_SUPPORTATI`) e manda
+  l'utente a `/density-369?split=X`, che genera per conto suo (stesso meccanismo di ieri, isolato
+  da `finalizeWorkout`/`validateWorkout`/dal tracciamento del programma settimanale — tutti
+  costruiti per l'altra forma di dati). **Limitato a Sessione Singola**: con un programma
+  settimanale multi-giorno mostra un messaggio d'errore invece di generare, perché quella
+  sessione non aggiornerebbe mai "giorno generato" nella settimana — nessuna sostituzione
+  silenziosa del protocollo scelto dall'utente.
+- 302/302 test verdi (279 prima + 23 nuovi sui nuovi split), `tsc`/`eslint`/`npm run build`
+  puliti. `Runner.tsx` verificato ancora intatto (`git diff` vuoto).
+
+**Cosa c'è ancora da fare**: tutto elencato con dettaglio in `TODO.md` — `bro_shoulders` (serve
+arricchire il catalogo prima), integrazione col programma settimanale multi-giorno (se vale la
+pena), gli step del wizard (Obiettivo/Durata/Intensità) restano visibili anche se inutili per
+questo protocollo (nessun bug, solo domande superflue non ancora saltate), e un dettaglio della
+spec originale (due superset che il motore riduce a un solo esercizio) già documentato nel
+codice, non nascosto.
+
+**Dove deve arrivare il progetto**: coerente con l'obiettivo di sempre — un motore guidato dai
+dati, non eccezioni hardcoded: anche qui, come per PPL, il generatore pesca da pool filtrati per
+attrezzatura/esclusioni/preferiti, non esercizi fissi per split.
+
+**Cosa deve aspettarsi l'utente**: **verificato solo con test/tsc/build, non ancora in un
+browser o dispositivo reale** (stesso limite di sempre). Prossimo passo: aprire il wizard, step
+Protocollo di Allenamento, dovrebbe comparire "Density Tri-Set 3-6-9" come quarta scelta accanto
+a Standard/FST-7/CBum — selezionarlo con una Sessione Singola (non un programma settimanale) e
+uno split fra Push/Pull/Legs/Upper/Lower/Petto/Dorso/Braccia/Gambe/Front/Back, arrivare alla fine
+del wizard e verificare che porti davvero a `/density-369` con la sessione giusta generata.
+Provare anche il caso "Spalle" del Bro Split: deve mostrare un messaggio chiaro, non generare
+niente di sbagliato. Consegnato **direttamente su `main`**.
+
+## Aggiornamento stato — 2026-08-21 (continua): Density 3-6-9 — scelta esercizi resa deterministica (era casuale), aggiunta sostituzione manuale
+
+**Problemi rilevati**: Rossi ha corretto un fraintendimento reale mio, non un bug marginale.
+Avevo costruito la scelta dell'esercizio per stazione come il resto del motore bodybuilding:
+primi 3 candidati per affaticamento, poi uno a caso (seme diverso ogni apertura della sessione,
+`seed: Date.now()` in `DensityRunner.tsx`). Rossi: "gli esercizi sono sempre gli stessi" per un
+dato split — un utente che rigenera lo stesso Push deve ritrovare sempre lo stesso esercizio di
+default in ogni stazione, non una scelta automatica diversa ogni volta. Le sostituzioni devono
+essere una scelta esplicita dell'utente (come "Sostituisci" nel resto dell'app), non un
+comportamento del sistema.
+
+**Cosa è stato fatto**:
+- `sceglieEsercizio` in `density369.ts` riscritta senza alcuna casualità: filtra il pool (stesso
+  ordine di `POOL`, mai un sort per affaticamento), un preferito dell'utente fra i compatibili
+  vince, altrimenti sempre il primo del pool — deterministico al 100%. Tolto `rng`/`random`
+  ovunque nel file, tolto `seed` da `Density369Config` (non aveva più senso).
+- `DensityStation` ha ora un campo `alternatives`: gli altri esercizi compatibili per quella
+  stazione (stesso ruolo, stessa attrezzatura, non già scelti altrove nella sessione), popolato
+  al momento della generazione. Propagato anche in `densityRunnerEngine.ts`
+  (`DensityStazioneCorrente.alternatives`).
+- `DensityRunner.tsx`: `workout` non è più solo il risultato "grezzo" del generatore
+  (`useMemo`), ma uno stato React modificabile — un `useEffect` lo inizializza una sola volta dal
+  risultato generato, così un ricalcolo del memo (es. le impostazioni finiscono di caricare dopo
+  il primo render) non cancella una sostituzione già fatta dall'utente. Aggiunto un pulsante "🔄
+  Sostituisci esercizio" durante la fase di lavoro (visibile solo se la stazione ha almeno
+  un'alternativa), che apre una mini-lista e applica lo scambio: l'esercizio appena lasciato
+  torna fra le alternative, quello scelto ne esce — coerente con come funziona "Sostituisci" nel
+  resto dell'app.
+- Test riscritti: tolti tutti i cicli `for (seed = 1..30)` (non hanno più senso, non c'è più
+  nulla che varia con un seme), sostituiti con test che chiamano la stessa configurazione più
+  volte e verificano che il risultato sia SEMPRE identico — incluso un test esplicito che Push
+  Blocco A Stazione 1 sia sempre `panca_piana` (l'esercizio della specifica), uno che un
+  preferito dell'utente vince sul default, e uno che escludere il default fa emergere
+  deterministicamente il successivo del pool (non un altro a caso). Più test sulle
+  `alternatives` (popolate quando il pool ha più di un candidato, vuote quando ne ha uno solo).
+  312/312 test verdi (302 prima + 10 nuovi), `tsc`/`eslint`/`npm run build` puliti. `Runner.tsx`
+  verificato ancora intatto (`git diff` vuoto) — questa modifica resta dentro l'area isolata di
+  ieri.
+
+**Cosa c'è ancora da fare**: nessun seguito diretto di questa correzione. Restano aperte le voci
+già in `TODO.md` (bro_shoulders, integrazione col programma settimanale, gli step superflui del
+wizard, il superset non modellato).
+
+**Dove deve arrivare il progetto**: coerente con l'obiettivo di sempre, ma con una precisazione
+importante emersa oggi: "guidato dai dati" non significa "randomizzato" — per un protocollo con
+template espliciti come questo, l'utente si aspetta stabilità (stessi esercizi di default ogni
+volta) e controllo esplicito (sostituzione manuale), non varietà automatica come nel motore
+bodybuilding standard. Vale la pena ricordarselo se in futuro si aggiungono altri protocolli con
+template altrettanto espliciti.
+
+**Cosa deve aspettarsi l'utente**: **verificato solo con test/tsc/build, non ancora in un
+browser o dispositivo reale** (stesso limite di sempre). Prossimo passo: generare due volte la
+stessa sessione Density (stesso split, stesse impostazioni) e controllare che gli esercizi
+proposti siano identici; durante l'esecuzione, controllare che compaia "🔄 Sostituisci
+esercizio" quando la stazione ha alternative, e che scegliendone una cambi davvero l'esercizio
+mostrato. Consegnato **direttamente su `main`**.
+
+## Aggiornamento stato — 2026-08-21 (continua): Density 3-6-9 — nessun countdown fra stazioni dello stesso giro (corretto, era sbagliato)
+
+**Contesto — piano concordato con Rossi, tre pezzi, in quest'ordine** (dopo una discussione
+approfondita, con piano scritto prima di toccare codice, come richiesto esplicitamente):
+1. Correggere il comportamento "Fatto" nel Density Runner (questo aggiornamento)
+2. Tracciamento del peso usato, per QUALSIASI esercizio dell'app, non solo Density (prossimo)
+3. Density 3-6-9 selezionabile per singolo giorno dentro un programma settimanale multi-giorno,
+   non solo Sessione Singola — con rimozione della card doppia in Home (dopo)
+
+**Problemi rilevati**: la mia implementazione di ieri (Fase 2) faceva partire un vero countdown
+di 10-15s fra una stazione e l'altra dello stesso giro. Rossi ha chiarito che non è così che
+deve funzionare: dentro lo stesso giro si tocca "Fatto" e si passa SUBITO alla stazione
+successiva, senza attesa — esattamente come già funziona AMRAP nel resto dell'app (nessun timer
+fra un esercizio e l'altro dentro lo stesso giro, il giro si conta quando hai toccato "Fatto" su
+tutti). Solo DOPO la terza stazione (fine giro) parte un vero timer cronometrato.
+
+**Cosa è stato fatto**: tolta la fase `riposo_stazione` dalla macchina a stati
+(`densityRunnerEngine.ts`) — restano solo `lavoro` (le 3 stazioni di fila, tocco diretto),
+`riposo_giro` (fine giro, vero timer), `riposo_blocco` (cambio blocco), `completato`. Tolto il
+campo `rest_after_sec` da `DensityStation` (non serve più nulla del genere) e la costante
+`REST_STAZIONE_SEC` dal generatore; corretta la stima della durata (`estimated_duration_min`) di
+conseguenza. Il test della sequenza completa è stato ricalcolato **a mano prima di scrivere il
+codice** (12 stati invece di 17) ed è tornato giusto al primo tentativo. 312/312 test verdi,
+`tsc`/`eslint`/`npm run build` puliti. `Runner.tsx` verificato ancora intatto.
+
+**Cosa c'è ancora da fare**: i due pezzi 2 e 3 del piano sopra — non toccati in questo commit,
+arriveranno come aggiornamenti separati. Non ancora aggiunto il campo peso da nessuna parte
+(quello è il pezzo 2).
+
+**Dove deve arrivare il progetto**: coerente con l'osservazione di ieri — un formato con
+struttura esplicita come questo deve rispettare fedelmente la logica di esecuzione reale che
+l'utente si aspetta, non un'approssimazione plausibile ma sbagliata nei dettagli.
+
+**Cosa deve aspettarsi l'utente**: **verificato solo con test/tsc/build, non ancora in un
+browser o dispositivo reale** (stesso limite di sempre). Prossimo passo per Rossi: quando prova
+il Density Runner dal vivo, toccando "Fatto" sulla prima stazione deve passare immediatamente
+alla seconda (nessuna attesa, nessun countdown), stessa cosa dalla seconda alla terza — solo
+dopo la terza stazione deve comparire un vero timer. Consegnato **direttamente su `main`**.
+
+## Aggiornamento stato — 2026-08-21 (continua): Pezzo 2 del piano — peso usato, per qualsiasi esercizio
+
+**Contesto**: secondo pezzo del piano in tre parti concordato con Rossi (vedi aggiornamento
+precedente). Non solo Density 3-6-9: vale per l'intero motore bodybuilding/forza/CrossFit — un
+campo dove scrivere il peso usato, vicino al nome dell'esercizio, che si salva da solo e si
+ripropone la volta successiva come punto di partenza per la progressione.
+
+**Cosa è stato fatto**:
+- `PrescribedExercise.logged_weight_kg` (opzionale) — nuovo campo, nessuna migrazione al
+  database: `completed_workouts.blocks` è già un blob flessibile, il peso ci finisce dentro
+  automaticamente scrivendolo negli esercizi prima di chiamare `registraCompletato` (già
+  esistente, non toccato).
+- `DensityStation.logged_weight_kg` — stesso campo, stesso principio, per il Density Runner.
+- **Runner.tsx**: campo "Peso usato (kg)" subito sotto nome/istruzioni dell'esercizio, sopra il
+  contatore delle serie. Una funzione `impostaPesoEsercizio` scrive il valore dentro `workout`
+  (context) ricostruendo l'indice giusto nello stesso ordine con cui la UI già enumera gli
+  esercizi. **Attenzione tecnica trovata e corretta**: `setWorkout` del context (a differenza di
+  un normale `useState`) non supporta la forma funzionale `(prev) => next` — tentare di usarla
+  dava un errore di tipo a compilazione, non a runtime, quindi l'ha preso `tsc` prima che
+  arrivasse da qualche parte. Corretto leggendo il valore più fresco da un ref dedicato invece
+  che dalla chiusura della promise.
+- **DensityRunner.tsx**: stesso campo nella fase di lavoro, sopra "Sostituisci esercizio". Qui
+  `setWorkout` è stato locale (`useState`), supporta già la forma funzionale — nessun problema
+  analogo.
+- **Precompilazione dall'ultima volta** (`src/engine/weightHistory.ts`, funzione pura
+  `ultimiPesiPerEsercizio`, testata a parte senza bisogno di rete): legge `elencoStorico`
+  (già esistente) e, per ogni esercizio, prende il peso dall'allenamento più recente in cui
+  compare — non fa la media, non guarda quanti allenamenti fa. Applicata una volta sola
+  all'apertura del Runner/Density Runner (un ref evita di rifarlo o di sovrascrivere un peso
+  che l'utente ha già scritto in questa sessione), e solo per gli esercizi che non hanno ancora
+  un peso — mai sovrascrive quello che l'utente ha già inserito.
+- **Attenzione sulle regole degli hook**: in `Runner.tsx` i nuovi `useEffect` sono stati messi
+  PRIMA dei due `return` anticipati della funzione (righe ~416/425 prima di questa modifica),
+  non dopo — altrimenti sarebbe stata una violazione delle regole di React sugli hook (chiamati
+  in ordine diverso a seconda del render). Verificato con `git diff` che il resto del file
+  (macchina a stati, timer, servizio in background) è rimasto identico riga per riga.
+- 317/317 test verdi (312 prima + 5 nuovi su `weightHistory.ts`), `tsc`/`eslint`/`npm run build`
+  puliti.
+
+**Cosa c'è ancora da fare**: il terzo pezzo del piano — Density 3-6-9 selezionabile per singolo
+giorno dentro un programma settimanale multi-giorno (oggi resta Sessione Singola soltanto), con
+rimozione della card doppia in Home.
+
+**Dove deve arrivare il progetto**: coerente con l'obiettivo — non solo generare l'allenamento
+giusto, ma aiutare a migliorare nel tempo. Il peso tracciato è il primo pezzo di progressione
+vera nell'app (finora si tracciava solo "fatto/non fatto", mai "con quanto").
+
+**Cosa deve aspettarsi l'utente**: **verificato solo con test/tsc/build, non ancora in un
+browser o dispositivo reale** — stesso limite di sempre, ma qui vale la pena essere specifici:
+questa modifica tocca `Runner.tsx` per la prima volta in questa serie di sessioni (le precedenti
+erano tutte isolate apposta). Ho aggiunto solo, senza toccare una riga di quello che già
+esisteva (verificato col diff), ma è comunque il file più delicato del progetto — vale la pena
+provarlo con un allenamento vero prima di fidarsene del tutto. Prossimo passo per Rossi: avviare
+un allenamento normale, controllare che il campo peso compaia sotto il nome dell'esercizio,
+scrivere un numero, finire l'allenamento, e la volta successiva con lo stesso esercizio
+controllare che il peso sia già scritto. Consegnato **direttamente su `main`**.
+
+## Aggiornamento stato — 2026-08-21 (continua): rimosso lo step "Livello di Esperienza" — l'app presuppone competenza
+
+**Contesto**: richiesta diretta di Rossi, non collegata al piano in 3 pezzi di prima. Motivazione
+sua: "questa applicazione serve per chi già conosce le metodiche di allenamento... non serve che
+l'utente sia intermedio o avanzato, esperto, perché deve già sapersi allenare. Servono più che
+altro come tracciamento e creazione di programmi di allenamento."
+
+**Cosa è stato fatto**:
+- Rimosso interamente lo Step 1 del wizard ("Livello di Esperienza": Intermedio/Avanzato) —
+  **rinumerato l'intero wizard da 9 a 8 step**, uno per uno, verificato con `grep` che la
+  sequenza finale `step === 1..8` sia completa senza buchi né duplicati.
+- `TOTAL_STEPS` 9→8, `STEP_TITLES` rinumerate, `stepTitle` (caso speciale "Split") da
+  `step===4` a `step===3`, `stepAfter`/`stepBefore` rinumerate (incluso il caso Tabata puro,
+  da `n===4→9` a `n===3→8`).
+- **La logica di `skipKindStep` è cambiata di natura**: prima saltava lo step "Cosa vuoi
+  creare" tramite un salto dentro `stepAfter`/`stepBefore` (l'utente vedeva comunque Livello
+  per primo, poi il salto scattava al secondo step). Con Livello rimosso, "Cosa vuoi creare" è
+  diventato il nuovo Step 1 — il salto ora è nello **step iniziale stesso**
+  (`useState(skipKindStep ? 2 : 1)`), non più un salto a metà: chi arriva da Home con
+  `program_kind` già scelto non vede mai lo Step 1, parte già dallo Step 2. Aggiunta anche la
+  gestione simmetrica all'indietro: lo Step 2 ora ha `onBack` condizionale
+  (`skipKindStep ? torna alla Home : goBack`), altrimenti tornare indietro da lì avrebbe
+  provato a mostrare uno Step 1 che per quell'utente non è mai esistito.
+- `onEditConfig` (dalla vista settimanale, "modifica configurazione") puntava a
+  `setBuilderStep(4)` (Split, vecchia numerazione) — corretto a `3` (Split, nuova numerazione).
+- `DEFAULT_CONFIG.experience`: da `'beginner'` a `'advanced'` — l'utente non lo sceglie più, ma
+  il campo resta nel tipo/nei generatori (usato per `min_experience` nel filtro catalogo):
+  impostato fisso al valore che sblocca tutto il catalogo, coerente col principio "l'utente sa
+  già allenarsi", senza dover riscrivere i generatori che ancora lo usano internamente.
+- Tolta l'etichetta "Intermedio"/"Avanzato" mostrata in cima a `WorkoutPreview.tsx` (quella nel
+  primo screenshot mandato da Rossi in questa sessione) — resta solo l'obiettivo (es. "Massa").
+- `tsc`/`eslint`/`npm run build` puliti, 317/317 test verdi (invariato: nessun test unitario
+  copre direttamente questo wizard, `tsc` è stato il controllo principale su una rinumerazione
+  di questa portata).
+
+**Cosa c'è ancora da fare**: nessun seguito diretto di questa modifica. Resta ancora aperto il
+terzo pezzo del piano precedente — Density 3-6-9 dentro il programma settimanale multi-giorno.
+
+**Dove deve arrivare il progetto**: coerente con quanto Rossi ha chiarito oggi — GymBuilder non
+è un'app per insegnare ad allenarsi, è uno strumento di generazione e tracciamento per chi sa già
+farlo. Vale la pena ricordarselo per scelte di design future (evitare di aggiungere altre
+richieste tipo "quanto sei esperto" o guide per principianti).
+
+**Cosa deve aspettarsi l'utente**: **verificato solo con `tsc`/build, non ancora in un browser o
+dispositivo reale** — e qui la rinumerazione di un intero wizard è il tipo di modifica dove un
+errore di battitura in un numero passa inosservato a `tsc` ma rompe la navigazione a runtime.
+Prossimo passo per Rossi, con più attenzione del solito: aprire il wizard da zero (non da un
+link con `program_kind` già impostato) e controllare che il primo step sia "Cosa vuoi creare"
+(non più Livello), che si arrivi fino in fondo a "Genera" senza step mancanti o duplicati, e che
+il tasto Indietro funzioni in ogni punto — in particolare partendo dalla Home con
+"Programma Settimanale" già scelto lì, dove ora il salto avviene diversamente da prima.
+Consegnato **direttamente su `main`**.
+
+## Aggiornamento stato — 2026-08-21 (continua): Pezzo 3 (ultimo) del piano — Density 3-6-9 dentro il programma settimanale, per singolo giorno
+
+**Contesto**: chiude il piano in 3 pezzi concordato con Rossi (Fatto Density Runner → peso
+ovunque → questo). Esempio suo: un PPL a 5 giorni dove solo il giorno Gambe usa il Density 3-6-9,
+gli altri restano Standard/FST-7/CBum come sempre.
+
+**Cosa è stato fatto**:
+- `WeeklySession.bb_protocol` (nuovo campo opzionale) — protocollo Bodybuilding per QUESTA
+  seduta, sovrascrive `config.protocol` (globale) solo per quel giorno. `updateWeeklySession`
+  ampliata per accettarlo nel patch.
+- In "Modifica Slot" (l'editor di un giorno dentro `WeekView`), nuovo selettore "Protocollo per
+  questo giorno" — proposto solo per Bodybuilding, e Density 3-6-9 compare fra le opzioni solo
+  se lo split di quel giorno ha davvero un template (`DENSITY_SPLIT_SUPPORTATI`) — niente scelte
+  che falliscono solo dopo averle fatte.
+- **La parte centrale**: `generateDay` ora legge `session.bb_protocol ?? global.protocol` (non
+  più solo il protocollo globale) e, se è Density 3-6-9, **genera per davvero lì** (non solo un
+  redirect): chiama `generaDensity369`, lo converte in forma compatibile col resto dell'app
+  (`density369ComeGeneratedWorkout`, spostata da `DensityRunner.tsx` a `density369.ts` così è
+  condivisa, non duplicata), e aggiorna la settimana con `applyWorkoutRecovery` — il giorno
+  risulta davvero "generato" agli occhi del programma (stima di recupero aggiornata, non più
+  invisibile al tracciamento). **Tolta la restrizione "solo sessione singola"** della Fase 2:
+  ora funziona anche dentro un programma settimanale multi-giorno, era proprio quello il punto.
+  La generazione è deterministica (fix di ieri): `DensityRunner.tsx` la rifà per conto suo
+  all'apertura, stesso risultato — unica eccezione nota: se l'utente sostituisce un esercizio
+  dentro `DensityRunner`, quella scelta non si riflette nel "giorno generato" della settimana,
+  resta solo nella sessione eseguita/salvata (limite accettato, non un bug, documentato nel
+  codice).
+- **Pulizia (A4)**: rimossa la card doppia in Home e la pagina `Density369Scegli.tsx` — la
+  scelta ora vive solo nel wizard (sessione singola: step Protocollo; settimana: per-giorno in
+  Modifica Slot), coerente con gli altri protocolli. **Le 4 regole operative** che c'erano in
+  quella pagina non sono state perse: spostate in un pannello pieghevole ("ℹ️ Regole") dentro
+  `DensityRunner.tsx` stesso.
+- 317/317 test verdi (invariato: questa parte è soprattutto wizard/routing, senza test unitari
+  dedicati — `tsc` pulito è stato il controllo principale, oltre a lint/build), `Runner.tsx`
+  verificato ancora intatto (non toccato in questa parte).
+
+**Cosa c'è ancora da fare**: il piano in 3 pezzi è concluso. Restano le voci più vecchie già in
+`TODO.md` — arricchimento catalogo, `bro_shoulders` senza template, il limite
+`ActiveTimerState.href`, e ora anche la nuova nota sul disallineamento sostituzione/tracciamento
+appena descritta sopra.
+
+**Dove deve arrivare il progetto**: il Density 3-6-9 è ora una funzione completa e integrata,
+non più un esperimento a sé — selezionabile ovunque un protocollo Bodybuilding lo è, sia per una
+sessione che dentro una settimana intera, con lo stesso livello di tracciamento degli altri.
+
+**Cosa deve aspettarsi l'utente**: **verificato solo con test/tsc/build, non ancora in un
+browser o dispositivo reale** — stesso limite di sempre, ma qui in particolare vale la pena
+provare lo scenario esatto che Rossi ha descritto: costruire un programma settimanale a più
+giorni (es. PPL 5 giorni), impostare "Density 3-6-9" solo su UN giorno tramite "Modifica Slot",
+generare quel giorno e controllare che (a) porti davvero a `/density-369` con la sessione giusta,
+(b) il pallino/stato di quel giorno nella vista settimanale risulti "generato", (c) gli altri
+giorni restino invariati col loro protocollo originale. Consegnato **direttamente su `main`**.
+
+## Aggiornamento stato — 2026-11-03: Coach "preparatore atletico", OpenCode Zen, ricerca web, memoria tra chat (Claude Opus 5.5)
+
+**Richiesta di Rossi**: il coach (qualsiasi LLM gratuito, anche GLM di OpenCode) deve comportarsi
+come un preparatore atletico che conosce la biomeccanica: capire il dolore con le domande giuste,
+spiegare, proporre DA SOLO di togliere un esercizio che fa male ("non è indispensabile per la
+crescita, ci sono varianti"), adattarsi agli attrezzi che mancano, cercare sul web, e in una chat
+nuova riprendere da dove si era rimasti (esercizi sentiti bene = si tengono, non sentiti o con
+fastidio = si sostituiscono, stanchezza = ordine/volume, energia = si mantiene o si aggiungono serie).
+
+**Cosa è stato fatto**
+- `src/features/coach/prompt.ts`: nuovo blocco `PREPARATORE` in tutte le conversazioni (ragiona sul
+  muscolo, non sull'esercizio; 5 passi: capisci, spiega, proponi tu, non perdere crescita, segui nel
+  tempo con dolore 0-10). Colloquio: carichi su 3-4 esercizi chiave, dolore con posizione che
+  peggiora/migliora, esercizi che senti meglio (mente-muscolo), quando sei stanco e quando fresco.
+  Chat: "DOMANDE DI RIPRESA" e uso di `conversazioni_precedenti`. Formato: campi `ricerca_web` e
+  `sostituzione`. Funzione `pianoCambiatoSenzaPiano`.
+- `src/features/coach/scheletro.ts`: `confrontaConScheletro` accetta in uno slot un esercizio dello
+  **stesso distretto** (tre capi della spalla; gambe; altrimenti stesso muscolo con altro ruolo) se
+  l'esercizio ha `sostituzione` (il motivo). Lo slot e le sue serie restano: il volume non cala.
+  Indicazioni di shoulder press e alzate frontali ora dicono che sono facoltative con il fastidio.
+  **Decisione**: la regola "spalle carenti = laterali + posteriori + frontali + shoulder press"
+  resta lo scheletro di base; cambia solo che, con un fastidio, la casella si può riempire con
+  un'altra variante di spalle.
+- `src/features/coach/plan.ts`: campo `sostituzione` conservato da `normalizzaPiano`.
+- `src/features/cartella/cartella.ts`: i vincoli accettano anche `esercizi_vietati` (visto con Nemotron).
+- `src/pages/Coach.tsx`: contesto `conversazioniPrecedenti` (ultimi 16 messaggi non nascosti delle
+  ALTRE conversazioni, 400 caratteri l'uno); ricerca web (se il coach scrive `ricerca_web`, l'app
+  chiama `/api/ricerca` e gli rimanda i risultati in un messaggio nascosto, una volta sola);
+  richiesta automatica del piano anche in chat/controllo quando il coach scrive "ho modificato la
+  Push A" senza il piano.
+- `api/ricerca.js` (nuovo) + `src/lib/ricerca.ts`: solo utenti autenticati; SearXNG
+  (`SEARXNG_URL`, predefinito 127.0.0.1:8888, quindi funziona solo col server locale) e poi Tavily
+  se c'è `TAVILY_API_KEY` (da aggiungere quando si torna su Vercel). Un risultato per sito, max 6.
+- Terzo fornitore **OpenCode Zen**: `api/deepseek.js` (endpoint `https://opencode.ai/zen/v1/chat/completions`,
+  colonna `opencode_key`, messaggio chiaro per `FreeUsageLimitError`), `api/llm-models.js?provider=opencode`
+  (modelli gratuiti dal vivo da `opencode.ai/zen/v1/models`, GLM per primo), `LlmSettings.tsx` con tre fornitori.
+  Migrazione `20261103210000_llm_opencode.sql` applicata al progetto Supabase geqhxhgrameaugawmaej
+  (colonna, vincolo provider, `llm_keys_stato` con `ha_opencode`); la riga esistente con le chiavi
+  DeepSeek/OpenRouter è rimasta intatta (verificato).
+
+**Cosa si è rotto durante il lavoro**
+- La prima `apply_migration` è scaduta (conferma non data in 2 minuti): ripetuta, riuscita.
+- Prova dal vivo: Gemma 4 31B gratuito sempre 429; Nemotron 3.5 Super gratuito ha risposto ma con
+  JSON rovinato al primo giro (letto correttamente con `leggiRispostaLibera`, lo stesso parser dell'app).
+- Nemotron ha scritto "ho modificato la Push A" senza il piano: da qui il controllo `pianoCambiatoSenzaPiano`.
+
+**Verifiche (03/11, 21:45-22:05)**: 379/379 test (nuovi: sostituzione accettata/rifiutata, fuori
+distretto rifiutata, ricerca_web, preparatore in tutti i prompt, piano annunciato, alias vincoli),
+tsc, eslint, build. Server locale riavviato 21:51 (attività "GymBuilder - Server locale"), locale e
+Funnel :10000 HTTP 200, `/api/llm-models?provider=opencode` restituisce 9+ modelli gratuiti (primo
+glm-5.3-flash-free), `/api/ricerca` senza sessione = 401, con sessione simulata = 6 risultati SearXNG.
+Conversazione vera con Nemotron gratuito sul caso spalla: domande sul dolore, spiegazione, Push A con
+2 `sostituzione` e 0 errori di scheletro, vincolo salvato. Chat nuova: riprende la spalla da
+`conversazioni_precedenti` e fa le domande di ripresa.
+
+**Problemi aperti**
+- OpenCode Zen senza chiave risponde `FreeUsageLimitError` ("Free models work in OpenCode... subscribe
+  to OpenCode Go"): non verificato con una chiave vera, potrebbe essere limitato all'app OpenCode.
+- Su OpenRouter oggi non esiste un GLM gratuito (il vecchio predefinito `z-ai/glm-5.2:free` è sparito):
+  nuovo predefinito `google/gemma-4-31b-it:free`.
+- Ricerca web su Vercel: serve `TAVILY_API_KEY`, altrimenti il coach risponde senza fonti.
+- Non provato nel browser con un utente reale (Profilo con tre fornitori, chat con ricerca web).
+
+**Prossimo passo**: Rossi crea la chiave su opencode.ai/auth, la salva nel Profilo e prova
+"Prova la connessione" con GLM-5.3-Flash Free; poi il caso spalla nella chat del Coach.
+
+### Correzione 2026-11-03 22:10 — sito bianco dopo la build (Claude Opus 5.5)
+- **Cosa si è rotto**: dopo il lavoro sul Coach ho fatto `npm run build` senza le variabili VITE_:
+  gym.redapp.dev mostrava una pagina bianca con "Configurazione mancante: impostare
+  VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY" (segnalato da Rossi). Il .env della radice non le contiene.
+- **Come si è aggiustato**: `node --env-file=server-locale/.env node_modules/vite/bin/vite.js build`
+  (le variabili passano al processo senza leggerle o stamparle). Verificato con Edge headless a 412 px:
+  la pagina di accesso compare.
+- **TRAPPOLA**: con il server locale, la build di `dist` va SEMPRE fatta così (prima `npx tsc -b`
+  per i tipi). `npm run build` da solo rompe il sito. L'indirizzo pubblico è **gym.redapp.dev**
+  (Cloudflare Tunnel pc-windows -> 127.0.0.1:3001), non gymbuilder.redapp.dev.
+- **Aperto**: l'APK 1.0.56 apre gymbuilder-lemon.vercel.app, che risponde 402 (Vercel in pausa):
+  proposto a Rossi di puntarlo a gym.redapp.dev con una release nuova, in attesa del suo ok.
+
+### 2026-11-03 22:30 — APK su gym.redapp.dev e cambio esercizio diretto (Claude Opus 5.5)
+- `capacitor.config.ts`: `server.url` da gymbuilder-lemon.vercel.app (402, Vercel in pausa) a
+  **https://gym.redapp.dev**. Fa partire build-apk.yml -> release apk-v1.0.<run>. **Al ritorno su
+  Vercel rimettere l'URL vecchio e rifare l'APK.**
+- Pagina di accesso: pulsante "Scarica l'app Android (APK)" (solo nel browser, non nell'app) verso
+  `releases/latest/download/GymBuilder.apk`; banner Android con il gradiente oro dello stile.
+- Prompt PREPARATORE: "CAMBIO ESERCIZIO" — si chiede se l'esercizio serve davvero per l'obiettivo,
+  ricerca_web prima di scegliere, mette SUBITO la scelta migliore nel piano e lascia 2-3 alternative
+  come pulsanti (opzioni).
+- Verifiche: 379/379 test, tsc, eslint, build con `--env-file=server-locale/.env`; foto Edge 412 px
+  della pagina di accesso con il pulsante.
+
+### 2026-11-03 22:45 — chat vera di Rossi: scheda "nuda", calorie al posto del piano, elastici (Claude Opus 5.5)
+- **Visto nel DB (coach_messages, DeepSeek V4 Flash)**: dalle 22:15 il coach rispondeva
+  "[PIANO PROPOSTO] {note, sedute, calorie...}" imitando come l'app gli rimandava la storia
+  (`perLlm`: testo + "[PIANO PROPOSTO] json"). L'app leggeva messaggio = note, calorie = 2500,
+  piano = null → bolla "Nuove calorie proposte"; "Ho accettato" ha salvato SOLO daily_kcal 2500
+  (calorie_log 22:16:43), nessun coach_plans. Poi il pulsante 🧱 dava la scheda fissa di riempiScheletro.
+- **Correzioni**: `perLlm` rimanda la storia nel formato JSON {messaggio, piano}; `leggiRispostaCoach`
+  riconosce una scheda nuda (sedute al primo livello) e la incarta come piano; nel colloquio una
+  risposta con sole "calorie" fa richiedere il piano; pulsante 🧱 rinominato "Scheda automatica
+  dell'app (senza il coach)".
+- **Attrezzi esclusi**: cartella `attrezzi_esclusi` (elastico, kettlebell, corpo_libero, bilanciere,
+  manubri, macchina, cavo, multipower); `usaAttrezzoEscluso` toglie quegli esercizi dal catalogo del
+  coach e dalla scheda automatica; un piano che li contiene torna al coach per la correzione; se la
+  scheda attiva li contiene il coach la rifà subito. Prova dal vivo (Nemotron): 0 elastici nel piano.
+- Colloquio: categorie 7-8 unite, la scheda arriva da sola con calorie e macro dentro.
+- 381/381 test, build con le VITE_ del server locale, sito servito.
+- APK 1.0.57 (release apk-v1.0.57, run del commit c938434) contiene server.url https://gym.redapp.dev
+  (letto da assets/capacitor.config.json). Installazione su emulatore riuscita, ma l'emulatore si è
+  chiuso subito dopo: apertura dell'app nell'emulatore NON verificata.
+
+### 2026-11-03 23:00 — Allenamento: Indietro = "Dove sei", suoni tic/ding (Claude Opus 5.5)
+- `Runner.tsx`: "← Indietro" durante un allenamento (sezione principale) NON esce più (prima: conferma
+  e sessione cancellata). Apre la vista "Dove sei" (ex "Sono qui"): esercizio X di N, serie in corso o
+  "recupero dopo la serie X", serie fatte con ✓, Stop in alto, pulsante "Torna all'allenamento/al
+  recupero". Anche il tasto Indietro del telefono/browser apre "Dove sei" (voce "tappo" nella
+  cronologia con popstate, niente plugin @capacitor/app). Stop resta l'unico modo per fermare.
+  Metcon invariato (conferma come prima).
+- `engine/audio.ts`: "tic" d'orologio (triangle 2100 Hz + 3300 Hz, 50 ms) per gli avvisi; "ding" a
+  campana (880 Hz con armonici 2,76/5,4/8,93) per la fine; suono di inizio predefinito ora "ding".
+  Recupero: tic negli ultimi 5 secondi (prima 3). Riferimento dell'utente: video YouTube
+  "1 Minute Timer with Clock Ticking Sound & Finish Ding" (suoni sintetizzati, nulla copiato).
+- Chi ha già salvato le impostazioni audio mantiene le sue scelte (es. "Biiip lungo").
+- Verifiche: 381/381 test (aggiornato il test del suono predefinito), tsc, eslint, build con le VITE_
+  del server locale. NON provato in un allenamento vero (serve login): da provare dal telefono.
+
+### 2026-11-03 23:15 — Stile "bip da cronometro" e suoni del timer in background su Android (Claude Opus 5.5)
+- Secondo video di riferimento dell'utente ("How to use the SmartWOD timer!"): analizzato lo spettro
+  audio (ffmpeg showspectrumpic) -> 3 bip bassi ~520 Hz da 0,5 s, uno al secondo, poi bip alto
+  ~1100 Hz da 0,75 s. Nuovo `avviso: 'tic' | 'bip'` in AudioTimerSettings e suono `bip_alto`;
+  menu "Stile dell'avviso" nelle impostazioni del timer (tic 5 s + Ding / bip 3 s + Bip alto).
+- Android in background (richiesta: "se uso il telefono per altro deve suonare e vibrare"): il
+  WorkoutTimerService vibrava ma era muto. Nuovo `TimerSuoni.java` (AudioTrack, stessi suoni
+  sintetizzati, uso SVEGLIA, abbassa la musica con audio focus "may duck"); il servizio programma
+  gli avvisi negli ultimi secondi e il suono alla scadenza SOLO se `MainActivity.inPrimoPiano` è
+  false. Il timer web tace quando la pagina è nascosta dentro l'app nativa (niente doppioni).
+  Permessi già presenti: POST_NOTIFICATIONS (chiesto prima del via), VIBRATE, FOREGROUND_SERVICE, WAKE_LOCK.
+- Verifiche: 381/381 test, tsc, eslint, `gradlew assembleDebug` sul PC riuscito (JDK 21).
+  NON provato su un telefono vero (serve un allenamento con login).
+
+## 2026-11-04 — Esercizio scelto dal cliente (chest press) — Claude Opus 5.5
+- Problema (chat di Rossi 18:25-18:26 UTC): Rossi chiede la chest press al posto dei piegamenti a V nel Push A (slot multiarticolare deltoide anteriore). Il coach la mette (18:26:30), ma il controllo automatico dell'app (`confrontaConScheletro`, rimandato al coach da Coach.tsx) la rifiuta perché la chest press ha come primario il petto; il coach rimette i piegamenti a V (18:26:47). L'Accetta compariva solo sull'ultima proposta, quindi la versione con la chest press non si poteva più salvare.
+- Fatto: campo `esercizio_cliente` (plan.ts, prompt "ESERCIZIO DEL CLIENTE"): lo slot accetta l'esercizio se allena il muscolo dello slot almeno come secondario o è dello stesso distretto. `allineaAlloScheletro` scrive `muscolo_slot` e `sedutaComeWorkout` conta le serie per quel muscolo (chest press = deltoide anteriore, niente falso "carenza sotto il range"). Modifica scheda: lo scambio a mano in una seduta del coach mette `esercizio_cliente`. Coach.tsx: "💾 Salva questa versione" sulle proposte superate (con conferma).
+- Verifica: 390/390 test (2 nuovi), tsc, eslint, build con VITE_; gym.redapp.dev serve index-CxsoGoLO.js con il pulsante (19:31).
+- Aperto: da provare in chat dall'utente (chiedere di nuovo la chest press oppure salvare la proposta delle 18:26:30 con "Salva questa versione").
+- Seguito (19:41, Rossi: "se gli ho detto io una cosa non deve autocorreggersi; può darmi una nota nel finale del perché era meglio prima"): nella chat (kind 'chat') l'app non rimanda più al coach differenze dallo scheletro, volume o attrezzi (solo esercizi fuori catalogo); restano segnalate e salvabili. Prompt "DECIDE IL CLIENTE": fa il cambio chiesto, mai "l'app non lo accetta/è un blocco", eventuale "Nota del coach:" in fondo senza cambiare la scheda. Nuovo `aggiunto_cliente` per un esercizio in più (adductor in Legs): non occupa slot. Colloquio e controllo mantengono la correzione automatica. 391/391 test.
+- Seguito (19:44, Rossi: "presa, gomiti... devo vederli quando apro la scheda e quando la avvio"): la nota del coach (`nota`) si perdeva in `sedutaComeWorkout`. Nuovo `PrescribedExercise.coach_nota`, mostrato nel riquadro oro "Dal coach:" in anteprima (WorkoutPreview) e nell'allenamento (Runner); tolto quando si sostituisce l'esercizio. Nota portata da 300 a 800 caratteri; il prompt chiede nella nota presa, gomiti, posizione e cosa sentire. Il programma attivo v8 (18:39 UTC) ha già le note PRESA e la chest press nel Push A. Non verificato con foto (serve login): da guardare sul telefono.
+- Seguito (21:01, Rossi con foto del recupero: barra di Android sopra "Correggi"/"Serie completata", troppo scorrimento, spiegazione anche nel recupero): `capacitor.config.ts` android.adjustMarginsForEdgeToEdge 'auto' (targetSdk 35 = edge-to-edge su Android 15+); styles.xml AppTheme.NoActionBar con sfondo/barre grafite e icone chiare (colors_gb.xml). Runner: serie e recupero a schermata unica (h-dvh, parte centrale che scorre, pulsanti sempre in basso), spazi ridotti; nel recupero "Come si fa:" con la nota del coach (o la descrizione del catalogo) dell'esercizio che viene dopo; nella serie la descrizione del catalogo va in un riquadro apribile quando c'è la nota del coach. Verifica: emulatore API 37, WebView [0,63][1080,2337] (prima [0,0][1080,2400]); 391/391 test; schermata dell'allenamento non fotografata (serve login).
